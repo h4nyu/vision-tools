@@ -72,8 +72,8 @@ def generalized_box_iou(boxes1: Tensor, boxes2: Tensor) -> Tensor:
     """
     # degenerate boxes gives inf / nan results
     # so do an early check
-    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
-    assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
+    #  assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
+    #  assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
     iou, union = box_iou(boxes1, boxes2)
 
     lt = torch.min(boxes1[:, None, :2], boxes2[:, :2])
@@ -83,15 +83,16 @@ def generalized_box_iou(boxes1: Tensor, boxes2: Tensor) -> Tensor:
     area = wh[:, :, 0] * wh[:, :, 1]
     return iou - (area - union) / area
 
+
 class NestedTensor:
-    def __init__(self, tensors:Tensor, mask: t.Optional[Tensor]) -> None:
+    def __init__(self, tensors: Tensor, mask: t.Optional[Tensor]) -> None:
         self.tensors = tensors
         self.mask = mask
 
-    def to(self, device:t.Any) -> NestedTensor:
+    def to(self, device: t.Any) -> "NestedTensor":
         cast_tensor = self.tensors.to(device)
         mask = self.mask
-        cast_mask:t.Optional[Tensor] = None
+        cast_mask: t.Optional[Tensor] = None
         if mask is not None:
             cast_mask = mask.to(device)
         return NestedTensor(cast_tensor, cast_mask)

@@ -1,6 +1,7 @@
 import typing as t
 from torch import nn, Tensor
 import torch
+from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou
 
 
@@ -25,25 +26,35 @@ class HungarianMatcher(nn.Module):
         self.cost_giou = cost_giou
         assert cost_class != 0 or cost_box != 0 or cost_giou != 0, "all costs cant be 0"
 
-    def forward(self, outputs: Outputs, targets: Targets) -> None:
+    def forward(
+        self, outputs: Outputs, targets: Targets
+    ) -> t.List[t.Tuple[Tensor, Tensor]]:
         pred_logits = outputs["pred_logits"]
         pred_boxes = outputs["pred_boxes"]
         batch_size, num_queries = pred_logits.shape[:2]
 
         out_probs = pred_logits.flatten(0, 1).softmax(-1)
         out_boxes = pred_boxes.flatten(0, 1)  # [batch_size * num_queries, 4]
-        tgt_ids = torch.cat([v["labels"] for v in targets])
+
+        tgt_ids = torch.cat([v["labels"] for v in targets]).long()
         tgt_boxes = torch.cat([v["boxes"] for v in targets])
 
         cost_class = -out_probs[:, tgt_ids]
         cost_box = torch.cdist(out_boxes, tgt_boxes, p=1)
         cost_giou = -generalized_box_iou(out_boxes, tgt_boxes)
+        cost = (
+            self.cost_box * cost_box
+            + self.cost_class * cost_class
+            + self.cost_giou * cost_giou
+        )
+        cost = cost.view(batch_size, num_queries, -1).cpu()
+        tgt_sizes = [len(v["boxes"]) for v in targets]
 
-        cost = self.cost_box * cost_box + self.cost_class * cost_class + self.cost_giou * cost_giou
-        cost = cost.view(batch_size, num_queries, -1)
-        print(cost)
-
-        #  sizes = [len(v["boxes"]) for v in targets]
-
-
-        print(cost_giou)
+        indices = [linear_sum_assignment(c[i]) for i, c in enumerate(cost.split(tgt_sizes, -1))]  # type: ignore
+        return [
+            (
+                torch.as_tensor(i, dtype=torch.int64),
+                torch.as_tensor(j, dtype=torch.int64),
+            )
+            for i, j in indices
+        ]
