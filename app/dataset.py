@@ -10,22 +10,24 @@ from torch import Tensor
 from torch.utils.data import Dataset
 from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Images
+from .models.utils import NestedTensor
 
-Row = t.Tuple[t.Any, t.Any, t.Any]
+Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
+Row = t.Tuple[Tensor, Target]
 Batch = t.Sequence[Row]
-Target = t.TypedDict("Target", {"image_id": str, "boxes": Tensor, "labels": Tensor})
 
 
-def collate_fn(batch: Batch) -> Row:
-    images = []
-    boxes = []
-    labels = []
-    for img, box, label in batch:
+def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
+    images: t.List[Tensor] = []
+    targets: t.List[Target] = []
+    for img, tgt in batch:
+        targets.append(tgt)
         images.append(img)
-        boxes.append(box)
-        labels.append(label)
-    t_images = torch.stack(images, dim=0)
-    return t_images, boxes, labels
+
+    images_tensor = torch.stack(images)
+    b, _, h, w = images_tensor.shape
+    mask = torch.ones((b, h, w), dtype=torch.bool)
+    return NestedTensor(images_tensor, mask), targets
 
 
 class WheatDataset(Dataset):
@@ -47,7 +49,6 @@ class WheatDataset(Dataset):
         ).reshape(-1, 4)
         labels = torch.ones(boxes.shape[:1])
         target: Target = {
-            "image_id": row.id,
             "boxes": boxes,
             "labels": labels,
         }
@@ -63,7 +64,6 @@ class CocoDetection(torchvision.datasets.CocoDetection):
 
     def __getitem__(self, idx: int) -> t.Tuple[Tensor, Target]:
         img, annots = super().__getitem__(idx)
-        image_id = self.ids[idx]
         w, h = img.size
         boxes = torch.tensor([x["bbox"] for x in annots], dtype=torch.float32).reshape(
             -1, 4
@@ -73,5 +73,5 @@ class CocoDetection(torchvision.datasets.CocoDetection):
         boxes[:, 1::2].clamp_(min=0, max=h)
         labels = torch.tensor([x["category_id"] for x in annots], dtype=torch.int64,)
 
-        target: Target = {"boxes": boxes, "labels": labels, "image_id": image_id}
+        target: Target = {"boxes": boxes, "labels": labels}
         return img, target

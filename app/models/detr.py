@@ -5,6 +5,29 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 from torchvision.models._utils import IntermediateLayerGetter
 from .utils import NestedTensor
+from .transformer import Transformer
+from .matcher import Outputs
+from .position_embedding import PositionEmbeddingSine
+
+
+class Joiner(nn.Module):
+    def __init__(self, model0: nn.Module, model1: nn.Module) -> None:
+        super().__init__()
+        self.model0 = model0
+        self.model1 = model1
+
+    def forward(
+        self, tensor_list: NestedTensor
+    ) -> t.Tuple[t.List[NestedTensor], t.List[Tensor]]:
+        xs = self.model0(tensor_list)
+        out: t.List[NestedTensor] = []
+        pos: t.List[Tensor] = []
+        for name, x in xs.items():
+            out.append(x)
+            # position encoding
+            pos.append(self.model1(x).to(x.tensors.dtype))
+
+        return out, pos
 
 
 BackBoneOutputs = t.Dict[str, NestedTensor]
@@ -66,15 +89,52 @@ class Backbone(BackboneBase):
         return out
 
 
+class MLP(nn.Module):
+    """ Very simple multi-layer perceptron (also called FFN)"""
+
+    def __init__(
+        self, input_dim: int, hidden_dim: int, output_dim: int, num_layers: int
+    ) -> None:
+        super().__init__()
+        self.num_layers = num_layers
+        h = [hidden_dim] * (num_layers - 1)
+        self.layers = nn.ModuleList(
+            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim])
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        for i, layer in enumerate(self.layers):
+            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+        return x
+
+
 class DETR(nn.Module):
-    def __init__(self, num_classes: int = 2, num_queries: int = 10) -> None:
+    def __init__(
+        self, num_classes: int = 1, num_queries: int = 10, hidden_dim: int = 256
+    ) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.num_queries = num_queries
-        self.backbone = Backbone("resnet34")
-        #  self.query_embed = nn.Embedding(num_queries, hidden_dim)
+        backbone = Backbone("resnet34")
+        self.backbone = Joiner(backbone, PositionEmbeddingSine())
+
+        self.transformer = Transformer(d_model=hidden_dim)
+        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        self.query_embed = nn.Embedding(num_queries, hidden_dim)
+        self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
+        self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
 
     def forward(self, samples: NestedTensor) -> None:
         features, pos = self.backbone(samples)
-
-        ...
+        src, mask = features[-1].decompose()
+        assert mask is not None
+        hs = self.transformer(
+            self.input_proj(src), mask, self.query_embed.weight, pos[-1]
+        )[0]
+        #  outputs_class = self.class_embed(hs)
+        #  outputs_coord = self.bbox_embed(hs).sigmoid()
+        #  out: Outputs = {
+        #      "pred_logits": outputs_class[-1],
+        #      "pred_boxes": outputs_coord[-1],
+        #  }
+        #  return out

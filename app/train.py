@@ -7,6 +7,8 @@ from logging import getLogger
 #  from app.models import NNModel
 from app.entities import Images
 from app.dataset import WheatDataset, collate_fn
+from app.models.detr import DETR as NNModel
+from app.models.set_criterion import SetCriterion as Criterion
 
 logger = getLogger(__name__)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -15,7 +17,9 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 
 class Trainer:
     def __init__(self, train_data: Images, test_data: Images,) -> None:
-        #  self.model = NNModel().to(device)
+        num_classes = 1
+        self.model = NNModel().to(device)
+        self.criterion = Criterion(num_classes=num_classes).to(device)
         #  self.optimizer = torch.optim.AdamW(self.model.parameters(),)
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -39,5 +43,9 @@ class Trainer:
             logger.info(f"{epoch=}")
 
     def train_one_epoch(self) -> None:
-        for images, targets, image_ids in self.data_loaders["train"]:
-            ...
+        self.model.train()
+        self.criterion.train()
+        for samples, targets in self.data_loaders["train"]:
+            samples = samples.to(device)
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            outputs = self.model(samples)
