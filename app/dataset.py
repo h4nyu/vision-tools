@@ -1,14 +1,19 @@
-from pathlib import Path
 import typing as t
 import numpy as np
 import pandas as pd
 import torch
+import torchvision
+import PIL
+
+from pathlib import Path
+from torch import Tensor
 from torch.utils.data import Dataset
 from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Images
 
 Row = t.Tuple[t.Any, t.Any, t.Any]
 Batch = t.Sequence[Row]
+Target = t.TypedDict("Target", {"image_id": str, "boxes": Tensor, "labels": Tensor})
 
 
 def collate_fn(batch: Batch) -> Row:
@@ -23,10 +28,11 @@ def collate_fn(batch: Batch) -> Row:
     return t_images, boxes, labels
 
 
-class TrainDataset(Dataset):
+class WheatDataset(Dataset):
     def __init__(
         self, images: Images, mode: t.Literal["train", "test"] = "train"
     ) -> None:
+        super().__init__()
         self.rows = list(images.values())
         self.mode = mode
 
@@ -34,10 +40,38 @@ class TrainDataset(Dataset):
         return len(self.rows)
 
     def __getitem__(self, index: int) -> t.Any:
-        image = self.rows[index]
-        image_arr = ToTensorV2()(image=image.get_arr())["image"]
+        row = self.rows[index]
+        image = ToTensorV2()(image=row.get_arr())["image"]
+        boxes = torch.tensor(
+            [x.to_arr() for x in row.bboxes], dtype=torch.float32
+        ).reshape(-1, 4)
+        labels = torch.ones(boxes.shape[:1])
+        target: Target = {
+            "image_id": row.id,
+            "boxes": boxes,
+            "labels": labels,
+        }
+        return image, target
 
-        box_arrs = torch.from_numpy(np.stack([x.to_arr() for x in image.bboxes]))
-        labels = torch.ones((len(box_arrs),))
 
-        return image_arr, box_arrs, labels
+class CocoDetection(torchvision.datasets.CocoDetection):
+    def __init__(
+        self, ann_file: str, img_folder: str, transforms: t.Any = None,
+    ) -> None:
+        super().__init__(img_folder, ann_file)
+        self._transforms = transforms
+
+    def __getitem__(self, idx: int) -> t.Tuple[Tensor, Target]:
+        img, annots = super().__getitem__(idx)
+        image_id = self.ids[idx]
+        w, h = img.size
+        boxes = torch.tensor([x["bbox"] for x in annots], dtype=torch.float32).reshape(
+            -1, 4
+        )
+        boxes[:, 2:] += boxes[:, :2]
+        boxes[:, 0::2].clamp_(min=0, max=w)
+        boxes[:, 1::2].clamp_(min=0, max=h)
+        labels = torch.tensor([x["category_id"] for x in annots], dtype=torch.int64,)
+
+        target: Target = {"boxes": boxes, "labels": labels, "image_id": image_id}
+        return img, target

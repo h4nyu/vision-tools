@@ -4,15 +4,12 @@ from app.models.matcher import HungarianMatcher, Outputs, Targets
 
 def test_hungarian_matcher() -> None:
     batch_size = 2
-    num_queries = 20
+    num_queries = 5
     num_classes = 2
     outputs: Outputs = {
         "pred_logits": torch.rand(batch_size, num_queries, num_classes),
         "pred_boxes": torch.rand(batch_size, num_queries, 4),
     }
-    assert outputs["pred_logits"].shape == (batch_size, num_queries, num_classes)
-    assert outputs["pred_boxes"].shape == (batch_size, num_queries, 4)
-
     targets: Targets = [
         {
             "labels": torch.ones((9,)),

@@ -85,7 +85,7 @@ def generalized_box_iou(boxes1: Tensor, boxes2: Tensor) -> Tensor:
 
 
 class NestedTensor:
-    def __init__(self, tensors: Tensor, mask: t.Optional[Tensor]) -> None:
+    def __init__(self, tensors: Tensor, mask: t.Optional[Tensor] = None) -> None:
         self.tensors = tensors
         self.mask = mask
 

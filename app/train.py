@@ -6,7 +6,7 @@ from logging import getLogger
 
 #  from app.models import NNModel
 from app.entities import Images
-from app.dataset import TrainDataset, collate_fn
+from app.dataset import WheatDataset, collate_fn
 
 logger = getLogger(__name__)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -19,14 +19,14 @@ class Trainer:
         #  self.optimizer = torch.optim.AdamW(self.model.parameters(),)
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                TrainDataset(train_data),
+                WheatDataset(train_data),
                 shuffle=True,
                 batch_size=32,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
             "test": DataLoader(
-                TrainDataset(test_data),
+                WheatDataset(test_data),
                 shuffle=True,
                 batch_size=1,
                 collate_fn=collate_fn,

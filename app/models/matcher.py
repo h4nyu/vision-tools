@@ -4,10 +4,10 @@ import torch
 from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou
 
-
 Outputs = t.TypedDict("Outputs", {"pred_logits": Tensor, "pred_boxes": Tensor})
 Target = t.TypedDict("Target", {"labels": Tensor, "boxes": Tensor})
 Targets = t.List[Target]
+MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
 
 
 class HungarianMatcher(nn.Module):
@@ -26,9 +26,7 @@ class HungarianMatcher(nn.Module):
         self.cost_giou = cost_giou
         assert cost_class != 0 or cost_box != 0 or cost_giou != 0, "all costs cant be 0"
 
-    def forward(
-        self, outputs: Outputs, targets: Targets
-    ) -> t.List[t.Tuple[Tensor, Tensor]]:
+    def forward(self, outputs: Outputs, targets: Targets) -> MatchIndecies:
         pred_logits = outputs["pred_logits"]
         pred_boxes = outputs["pred_boxes"]
         batch_size, num_queries = pred_logits.shape[:2]
