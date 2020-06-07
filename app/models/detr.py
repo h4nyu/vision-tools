@@ -72,6 +72,7 @@ class DETR(nn.Module):
         self.num_classes = num_classes
         self.num_queries = num_queries
         self.backbone = Backbone("resnet34")
+        #  self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
     def forward(self, samples: NestedTensor) -> None:
         features, pos = self.backbone(samples)
