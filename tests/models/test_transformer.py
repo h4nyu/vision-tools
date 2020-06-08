@@ -53,4 +53,3 @@ def test_transformer() -> None:
     res, _ = fn(src, mask, query_embed, pos_embed)
 
     assert res.shape == (6, batch_size, num_queries, hidden_dim)
-

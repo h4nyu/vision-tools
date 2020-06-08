@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 
 from .matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
-
+from .utils import box_cxcywh_to_xyxy, generalized_box_iou
 
 
 class SetCriterion(nn.Module):
@@ -17,11 +17,11 @@ class SetCriterion(nn.Module):
         outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
         indices = self.matcher(outputs_without_aux, targets)
         num_boxes = sum(len(t["labels"]) for t in targets)
-        loss_labels = self.loss_labels(outputs, targets, indices, num_boxes)
-        loss_boxes = self.loss_boxes(outputs, targets, indices, num_boxes)
+        loss_label = self.loss_labels(outputs, targets, indices, num_boxes)
+        loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
         loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
 
-        return loss_labels * 2 + loss_boxes * 1 + loss_cardinality * 1
+        return loss_label * 2 + loss_box * 1 + loss_cardinality * 1 + loss_giou
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
@@ -42,14 +42,21 @@ class SetCriterion(nn.Module):
 
     def loss_boxes(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
-    ) -> Tensor:
+    ) -> t.Tuple[Tensor, Tensor]:
         idx = self._get_src_permutation_idx(indices)
         pred_boxes = outputs["pred_boxes"][idx]
         target_boxes = torch.cat(
             [t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
         )
-        loss = F.l1_loss(pred_boxes, target_boxes, reduction="none").sum() / num_boxes
-        return loss
+        loss_box = (
+            F.l1_loss(pred_boxes, target_boxes, reduction="none").sum() / num_boxes
+        )
+        loss_giou = 1 - torch.diag(
+            generalized_box_iou(
+                box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
+            )
+        )
+        return loss_box, loss_giou
 
     def loss_labels(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int

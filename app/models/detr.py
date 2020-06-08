@@ -116,9 +116,7 @@ class DETR(nn.Module):
         self.num_classes = num_classes
         self.num_queries = num_queries
         backbone = Backbone("resnet34")
-        self.backbone = Joiner(backbone, PositionEmbeddingSine(
-            hidden_dim//2
-        ))
+        self.backbone = Joiner(backbone, PositionEmbeddingSine(hidden_dim // 2))
 
         self.transformer = Transformer(d_model=hidden_dim,)
         self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
@@ -136,7 +134,7 @@ class DETR(nn.Module):
         outputs_class = self.class_embed(hs)
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out: Outputs = {
-            "pred_logits": outputs_class[-1], # last layer output
-            "pred_boxes": outputs_coord[-1], # last layer output
+            "pred_logits": outputs_class[-1],  # last layer output
+            "pred_boxes": outputs_coord[-1],  # last layer output
         }
         return out

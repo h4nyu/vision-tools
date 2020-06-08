@@ -40,7 +40,7 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            train_loss, = self.train_one_epoch()
+            (train_loss,) = self.train_one_epoch()
             logger.info(f"{train_loss=}")
 
     def train_one_epoch(self) -> t.Tuple[float]:
@@ -58,6 +58,4 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
-        return epoch_loss/count,
-
-
+        return (epoch_loss / count,)
