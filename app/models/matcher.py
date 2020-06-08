@@ -3,6 +3,7 @@ from torch import nn, Tensor
 import torch
 from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
+from app import config
 
 Outputs = t.TypedDict("Outputs", {"pred_logits": Tensor, "pred_boxes": Tensor})
 Target = t.TypedDict("Target", {"labels": Tensor, "boxes": Tensor})
@@ -12,7 +13,7 @@ MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
 
 class HungarianMatcher(nn.Module):
     def __init__(
-        self, cost_class: float = 1, cost_box: float = 1, cost_giou: float = 1
+        self, cost_class: float = config.cost_class, cost_box: float = config.cost_box, cost_giou: float = config.cost_giou
     ) -> None:
         """Creates the matcher
         Params:
@@ -24,7 +25,6 @@ class HungarianMatcher(nn.Module):
         self.cost_class = cost_class
         self.cost_box = cost_box
         self.cost_giou = cost_giou
-        assert cost_class != 0 or cost_box != 0 or cost_giou != 0, "all costs cant be 0"
 
     @torch.no_grad()
     def forward(self, outputs: Outputs, targets: Targets) -> MatchIndecies:

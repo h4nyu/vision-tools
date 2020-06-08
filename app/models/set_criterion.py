@@ -21,7 +21,8 @@ class SetCriterion(nn.Module):
         loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
         loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
 
-        return loss_label * 2 + loss_box * 1 + loss_cardinality * 1 + loss_giou
+        #  print(f"{loss_label=},{loss_box=},{loss_cardinality=}, {loss_giou=}")
+        return loss_label + loss_box * 2 + loss_cardinality * 1 + loss_giou
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
@@ -51,11 +52,11 @@ class SetCriterion(nn.Module):
         loss_box = (
             F.l1_loss(pred_boxes, target_boxes, reduction="none").sum() / num_boxes
         )
-        loss_giou = 1 - torch.diag(
+        loss_giou = (1 - torch.diag(
             generalized_box_iou(
                 box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
             )
-        )
+        )).sum()
         return loss_box, loss_giou
 
     def loss_labels(

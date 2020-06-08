@@ -26,7 +26,7 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=4,
+                batch_size=6,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
