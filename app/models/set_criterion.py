@@ -21,7 +21,7 @@ class SetCriterion(nn.Module):
         loss_boxes = self.loss_boxes(outputs, targets, indices, num_boxes)
         loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
 
-        return loss_labels * 1 + loss_boxes * 1 + loss_cardinality * 1
+        return loss_labels * 2 + loss_boxes * 1 + loss_cardinality * 1
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
