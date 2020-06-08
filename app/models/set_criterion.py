@@ -7,6 +7,9 @@ from .matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 from .utils import box_cxcywh_to_xyxy, generalized_box_iou
 
 
+Losses = t.TypedDict("Losses", {"box": Tensor, "label": Tensor,})
+
+
 class SetCriterion(nn.Module):
     def __init__(self, num_classes: int, weights: t.Dict = {}) -> None:
         super().__init__()
@@ -23,6 +26,17 @@ class SetCriterion(nn.Module):
 
         #  print(f"{loss_label=},{loss_box=},{loss_cardinality=}, {loss_giou=}")
         return loss_label + loss_box * 2 + loss_cardinality * 1 + loss_giou
+
+    def losses(
+        self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
+    ) -> Losses:
+        loss_label = self.loss_labels(outputs, targets, indices, num_boxes)
+        loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
+        losses: Losses = {
+            "box": loss_box,
+            "label": loss_label,
+        }
+        return losses
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
@@ -52,11 +66,14 @@ class SetCriterion(nn.Module):
         loss_box = (
             F.l1_loss(pred_boxes, target_boxes, reduction="none").sum() / num_boxes
         )
-        loss_giou = (1 - torch.diag(
-            generalized_box_iou(
-                box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
+        loss_giou = (
+            1
+            - torch.diag(
+                generalized_box_iou(
+                    box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
+                )
             )
-        )).sum()
+        ).sum()
         return loss_box, loss_giou
 
     def loss_labels(
