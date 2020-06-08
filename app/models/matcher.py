@@ -26,6 +26,7 @@ class HungarianMatcher(nn.Module):
         self.cost_giou = cost_giou
         assert cost_class != 0 or cost_box != 0 or cost_giou != 0, "all costs cant be 0"
 
+    @torch.no_grad()
     def forward(self, outputs: Outputs, targets: Targets) -> MatchIndecies:
         pred_logits = outputs["pred_logits"]
         pred_boxes = outputs["pred_boxes"]

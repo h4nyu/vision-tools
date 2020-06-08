@@ -25,7 +25,7 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=32,
+                batch_size=2,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
@@ -48,4 +48,5 @@ class Trainer:
         for samples, targets in self.data_loaders["train"]:
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            outputs = self.model(samples)
+            self.model(samples)
+            #  loss_dict = self.criterion(outputs, targets)

@@ -110,7 +110,7 @@ class MLP(nn.Module):
 
 class DETR(nn.Module):
     def __init__(
-        self, num_classes: int = 1, num_queries: int = 10, hidden_dim: int = 256
+        self, num_classes: int = 1, num_queries: int = 10, hidden_dim: int = 128
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -128,13 +128,16 @@ class DETR(nn.Module):
         features, pos = self.backbone(samples)
         src, mask = features[-1].decompose()
         assert mask is not None
-        hs = self.transformer(
+        hs, _ = self.transformer(
             self.input_proj(src), mask, self.query_embed.weight, pos[-1]
-        )[0]
+        )
+        #  print(hs)
         #  outputs_class = self.class_embed(hs)
         #  outputs_coord = self.bbox_embed(hs).sigmoid()
+        #  print(f"{outputs_class.shape=}")
+        #  print(f"{outputs_coord.shape=}")
         #  out: Outputs = {
-        #      "pred_logits": outputs_class[-1],
-        #      "pred_boxes": outputs_coord[-1],
+        #      "pred_logits": outputs_class,
+        #      "pred_boxes": outputs_coord,
         #  }
         #  return out
