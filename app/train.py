@@ -48,5 +48,5 @@ class Trainer:
         for samples, targets in self.data_loaders["train"]:
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            self.model(samples)
-            #  loss_dict = self.criterion(outputs, targets)
+            outputs = self.model(samples)
+            loss_dict = self.criterion(outputs, targets)

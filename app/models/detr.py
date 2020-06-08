@@ -118,26 +118,25 @@ class DETR(nn.Module):
         backbone = Backbone("resnet34")
         self.backbone = Joiner(backbone, PositionEmbeddingSine())
 
-        self.transformer = Transformer(d_model=hidden_dim)
+        self.transformer = Transformer(d_model=hidden_dim,)
         self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
 
-    def forward(self, samples: NestedTensor) -> None:
+    def forward(self, samples: NestedTensor) -> Outputs:
         features, pos = self.backbone(samples)
         src, mask = features[-1].decompose()
         assert mask is not None
         hs, _ = self.transformer(
             self.input_proj(src), mask, self.query_embed.weight, pos[-1]
         )
-        #  print(hs)
-        #  outputs_class = self.class_embed(hs)
-        #  outputs_coord = self.bbox_embed(hs).sigmoid()
-        #  print(f"{outputs_class.shape=}")
-        #  print(f"{outputs_coord.shape=}")
-        #  out: Outputs = {
-        #      "pred_logits": outputs_class,
-        #      "pred_boxes": outputs_coord,
-        #  }
-        #  return out
+        print(f"{hs.shape=}")
+
+        outputs_class = self.class_embed(hs)
+        outputs_coord = self.bbox_embed(hs).sigmoid()
+        out: Outputs = {
+            "pred_logits": outputs_class,
+            "pred_boxes": outputs_coord,
+        }
+        return out

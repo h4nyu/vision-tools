@@ -15,7 +15,7 @@ class Transformer(nn.Module):
         dim_feedforward: int = 2048,
         dropout: float = 0.1,
         normalize_before: bool = False,
-        return_intermediate_dec: bool = False,
+        return_intermediate_dec: bool = True,
     ):
         super().__init__()
 
@@ -59,8 +59,8 @@ class Transformer(nn.Module):
         mask = mask.flatten(1)
 
         tgt = torch.zeros_like(query_embed)
-        print(f"transformer:{mask=}")
         memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
+        print(f"Transformer.{memory.shape=}") # (1156,2, 256)
         hs = self.decoder(
             tgt,
             memory,
@@ -68,7 +68,8 @@ class Transformer(nn.Module):
             pos=pos_embed,
             query_pos=query_embed,
         )
-        return hs, memory.permute(1, 2, 0).view(bs, c, h, w)
+        print(f"Transformer.{hs.shape=}") # (1156,2, 256)
+        return hs.transpose(1, 2), memory.permute(1, 2, 0).view(bs, c, h, w)
 
 
 def _get_clones(module: nn.Module, N: int) -> nn.ModuleList:
@@ -97,15 +98,12 @@ class TransformerEncoder(nn.Module):
         output = src
 
         for layer in self.layers:
-            print(f"{mask=}")
-            print(f"{src_key_padding_mask=}")
             output = layer(
                 output,
                 src_mask=mask,
                 src_key_padding_mask=src_key_padding_mask,
                 pos=pos,
             )
-            assert torch.isnan(output).sum() == 0
 
         if self.norm is not None:
             output = self.norm(output)
@@ -149,17 +147,12 @@ class TransformerEncoderLayer(nn.Module):
     ) -> Tensor:
         q = k = self.with_pos_embed(src, pos)
 
-
-        #  print(f"{src=}")
-        #  print(f"{src_mask=}")
-        #  print(f"{src_key_padding_mask=}")
-        print(src.shape)
         src2, _ = self.self_attn(
             query=q,
             key=k,
             value=src,
-            attn_mask=torch.ones(src.shape[2:], dtype=torch.bool).to(src.device),
-            key_padding_mask=src_key_padding_mask
+            attn_mask=src_mask,
+            key_padding_mask=src_key_padding_mask,
         )
         src = src + self.dropout1(src2)
         src = self.norm1(src)

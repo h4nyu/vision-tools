@@ -26,7 +26,7 @@ def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
 
     images_tensor = torch.stack(images)
     b, _, h, w = images_tensor.shape
-    mask = torch.ones((b, h, w), dtype=torch.bool)
+    mask = torch.zeros((b, h, w), dtype=torch.bool)
     return NestedTensor(images_tensor, mask), targets
 
 
@@ -47,7 +47,7 @@ class WheatDataset(Dataset):
         boxes = torch.tensor(
             [x.to_arr() for x in row.bboxes], dtype=torch.float32
         ).reshape(-1, 4)
-        labels = torch.ones(boxes.shape[:1])
+        labels = torch.ones(boxes.shape[:1]).long()
         target: Target = {
             "boxes": boxes,
             "labels": labels,
