@@ -4,7 +4,7 @@ from app.models.matcher import HungarianMatcher, Outputs, Targets
 
 
 def test_setlosses() -> None:
-    batch_size = 2
+    batch_size = 1
     num_queries = 5
     num_classes = 2
     outputs: Outputs = {
@@ -14,16 +14,14 @@ def test_setlosses() -> None:
 
     targets: Targets = [
         {
-            "labels": torch.zeros((9,)).long(),
+            "labels": torch.tensor([
+                [1, 1]
+            ]).long(),
             "boxes": torch.cat([torch.ones((9, 2)), torch.ones((9, 2)) * 1], dim=1),
-        },
-        {
-            "labels": torch.zeros((2,)).long(),
-            "boxes": torch.cat([torch.ones((2, 2)), torch.ones((2, 2)) * 1], dim=1),
         },
     ]
     fn = SetCriterion(num_classes=num_classes, weights={},)
-    res = fn.forward(outputs, targets)
+    res = fn(outputs, targets)
     print(f"{res=}")
 
 
