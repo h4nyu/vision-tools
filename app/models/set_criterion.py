@@ -6,10 +6,6 @@ from torch import nn, Tensor
 from .matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 
 
-Losses = t.TypedDict(
-    "Losses", {"labels": Tensor, "boxes": Tensor, "cardinality": Tensor}
-)
-
 
 class SetCriterion(nn.Module):
     def __init__(self, num_classes: int, weights: t.Dict = {}) -> None:
@@ -17,16 +13,15 @@ class SetCriterion(nn.Module):
         self.matcher = HungarianMatcher()
         self.num_classes = num_classes
 
-    def forward(self, outputs: Outputs, targets: Targets) -> Losses:
+    def forward(self, outputs: Outputs, targets: Targets) -> Tensor:
         outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
         indices = self.matcher(outputs_without_aux, targets)
         num_boxes = sum(len(t["labels"]) for t in targets)
-        losses: Losses = {
-            "labels": self.loss_labels(outputs, targets, indices, num_boxes),
-            "boxes": self.loss_boxes(outputs, targets, indices, num_boxes),
-            "cardinality": self.loss_cardinality(outputs, targets, indices, num_boxes),
-        }
-        return losses
+        loss_labels = self.loss_labels(outputs, targets, indices, num_boxes)
+        loss_boxes = self.loss_boxes(outputs, targets, indices, num_boxes)
+        loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
+
+        return loss_labels * 1 + loss_boxes * 1 + loss_cardinality * 1
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
