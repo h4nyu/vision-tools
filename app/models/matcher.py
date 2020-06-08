@@ -34,8 +34,6 @@ class HungarianMatcher(nn.Module):
 
         out_probs = pred_logits.flatten(0, 1).softmax(-1)
         out_boxes = pred_boxes.flatten(0, 1)  # [batch_size * num_queries, 4]
-        print(f"{pred_boxes.shape=}")
-        print(f"{out_boxes.shape=}")
 
         tgt_ids = torch.cat([v["labels"] for v in targets]).long()
         tgt_boxes = torch.cat([v["boxes"] for v in targets])

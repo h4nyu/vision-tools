@@ -17,4 +17,4 @@ def train(fold_idx: int) -> None:
     #  kf = KFold()
     #  train_data, test_data = list(kf(images))[fold_idx]
     trainer = Trainer(images, images)
-    trainer.train(1)
+    trainer.train(100)

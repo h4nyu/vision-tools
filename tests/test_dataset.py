@@ -6,8 +6,6 @@ def test_wheat() -> None:
     images = load_lables(limit=10)
     dataset = WheatDataset(images)
     img, target = dataset[0]
-    print(img.shape)
-    print(target)
 
 
 def test_coco_detection() -> None:
