@@ -110,13 +110,15 @@ class MLP(nn.Module):
 
 class DETR(nn.Module):
     def __init__(
-        self, num_classes: int = 1, num_queries: int = 10, hidden_dim: int = 128
+        self, num_classes: int = 1, num_queries: int = 100, hidden_dim: int = 256
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.num_queries = num_queries
         backbone = Backbone("resnet34")
-        self.backbone = Joiner(backbone, PositionEmbeddingSine())
+        self.backbone = Joiner(backbone, PositionEmbeddingSine(
+            hidden_dim//2
+        ))
 
         self.transformer = Transformer(d_model=hidden_dim,)
         self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
@@ -131,12 +133,10 @@ class DETR(nn.Module):
         hs, _ = self.transformer(
             self.input_proj(src), mask, self.query_embed.weight, pos[-1]
         )
-        print(f"{hs.shape=}")
-
         outputs_class = self.class_embed(hs)
         outputs_coord = self.bbox_embed(hs).sigmoid()
         out: Outputs = {
-            "pred_logits": outputs_class,
-            "pred_boxes": outputs_coord,
+            "pred_logits": outputs_class[-1],
+            "pred_boxes": outputs_coord[-1],
         }
         return out

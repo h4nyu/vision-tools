@@ -2,7 +2,7 @@ import typing as t
 from torch import nn, Tensor
 import torch
 from scipy.optimize import linear_sum_assignment
-from .utils import generalized_box_iou
+from .utils import generalized_box_iou, box_cxcywh_to_xyxy
 
 Outputs = t.TypedDict("Outputs", {"pred_logits": Tensor, "pred_boxes": Tensor})
 Target = t.TypedDict("Target", {"labels": Tensor, "boxes": Tensor})
@@ -34,13 +34,18 @@ class HungarianMatcher(nn.Module):
 
         out_probs = pred_logits.flatten(0, 1).softmax(-1)
         out_boxes = pred_boxes.flatten(0, 1)  # [batch_size * num_queries, 4]
+        print(f"{pred_boxes.shape=}")
+        print(f"{out_boxes.shape=}")
 
         tgt_ids = torch.cat([v["labels"] for v in targets]).long()
         tgt_boxes = torch.cat([v["boxes"] for v in targets])
 
         cost_class = -out_probs[:, tgt_ids]
         cost_box = torch.cdist(out_boxes, tgt_boxes, p=1)
-        cost_giou = -generalized_box_iou(out_boxes, tgt_boxes)
+        cost_giou = -generalized_box_iou(
+            box_cxcywh_to_xyxy(out_boxes),
+            box_cxcywh_to_xyxy(tgt_boxes),
+        )
         cost = (
             self.cost_box * cost_box
             + self.cost_class * cost_class
