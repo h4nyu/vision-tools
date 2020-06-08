@@ -47,6 +47,9 @@ class WheatDataset(Dataset):
         boxes = torch.tensor(
             [x.to_arr() for x in row.bboxes], dtype=torch.float32
         ).reshape(-1, 4)
+        boxes[:, 2:] += boxes[:, :2]
+        boxes[:, 0::2].clamp_(min=0, max=row.width)
+        boxes[:, 1::2].clamp_(min=0, max=row.height)
         labels = torch.ones(boxes.shape[:1]).long()
         target: Target = {
             "boxes": boxes,
