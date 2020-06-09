@@ -22,7 +22,7 @@ Batch = t.Sequence[Row]
 
 
 def plot_row(
-    image: Tensor, boxes: Tensor, name: str, gt_boxes: t.Optional[Tensor] = None
+    image: Tensor, boxes: Tensor, path: Path, gt_boxes: t.Optional[Tensor] = None
 ) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
     h, w = image.shape[1:]
@@ -54,7 +54,7 @@ def plot_row(
                 linewidth=1,
             )
             ax.add_patch(rect)
-    plt.savefig(Path(config.plot_dir).joinpath(f"bbox-{name}.png"))
+    plt.savefig(path)
     plt.close()
 
 
@@ -94,8 +94,8 @@ class WheatDataset(Dataset):
         boxes = torch.tensor(
             [x.to_arr() for x in row.bboxes], dtype=torch.float32
         ).reshape(-1, 4)
-        boxes[:,[0, 2]] = boxes[:,[0, 2]] / row.width
-        boxes[:,[1, 3]] = boxes[:,[1, 3]] / row.height
+        boxes[:, [0, 2]] = boxes[:, [0, 2]] / row.width
+        boxes[:, [1, 3]] = boxes[:, [1, 3]] / row.height
         boxes = box_xyxy_to_cxcywh(boxes)
         labels = torch.zeros(boxes.shape[:1]).long()
         target: Target = {
