@@ -6,6 +6,7 @@ import torchvision
 import PIL
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import torchvision.transforms as T
 
 
 from pathlib import Path
@@ -15,6 +16,11 @@ from torch.utils.data import Dataset
 from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Annotations, Annotation
 from .models.utils import NestedTensor, box_xyxy_to_cxcywh
+
+normalize = T.Compose([
+    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
+
 
 Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
 Row = t.Tuple[Tensor, Target]
@@ -64,10 +70,11 @@ def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
     for img, tgt in batch:
         targets.append(tgt)
         images.append(img)
-
     images_tensor = torch.stack(images)
     b, _, h, w = images_tensor.shape
-    mask = torch.zeros((b, h, w), dtype=torch.bool)
+    dtype = images_tensor.dtype
+    device = images_tensor.device
+    mask = torch.zeros((b, h, w), dtype=torch.bool, device=device)
     return NestedTensor(images_tensor, mask), targets
 
 
@@ -103,7 +110,7 @@ class WheatDataset(Dataset):
             "boxes": boxes,
             "labels": labels,
         }
-        return image, target
+        return normalize(image), target
 
 
 class CocoDetection(torchvision.datasets.CocoDetection):

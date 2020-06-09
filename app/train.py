@@ -25,23 +25,24 @@ class Trainer:
     ) -> None:
         self.model = NNModel().to(device)
         self.criterion = Criterion(num_classes=config.num_classes).to(device)
-        self.optimizer = torch.optim.AdamW(self.model.parameters(),)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=8,
+                batch_size=16,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
             "test": DataLoader(
                 WheatDataset(test_data),
-                batch_size=8,
+                batch_size=16,
                 collate_fn=collate_fn,
                 shuffle=True,
             ),
         }
         self.check_interval = 10
+        self.clip_max_norm = config.clip_max_norm
 
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
@@ -73,9 +74,34 @@ class Trainer:
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
+            print(loss)
             self.optimizer.zero_grad()
             loss.backward()
+            if self.clip_max_norm > 0:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_max_norm) # type: ignore
             self.optimizer.step()
+            epoch_loss += loss.item()
+            if count % self.check_interval == 0:
+                plot_row(
+                    samples.decompose()[0][-1].cpu(),
+                    outputs["pred_boxes"][-1].cpu(),
+                    self.output_dir.joinpath("train.png"),
+                    targets[-1]["boxes"].cpu(),
+                )
+        return (epoch_loss / count,)
+
+    @torch.no_grad()
+    def eval_one_epoch(self) -> t.Tuple[float]:
+        self.model.eval()
+        self.criterion.eval()
+        epoch_loss = 0
+        count = 0
+        for samples, targets in tqdm(self.data_loaders["test"]):
+            count += 1
+            samples = samples.to(device)
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            outputs = self.model(samples)
+            loss = self.criterion(outputs, targets)
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(
@@ -84,28 +110,6 @@ class Trainer:
                     self.output_dir.joinpath("test.png"),
                     targets[-1]["boxes"].cpu(),
                 )
-        return (epoch_loss / count,)
-
-    def eval_one_epoch(self) -> t.Tuple[float]:
-        self.model.eval()
-        self.criterion.eval()
-        epoch_loss = 0
-        count = 0
-        with torch.no_grad():
-            for samples, targets in tqdm(self.data_loaders["test"]):
-                count += 1
-                samples = samples.to(device)
-                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-                outputs = self.model(samples)
-                loss = self.criterion(outputs, targets)
-                epoch_loss += loss.item()
-                if count % self.check_interval == 0:
-                    plot_row(
-                        samples.decompose()[0][-1].cpu(),
-                        outputs["pred_boxes"][-1].cpu(),
-                        self.output_dir.joinpath("eval.png"),
-                        targets[-1]["boxes"].cpu(),
-                    )
 
         return (epoch_loss / count,)
 

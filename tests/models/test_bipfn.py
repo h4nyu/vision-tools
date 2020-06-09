@@ -10,6 +10,7 @@ def test_bifpn() -> None:
     res = m(req)
 
     for i, o in zip(req, res):
+        print(i.shape)
         assert i.shape == o.shape
     res = m(res)
 

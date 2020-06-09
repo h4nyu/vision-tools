@@ -71,7 +71,7 @@ class SetCriterion(nn.Module):
                     box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
                 )
             )
-        ).sum()
+        ).sum() / num_boxes
         return loss_box, loss_giou
 
     def loss_labels(
