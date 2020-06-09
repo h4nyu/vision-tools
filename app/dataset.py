@@ -21,10 +21,15 @@ Row = t.Tuple[Tensor, Target]
 Batch = t.Sequence[Row]
 
 
-def plot_row(image: Tensor, boxes: Tensor, name: str) -> None:
+def plot_row(
+    image: Tensor, boxes: Tensor, name: str, gt_boxes: t.Optional[Tensor] = None
+) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
+    h, w = image.shape[1:]
     ax.grid(False)
     ax.imshow(image.permute(1, 2, 0))
+    boxes[:, [0, 2]] = boxes[:, [0, 2]] * w
+    boxes[:, [1, 3]] = boxes[:, [1, 3]] * h
     for box in boxes:
         rect = mpatches.Rectangle(
             (box[0] - box[2] / 2, box[1] - box[3] / 2),
@@ -35,6 +40,20 @@ def plot_row(image: Tensor, boxes: Tensor, name: str) -> None:
             linewidth=1,
         )
         ax.add_patch(rect)
+
+    if gt_boxes is not None:
+        gt_boxes[:, [0, 2]] = gt_boxes[:, [0, 2]] * w
+        gt_boxes[:, [1, 3]] = gt_boxes[:, [1, 3]] * h
+        for box in gt_boxes:
+            rect = mpatches.Rectangle(
+                (box[0] - box[2] / 2, box[1] - box[3] / 2),
+                width=box[2],
+                height=box[3],
+                fill=False,
+                edgecolor="blue",
+                linewidth=1,
+            )
+            ax.add_patch(rect)
     plt.savefig(Path(config.plot_dir).joinpath(f"bbox-{name}.png"))
     plt.close()
 
@@ -65,7 +84,7 @@ class WheatDataset(Dataset):
         return len(self.rows)
 
     def get_img(self, row: Image) -> t.Any:
-        if id not in self.cache:
+        if row.id not in self.cache:
             self.cache[row.id] = row.get_arr()
         return self.cache[row.id]
 
@@ -75,6 +94,8 @@ class WheatDataset(Dataset):
         boxes = torch.tensor(
             [x.to_arr() for x in row.bboxes], dtype=torch.float32
         ).reshape(-1, 4)
+        boxes[:,[0, 2]] = boxes[:,[0, 2]] / row.width
+        boxes[:,[1, 3]] = boxes[:,[1, 3]] / row.height
         boxes = box_xyxy_to_cxcywh(boxes)
         labels = torch.zeros(boxes.shape[:1]).long()
         target: Target = {

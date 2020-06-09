@@ -136,7 +136,7 @@ class DETR(nn.Module):
             self.input_proj(src), mask, self.query_embed.weight, pos[-1]
         )
         outputs_class = self.class_embed(hs)
-        outputs_coord = self.bbox_embed(hs)
+        outputs_coord = self.bbox_embed(hs).sigmoid()
         out: Outputs = {
             "pred_logits": outputs_class[-1],  # last layer output
             "pred_boxes": outputs_coord[-1],  # last layer output

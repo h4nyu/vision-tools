@@ -68,8 +68,12 @@ class Trainer:
                 count += 1
                 samples = samples.to(device)
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-                outputs = self.model(samples)["pred_boxes"]
-
-            plot_row(samples.decompose()[0][-1].cpu(), outputs[-1].cpu(), "eval")
+                outputs = self.model(samples)
+            plot_row(
+                samples.decompose()[0][-1].cpu(),
+                outputs["pred_boxes"][-1].cpu(),
+                "eval",
+                targets[-1]["boxes"].cpu(),
+            )
 
         return (epoch_loss / count,)
