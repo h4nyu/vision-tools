@@ -24,10 +24,7 @@ class SetCriterion(nn.Module):
         loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
         loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
 
-        losses:Losses = {
-            "box": loss_box,
-            "label": loss_label
-        }
+        losses: Losses = {"box": loss_box, "label": loss_label}
         return losses
 
         #  print(f"{loss_label=},{loss_box=},{loss_cardinality=}, {loss_giou=}")

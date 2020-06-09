@@ -3,26 +3,36 @@ from app.models.set_criterion import SetCriterion
 from app.models.matcher import HungarianMatcher, Outputs, Targets
 
 
-def test_setlosses() -> None:
-    batch_size = 1
-    num_queries = 5
-    num_classes = 2
-    outputs: Outputs = {
-        "pred_logits": torch.rand(batch_size, num_queries, num_classes),
-        "pred_boxes": torch.rand(batch_size, num_queries, 4),
-    }
-
-    targets: Targets = [
-        {
-            "labels": torch.tensor([
-                [1, 1]
-            ]).long(),
-            "boxes": torch.cat([torch.ones((9, 2)), torch.ones((9, 2)) * 1], dim=1),
-        },
-    ]
-    fn = SetCriterion(num_classes=num_classes, weights={},)
-    res = fn(outputs, targets)
-    print(f"{res=}")
+#  def test_setlosses() -> None:
+#      batch_size = 1
+#      num_queries = 5
+#      num_classes = 2
+#      outputs: Outputs = {
+#          "pred_logits": torch.tensor([
+#              [0.1, 0.9,],
+#              [0.1, 0.2]
+#          ]),
+#          "pred_boxes": torch.tensor([
+#              [0, 0, 1, 1],
+#              [1, 1, 1, 1],
+#          ]).float(),
+#      }
+#      print(outputs['pred_logits'].shape)
+#
+#      targets: Targets = [
+#          {
+#              "labels": torch.tensor([
+#                  [1, 1]
+#              ]).long(),
+#              "boxes": torch.tensor([
+#                  [0, 0, 1, 1],
+#                  [1, 1, 1, 1],
+#              ]).float()
+#          },
+#      ]
+#      fn = SetCriterion(num_classes=num_classes, weights={},)
+#      res = fn(outputs, targets)
+#      print(f"{res=}")
 
 
 #  def tet_label_loss() -> None:
