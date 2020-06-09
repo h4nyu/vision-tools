@@ -13,7 +13,7 @@ from app import config
 from torch import Tensor
 from torch.utils.data import Dataset
 from albumentations.pytorch.transforms import ToTensorV2
-from .entities import Images, Image
+from .entities import Annotations, Annotation
 from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
 Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
@@ -73,11 +73,13 @@ def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
 
 class WheatDataset(Dataset):
     def __init__(
-        self, images: Images, mode: t.Literal["train", "test"] = "train",
-        use_cache:bool=False,
+        self,
+        annotations: Annotations,
+        mode: t.Literal["train", "test"] = "train",
+        use_cache: bool = False,
     ) -> None:
         super().__init__()
-        self.rows = list(images.values())
+        self.rows = list(annotations.values())
         self.mode = mode
         self.cache: t.Dict[str, t.Any] = dict()
         self.use_cache = use_cache
@@ -85,22 +87,17 @@ class WheatDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def get_img(self, row: Image) -> t.Any:
+    def get_img(self, row: Annotation) -> t.Any:
         if row.id not in self.cache:
-            self.cache[row.id] = row.get_arr()
+            self.cache[row.id] = row.get_img()
         return self.cache[row.id]
 
     def __getitem__(self, index: int) -> t.Any:
         row = self.rows[index]
         image = ToTensorV2()(
-            image=self.get_img(row) if self.use_cache else row.get_arr()
+            image=self.get_img(row) if self.use_cache else row.get_img()
         )["image"]
-        boxes = torch.tensor(
-            [x.to_arr() for x in row.bboxes], dtype=torch.float32
-        ).reshape(-1, 4)
-        boxes[:, [0, 2]] = boxes[:, [0, 2]] / row.width
-        boxes[:, [1, 3]] = boxes[:, [1, 3]] / row.height
-        boxes = box_xyxy_to_cxcywh(boxes)
+        boxes = row.boxes
         labels = torch.zeros(boxes.shape[:1]).long()
         target: Target = {
             "boxes": boxes,

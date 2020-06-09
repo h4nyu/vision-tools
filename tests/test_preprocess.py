@@ -1,8 +1,5 @@
 import typing as t
-from app.entities import Image
 from app.preprocess import load_lables, KFold
-
-first_sample: t.Union[None, Image] = None
 
 
 def test_load_lables() -> None:

@@ -3,53 +3,35 @@ import typing as t
 from skimage.io import imread
 from pathlib import Path
 from app import config
+import torch
+from torch import Tensor
 
 
-class BBox:
-    x: int
-    y: int
-    w: int
-    h: int
-
-    def __init__(self, x: int, y: int, w: int, h: int) -> None:
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-
-    def to_arr(self,) -> t.Any:
-        return np.array([self.x, self.y, self.x + self.w, self.y + self.h])
-
-    def size(self,) -> int:
-        return self.w * self.h
-
-
-BBoxes = t.List[BBox]
-
-
-class Image:
+class Annotation:
     id: str
     width: int
     height: int
-    bboxes: BBoxes
+    bboxes: Tensor  # [L, 4] 0~1
     source: str
 
     def __init__(
-        self, id: str, width: int, height: int, bboxes: BBoxes, source: str
+        self, id: str, width: int, height: int, boxes: Tensor, source: str
     ) -> None:
+        #  boxes[:, [0, 2]] = boxes[:, [0, 2]] / width
+        #  boxes[:, [1, 3]] = boxes[:, [1, 3]] / height
         self.id = id
         self.width = width
         self.height = height
-        self.bboxes = bboxes
+        self.boxes = boxes
         self.source = source
 
     def __repr__(self,) -> str:
         id = self.id
         return f"<Image {id=}>"
 
-    def get_arr(self) -> t.Any:
+    def get_img(self) -> Tensor:
         image_path = Path(config.image_dir).joinpath(f"{self.id}.jpg")
         return (imread(image_path) / 255).astype(np.float32)
 
 
-Images = t.Dict[str, Image]
+Annotations = t.Dict[str, Annotation]

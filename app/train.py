@@ -8,7 +8,7 @@ from tqdm import tqdm
 from pathlib import Path
 from logging import getLogger
 from torch.utils.data import DataLoader
-from app.entities import Images
+from app.entities import Annotations
 from app.dataset import WheatDataset, collate_fn, plot_row
 from app.models.detr import DETR as NNModel
 from app.models.set_criterion import SetCriterion as Criterion
@@ -21,7 +21,7 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 
 class Trainer:
     def __init__(
-        self, train_data: Images, test_data: Images, output_dir: Path,
+        self, train_data: Annotations, test_data: Annotations, output_dir: Path,
     ) -> None:
         self.model = NNModel().to(device)
         self.criterion = Criterion(num_classes=config.num_classes).to(device)
@@ -107,5 +107,5 @@ class Trainer:
             data = json.load(f)
         self.best_score = data["best_score"]
         self.model.load_state_dict(
-            torch.load(self.output_dir.joinpath(f"model.pth")) # type: ignore
+            torch.load(self.output_dir.joinpath(f"model.pth"))  # type: ignore
         )
