@@ -54,6 +54,7 @@ class Trainer:
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
+            print(loss)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()

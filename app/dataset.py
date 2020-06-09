@@ -4,17 +4,42 @@ import pandas as pd
 import torch
 import torchvision
 import PIL
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
 
 from pathlib import Path
+from app import config
 from torch import Tensor
 from torch.utils.data import Dataset
 from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Images
-from .models.utils import NestedTensor
+from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
 Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
 Row = t.Tuple[Tensor, Target]
 Batch = t.Sequence[Row]
+
+
+def plot_row(row: Row, name: str) -> None:
+    image, annots = row
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.grid(False)
+    ax.imshow(image.permute(1, 2, 0))
+    boxes = annots["boxes"]
+    labels = annots["labels"]
+    for box in boxes:
+        rect = mpatches.Rectangle(
+            (box[0] - box[2] / 2, box[1] - box[3] / 2),
+            width=box[2],
+            height=box[3],
+            fill=False,
+            edgecolor="red",
+            linewidth=1,
+        )
+        ax.add_patch(rect)
+    plt.savefig(Path(config.plot_dir).joinpath(f"bbox-{name}.png"))
+    plt.close()
 
 
 def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
@@ -47,9 +72,7 @@ class WheatDataset(Dataset):
         boxes = torch.tensor(
             [x.to_arr() for x in row.bboxes], dtype=torch.float32
         ).reshape(-1, 4)
-        boxes[:, 2:] += boxes[:, :2]
-        boxes[:, 0::2].clamp_(min=0, max=row.width)
-        boxes[:, 1::2].clamp_(min=0, max=row.height)
+        boxes = box_xyxy_to_cxcywh(boxes)
         labels = torch.zeros(boxes.shape[:1]).long()
         target: Target = {
             "boxes": boxes,

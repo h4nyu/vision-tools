@@ -1,11 +1,12 @@
-from app.dataset import WheatDataset, CocoDetection
+from app.dataset import WheatDataset, CocoDetection, plot_row
 from app.preprocess import load_lables
 
 
-def test_wheat() -> None:
+def test_plotrow() -> None:
     images = load_lables(limit=10)
     dataset = WheatDataset(images)
-    img, target = dataset[0]
+    row = dataset[0]
+    plot_row(row, "test")
 
 
 def test_coco_detection() -> None:

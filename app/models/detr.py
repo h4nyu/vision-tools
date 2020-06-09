@@ -111,7 +111,10 @@ class MLP(nn.Module):
 
 class DETR(nn.Module):
     def __init__(
-        self, num_classes: int = config.num_classes, num_queries: int = 100, hidden_dim: int = 256
+        self,
+        num_classes: int = config.num_classes,
+        num_queries: int = config.num_queries,
+        hidden_dim: int = config.hidden_dim,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -133,7 +136,7 @@ class DETR(nn.Module):
             self.input_proj(src), mask, self.query_embed.weight, pos[-1]
         )
         outputs_class = self.class_embed(hs)
-        outputs_coord = self.bbox_embed(hs).sigmoid()
+        outputs_coord = self.bbox_embed(hs)
         out: Outputs = {
             "pred_logits": outputs_class[-1],  # last layer output
             "pred_boxes": outputs_coord[-1],  # last layer output

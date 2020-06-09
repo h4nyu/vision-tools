@@ -6,29 +6,6 @@ from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
 from app import config
 from app.entities import BBox, BBoxes, Images, Image
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-
-
-def plot_bboxes(bboxes: BBoxes, path: str) -> None:
-    fig, axs = plt.subplots(4, sharex=False)
-    sizes = [b.size() for b in bboxes]
-    axs[0].hist([b.w for b in bboxes], bins=100)
-    axs[0].set_ylabel("w")
-    axs[1].hist([b.h for b in bboxes], bins=100)
-    axs[1].set_ylabel("h")
-
-    axs[2].hist([b.h / b.w for b in bboxes], bins=1000)
-    axs[2].set_ylabel("aspect")
-    blank_img = np.zeros((1024, 1024))
-    axs[3].imshow(blank_img)
-    for bbox in bboxes:
-        rect = mpatches.Rectangle(
-            (0, 0), bbox.w, bbox.h, fill=False, edgecolor="red", linewidth=1,
-        )
-        axs[3].add_patch(rect)
-    plt.savefig(Path(config.plot_dir).joinpath(path))
-    plt.close()
 
 
 def to_bbox(value: str) -> BBox:
@@ -53,20 +30,6 @@ def load_lables(limit: t.Union[None, int] = None) -> Images:
         ),
     )
     return images
-
-
-def plot_with_bbox(image: Image) -> None:
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.grid(False)
-    image_arr = image.get_arr()
-    ax.imshow(image_arr)
-    for bbox in image.bboxes:
-        rect = mpatches.Rectangle(
-            (bbox.x, bbox.y), bbox.w, bbox.h, fill=False, edgecolor="red", linewidth=1,
-        )
-        ax.add_patch(rect)
-    plt.savefig(Path(config.plot_dir).joinpath(f"bbox-{image.id}.jpg"))
-    plt.close()
 
 
 class KFold:
