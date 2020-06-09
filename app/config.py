@@ -8,7 +8,7 @@ random_state = 777
 n_splits = 5
 
 num_classes = 1
-num_queries = 10
+num_queries = 50
 hidden_dim = 256
 
 eos_coef = 0.1
