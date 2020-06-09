@@ -35,7 +35,9 @@ class Trainer:
                 collate_fn=collate_fn,
             ),
             "test": DataLoader(
-                WheatDataset(test_data), batch_size=8, collate_fn=collate_fn,
+                WheatDataset(test_data),
+                batch_size=8,
+                collate_fn=collate_fn,
                 shuffle=True,
             ),
         }

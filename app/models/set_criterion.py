@@ -5,18 +5,24 @@ from torch import nn, Tensor
 
 from .matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 from .utils import box_cxcywh_to_xyxy, generalized_box_iou
+from app import config
 
 
 Losses = t.TypedDict("Losses", {"box": Tensor, "label": Tensor,})
 
 
 class SetCriterion(nn.Module):
-    def __init__(self, num_classes: int, weights: t.Dict = {}) -> None:
+    def __init__(
+        self, num_classes: int, weights: t.Dict = {}, eos_coef: float = config.eos_coef
+    ) -> None:
         super().__init__()
         self.matcher = HungarianMatcher()
         self.num_classes = num_classes
+        self.eos_coef = eos_coef
+        empty_weight = torch.ones(self.num_classes + 1)
+        empty_weight[-1] = self.eos_coef
+        self.register_buffer("empty_weight", empty_weight)
 
-    #
     def forward(self, outputs: Outputs, targets: Targets) -> Tensor:
         indices = self.matcher(outputs, targets)
         num_boxes = sum(len(t["labels"]) for t in targets)
@@ -25,9 +31,9 @@ class SetCriterion(nn.Module):
 
         loss_label = self.loss_labels(src_logits, tgt_lables, indices)
         loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
-        loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
+        #  loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
 
-        return loss_label + loss_box + loss_cardinality + loss_giou
+        return loss_label * config.loss_label + config.loss_box * loss_box  + config.loss_giou * loss_giou
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
@@ -43,6 +49,7 @@ class SetCriterion(nn.Module):
 
         # Count the number of predictions that are NOT "no-object" (which is the last class)
         card_pred = (pred_logits.argmax(-1) != pred_logits.shape[-1] - 1).sum(1)
+
         card_err = F.l1_loss(card_pred.float(), tgt_lengths.float())
         return card_err
 
@@ -84,8 +91,9 @@ class SetCriterion(nn.Module):
 
         # tgt_classes contains object class and no-object class
         tgt_classes[idx] = tgt_classes_o
-
-        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), tgt_classes,)
+        loss_ce = F.cross_entropy(
+            src_logits.transpose(1, 2), tgt_classes, self.empty_weight #type: ignore
+        )
         return loss_ce
 
     def _get_src_permutation_idx(
