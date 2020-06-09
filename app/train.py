@@ -77,6 +77,7 @@ class Trainer:
 
     def eval_one_epoch(self) -> t.Tuple[float]:
         self.model.eval()
+        self.criterion.eval()
         epoch_loss = 0
         count = 0
         with torch.no_grad():
@@ -85,6 +86,8 @@ class Trainer:
                 samples = samples.to(device)
                 targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
                 outputs = self.model(samples)
+                loss = self.criterion(outputs, targets)
+                epoch_loss += loss.item()
             plot_row(
                 samples.decompose()[0][-1].cpu(),
                 outputs["pred_boxes"][-1].cpu(),
