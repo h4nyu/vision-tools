@@ -13,7 +13,7 @@ from app import config
 from torch import Tensor
 from torch.utils.data import Dataset
 from albumentations.pytorch.transforms import ToTensorV2
-from .entities import Images
+from .entities import Images, Image
 from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
 Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
@@ -21,13 +21,10 @@ Row = t.Tuple[Tensor, Target]
 Batch = t.Sequence[Row]
 
 
-def plot_row(row: Row, name: str) -> None:
-    image, annots = row
+def plot_row(image: Tensor, boxes: Tensor, name: str) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.grid(False)
     ax.imshow(image.permute(1, 2, 0))
-    boxes = annots["boxes"]
-    labels = annots["labels"]
     for box in boxes:
         rect = mpatches.Rectangle(
             (box[0] - box[2] / 2, box[1] - box[3] / 2),
@@ -62,13 +59,19 @@ class WheatDataset(Dataset):
         super().__init__()
         self.rows = list(images.values())
         self.mode = mode
+        self.cache: t.Dict[str, t.Any] = dict()
 
     def __len__(self) -> int:
         return len(self.rows)
 
+    def get_img(self, row: Image) -> t.Any:
+        if id not in self.cache:
+            self.cache[row.id] = row.get_arr()
+        return self.cache[row.id]
+
     def __getitem__(self, index: int) -> t.Any:
         row = self.rows[index]
-        image = ToTensorV2()(image=row.get_arr())["image"]
+        image = ToTensorV2()(image=self.get_img(row))["image"]
         boxes = torch.tensor(
             [x.to_arr() for x in row.bboxes], dtype=torch.float32
         ).reshape(-1, 4)

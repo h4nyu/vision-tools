@@ -13,7 +13,7 @@ def eda_bboxes() -> None:
 
 def train(fold_idx: int) -> None:
     images = load_lables()
-    #  kf = KFold()
-    #  train_data, test_data = list(kf(images))[fold_idx]
-    trainer = Trainer(images, images)
+    kf = KFold()
+    train_data, test_data = list(kf(images))[fold_idx]
+    trainer = Trainer(train_data, test_data)
     trainer.train(100)

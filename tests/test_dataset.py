@@ -5,8 +5,8 @@ from app.preprocess import load_lables
 def test_plotrow() -> None:
     images = load_lables(limit=10)
     dataset = WheatDataset(images)
-    row = dataset[0]
-    plot_row(row, "test")
+    img, annots = dataset[0]
+    plot_row(img, annots["boxes"], "test")
 
 
 def test_coco_detection() -> None:

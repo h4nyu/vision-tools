@@ -7,7 +7,7 @@ from logging import getLogger
 #  from app.models import NNModel
 from tqdm import tqdm
 from app.entities import Images
-from app.dataset import WheatDataset, collate_fn
+from app.dataset import WheatDataset, collate_fn, plot_row
 from app.models.detr import DETR as NNModel
 from app.models.set_criterion import SetCriterion as Criterion
 
@@ -26,15 +26,12 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=6,
+                batch_size=8,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
             "test": DataLoader(
-                WheatDataset(test_data),
-                shuffle=True,
-                batch_size=1,
-                collate_fn=collate_fn,
+                WheatDataset(test_data), batch_size=8, collate_fn=collate_fn,
             ),
         }
 
@@ -42,6 +39,8 @@ class Trainer:
         for epoch in range(num_epochs):
             (train_loss,) = self.train_one_epoch()
             logger.info(f"{train_loss=}")
+            (eval_loss,) = self.eval_one_epoch()
+            logger.info(f"{eval_loss=}")
 
     def train_one_epoch(self) -> t.Tuple[float]:
         self.model.train()
@@ -58,4 +57,19 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
+        return (epoch_loss / count,)
+
+    def eval_one_epoch(self) -> t.Tuple[float]:
+        self.model.eval()
+        epoch_loss = 0
+        count = 0
+        with torch.no_grad():
+            for samples, targets in tqdm(self.data_loaders["test"]):
+                count += 1
+                samples = samples.to(device)
+                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+                outputs = self.model(samples)["pred_boxes"]
+
+            plot_row(samples.decompose()[0][-1].cpu(), outputs[-1].cpu(), "eval")
+
         return (epoch_loss / count,)
