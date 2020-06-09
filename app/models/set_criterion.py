@@ -16,19 +16,18 @@ class SetCriterion(nn.Module):
         self.matcher = HungarianMatcher()
         self.num_classes = num_classes
 
-    def forward(self, outputs: Outputs, targets: Targets) -> Losses:
-        outputs_without_aux = {k: v for k, v in outputs.items() if k != "aux_outputs"}
-        indices = self.matcher(outputs_without_aux, targets)
+    #
+    def forward(self, outputs: Outputs, targets: Targets) -> Tensor:
+        indices = self.matcher(outputs, targets)
         num_boxes = sum(len(t["labels"]) for t in targets)
-        loss_label = self.loss_labels(outputs, targets, indices, num_boxes)
+        src_logits = outputs["pred_logits"]
+        tgt_lables = [t["labels"] for t in targets]
+
+        loss_label = self.loss_labels(src_logits, tgt_lables, indices)
         loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
         loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
 
-        losses: Losses = {"box": loss_box, "label": loss_label}
-        return losses
-
-        #  print(f"{loss_label=},{loss_box=},{loss_cardinality=}, {loss_giou=}")
-        #  return loss_label + loss_box * 2 + loss_cardinality * 1 + loss_giou
+        return loss_label + loss_box * 2 + loss_cardinality * 1 + loss_giou
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
@@ -69,22 +68,25 @@ class SetCriterion(nn.Module):
         return loss_box, loss_giou
 
     def loss_labels(
-        self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
+        self, src_logits: Tensor, tgt_lables: t.List[Tensor], indices: MatchIndecies
     ) -> Tensor:
-        pred_logits = outputs["pred_logits"]
         idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat(
-            [t["labels"][J] for t, (_, J) in zip(targets, indices)]
-        )
-        target_classes = torch.full(
-            pred_logits.shape[:2],
-            self.num_classes - 1,  # ????
+        tgt_classes_o = torch.cat([t[i] for t, (_, i) in zip(tgt_lables, indices)])
+
+        # fill no-object class
+        # the no-object class is the last class equal to self.num_classes
+        tgt_classes = torch.full(
+            src_logits.shape[:2],
+            self.num_classes,
             dtype=torch.int64,
-            device=pred_logits.device,  # type: ignore
+            device=src_logits.device,  # type: ignore
         )
-        target_classes[idx] = target_classes_o
-        loss = F.cross_entropy(pred_logits.transpose(1, 2), target_classes)
-        return loss
+
+        # tgt_classes contains object class and no-object class
+        tgt_classes[idx] = tgt_classes_o
+
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), tgt_classes,)
+        return loss_ce
 
     def _get_src_permutation_idx(
         self, indices: MatchIndecies

@@ -3,6 +3,7 @@ plot_dir = "/store/plot"
 image_dir = "/store/images"
 
 n_splits = 5
+num_classes = 1
 random_state = 777
 hidden_dim = 256
 cost_class = 1

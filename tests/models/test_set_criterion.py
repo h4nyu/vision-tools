@@ -1,111 +1,23 @@
 import torch
 from app.models.set_criterion import SetCriterion
-from app.models.matcher import HungarianMatcher, Outputs, Targets
+from app.models.matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 
 
-#  def test_setlosses() -> None:
-#      batch_size = 1
-#      num_queries = 5
-#      num_classes = 2
-#      outputs: Outputs = {
-#          "pred_logits": torch.tensor([
-#              [0.1, 0.9,],
-#              [0.1, 0.2]
-#          ]),
-#          "pred_boxes": torch.tensor([
-#              [0, 0, 1, 1],
-#              [1, 1, 1, 1],
-#          ]).float(),
-#      }
-#      print(outputs['pred_logits'].shape)
-#
-#      targets: Targets = [
-#          {
-#              "labels": torch.tensor([
-#                  [1, 1]
-#              ]).long(),
-#              "boxes": torch.tensor([
-#                  [0, 0, 1, 1],
-#                  [1, 1, 1, 1],
-#              ]).float()
-#          },
-#      ]
-#      fn = SetCriterion(num_classes=num_classes, weights={},)
-#      res = fn(outputs, targets)
-#      print(f"{res=}")
+def test_loss_lables() -> None:
+    src_logits = torch.tensor([[[0.1, 0.9], [0.9, 0.1], [0.9, 0.1]]])  # 1, 0, 0
 
-
-#  def tet_label_loss() -> None:
-#      batch_size = 2
-#      num_queries = 5
-#      num_classes = 2
-#      outputs: Outputs = {
-#          "pred_logits": torch.rand(batch_size, num_queries, num_classes),
-#          "pred_boxes": torch.rand(batch_size, num_queries, 4),
-#      }
-#
-#      targets: Targets = [
-#          {
-#              "labels": torch.ones((9,)),
-#              "boxes": torch.cat([torch.ones((9, 2)), torch.ones((9, 2)) * 1], dim=1),
-#          },
-#          {
-#              "labels": torch.zeros((2,)),
-#              "boxes": torch.cat([torch.ones((2, 2)), torch.ones((2, 2)) * 1], dim=1),
-#          },
-#      ]
-#
-#      fn = SetCriterion(num_classes=2)
-#      #  fn.loss_labels(
-#      #      outputs, targets, indices,
-#      #  )
-
-
-def test_forward() -> None:
-    batch_size = 2
-    num_queries = 5
-    num_classes = 2
-    outputs: Outputs = {
-        "pred_logits": torch.rand(batch_size, num_queries, num_classes),
-        "pred_boxes": torch.rand(batch_size, num_queries, 4),
-    }
-
-    targets: Targets = [
-        {
-            "labels": torch.zeros((9,)).long(),
-            "boxes": torch.cat([torch.ones((9, 2)), torch.ones((9, 2)) * 1], dim=1),
-        },
-        {
-            "labels": torch.zeros((2,)).long(),
-            "boxes": torch.cat([torch.ones((2, 2)), torch.ones((2, 2)) * 1], dim=1),
-        },
+    assert src_logits.shape == (1, 3, 2)
+    patters = [
+        ([0, 0], [0, 1], [0, 1], 0.95),
+        ([0, 0], [1, 2], [0, 1], 0.4),
+        ([0], [2], [0], 0.65),
+        ([0], [0], [0], 1.2),
     ]
-    fn = SetCriterion(num_classes=num_classes, weights={},)
-    res = fn.forward(outputs, targets)
-    print(f"{res=}")
-
-
-#  def tet_label_loss() -> None:
-#      batch_size = 2
-#      num_queries = 5
-#      num_classes = 2
-#      outputs: Outputs = {
-#          "pred_logits": torch.rand(batch_size, num_queries, num_classes),
-#          "pred_boxes": torch.rand(batch_size, num_queries, 4),
-#      }
-#
-#      targets: Targets = [
-#          {
-#              "labels": torch.ones((9,)),
-#              "boxes": torch.cat([torch.ones((9, 2)), torch.ones((9, 2)) * 1], dim=1),
-#          },
-#          {
-#              "labels": torch.zeros((2,)),
-#              "boxes": torch.cat([torch.ones((2, 2)), torch.ones((2, 2)) * 1], dim=1),
-#          },
-#      ]
-#
-#      fn = SetCriterion(num_classes=2)
-#      #  fn.loss_labels(
-#      #      outputs, targets, indices,
-#      #  )
+    fn = SetCriterion(num_classes=1, weights={},)
+    for tgt, src_ids, tgt_ids, loss in patters:
+        tgt_labels = [torch.tensor(tgt).long()]  # dynamic size for each batch
+        indices: MatchIndecies = [(torch.tensor(src_ids), torch.tensor(tgt_ids))]
+        assert len(tgt_labels) == 1
+        assert len(indices) == 1
+        res = fn.loss_labels(src_logits, tgt_labels, indices)
+        assert res < loss
