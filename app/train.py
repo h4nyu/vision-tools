@@ -33,7 +33,7 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=24,
+                batch_size=16,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),

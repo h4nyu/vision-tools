@@ -36,7 +36,7 @@ class SetCriterion(nn.Module):
             loss_label * config.loss_label
             + config.loss_box * loss_box
             #  + loss_cardinality
-            #  + config.loss_giou * loss_giou
+            + config.loss_giou * loss_giou
         )
 
     def loss_cardinality(
@@ -75,7 +75,7 @@ class SetCriterion(nn.Module):
                     box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
                 )
             )
-        ).mean()
+        ).sum() / num_boxes
         return loss_box, loss_giou
 
     def loss_labels(
