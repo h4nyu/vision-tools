@@ -9,7 +9,16 @@ from app import config
 
 def eda_bboxes() -> None:
     images = load_lables()
-    bboxes = pipe(images.values(), map(lambda x: x.bboxes), reduce(lambda x, y: x + y),)
+    box_counts = pipe(images.values(), map(lambda x: len(x.boxes)), list)
+    max_counts = max(box_counts)
+    print(f"{max_counts=}")
+    min_counts = min(box_counts)
+    print(f"{min_counts=}")
+    ws = pipe(images.values(), map(lambda x: x.width), list)
+    max_width = max(ws)
+    print(f"{max_width=}")
+    min_width = min(ws)
+    print(f"{min_width=}")
 
 
 def train(fold_idx: int) -> None:
@@ -19,4 +28,4 @@ def train(fold_idx: int) -> None:
     trainer = Trainer(
         train_data, test_data, Path(config.root_dir).joinpath(str(fold_idx))
     )
-    trainer.train(100)
+    trainer.train(1000)

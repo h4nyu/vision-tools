@@ -31,9 +31,13 @@ class SetCriterion(nn.Module):
 
         loss_label = self.loss_labels(src_logits, tgt_lables, indices)
         loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
-        #  loss_cardinality = self.loss_cardinality(outputs, targets, indices, num_boxes)
-
-        return loss_label * config.loss_label + config.loss_box * loss_box  + config.loss_giou * loss_giou
+        #  loss_cardinality = self.loss_cardinality(outputs, targets,indices, num_boxes)
+        return (
+            loss_label * config.loss_label
+            + config.loss_box * loss_box
+            #  + loss_cardinality
+            #  + config.loss_giou * loss_giou
+        )
 
     def loss_cardinality(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
@@ -71,7 +75,7 @@ class SetCriterion(nn.Module):
                     box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
                 )
             )
-        ).sum() / num_boxes
+        ).mean()
         return loss_box, loss_giou
 
     def loss_labels(
@@ -92,7 +96,7 @@ class SetCriterion(nn.Module):
         # tgt_classes contains object class and no-object class
         tgt_classes[idx] = tgt_classes_o
         loss_ce = F.cross_entropy(
-            src_logits.transpose(1, 2), tgt_classes, self.empty_weight #type: ignore
+            src_logits.transpose(1, 2), tgt_classes, self.empty_weight  # type: ignore
         )
         return loss_ce
 

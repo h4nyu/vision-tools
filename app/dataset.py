@@ -17,9 +17,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Annotations, Annotation
 from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
-normalize = T.Compose([
-    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-])
+normalize = T.Compose([T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
 
 
 Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
@@ -28,7 +26,7 @@ Batch = t.Sequence[Row]
 
 
 def plot_row(
-    image: Tensor, boxes: Tensor, path: Path, gt_boxes: t.Optional[Tensor] = None
+    image: Tensor, boxes: Tensor, path: Path, probs: t.Optional[Tensor]=None, gt_boxes: t.Optional[Tensor] = None
 ) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
     h, w = image.shape[1:]
@@ -36,7 +34,8 @@ def plot_row(
     ax.imshow(image.permute(1, 2, 0))
     boxes[:, [0, 2]] = boxes[:, [0, 2]] * w
     boxes[:, [1, 3]] = boxes[:, [1, 3]] * h
-    for box in boxes:
+    _probs = probs if probs is not None else torch.ones((image.shape[0],))
+    for box, p in zip(boxes, _probs):
         rect = mpatches.Rectangle(
             (box[0] - box[2] / 2, box[1] - box[3] / 2),
             width=box[2],
@@ -44,6 +43,7 @@ def plot_row(
             fill=False,
             edgecolor="red",
             linewidth=1,
+            alpha=float(p),
         )
         ax.add_patch(rect)
 
@@ -64,7 +64,7 @@ def plot_row(
     plt.close()
 
 
-def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
+def detr_collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
     images: t.List[Tensor] = []
     targets: t.List[Target] = []
     for img, tgt in batch:
@@ -76,6 +76,15 @@ def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
     device = images_tensor.device
     mask = torch.zeros((b, h, w), dtype=torch.bool, device=device)
     return NestedTensor(images_tensor, mask), targets
+
+def collate_fn(batch: Batch) -> t.Tuple[Tensor, t.List[Target]]:
+    images: t.List[Tensor] = []
+    targets: t.List[Target] = []
+    for img, tgt in batch:
+        targets.append(tgt)
+        images.append(img)
+    images_tensor = torch.stack(images)
+    return images_tensor, targets
 
 
 class WheatDataset(Dataset):
@@ -110,7 +119,7 @@ class WheatDataset(Dataset):
             "boxes": boxes,
             "labels": labels,
         }
-        return normalize(image), target
+        return image, target
 
 
 class CocoDetection(torchvision.datasets.CocoDetection):

@@ -10,7 +10,8 @@ from logging import getLogger
 from torch.utils.data import DataLoader
 from app.entities import Annotations
 from app.dataset import WheatDataset, collate_fn, plot_row
-from app.models.detr import DETR as NNModel
+#  from app.models.detr import DETR as NNModel
+from app.models.centernet import CenterNet as NNModel
 from app.models.set_criterion import SetCriterion as Criterion
 from app import config
 
@@ -25,12 +26,14 @@ class Trainer:
     ) -> None:
         self.model = NNModel().to(device)
         self.criterion = Criterion(num_classes=config.num_classes).to(device)
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=config.lr
+        )
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=16,
+                batch_size=24,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
@@ -73,19 +76,20 @@ class Trainer:
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             outputs = self.model(samples)
-            loss = self.criterion(outputs, targets)
-            print(loss)
+            try:
+                loss = self.criterion(outputs, targets)
+            except:
+                continue
             self.optimizer.zero_grad()
             loss.backward()
-            if self.clip_max_norm > 0:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_max_norm) # type: ignore
             self.optimizer.step()
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(
-                    samples.decompose()[0][-1].cpu(),
+                    samples[-1].cpu(),
                     outputs["pred_boxes"][-1].cpu(),
                     self.output_dir.joinpath("train.png"),
+                    outputs["pred_boxes"][-1][:, 0],
                     targets[-1]["boxes"].cpu(),
                 )
         return (epoch_loss / count,)
@@ -101,13 +105,17 @@ class Trainer:
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             outputs = self.model(samples)
-            loss = self.criterion(outputs, targets)
+            try:
+                loss = self.criterion(outputs, targets)
+            except:
+                continue
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(
-                    samples.decompose()[0][-1].cpu(),
+                    samples[-1].cpu(),
                     outputs["pred_boxes"][-1].cpu(),
                     self.output_dir.joinpath("test.png"),
+                    outputs["pred_boxes"][-1][:, 0],
                     targets[-1]["boxes"].cpu(),
                 )
 

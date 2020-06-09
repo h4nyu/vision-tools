@@ -43,7 +43,7 @@ class HungarianMatcher(nn.Module):
 
         cost_class = -out_probs[:, tgt_ids]
         cost_box = torch.cdist(out_boxes, tgt_boxes, p=1)
-        cost_giou = 1 - generalized_box_iou(
+        cost_giou = -generalized_box_iou(
             box_cxcywh_to_xyxy(out_boxes), box_cxcywh_to_xyxy(tgt_boxes),
         )
         cost = (

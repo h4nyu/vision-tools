@@ -1,4 +1,5 @@
-from torch import nn
+import typing as t
+from torch import nn, Tensor
 import torch.nn.functional as F
 
 
@@ -50,8 +51,8 @@ class ConvBR2d(nn.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
-        stride: int = 1,
         padding: int = 0,
+        stride: int = 1,
         dilation: int = 1,
         groups: int = 1,
         bias: bool = False,
@@ -69,7 +70,66 @@ class ConvBR2d(nn.Module):
         )
         self.norm = nn.BatchNorm2d(out_channels)
 
-    def forward(self, x):  # type:ignore
+    def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
         x = self.norm(x)
+        return x
+
+
+class SENextBottleneck2d(nn.Module):
+    pool: t.Union[None, nn.MaxPool2d, nn.AvgPool2d]
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        stride: int = 1,
+        reduction: int = 8,
+        groups: int = 16,
+        pool: t.Literal["max", "avg"] = "max",
+        is_shortcut: bool = True,
+    ) -> None:
+        super().__init__()
+        mid_channels = groups * (out_channels // 2 // groups)
+        self.conv1 = ConvBR2d(
+            in_channels, mid_channels, kernel_size=1, padding=0, stride=1,
+        )
+        self.conv2 = ConvBR2d(
+            mid_channels,
+            mid_channels,
+            kernel_size=3,
+            padding=1,
+            stride=1,
+            groups=groups,
+        )
+        self.conv3 = ConvBR2d(
+            mid_channels, out_channels, kernel_size=1, padding=0, stride=1
+        )
+        self.se = CSE2d(out_channels, reduction)
+        self.stride = stride
+        self.is_shortcut = is_shortcut
+        self.act = nn.ReLU(inplace=True)
+        if self.is_shortcut:
+            self.shortcut = ConvBR2d(in_channels, out_channels, 1, 0, 1)
+        if stride > 1:
+            if pool == "max":
+                self.pool = nn.MaxPool2d(stride, stride)
+            elif pool == "avg":
+                self.pool = nn.AvgPool2d(stride, stride)
+
+    def forward(self, x: Tensor) -> Tensor:
+        s = self.conv1(x)
+        s = self.act(s)
+        s = self.conv2(s)
+        s = self.act(s)
+        if self.stride > 1 and self.pool is not None:
+            s = self.pool(s)
+        s = self.conv3(s)
+        s = self.se(s)
+        if self.is_shortcut:
+            if self.stride > 1:
+                x = F.avg_pool2d(x, self.stride, self.stride)  # avg
+            x = self.shortcut(x)
+        x = x + s
+        x = self.act(x)
         return x
