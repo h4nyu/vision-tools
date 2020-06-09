@@ -73,12 +73,14 @@ def collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
 
 class WheatDataset(Dataset):
     def __init__(
-        self, images: Images, mode: t.Literal["train", "test"] = "train"
+        self, images: Images, mode: t.Literal["train", "test"] = "train",
+        use_cache:bool=False,
     ) -> None:
         super().__init__()
         self.rows = list(images.values())
         self.mode = mode
         self.cache: t.Dict[str, t.Any] = dict()
+        self.use_cache = use_cache
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -90,7 +92,9 @@ class WheatDataset(Dataset):
 
     def __getitem__(self, index: int) -> t.Any:
         row = self.rows[index]
-        image = ToTensorV2()(image=self.get_img(row))["image"]
+        image = ToTensorV2()(
+            image=self.get_img(row) if self.use_cache else row.get_arr()
+        )["image"]
         boxes = torch.tensor(
             [x.to_arr() for x in row.bboxes], dtype=torch.float32
         ).reshape(-1, 4)
