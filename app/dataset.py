@@ -23,6 +23,7 @@ normalize = T.Compose([T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
 Row = t.Tuple[Tensor, Target]
 Batch = t.Sequence[Row]
+Targets = t.List[Target]
 
 
 def plot_row(

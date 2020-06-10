@@ -10,32 +10,32 @@ class MobileV3(nn.Module):
         in_channels: int,
         out_channels: int,
         mid_channels: int,
-        kernel: t.Literal[3, 5] = 3,
+        kernel_size: t.Literal[3, 5] = 3,
         stride: t.Literal[1, 2] = 1,
     ):
         super().__init__()
-        padding = (kernel - 1) // 2
+        padding = (kernel_size - 1) // 2
         self.stride = stride
         self.is_shortcut = (stride == 1) and (in_channels == out_channels)
 
         self.conv = nn.Sequential(
             # pw
-            ConvBR2d(in_channels, mid_channels, 1, 1, 0),
+            ConvBR2d(in_channels, mid_channels, kernel_size=1, stride=1, padding=0),
             Hswish(),
             #  # dw
             ConvBR2d(
                 mid_channels,
                 mid_channels,
-                kernel,
-                stride,
-                padding,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
                 groups=mid_channels,
                 bias=False,
             ),
             CSE2d(mid_channels, reduction=4),
             Hswish(),
             # pw-linear
-            ConvBR2d(mid_channels, out_channels, 1, 1, 0),
+            ConvBR2d(mid_channels, out_channels, kernel_size=1, stride=1, padding=0),
         )
 
     def forward(self, x):  # type: ignore

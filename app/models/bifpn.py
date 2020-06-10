@@ -91,7 +91,6 @@ class BiFPN(nn.Module):
 
     def forward(self, inputs: FP) -> FP:
         p3_in, p4_in, p5_in, p6_in, p7_in = inputs
-
         p7_up = self.up7(p7_in, p6_in)
         p6_mid = self.mid6(p7_up, p6_in)
         p6_up = self.up7(p6_mid, p5_in)

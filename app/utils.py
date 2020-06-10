@@ -25,3 +25,12 @@ def plot_boxes(boxes: Tensor, path: str, size: t.Tuple[int, int] = (128, 128)) -
         ax.add_patch(rect)
     plt.savefig(path)
     plt.close()
+
+
+def plot_heatmap(heatmap: Tensor, path: str) -> None:
+    fig, ax = plt.subplots(figsize=(6, 6))
+    h, w = heatmap.shape
+    ax.grid(False)
+    ax.imshow(heatmap)
+    plt.savefig(path)
+    plt.close()

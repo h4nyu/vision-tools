@@ -10,10 +10,12 @@ from logging import getLogger
 from torch.utils.data import DataLoader
 from app.entities import Annotations
 from app.dataset import WheatDataset, plot_row
-from app.dataset import detr_collate_fn as collate_fn
-from app.models.detr import DETR as NNModel
 
-#  from app.models.centernet import CenterNet as NNModel
+#  from app.dataset import detr_collate_fn as collate_fn
+#  from app.models.detr import DETR as NNModel
+
+from app.dataset import collate_fn
+from app.models.centernet import CenterNet as NNModel
 from app.models.set_criterion import SetCriterion as Criterion
 from app import config
 
@@ -83,7 +85,7 @@ class Trainer:
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(
-                    samples.decompose()[0][-1].cpu(),
+                    samples[-1].cpu(),
                     outputs["pred_boxes"][-1].cpu(),
                     self.output_dir.joinpath("train.png"),
                     outputs["pred_boxes"][-1].softmax(-1)[:, 0],
@@ -106,7 +108,7 @@ class Trainer:
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(
-                    samples.decompose()[0][-1].cpu(),
+                    samples[-1].cpu(),
                     outputs["pred_boxes"][-1].cpu(),
                     self.output_dir.joinpath("test.png"),
                     outputs["pred_boxes"][-1].softmax(-1)[:, 0],

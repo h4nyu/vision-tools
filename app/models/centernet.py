@@ -1,131 +1,147 @@
+import torch
+import numpy as np
 import typing as t
+import torchvision
+import math
 from app import config
 from torch import nn, Tensor
 from .modules import ConvBR2d, SENextBottleneck2d
-from .matcher import Outputs
+from .bifpn import BiFPN, FP
+from app.dataset import Target
+from scipy.stats import multivariate_normal
 
 
-class BoxRegression(nn.Module):
-    def __init__(self, in_channels: int, num_queries: int) -> None:
+class GussiianFilter(nn.Module):
+    def __init__(self, kernel_size: int, sigma: float, channels: int,) -> None:
         super().__init__()
-        self.conv0 = nn.Conv2d(
-            in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
+        x_cord = torch.arange(kernel_size)
+        x_grid = x_cord.repeat(kernel_size).view(kernel_size, kernel_size)
+        y_grid = x_grid.t()
+        xy_grid = torch.stack([x_grid, y_grid], dim=-1)
+        mean = (kernel_size - 1) / 2.0
+        variance = sigma ** 2.0
+        kernel = (1.0 / (2.0 * math.pi * variance)) * torch.exp(
+            -torch.sum((xy_grid - mean) ** 2.0, dim=-1) / (2 * variance)
         )
-        self.act = nn.ReLU(inplace=True)
-        self.out = nn.Sequential(
-            nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=num_queries * 4,
-                kernel_size=1,
-                padding=0,
-            ),
-            nn.AdaptiveAvgPool2d(1),
+        kernel = kernel / torch.sum(kernel)
+        kernel = kernel.view(1, 1, kernel_size, kernel_size)
+        kernel = kernel.repeat(channels, 1, 1, 1)
+        self.filter = nn.Conv2d(
+            in_channels=channels,
+            out_channels=channels,
+            kernel_size=kernel_size,
+            groups=channels,
+            bias=False,
         )
-        self.num_queries = num_queries
+        self.filter.weight.data = kernel
+        self.filter.weight.requires_grad = False
 
     def forward(self, x: Tensor) -> Tensor:
-        b, _, _, _ = x.shape
-        x = self.conv0(x)
-        x = self.act(x)
-        x = self.out(x)
-        x = x.view(b, self.num_queries, 4)
-        return x
+        return self.filter(x)
 
 
-class LabelClassification(nn.Module):
-    def __init__(self, in_channels: int, num_queries: int, num_classes: int) -> None:
+class Backbone(nn.Module):
+    def __init__(self, name: str, out_channels: int) -> None:
         super().__init__()
-        self.conv0 = nn.Conv2d(
-            in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
+        backbone = torchvision.models.resnet18(pretrained=True)
+        if name == "resnet34" or name == "resnet18":
+            num_channels = 512
+        else:
+            num_channels = 2048
+        self.layers = list(backbone.children())[:-2]
+        self.projects = [
+            nn.Conv2d(in_channels=i, out_channels=out_channels, kernel_size=1,)
+            for i in [64, 64, 128, 256, 512]
+        ]
+
+    def forward(self, x: Tensor) -> FP:
+        internal_outputs = []
+        for layer in self.layers:
+            print(x.shape)
+            x = layer(x)
+            internal_outputs.append(x)
+        _, p3, _, p4, _, p5, p6, p7 = internal_outputs
+        return (
+            self.projects[0](p3),
+            self.projects[1](p4),
+            self.projects[2](p5),
+            self.projects[3](p6),
+            self.projects[4](p7),
         )
-        self.act = nn.ReLU(inplace=True)
-        self.out = nn.Sequential(
-            nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=num_queries * num_classes,
-                kernel_size=1,
-                padding=0,
-            ),
-            nn.AdaptiveAvgPool2d(1),
-        )
-        self.num_queries = num_queries
-        self.num_classes = num_classes
-
-    def forward(self, x: Tensor) -> Tensor:
-        b, _, _, _ = x.shape
-        x = self.conv0(x)
-        x = self.act(x)
-        x = self.out(x)
-        x = x.view(b, self.num_queries, self.num_classes).sigmoid()
-        return x
 
 
-class Down2d(nn.Module):
-    """Downscaling with maxpool then double conv"""
-
+class CenterHeatMap(nn.Module):
     def __init__(
-        self, in_channels: int, out_channels: int, pool: t.Literal["max", "avg"] = "max"
+        self,
+        w: int,
+        h: int,
+        kernel_size: int = 3,
+        #  sigma_x:float,
+        #  sigma_y:float,
     ) -> None:
         super().__init__()
+        self.w = w
+        self.h = h
+        self.filter = GussiianFilter(kernel_size=kernel_size, channels=1, sigma=2.0,)
 
-        self.block = nn.Sequential(
-            SENextBottleneck2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                stride=2,
-                is_shortcut=True,
-                pool=pool,
-            ),
+    def forward(self, target: Target) -> Tensor:
+        boxes = target["boxes"]
+        img = torch.zeros((1, 1, self.w, self.h)).to(boxes.device)
+        b, _ = boxes.shape
+        if b == 0:
+            return img
+        x0 = (boxes[:, 0] * self.w).long()
+        y0 = (boxes[:, 1] * self.h).long()
+        img[:, :, x0, y0] = 1
+        img = self.filter(img)[0, 0]
+        img = img / img.max()
+        return img
+
+
+class PreProcess(nn.Module):
+    def forward(self, batch: t.Tuple[Tensor, t.List[Target]]) -> Tensor:
+        ...
+
+
+class Criterion(nn.Module):
+    def forward(self, src: Tensor, tgt: Tensor) -> Tensor:
+        src = src.unsqueeze(1).float()
+        tgt = tgt.unsqueeze(1).float()
+        pos_inds = tgt.eq(1).float()
+        neg_inds = tgt.lt(1).float()
+        neg_weights = torch.pow(1 - tgt, 4)
+        loss = torch.tensor(0).to(src.device)
+        pos_loss = torch.log(src + 1e-12) * torch.pow(1 - src, 3) * pos_inds
+        neg_loss = (
+            torch.log(1 - src + 1e-12) * torch.pow(src, 3) * neg_weights * neg_inds
         )
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.block(x)
+        num_pos = pos_inds.float().sum()
+        pos_loss = pos_loss.sum()
+        neg_loss = neg_loss.sum()
+        if num_pos == 0:
+            loss = loss - neg_loss
+        else:
+            loss = loss - (pos_loss + neg_loss) / num_pos
+        return loss
 
 
 class CenterNet(nn.Module):
-    def __init__(
-        self,
-        num_queries: int = config.num_queries,
-        num_classes: int = config.num_classes,
-    ) -> None:
+    def __init__(self, name: str = "resnet18", num_classes: int = 1) -> None:
         super().__init__()
-        base_channels = 16
-        self.box_reg = BoxRegression(
-            in_channels=base_channels * 2, num_queries=num_queries,
-        )
-        self.label_clf = LabelClassification(
-            in_channels=base_channels * 2,
-            num_queries=num_queries,
-            num_classes=num_classes + 1,
-        )
-        self.inc = nn.Conv2d(
-            in_channels=3,
-            out_channels=base_channels,
-            kernel_size=3,
-            padding=1,
-            stride=1,
-        )
-        self.down0 = Down2d(in_channels=base_channels, out_channels=base_channels * 2)
-        self.down1 = Down2d(
-            in_channels=base_channels * 2, out_channels=base_channels * 2
-        )
-        self.down2 = Down2d(
-            in_channels=base_channels * 2, out_channels=base_channels * 2
-        )
-        self.down3 = Down2d(
-            in_channels=base_channels * 2, out_channels=base_channels * 2
-        )
+        channels = 64
+        self.backbone = Backbone(name, out_channels=channels)
+        self.fpn = BiFPN(channels=channels)
+        self.outc = nn.Conv2d(channels, 1, kernel_size=1)
+        self.outr = nn.Conv2d(channels, 2, kernel_size=1)
+        self.outr = nn.Conv2d(channels, 2, kernel_size=1)
 
-    def forward(self, x: Tensor) -> Outputs:
-        x = self.inc(x)
-        x = self.down0(x)
-        x = self.down1(x)
-        x = self.down2(x)
-        x = self.down3(x)
-        reg = self.box_reg(x)
-        clf = self.label_clf(x)
-        out: Outputs = {
-            "pred_logits": clf,  # last layer output
-            "pred_boxes": reg,  # last layer output
-        }
-        return out
+    def forward(self, x: Tensor) -> t.Tuple[Tensor, Tensor]:
+        """
+        x: [B, 3, W, H]
+        """
+        fp = self.backbone(x)
+        fp = self.fpn(fp)
+
+        outc = self.outc(fp[0])
+        outr = self.outr(fp[0])
+        return outc, outr

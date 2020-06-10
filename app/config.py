@@ -14,10 +14,10 @@ num_queries = 50
 hidden_dim = 128
 
 eos_coef = 0.01
-loss_label = 1
-loss_box = 2
+loss_label = 2
+loss_box = 1
 loss_giou = 0
 
 cost_class = 1
-cost_box = 2
-cost_giou = 0
+cost_box = 1
+cost_giou = 1
