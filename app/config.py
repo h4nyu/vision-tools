@@ -10,14 +10,14 @@ clip_max_norm = 0.1
 
 
 num_classes = 1
-num_queries = 200
+num_queries = 50
 hidden_dim = 128
 
-eos_coef = 43/200
+eos_coef = 0.01
 loss_label = 1
 loss_box = 2
-loss_giou = 2
+loss_giou = 0
 
-cost_class = 2
-cost_box = 1
-cost_giou = 1
+cost_class = 1
+cost_box = 2
+cost_giou = 0

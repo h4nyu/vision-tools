@@ -31,7 +31,7 @@ def plot_row(
     path: Path,
     probs: t.Optional[Tensor] = None,
     gt_boxes: t.Optional[Tensor] = None,
-    threshold: float = 0.4,
+    threshold: float = 0.1,
 ) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
     h, w = image.shape[1:]
@@ -42,6 +42,7 @@ def plot_row(
     _probs = probs if probs is not None else torch.ones((image.shape[0],))
     for box, p in zip(boxes, _probs):
         if p > threshold:
+            ax.text(box[0], box[1], f"{p:.2f}", fontsize=5)
             rect = mpatches.Rectangle(
                 (box[0] - box[2] / 2, box[1] - box[3] / 2),
                 width=box[2],

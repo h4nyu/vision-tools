@@ -13,7 +13,7 @@ class Transformer(nn.Module):
         num_encoder_layers: int = 6,
         num_decoder_layers: int = 6,
         dim_feedforward: int = 2048,
-        dropout: float = 0.1,
+        dropout: float = 0.0,
         normalize_before: bool = False,
         return_intermediate_dec: bool = True,
     ):
@@ -115,7 +115,7 @@ class TransformerEncoderLayer(nn.Module):
         d_model: int,
         nhead: int,
         dim_feedforward: int = 2048,
-        dropout: float = 0.1,
+        dropout: float = 0.0,
         normalize_before: bool = False,
     ) -> None:
         super().__init__()
@@ -195,7 +195,7 @@ class TransformerDecoderLayer(nn.Module):
         d_model: int,
         nhead: int,
         dim_feedforward: int = 2048,
-        dropout: float = 0.1,
+        dropout: float = 0.0,
         normalize_before: bool = False,
     ) -> None:
         super().__init__()

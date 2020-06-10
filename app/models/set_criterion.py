@@ -12,9 +12,7 @@ Losses = t.TypedDict("Losses", {"box": Tensor, "label": Tensor,})
 
 
 class SetCriterion(nn.Module):
-    def __init__(
-        self, num_classes: int, eos_coef: float = config.eos_coef
-    ) -> None:
+    def __init__(self, num_classes: int, eos_coef: float = config.eos_coef) -> None:
         super().__init__()
         self.matcher = HungarianMatcher()
         self.num_classes = num_classes
@@ -66,7 +64,8 @@ class SetCriterion(nn.Module):
             [t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
         )
         loss_box = (
-            F.smooth_l1_loss(pred_boxes, target_boxes, reduction="none").sum() / num_boxes
+            F.smooth_l1_loss(pred_boxes, target_boxes, reduction="none").sum()
+            / num_boxes
         )
         return loss_box
 

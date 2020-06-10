@@ -2,6 +2,7 @@ import torch
 from app.models.set_criterion import SetCriterion
 from app.models.matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 
+
 def test_loss_lables() -> None:
     src_logits = torch.tensor([[[0.1, 0.9], [0.9, 0.1], [0.9, 0.1]]])  # 1, 0, 0
 

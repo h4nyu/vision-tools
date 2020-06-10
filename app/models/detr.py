@@ -98,14 +98,24 @@ class MLP(nn.Module):
     ) -> None:
         super().__init__()
         self.num_layers = num_layers
-        h = [hidden_dim] * (num_layers - 1)
+        h_dims = [hidden_dim] * (num_layers - 1)
         self.layers = nn.ModuleList(
-            nn.Linear(n, k) for n, k in zip([input_dim] + h, h + [output_dim])
+            nn.Linear(n, k) for n, k in zip([input_dim] + h_dims, h_dims + [output_dim])
         )
+        self.act = nn.ReLU(inplace=True)
+        self._init_bias()
+
+    @torch.no_grad()
+    def _init_bias(self) -> None:
+        """
+        to centerize box positions
+        """
+        for l in self.layers:
+            torch.nn.init.xavier_uniform_(l.weight,)
 
     def forward(self, x: Tensor) -> Tensor:
         for i, layer in enumerate(self.layers):
-            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            x = self.act(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
 
 
@@ -119,11 +129,11 @@ class DETR(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.num_queries = num_queries
-        backbone = Backbone("resnet34")
+        backbone = Backbone("resnet18")
         self.backbone = Joiner(backbone, PositionEmbeddingSine(hidden_dim // 2))
 
         self.transformer = Transformer(d_model=hidden_dim,)
-        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
+        self.class_embed = MLP(hidden_dim, hidden_dim, num_classes + 1, 3)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
         self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
