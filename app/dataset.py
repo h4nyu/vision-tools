@@ -120,7 +120,7 @@ class WheatDataset(Dataset):
             "boxes": boxes,
             "labels": labels,
         }
-        return image, target
+        return normalize(image), target
 
 
 class CocoDetection(torchvision.datasets.CocoDetection):
