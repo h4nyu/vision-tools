@@ -16,7 +16,7 @@ hidden_dim = 128
 eos_coef = 43/200
 loss_label = 1
 loss_box = 2
-loss_giou = 2
+loss_giou = 1
 
 cost_class = 2
 cost_box = 1
