@@ -18,6 +18,6 @@ loss_label = 1
 loss_box = 2
 loss_giou = 2
 
-cost_class = 1
-cost_box = 2
-cost_giou = 2
+cost_class = 2
+cost_box = 1
+cost_giou = 1

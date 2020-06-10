@@ -31,12 +31,12 @@ def plot_row(
     path: Path,
     probs: t.Optional[Tensor] = None,
     gt_boxes: t.Optional[Tensor] = None,
-    threshold: float = 0.3,
+    threshold: float = 0.4,
 ) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
     h, w = image.shape[1:]
     ax.grid(False)
-    ax.imshow(image.permute(1, 2, 0))
+    ax.imshow(torch.ones(w, h, 3))
     boxes[:, [0, 2]] = boxes[:, [0, 2]] * w
     boxes[:, [1, 3]] = boxes[:, [1, 3]] * h
     _probs = probs if probs is not None else torch.ones((image.shape[0],))
