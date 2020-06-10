@@ -8,7 +8,7 @@ from .matcher import Outputs
 class BoxRegression(nn.Module):
     def __init__(self, in_channels: int, num_queries: int) -> None:
         super().__init__()
-        self.conv0 = ConvBR2d(
+        self.conv0 = nn.Conv2d(
             in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
         )
         self.act = nn.ReLU(inplace=True)
@@ -35,7 +35,7 @@ class BoxRegression(nn.Module):
 class LabelClassification(nn.Module):
     def __init__(self, in_channels: int, num_queries: int, num_classes: int) -> None:
         super().__init__()
-        self.conv0 = ConvBR2d(
+        self.conv0 = nn.Conv2d(
             in_channels=in_channels, out_channels=in_channels, kernel_size=3, padding=1
         )
         self.act = nn.ReLU(inplace=True)

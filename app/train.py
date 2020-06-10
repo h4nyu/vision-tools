@@ -9,9 +9,10 @@ from pathlib import Path
 from logging import getLogger
 from torch.utils.data import DataLoader
 from app.entities import Annotations
-from app.dataset import WheatDataset, collate_fn, plot_row
-#  from app.models.detr import DETR as NNModel
-from app.models.centernet import CenterNet as NNModel
+from app.dataset import WheatDataset, plot_row
+from app.dataset import detr_collate_fn as collate_fn
+from app.models.detr import DETR as NNModel
+#  from app.models.centernet import CenterNet as NNModel
 from app.models.set_criterion import SetCriterion as Criterion
 from app import config
 
@@ -33,18 +34,18 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=16,
+                batch_size=4,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
             "test": DataLoader(
                 WheatDataset(test_data),
-                batch_size=16,
+                batch_size=4,
                 collate_fn=collate_fn,
                 shuffle=True,
             ),
         }
-        self.check_interval = 10
+        self.check_interval = 50
         self.clip_max_norm = config.clip_max_norm
 
         self.output_dir = output_dir
@@ -86,10 +87,10 @@ class Trainer:
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(
-                    samples[-1].cpu(),
+                    samples.decompose()[0][-1].cpu(),
                     outputs["pred_boxes"][-1].cpu(),
                     self.output_dir.joinpath("train.png"),
-                    outputs["pred_boxes"][-1][:, 0],
+                    outputs["pred_boxes"][-1].softmax(-1)[:, 0],
                     targets[-1]["boxes"].cpu(),
                 )
         return (epoch_loss / count,)
@@ -112,10 +113,10 @@ class Trainer:
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(
-                    samples[-1].cpu(),
+                    samples.decompose()[0][-1].cpu(),
                     outputs["pred_boxes"][-1].cpu(),
                     self.output_dir.joinpath("test.png"),
-                    outputs["pred_boxes"][-1][:, 0],
+                    outputs["pred_boxes"][-1].softmax(-1)[:, 0],
                     targets[-1]["boxes"].cpu(),
                 )
 

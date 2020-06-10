@@ -26,7 +26,7 @@ Batch = t.Sequence[Row]
 
 
 def plot_row(
-    image: Tensor, boxes: Tensor, path: Path, probs: t.Optional[Tensor]=None, gt_boxes: t.Optional[Tensor] = None
+    image: Tensor, boxes: Tensor, path: Path, probs: t.Optional[Tensor]=None, gt_boxes: t.Optional[Tensor] = None, threshold:float=0.1,
 ) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
     h, w = image.shape[1:]
@@ -36,16 +36,17 @@ def plot_row(
     boxes[:, [1, 3]] = boxes[:, [1, 3]] * h
     _probs = probs if probs is not None else torch.ones((image.shape[0],))
     for box, p in zip(boxes, _probs):
-        rect = mpatches.Rectangle(
-            (box[0] - box[2] / 2, box[1] - box[3] / 2),
-            width=box[2],
-            height=box[3],
-            fill=False,
-            edgecolor="red",
-            linewidth=1,
-            alpha=float(p),
-        )
-        ax.add_patch(rect)
+        if p > threshold:
+            rect = mpatches.Rectangle(
+                (box[0] - box[2] / 2, box[1] - box[3] / 2),
+                width=box[2],
+                height=box[3],
+                fill=False,
+                edgecolor="red",
+                linewidth=1,
+                alpha=float(p),
+            )
+            ax.add_patch(rect)
 
     if gt_boxes is not None:
         gt_boxes[:, [0, 2]] = gt_boxes[:, [0, 2]] * w

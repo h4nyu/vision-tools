@@ -31,12 +31,13 @@ class SetCriterion(nn.Module):
 
         loss_label = self.loss_labels(src_logits, tgt_lables, indices)
         loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
+        #  print(f"{loss_giou=}")
         #  loss_cardinality = self.loss_cardinality(outputs, targets,indices, num_boxes)
         return (
             loss_label * config.loss_label
             + config.loss_box * loss_box
             #  + loss_cardinality
-            + config.loss_giou * loss_giou
+            #  + config.loss_giou * loss_giou
         )
 
     def loss_cardinality(
