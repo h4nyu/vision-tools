@@ -1,3 +1,4 @@
+import numpy as np
 from cytoolz.curried import groupby, valmap, pipe, unique, map, reduce
 from pathlib import Path
 import typing as t
@@ -14,6 +15,8 @@ def eda_bboxes() -> None:
     print(f"{max_counts=}")
     min_counts = min(box_counts)
     print(f"{min_counts=}")
+    mean_counts = np.mean(box_counts)
+    print(f"{mean_counts=}")
     ws = pipe(images.values(), map(lambda x: x.width), list)
     max_width = max(ws)
     print(f"{max_width=}")

@@ -13,15 +13,15 @@ Losses = t.TypedDict("Losses", {"box": Tensor, "label": Tensor,})
 
 class SetCriterion(nn.Module):
     def __init__(
-        self, num_classes: int, weights: t.Dict = {}, eos_coef: float = config.eos_coef
+        self, num_classes: int, eos_coef: float = config.eos_coef
     ) -> None:
         super().__init__()
         self.matcher = HungarianMatcher()
         self.num_classes = num_classes
         self.eos_coef = eos_coef
-        empty_weight = torch.ones(self.num_classes + 1)
-        empty_weight[-1] = self.eos_coef
-        self.register_buffer("empty_weight", empty_weight)
+        weight = torch.ones(self.num_classes + 1)
+        weight[-1] = self.eos_coef
+        self.weight = weight
 
     def forward(self, outputs: Outputs, targets: Targets) -> Tensor:
         indices = self.matcher(outputs, targets)
@@ -73,6 +73,7 @@ class SetCriterion(nn.Module):
     def loss_labels(
         self, src_logits: Tensor, tgt_lables: t.List[Tensor], indices: MatchIndecies
     ) -> Tensor:
+        device = src_logits.device
         idx = self._get_src_permutation_idx(indices)
         tgt_classes_o = torch.cat([t[i] for t, (_, i) in zip(tgt_lables, indices)])
 
@@ -88,7 +89,7 @@ class SetCriterion(nn.Module):
         # tgt_classes contains object class and no-object class
         tgt_classes[idx] = tgt_classes_o
         loss_ce = F.cross_entropy(
-            src_logits.transpose(1, 2), tgt_classes, self.empty_weight  # type: ignore
+            src_logits.transpose(1, 2), tgt_classes, weight=self.weight.to(device)  # type: ignore
         )
         return loss_ce
 

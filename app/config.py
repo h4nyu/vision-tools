@@ -13,7 +13,7 @@ num_classes = 1
 num_queries = 200
 hidden_dim = 128
 
-eos_coef = 0.1
+eos_coef = 43/200
 loss_label = 1
 loss_box = 2
 loss_giou = 2
