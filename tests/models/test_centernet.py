@@ -24,15 +24,20 @@ from app.utils import plot_heatmap
 #      assert outs.shape == (10, 100, 2)
 
 
+
+
 def test_heatmap() -> None:
     target = {
         "labels": torch.tensor([1, 0]).long(),
-        "boxes": torch.tensor([[0.1, 0.1, 0.1, 0.1], [0.3, 0.4, 0.1, 0.1]]).float(),
+        "boxes": torch.tensor([[0.1, 0.1, 0.9, 0.1], [0.3, 0.4, 0.1, 0.1]]).float(),
     }
     fn = CenterHeatMap(w=100, h=100, kernel_size=5)
-    res = fn(target)
-    plot_heatmap(res, "/store/plot/test-heatmap.png")
-    print(res)
+    res = fn(target)[0]
+    c, _, _ = res.shape
+    plot_heatmap(res, f"/store/plot/test-heatmap.png")
+
+    #  for i in range(c):
+    #      plot_heatmap(res[i], f"/store/plot/test-heatmap-{i}.png")
 
 
 def test_backbone() -> None:

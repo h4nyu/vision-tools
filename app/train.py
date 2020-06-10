@@ -10,13 +10,14 @@ from logging import getLogger
 from torch.utils.data import DataLoader
 from app.entities import Annotations
 from app.dataset import WheatDataset, plot_row
+from app.utils import plot_heatmap
 
 #  from app.dataset import detr_collate_fn as collate_fn
 #  from app.models.detr import DETR as NNModel
 
 from app.dataset import collate_fn
-from app.models.centernet import CenterNet as NNModel
-from app.models.set_criterion import SetCriterion as Criterion
+from app.models.centernet import CenterNet as NNModel, PreProcess, Criterion
+#  from app.models.set_criterion import SetCriterion as Criterion
 from app import config
 
 logger = getLogger(__name__)
@@ -29,13 +30,13 @@ class Trainer:
         self, train_data: Annotations, test_data: Annotations, output_dir: Path,
     ) -> None:
         self.model = NNModel().to(device)
-        self.criterion = Criterion(num_classes=config.num_classes).to(device)
+        self.criterion = Criterion().to(device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 WheatDataset(test_data),
                 shuffle=True,
-                batch_size=4,
+                batch_size=8,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
@@ -48,6 +49,7 @@ class Trainer:
         }
         self.check_interval = 50
         self.clip_max_norm = config.clip_max_norm
+        self.preprocess = PreProcess()
 
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
@@ -77,6 +79,9 @@ class Trainer:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            samples, targets = self.preprocess(
+                (samples, targets)
+            )
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
             self.optimizer.zero_grad()
@@ -84,12 +89,13 @@ class Trainer:
             self.optimizer.step()
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
-                plot_row(
-                    samples[-1].cpu(),
-                    outputs["pred_boxes"][-1].cpu(),
-                    self.output_dir.joinpath("train.png"),
-                    outputs["pred_boxes"][-1].softmax(-1)[:, 0],
-                    targets[-1]["boxes"].cpu(),
+                plot_heatmap(
+                    targets[-1].detach().cpu(),
+                    self.output_dir.joinpath("train-tgt.png"),
+                )
+                plot_heatmap(
+                    outputs[-1].detach().cpu(),
+                    self.output_dir.joinpath("train-src.png"),
                 )
         return (epoch_loss / count,)
 
@@ -103,16 +109,20 @@ class Trainer:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            samples, targets = self.preprocess(
+                (samples, targets)
+            )
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
-                plot_row(
-                    samples[-1].cpu(),
-                    outputs["pred_boxes"][-1].cpu(),
-                    self.output_dir.joinpath("test.png"),
-                    outputs["pred_boxes"][-1].softmax(-1)[:, 0],
-                    targets[-1]["boxes"].cpu(),
+                plot_heatmap(
+                    targets[-1].detach().cpu(),
+                    self.output_dir.joinpath("test-tgt.png"),
+                )
+                plot_heatmap(
+                    outputs[-1].detach().cpu(),
+                    self.output_dir.joinpath("test-src.png"),
                 )
 
         return (epoch_loss / count,)

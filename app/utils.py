@@ -2,6 +2,7 @@ import torch
 import typing as t
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from pathlib import Path
 
 from torch import Tensor
 
@@ -27,10 +28,11 @@ def plot_boxes(boxes: Tensor, path: str, size: t.Tuple[int, int] = (128, 128)) -
     plt.close()
 
 
-def plot_heatmap(heatmap: Tensor, path: str) -> None:
+def plot_heatmap(heatmap: Tensor, path: t.Union[str, Path]) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
-    h, w = heatmap.shape
+    img = heatmap.permute(1, 2, 0)
+    #  h, w = heatmap.shape
     ax.grid(False)
-    ax.imshow(heatmap)
+    ax.imshow(img)
     plt.savefig(path)
     plt.close()
