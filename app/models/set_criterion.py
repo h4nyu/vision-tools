@@ -30,9 +30,8 @@ class SetCriterion(nn.Module):
         tgt_lables = [t["labels"] for t in targets]
 
         loss_label = self.loss_labels(src_logits, tgt_lables, indices)
-        loss_box, loss_giou = self.loss_boxes(outputs, targets, indices, num_boxes)
+        loss_box = self.loss_boxes(outputs, targets, indices, num_boxes)
         #  print(f"{loss_giou=}")
-        #  loss_cardinality = self.loss_cardinality(outputs, targets,indices, num_boxes)
         return (
             loss_label * config.loss_label
             + config.loss_box * loss_box
@@ -60,24 +59,16 @@ class SetCriterion(nn.Module):
 
     def loss_boxes(
         self, outputs: Outputs, targets: Targets, indices: MatchIndecies, num_boxes: int
-    ) -> t.Tuple[Tensor, Tensor]:
+    ) -> Tensor:
         idx = self._get_src_permutation_idx(indices)
         pred_boxes = outputs["pred_boxes"][idx]
         target_boxes = torch.cat(
             [t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
         )
         loss_box = (
-            F.l1_loss(pred_boxes, target_boxes, reduction="none").sum() / num_boxes
+            F.smooth_l1_loss(pred_boxes, target_boxes, reduction="none").sum() / num_boxes
         )
-        loss_giou = (
-            1
-            - torch.diag(
-                generalized_box_iou(
-                    box_cxcywh_to_xyxy(pred_boxes), box_cxcywh_to_xyxy(target_boxes)
-                )
-            )
-        ).sum() / num_boxes
-        return loss_box, loss_giou
+        return loss_box
 
     def loss_labels(
         self, src_logits: Tensor, tgt_lables: t.List[Tensor], indices: MatchIndecies

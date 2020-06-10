@@ -26,7 +26,12 @@ Batch = t.Sequence[Row]
 
 
 def plot_row(
-    image: Tensor, boxes: Tensor, path: Path, probs: t.Optional[Tensor]=None, gt_boxes: t.Optional[Tensor] = None, threshold:float=0.1,
+    image: Tensor,
+    boxes: Tensor,
+    path: Path,
+    probs: t.Optional[Tensor] = None,
+    gt_boxes: t.Optional[Tensor] = None,
+    threshold: float = 0.3,
 ) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
     h, w = image.shape[1:]
@@ -43,7 +48,7 @@ def plot_row(
                 height=box[3],
                 fill=False,
                 edgecolor="red",
-                linewidth=1,
+                linewidth=2,
                 alpha=float(p),
             )
             ax.add_patch(rect)
@@ -58,7 +63,7 @@ def plot_row(
                 height=box[3],
                 fill=False,
                 edgecolor="blue",
-                linewidth=1,
+                linewidth=2,
             )
             ax.add_patch(rect)
     plt.savefig(path)
@@ -77,6 +82,7 @@ def detr_collate_fn(batch: Batch) -> t.Tuple[NestedTensor, t.List[Target]]:
     device = images_tensor.device
     mask = torch.zeros((b, h, w), dtype=torch.bool, device=device)
     return NestedTensor(images_tensor, mask), targets
+
 
 def collate_fn(batch: Batch) -> t.Tuple[Tensor, t.List[Target]]:
     images: t.List[Tensor] = []

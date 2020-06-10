@@ -12,6 +12,7 @@ from app.entities import Annotations
 from app.dataset import WheatDataset, plot_row
 from app.dataset import detr_collate_fn as collate_fn
 from app.models.detr import DETR as NNModel
+
 #  from app.models.centernet import CenterNet as NNModel
 from app.models.set_criterion import SetCriterion as Criterion
 from app import config
@@ -27,9 +28,7 @@ class Trainer:
     ) -> None:
         self.model = NNModel().to(device)
         self.criterion = Criterion(num_classes=config.num_classes).to(device)
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=config.lr
-        )
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 WheatDataset(train_data),
@@ -77,10 +76,7 @@ class Trainer:
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             outputs = self.model(samples)
-            try:
-                loss = self.criterion(outputs, targets)
-            except:
-                continue
+            loss = self.criterion(outputs, targets)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -106,10 +102,7 @@ class Trainer:
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             outputs = self.model(samples)
-            try:
-                loss = self.criterion(outputs, targets)
-            except:
-                continue
+            loss = self.criterion(outputs, targets)
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_row(

@@ -11,13 +11,13 @@ clip_max_norm = 0.1
 
 num_classes = 1
 num_queries = 200
-hidden_dim = 512
+hidden_dim = 128
 
 eos_coef = 0.1
 loss_label = 1
-loss_box = 3
-loss_giou = 1
+loss_box = 2
+loss_giou = 2
 
-cost_class = 3
-cost_box = 3
-cost_giou = 1
+cost_class = 1
+cost_box = 2
+cost_giou = 2

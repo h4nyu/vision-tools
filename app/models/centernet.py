@@ -83,7 +83,11 @@ class Down2d(nn.Module):
 
 
 class CenterNet(nn.Module):
-    def __init__(self, num_queries: int=config.num_queries, num_classes: int=config.num_classes) -> None:
+    def __init__(
+        self,
+        num_queries: int = config.num_queries,
+        num_classes: int = config.num_classes,
+    ) -> None:
         super().__init__()
         base_channels = 16
         self.box_reg = BoxRegression(
