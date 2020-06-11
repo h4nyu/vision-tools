@@ -54,7 +54,7 @@ class CenterHeatMap(nn.Module):
         super().__init__()
         self.w = w
         self.h = h
-        mount = gaussian_2d((64, 64), sigma=5)
+        mount = gaussian_2d((64, 64), sigma=7)
         self.mount = torch.tensor(mount).view(1, 1, mount.shape[0], mount.shape[1])
 
     def forward(self, boxes: Tensor) -> Tensor:
@@ -96,14 +96,14 @@ class Criterion(nn.Module):
 
     def neg_loss(self, preds: Tensor, targets: Tensor) -> Tensor:
         device = preds.device
-        pos_inds = targets.eq(1).float()
-        neg_inds = targets.lt(1).float()
+        pos_inds = targets.gt(0.95).float()
+        neg_inds = targets.lt(0.05).float()
 
         neg_weights = torch.pow(1 - targets, 4)
 
         loss = torch.tensor(0).to(device)
         for pred in preds:
-            pred = torch.clamp(torch.sigmoid(pred), min=1e-4, max=1 - 1e-4)
+            pred = torch.clamp(pred, min=1e-7, max=1 - 1e-7)
             pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
             neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
 

@@ -34,33 +34,44 @@ def test_criterion_neg_loss() -> None:
     heatmaps = torch.zeros((1, 1, 128, 128))
     heatmaps[:, :, 61:64, 61:64] = torch.tensor([
         [0.1, 0.5, 0.1 ],
-        [0.5, 1.0, 0.5 ],
+        [0.9, 1.0, 0.5 ],
         [0.1, 0.5, 0.1 ],
     ])
     fn = Criterion()
-    res = fn.neg_loss(heatmaps, heatmaps)
+
+    preds = torch.zeros((1, 1, 128, 128))
+    preds[:, :, 61:64, 61:64] = torch.tensor([
+        [0.0, 0.0, 0.0 ],
+        [0.0, 0.5, 0.0 ],
+        [0.0, 0.0, 0.0 ],
+    ])
+    res = fn.neg_loss(preds, heatmaps)
     print(res)
 
-    #  preds = torch.zeros((1, 1, 128, 128))
-    #  preds[:, :, 61:64, 61:64] = torch.tensor([
-    #      [0.0, 0.5, 0.0 ],
-    #      [0.0, 1.0, 0.0 ],
-    #      [0.0, 0.5, 0.0 ],
-    #  ])
-    #  res = fn.neg_loss(preds, heatmaps)
-    #  print(res)
-    #
-    #  preds[:, :, 62, 62] = 1
-    #  res = fn.neg_loss(preds, heatmaps)
-    #  print(res)
-    #
-    #  preds[:, :, 61:64, 61:64] = torch.tensor([
-    #      [0.1, 0.5, 0.1 ],
-    #      [0.5, 1.0, 0.5 ],
-    #      [0.1, 0.5, 0.1 ],
-    #  ])
-    #  res = fn.neg_loss(preds, heatmaps)
-    #  print(res)
+    preds = torch.zeros((1, 1, 128, 128))
+    preds[:, :, 61:64, 61:64] = torch.tensor([
+        [0.0, 0.0, 0.0 ],
+        [0.0, 0.5, 0.5 ],
+        [0.0, 0.0, 0.0 ],
+    ])
+    res = fn.neg_loss(preds, heatmaps)
+    print(res)
+
+    preds[:, :, 61:64, 61:64] = torch.tensor([
+        [0.1, 0.1, 0.1 ],
+        [0.1, 1.0, 0.1 ],
+        [0.1, 0.1, 0.1 ],
+    ])
+    res = fn.neg_loss(preds, heatmaps)
+    print(res)
+
+    preds[:, :, 61:64, 61:64] = torch.tensor([
+        [0.1, 0.5, 0.1 ],
+        [0.9, 1.0, 0.5 ],
+        [0.1, 0.5, 0.1 ],
+    ])
+    res = fn.neg_loss(preds, heatmaps)
+    print(res)
 
 def test_heatmap() -> None:
     boxes = torch.tensor([
