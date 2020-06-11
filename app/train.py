@@ -36,7 +36,7 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(test_data),
                 shuffle=True,
-                batch_size=8,
+                batch_size=4,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
@@ -47,9 +47,9 @@ class Trainer:
                 shuffle=True,
             ),
         }
-        self.check_interval = 50
+        self.check_interval = 20
         self.clip_max_norm = config.clip_max_norm
-        self.preprocess = PreProcess()
+        self.preprocess = PreProcess().to(device)
 
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
@@ -89,12 +89,13 @@ class Trainer:
             self.optimizer.step()
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
+                print(outputs[0][-1][0].detach().cpu())
                 plot_heatmap(
-                    targets[-1].detach().cpu(),
+                    targets[-1][0].detach().cpu(),
                     self.output_dir.joinpath("train-tgt.png"),
                 )
                 plot_heatmap(
-                    outputs[-1].detach().cpu(),
+                    outputs[0][-1][0].detach().cpu(),
                     self.output_dir.joinpath("train-src.png"),
                 )
         return (epoch_loss / count,)
@@ -117,11 +118,11 @@ class Trainer:
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_heatmap(
-                    targets[-1].detach().cpu(),
+                    targets[-1][0].detach().cpu(),
                     self.output_dir.joinpath("test-tgt.png"),
                 )
                 plot_heatmap(
-                    outputs[-1].detach().cpu(),
+                    outputs[0][-1][0].detach().cpu(),
                     self.output_dir.joinpath("test-src.png"),
                 )
 

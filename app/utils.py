@@ -30,9 +30,7 @@ def plot_boxes(boxes: Tensor, path: str, size: t.Tuple[int, int] = (128, 128)) -
 
 def plot_heatmap(heatmap: Tensor, path: t.Union[str, Path]) -> None:
     fig, ax = plt.subplots(figsize=(6, 6))
-    img = heatmap.permute(1, 2, 0)
-    #  h, w = heatmap.shape
     ax.grid(False)
-    ax.imshow(img)
+    ax.imshow(heatmap)
     plt.savefig(path)
     plt.close()

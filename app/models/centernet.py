@@ -10,35 +10,15 @@ from .modules import ConvBR2d, SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
+from .utils import box_cxcywh_to_xyxy
 
 
-class GussiianFilter(nn.Module):
-    def __init__(self, kernel_size: int, sigma: float, channels: int,) -> None:
-        super().__init__()
-        x_cord = torch.arange(kernel_size)
-        x_grid = x_cord.repeat(kernel_size).view(kernel_size, kernel_size)
-        y_grid = x_grid.t()
-        xy_grid = torch.stack([x_grid, y_grid], dim=-1)
-        mean = (kernel_size - 1) / 2.0
-        variance = sigma ** 2.0
-        kernel = (1.0 / (2.0 * math.pi * variance)) * torch.exp(
-            -torch.sum((xy_grid - mean) ** 2.0, dim=-1) / (2 * variance)
-        )
-        kernel = kernel / torch.sum(kernel)
-        kernel = kernel.view(1, 1, kernel_size, kernel_size)
-        kernel = kernel.repeat(channels, 1, 1, 1)
-        self.filter = nn.Conv2d(
-            in_channels=channels,
-            out_channels=channels,
-            kernel_size=kernel_size,
-            groups=channels,
-            bias=False,
-        )
-        self.filter.weight.data = kernel
-        self.filter.weight.requires_grad = False
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.filter(x)
+def gaussian_2d(shape:t.Any, sigma:float=1) -> np.ndarray:
+    m, n = int((shape[0] - 1.) / 2.), int((shape[1] - 1.) / 2.)
+    y, x = np.ogrid[-m:m+1,-n:n+1]
+    h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    return h
 
 
 class Backbone(nn.Module):
@@ -69,23 +49,28 @@ class Backbone(nn.Module):
             self.projects[4](p7),
         )
 
-
 class CenterHeatMap(nn.Module):
-    def __init__(self, w: int, h: int, kernel_size: int = 3,) -> None:
+    def __init__(self, w: int, h: int) -> None:
         super().__init__()
         self.w = w
         self.h = h
+        mount = gaussian_2d((64, 64), sigma=5)
+        self.mount = torch.tensor(mount).view(1, 1, mount.shape[0], mount.shape[1])
 
     def forward(self, boxes: Tensor) -> Tensor:
-        img = torch.zeros((1, 3, self.w, self.h)).to(boxes.device)
+        img = torch.zeros((1, 1, self.w, self.h)).float().to(boxes.device)
         b, _ = boxes.shape
         if b == 0:
             return img
-        x0 = (boxes[:, 0] * self.w).long()
-        y0 = (boxes[:, 1] * self.h).long()
-        img[:, 0, x0, y0] = 1
-        img[:, 1, x0, y0] = boxes[:, 2]
-        img[:, 2, x0, y0] = boxes[:, 3]
+        xyxy = box_cxcywh_to_xyxy(boxes)
+        xyxy[:, [0, 2]] = xyxy[:, [0, 2]] * self.w
+        xyxy[:, [1, 3]] = xyxy[:, [1, 3]] * self.w
+        xyxy = xyxy.long()
+        sizes = xyxy[:, [2, 3]] - xyxy[:, [0, 1]]
+        for box, size in zip(xyxy, sizes):
+            x, y = box[0], box[1]
+            w, h = size[0], size[1]
+            img[:, :, x:x + w, y:y+h] += F.interpolate(self.mount, size=(w, h)).to(boxes.device) #type:ignore
         return img
 
 
@@ -103,10 +88,13 @@ class PreProcess(nn.Module):
         ], dim=0)
         return images, heatmaps
 
+Outputs = t.Tuple[Tensor, Tensor]
 
 class Criterion(nn.Module):
-    def forward(self, src: Tensor, tgt: Tensor) -> Tensor:
-        return F.smooth_l1_loss(src, tgt)
+    def __init__(self) -> None:
+        super().__init__()
+
+    def neg_loss(self, src: Tensor, tgt: Tensor) -> Tensor:
         #  src = src.unsqueeze(1).float()
         #  tgt = tgt.unsqueeze(1).float()
         #  pos_inds = tgt.eq(1).float()
@@ -120,15 +108,13 @@ class Criterion(nn.Module):
         #  num_pos = pos_inds.float().sum()
         #  pos_loss = pos_loss.sum()
         #  neg_loss = neg_loss.sum()
-        #  loss = torch.tensor(0)
-        #  if num_pos == 0:
-        #      loss = loss - neg_loss
-        #  else:
-        #      loss = loss - (pos_loss + neg_loss) / num_pos
-        #  return loss
+        #  loss = loss - (pos_loss + neg_loss) / num_pos
+        return F.l1_loss(src, tgt)
+    def forward(self, src:Outputs, tgt:Tensor) -> Tensor:
+        hmap, _ = src
+        return self.neg_loss(hmap, tgt)
 
 
-Outputs = t.Tuple[Tensor, Tensor]
 
 
 class CenterNet(nn.Module):
@@ -136,19 +122,22 @@ class CenterNet(nn.Module):
         self, name: str = "resnet18", num_classes: int = 1, num_queries: int = 100
     ) -> None:
         super().__init__()
-        channels = 64
+        channels = 32
         self.backbone = Backbone(name, out_channels=channels)
-        self.fpn = BiFPN(channels=channels)
+        self.fpn = nn.Sequential(
+            BiFPN(channels=channels),
+            BiFPN(channels=channels),
+        )
         self.outc = nn.Conv2d(channels, 1, kernel_size=1)
         self.outr = nn.Conv2d(channels, 2, kernel_size=1)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> Outputs:
         """
         x: [B, 3, W, H]
         """
         fp = self.backbone(x)
         fp = self.fpn(fp)
 
-        outc = self.outc(fp[0])
+        outc = self.outc(fp[0]).sigmoid()
         outr = self.outr(fp[0])
-        return torch.cat([outc, outr], dim=1).sigmoid()
+        return outc, outr

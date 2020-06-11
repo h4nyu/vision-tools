@@ -1,3 +1,5 @@
+import typing as t
+import numpy as np
 import torch
 from app.dataset import Targets
 from app.models.centernet import (
@@ -6,6 +8,7 @@ from app.models.centernet import (
     Backbone,
     CenterNet,
     CenterHeatMap,
+    Criterion,
 )
 from app.utils import plot_heatmap
 
@@ -26,15 +29,53 @@ from app.utils import plot_heatmap
 
 
 
+
+def test_criterion_neg_loss() -> None:
+    heatmaps = torch.zeros((1, 1, 128, 128))
+    heatmaps[:, :, 61:64, 61:64] = torch.tensor([
+        [0.1, 0.5, 0.1 ],
+        [0.5, 1.0, 0.5 ],
+        [0.1, 0.5, 0.1 ],
+    ])
+
+    fn = Criterion()
+
+    preds = torch.zeros((1, 1, 128, 128))
+    preds[:, :, 61:64, 61:64] = torch.tensor([
+        [0.0, 0.5, 0.0 ],
+        [0.0, 1.0, 0.0 ],
+        [0.0, 0.5, 0.0 ],
+    ])
+    res = fn.neg_loss(preds, heatmaps)
+    print(res)
+
+    preds[:, :, 62, 62] = 1
+    res = fn.neg_loss(preds, heatmaps)
+    print(res)
+
+    preds[:, :, 61:64, 61:64] = torch.tensor([
+        [0.1, 0.5, 0.1 ],
+        [0.5, 1.0, 0.5 ],
+        [0.1, 0.5, 0.1 ],
+    ])
+    res = fn.neg_loss(preds, heatmaps)
+    print(res)
+
 def test_heatmap() -> None:
-    target = {
-        "labels": torch.tensor([1, 0]).long(),
-        "boxes": torch.tensor([[0.1, 0.1, 0.9, 0.1], [0.3, 0.4, 0.1, 0.1]]).float(),
-    }
-    fn = CenterHeatMap(w=100, h=100, kernel_size=5)
-    res = fn(target)[0]
+    boxes = torch.tensor([
+        [0.2, 0.2, 0.1, 0.2],
+        [0.2, 0.25, 0.1, 0.1],
+        [0.3, 0.4, 0.1, 0.1],
+        [0.51, 0.51, 0.1, 0.1],
+        [0.5, 0.5, 0.3, 0.1]
+    ])
+    fn = CenterHeatMap(w=512, h=512)
+    res = fn(boxes)[0]
     c, _, _ = res.shape
-    plot_heatmap(res, f"/store/plot/test-heatmap.png")
+    plot_heatmap(res[0], f"/store/plot/test-heatmap.png")
+    res = res[res > 0.99]
+    print(res.shape)
+    #  plot_heatmap(res, f"/store/plot/threshold-heatmap.png")
 
     #  for i in range(c):
     #      plot_heatmap(res[i], f"/store/plot/test-heatmap-{i}.png")
