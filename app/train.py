@@ -89,7 +89,6 @@ class Trainer:
             self.optimizer.step()
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
-                print(outputs[0][-1][0].detach().cpu())
                 plot_heatmap(
                     targets[-1][0].detach().cpu(),
                     self.output_dir.joinpath("train-tgt.png"),

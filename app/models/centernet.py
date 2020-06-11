@@ -94,7 +94,28 @@ class Criterion(nn.Module):
     def __init__(self) -> None:
         super().__init__()
 
-    def neg_loss(self, src: Tensor, tgt: Tensor) -> Tensor:
+    def neg_loss(self, preds: Tensor, targets: Tensor) -> Tensor:
+        device = preds.device
+        pos_inds = targets.eq(1).float()
+        neg_inds = targets.lt(1).float()
+
+        neg_weights = torch.pow(1 - targets, 4)
+
+        loss = torch.tensor(0).to(device)
+        for pred in preds:
+            pred = torch.clamp(torch.sigmoid(pred), min=1e-4, max=1 - 1e-4)
+            pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
+            neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
+
+            num_pos = pos_inds.float().sum()
+            pos_loss = pos_loss.sum()
+            neg_loss = neg_loss.sum()
+
+            if num_pos == 0:
+                loss = loss - neg_loss
+            else:
+                loss = loss - (pos_loss + neg_loss) / num_pos
+        return loss / len(preds)
         #  src = src.unsqueeze(1).float()
         #  tgt = tgt.unsqueeze(1).float()
         #  pos_inds = tgt.eq(1).float()
@@ -109,7 +130,6 @@ class Criterion(nn.Module):
         #  pos_loss = pos_loss.sum()
         #  neg_loss = neg_loss.sum()
         #  loss = loss - (pos_loss + neg_loss) / num_pos
-        return F.l1_loss(src, tgt)
     def forward(self, src:Outputs, tgt:Tensor) -> Tensor:
         hmap, _ = src
         return self.neg_loss(hmap, tgt)
@@ -163,6 +183,6 @@ class CenterNet(nn.Module):
         fp = self.backbone(x)
         fp = self.fpn(fp)
 
-        outc = self.outc(fp[0]).sigmoid()
+        outc = self.outc(fp[0])
         outr = self.outr(fp[0])
         return outc, outr
