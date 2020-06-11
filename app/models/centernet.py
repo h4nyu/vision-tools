@@ -115,6 +115,31 @@ class Criterion(nn.Module):
         return self.neg_loss(hmap, tgt)
 
 
+class Reg(nn.Module):
+    def __init__(
+        self,
+        in_channels:int,
+        out_channels: int,
+    ) -> None:
+        super().__init__()
+        channels = in_channels
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+        )
+
+        self.out = nn.Sequential(
+            nn.Conv2d(channels, out_channels, kernel_size=1, padding=0),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x:Tensor) -> Tensor:  # type: ignore
+        x = self.conv(x)
+        x = self.out(x)
+        return x
+
 
 
 class CenterNet(nn.Module):
@@ -128,7 +153,7 @@ class CenterNet(nn.Module):
             BiFPN(channels=channels),
             BiFPN(channels=channels),
         )
-        self.outc = nn.Conv2d(channels, 1, kernel_size=1)
+        self.outc = Reg(in_channels=channels, out_channels=1)
         self.outr = nn.Conv2d(channels, 2, kernel_size=1)
 
     def forward(self, x: Tensor) -> Outputs:
