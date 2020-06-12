@@ -37,15 +37,17 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=5,
+                batch_size=16,
                 drop_last=True,
                 collate_fn=collate_fn,
+                num_workers=4,
             ),
             "test": DataLoader(
                 WheatDataset(test_data),
-                batch_size=8,
+                batch_size=16,
                 collate_fn=collate_fn,
                 shuffle=True,
+                num_workers=4,
             ),
         }
         self.check_interval = 20
@@ -119,15 +121,15 @@ class Trainer:
             if count % self.check_interval == 0:
                 plot_heatmap(
                     targets["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-tgt-hm.png"),
+                    self.output_dir.joinpath("test-tgt-hm.png"),
                 )
                 plot_heatmap(
                     targets["mask"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-tgt-mask.png"),
+                    self.output_dir.joinpath("test-tgt-mask.png"),
                 )
                 plot_heatmap(
                     outputs["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-src.png"),
+                    self.output_dir.joinpath("test-src.png"),
                 )
 
         return (epoch_loss / count,)

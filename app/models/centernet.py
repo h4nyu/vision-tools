@@ -90,10 +90,11 @@ class HardHeatMap(nn.Module):
         b, _ = boxes.shape
         if b == 0:
             return img
-        cx, cy = (boxes[:,0] * self.w).long(), (boxes[:, 1] * self.h).long()
+        cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
         img[:, :, cx, cy] = 1.0
-        img = self.pool(img) # type: ignore
+        img = self.pool(img)  # type: ignore
         return img
+
 
 class SoftHeatMap(nn.Module):
     def __init__(self, w: int, h: int) -> None:
@@ -101,10 +102,8 @@ class SoftHeatMap(nn.Module):
         self.w = w
         self.h = h
         mount = gaussian_2d((64, 64), sigma=7)
-        self.mount = (
-            torch.tensor(mount, dtype=torch.float32).view(
-                1, 1, mount.shape[0], mount.shape[1]
-            )
+        self.mount = torch.tensor(mount, dtype=torch.float32).view(
+            1, 1, mount.shape[0], mount.shape[1]
         )
 
     def forward(self, boxes: Tensor) -> Tensor:
@@ -125,15 +124,17 @@ class SoftHeatMap(nn.Module):
             img[:, :, x : x + w, y : y + h] = mount  # type: ignore
         return img
 
+
 class PreProcess(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
-        self.heatmap = HardHeatMap(w=1024 // 2, h=1024 // 2)
+        self.heatmap = HardHeatMap(w=512 // 2, h=512 // 2)
 
     def forward(
         self, batch: t.Tuple[Tensor, t.List[Target]]
     ) -> t.Tuple[Tensor, "CriterinoTarget"]:
         images, targets = batch
+        images = F.interpolate(images, size=(512, 512))
         heatmap = torch.cat([self.heatmap(t["boxes"]) for t in targets], dim=0)
         mask = (heatmap > 0.5).long()
         return images, dict(heatmap=heatmap, mask=mask)
@@ -149,8 +150,8 @@ class Criterion(nn.Module):
 
     def forward(self, src: Outputs, tgt: CriterinoTarget) -> Tensor:
         heatmap = src["heatmap"]
-        gt_mask = tgt["mask"]
-        return self.focal_loss(heatmap, gt_mask)
+        mask = tgt["mask"]
+        return self.focal_loss(heatmap, mask)
 
 
 class Reg(nn.Module):
@@ -159,6 +160,7 @@ class Reg(nn.Module):
         channels = in_channels
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, channels, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
         )
 
         self.out = nn.Sequential(
@@ -169,6 +171,34 @@ class Reg(nn.Module):
         x = self.conv(x)
         x = self.out(x)
         return x
+
+
+class ToPosition(nn.Module):
+    def __init__(self, thresold: float) -> None:
+        super().__init__()
+        self.thresold = thresold
+
+    def forward(self, heatmap: Tensor) -> Tensor:
+        kp_map = (F.max_pool2d(heatmap, 3, stride=1, padding=1) == heatmap) & (
+            heatmap > self.thresold
+        )
+        kp_map = kp_map[:, 0]
+        b, w, h = kp_map.shape
+        pos = kp_map.nonzero()
+        print(pos)
+        confidences = heatmap[pos[:, 0], 0, pos[:, 1], pos[:, 2]]
+        print(confidences)
+        #  prob = heatmap[0][pos[:, 0], pos[:, 1]].unsqueeze(1)
+        return torch.tensor(0)
+        #  cx = pos[:, 0, V]
+        #
+        #  return torch.stack(, pos.float()], dim=1)
+
+
+class ToBoxes(nn.Module):
+    def __init__(self, limit: int = 200) -> None:
+        super().__init__()
+        self.limit = limit
 
 
 class CenterNet(nn.Module):
