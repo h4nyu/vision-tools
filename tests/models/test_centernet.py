@@ -11,42 +11,25 @@ from app.models.centernet import (
     FocalLoss,
     HardHeatMap,
     SoftHeatMap,
-    ToPosition,
+    ToBoxes,
 )
-from app.utils import plot_heatmap
-
-
-def test_topos() -> None:
-    heatmap = torch.tensor(
-        [
-            [
-                [
-                    [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.1, 0.3, 0.1, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.6, 0.7, 0.5, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0],
-                ],
-            ],
-            [
-                [
-                    [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.1, 0.1, 0.1, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.6, 0.7, 0.5, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0],
-                ],
-            ],
-        ]
+from app.utils import plot_heatmap, plot_boxes
+def test_toboxes() -> None:
+    keymap = torch.zeros((1, 1, 10, 10))
+    keymap[:, :, 3:6, 3:6] = torch.tensor(
+        [[0.0, 0.1, 0.0,], [0.1, 0.3, 0.1,], [0.0, 0.1, 0.0,],],
     )
-    print(heatmap.shape)
-    fn = ToPosition(thresold=0.1)
-    pos = fn(heatmap)
-    print(pos)
+
+    keymap[:, :, 6:9, 6:9] = torch.tensor(
+        [[0.0, 0.5, 0.0,], [0.2, 0.6, 0.3,], [0.0, 0.4, 0.0,],],
+    )
+    sizemap = torch.zeros((1, 2, 10, 10))
+    sizemap[:, :, 4, 4] = torch.tensor([0.3, 0.4]).view(1, 2)
+    sizemap[:, :, 7, 7] = torch.tensor([0.1, 0.2]).view(1, 2)
+    fn = ToBoxes(thresold=0.1)
+    preds = fn(keymap, sizemap)
+    for probs, boxes in preds:
+        plot_boxes("/store/plot/test-toboxes.png", boxes, probs)
 
 
 def test_focal_loss() -> None:
@@ -78,9 +61,6 @@ def test_hardheatmap() -> None:
     fn = HardHeatMap(w=512, h=512)
     res = fn(boxes)
     plot_heatmap(res[0][0], f"/store/plot/test-hard-heatmap.png")
-    pool = torch.nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
-    res = (pool(res) == res) & (res > 0.5)
-    plot_heatmap(res[0][0], f"/store/plot/test-hard-pooled.png")
 
 
 def test_softheatmap() -> None:
@@ -96,9 +76,6 @@ def test_softheatmap() -> None:
     fn = SoftHeatMap(w=512, h=512)
     res = fn(boxes)
     plot_heatmap(res[0][0], f"/store/plot/test-soft-heatmap.png")
-    pool = torch.nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
-    res = (pool(res) == res) & (res > 0.5)
-    plot_heatmap(res[0][0], f"/store/plot/test-soft-pooled.png")
 
 
 def test_backbone() -> None:

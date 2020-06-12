@@ -22,8 +22,6 @@ from app.models.centernet import (
     Criterion,
     VisualizeHeatmap,
 )
-
-#  from app.models.set_criterion import SetCriterion as Criterion
 from app import config
 
 logger = getLogger(__name__)

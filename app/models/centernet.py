@@ -13,6 +13,7 @@ from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy
 from app.utils import plot_heatmap
 from pathlib import Path
+import albumentations as albm
 
 Outputs = t.TypedDict(
     "Outputs", {"heatmap": Tensor, "box_size": Tensor,}  # [B, 1, W, H]  # [B, 2, W, H]
@@ -27,11 +28,11 @@ class VisualizeHeatmap:
     def __call__(self, outputs: Outputs, targets: "CriterinoTarget") -> None:
         plot_heatmap(
             targets["mask"][-1][0].detach().cpu(),
-            self.output_dir.joinpath("train-tgt-mask.png"),
+            self.output_dir.joinpath(f"{self.prefix}-tgt-mask.png"),
         )
         plot_heatmap(
             outputs["heatmap"][-1][0].detach().cpu(),
-            self.output_dir.joinpath("train-src.png"),
+            self.output_dir.joinpath(f"{self.prefix}-src.png"),
         )
 
 
@@ -101,7 +102,6 @@ class HardHeatMap(nn.Module):
         super().__init__()
         self.w = w
         self.h = h
-        self.pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
 
     def forward(self, boxes: Tensor) -> Tensor:
         img = torch.zeros((1, 1, self.w, self.h), dtype=torch.float32).to(boxes.device)
@@ -110,7 +110,6 @@ class HardHeatMap(nn.Module):
             return img
         cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
         img[:, :, cx, cy] = 1.0
-        img = self.pool(img)  # type: ignore
         return img
 
 
@@ -146,13 +145,12 @@ class SoftHeatMap(nn.Module):
 class PreProcess(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
-        self.heatmap = HardHeatMap(w=512 // 2, h=512 // 2)
+        self.heatmap = HardHeatMap(w=1024 // 4, h=1024 // 4)
 
     def forward(
         self, batch: t.Tuple[Tensor, t.List[Target]]
     ) -> t.Tuple[Tensor, "CriterinoTarget"]:
         images, targets = batch
-        images = F.interpolate(images, size=(512, 512))
         heatmap = torch.cat([self.heatmap(t["boxes"]) for t in targets], dim=0)
         mask = (heatmap > 0.5).long()
         return images, dict(heatmap=heatmap, mask=mask)
@@ -177,10 +175,7 @@ class Reg(nn.Module):
     def __init__(self, in_channels: int, out_channels: int,) -> None:
         super().__init__()
         channels = in_channels
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-        )
+        self.conv = nn.Sequential(SENextBottleneck2d(in_channels, channels))
 
         self.out = nn.Sequential(
             nn.Conv2d(channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
@@ -192,40 +187,43 @@ class Reg(nn.Module):
         return x
 
 
-class ToPosition(nn.Module):
+class ToBoxes(nn.Module):
     def __init__(self, thresold: float) -> None:
         super().__init__()
         self.thresold = thresold
 
-    def forward(self, heatmap: Tensor) -> Tensor:
-        kp_map = (F.max_pool2d(heatmap, 3, stride=1, padding=1) == heatmap) & (
-            heatmap > self.thresold
+    def forward(self, heatmaps: Tensor, sizes: Tensor) -> t.List[t.Tuple[Tensor, Tensor]]:
+        device = heatmaps.device
+        kp_maps = (F.max_pool2d(heatmaps, 3, stride=1, padding=1) == heatmaps) & (
+            heatmaps > self.thresold
         )
-        kp_map = kp_map[:, 0]
-        b, w, h = kp_map.shape
-        pos = kp_map.nonzero()
-        print(pos)
-        confidences = heatmap[pos[:, 0], 0, pos[:, 1], pos[:, 2]]
-        print(confidences)
-        #  prob = heatmap[0][pos[:, 0], pos[:, 1]].unsqueeze(1)
-        return torch.tensor(0)
-        #  cx = pos[:, 0, V]
-        #
-        #  return torch.stack(, pos.float()], dim=1)
+        batch_size, _, width, height = heatmaps.shape
+        original_size = torch.tensor([width, height], dtype=torch.float32).to(device)
+        targets: t.List[t.Tuple[Tensor, Tensor]] = []
+        for hm, kp_map, size_map in zip(heatmaps.squeeze(1), kp_maps.squeeze(1), sizes):
+            pos = kp_map.nonzero()
+            confidences = hm[pos[:, 0], pos[:, 1]]
+            wh = size_map[:, pos[:, 0], pos[:, 1]]
+            cxcy = pos.float() / original_size
+            boxes = torch.cat([cxcy, wh], dim=1)
+            targets.append((
+                confidences,
+                boxes,
+            ))
+        return targets
 
 
-class ToBoxes(nn.Module):
-    def __init__(self, limit: int = 200) -> None:
-        super().__init__()
-        self.limit = limit
+class Augmention:
+    def __call__(self, images: Tensor) -> None:
+        transform = albm.Compose([albm.VerticalFlip(), albm.HorizontalFlip(),])
 
 
 class CenterNet(nn.Module):
     def __init__(
-        self, name: str = "resnet34", num_classes: int = 1, num_queries: int = 100
+        self, name: str = "resnet18", num_classes: int = 1, num_queries: int = 100
     ) -> None:
         super().__init__()
-        channels = 64
+        channels = 32
         self.backbone = Backbone(name, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels), BiFPN(channels=channels),)
         self.heatmap = Reg(in_channels=channels, out_channels=1)
@@ -237,6 +235,6 @@ class CenterNet(nn.Module):
         """
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = self.heatmap(fp[0])
-        box_size = self.box_size(fp[0])
+        heatmap = self.heatmap(fp[1])
+        box_size = self.box_size(fp[1])
         return dict(heatmap=heatmap, box_size=box_size)
