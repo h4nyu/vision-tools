@@ -14,6 +14,8 @@ from app.models.centernet import (
     ToBoxes,
 )
 from app.utils import plot_heatmap, plot_boxes
+
+
 def test_toboxes() -> None:
     keymap = torch.zeros((1, 1, 10, 10))
     keymap[:, :, 3:6, 3:6] = torch.tensor(

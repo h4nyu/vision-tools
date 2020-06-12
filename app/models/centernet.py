@@ -192,7 +192,9 @@ class ToBoxes(nn.Module):
         super().__init__()
         self.thresold = thresold
 
-    def forward(self, heatmaps: Tensor, sizes: Tensor) -> t.List[t.Tuple[Tensor, Tensor]]:
+    def forward(
+        self, heatmaps: Tensor, sizes: Tensor
+    ) -> t.List[t.Tuple[Tensor, Tensor]]:
         device = heatmaps.device
         kp_maps = (F.max_pool2d(heatmaps, 3, stride=1, padding=1) == heatmaps) & (
             heatmaps > self.thresold
@@ -206,10 +208,7 @@ class ToBoxes(nn.Module):
             wh = size_map[:, pos[:, 0], pos[:, 1]]
             cxcy = pos.float() / original_size
             boxes = torch.cat([cxcy, wh], dim=1)
-            targets.append((
-                confidences,
-                boxes,
-            ))
+            targets.append((confidences, boxes,))
         return targets
 
 
