@@ -78,7 +78,24 @@ class Backbone(nn.Module):
         )
 
 
-class CenterHeatMap(nn.Module):
+class HardHeatMap(nn.Module):
+    def __init__(self, w: int, h: int) -> None:
+        super().__init__()
+        self.w = w
+        self.h = h
+        self.pool = nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+
+    def forward(self, boxes: Tensor) -> Tensor:
+        img = torch.zeros((1, 1, self.w, self.h), dtype=torch.float32).to(boxes.device)
+        b, _ = boxes.shape
+        if b == 0:
+            return img
+        cx, cy = (boxes[:,0] * self.w).long(), (boxes[:, 1] * self.h).long()
+        img[:, :, cx, cy] = 1.0
+        img = self.pool(img) # type: ignore
+        return img
+
+class SoftHeatMap(nn.Module):
     def __init__(self, w: int, h: int) -> None:
         super().__init__()
         self.w = w
@@ -108,18 +125,17 @@ class CenterHeatMap(nn.Module):
             img[:, :, x : x + w, y : y + h] = mount  # type: ignore
         return img
 
-
 class PreProcess(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
-        self.heatmap = CenterHeatMap(w=1024 // 2, h=1024 // 2)
+        self.heatmap = HardHeatMap(w=1024 // 2, h=1024 // 2)
 
     def forward(
         self, batch: t.Tuple[Tensor, t.List[Target]]
     ) -> t.Tuple[Tensor, "CriterinoTarget"]:
         images, targets = batch
         heatmap = torch.cat([self.heatmap(t["boxes"]) for t in targets], dim=0)
-        mask = (heatmap > 0.95).long()
+        mask = (heatmap > 0.5).long()
         return images, dict(heatmap=heatmap, mask=mask)
 
 

@@ -7,9 +7,10 @@ from app.models.centernet import (
     #  LabelClassification,
     Backbone,
     CenterNet,
-    CenterHeatMap,
     Criterion,
     FocalLoss,
+    HardHeatMap,
+    SoftHeatMap
 )
 from app.utils import plot_heatmap
 
@@ -30,7 +31,7 @@ def test_focal_loss() -> None:
     print(res)
 
 
-def test_heatmap() -> None:
+def test_hardheatmap() -> None:
     boxes = torch.tensor(
         [
             [0.2, 0.2, 0.1, 0.2],
@@ -40,10 +41,30 @@ def test_heatmap() -> None:
             [0.5, 0.5, 0.3, 0.1],
         ]
     )
-    fn = CenterHeatMap(w=512, h=512)
-    res = fn(boxes)[0]
-    c, _, _ = res.shape
-    plot_heatmap(res[0], f"/store/plot/test-heatmap.png")
+    fn = HardHeatMap(w=512, h=512)
+    res = fn(boxes)
+    plot_heatmap(res[0][0], f"/store/plot/test-hard-heatmap.png")
+    pool = torch.nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+    res = (pool(res) == res) & (res > 0.5)
+    plot_heatmap(res[0][0], f"/store/plot/test-hard-pooled.png")
+
+def test_softheatmap() -> None:
+    boxes = torch.tensor(
+        [
+            [0.2, 0.2, 0.1, 0.2],
+            [0.2, 0.25, 0.1, 0.1],
+            [0.3, 0.4, 0.1, 0.1],
+            [0.51, 0.51, 0.1, 0.1],
+            [0.5, 0.5, 0.3, 0.1],
+        ]
+    )
+    fn = SoftHeatMap(w=512, h=512)
+    res = fn(boxes)
+    plot_heatmap(res[0][0], f"/store/plot/test-soft-heatmap.png")
+    pool = torch.nn.MaxPool2d(kernel_size=3, stride=1, padding=1)
+    res = (pool(res) == res) & (res > 0.5)
+    plot_heatmap(res[0][0], f"/store/plot/test-soft-pooled.png")
+
 
 
 def test_backbone() -> None:
