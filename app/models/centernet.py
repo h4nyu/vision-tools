@@ -88,7 +88,6 @@ class CenterHeatMap(nn.Module):
             torch.tensor(mount, dtype=torch.float32).view(
                 1, 1, mount.shape[0], mount.shape[1]
             )
-            * 2
         )
 
     def forward(self, boxes: Tensor) -> Tensor:
