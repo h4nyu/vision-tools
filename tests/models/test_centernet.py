@@ -13,7 +13,7 @@ from app.models.centernet import (
     SoftHeatMap,
     ToBoxes,
 )
-from app.utils import plot_heatmap, plot_boxes
+from app.utils import plot_heatmap, DetectionPlot
 
 
 def test_toboxes() -> None:
@@ -28,10 +28,16 @@ def test_toboxes() -> None:
     sizemap = torch.zeros((1, 2, 10, 10))
     sizemap[:, :, 4, 4] = torch.tensor([0.3, 0.4]).view(1, 2)
     sizemap[:, :, 7, 7] = torch.tensor([0.1, 0.2]).view(1, 2)
+    gt_boxes = torch.tensor([[0.4, 0.4, 0.2, 0.2]])
     fn = ToBoxes(thresold=0.1)
     preds = fn(keymap, sizemap)
+    plot = DetectionPlot()
+    plot.with_image(keymap[0, 0])
     for probs, boxes in preds:
-        plot_boxes("/store/plot/test-toboxes.png", boxes, probs)
+        plot.with_boxes(boxes, probs)
+    print(gt_boxes.shape)
+    plot.with_boxes(gt_boxes, color="blue")
+    plot.save("/store/plot/test-toboxes.png",)
 
 
 def test_focal_loss() -> None:

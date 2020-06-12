@@ -7,6 +7,55 @@ from pathlib import Path
 from torch import Tensor
 
 
+class DetectionPlot:
+    def __init__(self, size: t.Tuple[int, int] = (128, 128)) -> None:
+        self.w, self.h = size
+        self.fig, self.ax = plt.subplots(figsize=(6, 6))
+        self.ax.imshow(torch.ones(self.w, self.h, 3))
+
+    def save(self, path: str) -> None:
+        self.fig.savefig(path)
+
+    def with_image(self, image: Tensor) -> None:
+        if len(image.shape) == 2:
+            self.ax.imshow(image)
+            self.w, self.h = image.shape
+        elif len(image.shape) == 3:
+            image = image.permute(1, 2, 0)
+            self.ax.imshow(image)
+            self.w, self.h, _ = image.shape
+        else:
+            shape = image.shape
+            raise ValueError(f"invald {shape=}")
+
+    def with_boxes(
+        self,
+        boxes: Tensor,
+        probs: t.Optional[Tensor] = None,
+        color: str = "black",
+        fontsize: int = 10,
+    ) -> None:
+        b, _ = boxes.shape
+        _probs = probs if probs is not None else torch.ones((b,))
+        _boxes = boxes.clone()
+        _boxes[:, [0, 2]] = boxes[:, [0, 2]] * self.w
+        _boxes[:, [1, 3]] = boxes[:, [1, 3]] * self.h
+        for box, p in zip(_boxes, _probs):
+            x0 = box[0] - box[2] / 2
+            y0 = box[1] - box[3] / 2
+            self.ax.text(x0, y0, f"{p:.2f}", fontsize=fontsize, color=color)
+            rect = mpatches.Rectangle(
+                (x0, y0),
+                width=box[2],
+                height=box[3],
+                fill=False,
+                edgecolor=color,
+                linewidth=2,
+                alpha=float(p),
+            )
+            self.ax.add_patch(rect)
+
+
 def plot_boxes(
     path: str,
     boxes: Tensor,
@@ -16,7 +65,7 @@ def plot_boxes(
     fig, ax = plt.subplots(figsize=(6, 6))
     w, h = size
     ax.grid(False)
-    ax.imshow(torch.ones(102, h, 3))
+    ax.imshow(torch.ones(w, h, 3))
     boxes[:, [0, 2]] = boxes[:, [0, 2]] * w
     boxes[:, [1, 3]] = boxes[:, [1, 3]] * h
     _probs = probs if probs is not None else torch.ones((w, h))
