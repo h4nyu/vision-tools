@@ -35,15 +35,15 @@ class Trainer:
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                WheatDataset(test_data),
+                WheatDataset(train_data),
                 shuffle=True,
                 batch_size=4,
                 drop_last=True,
                 collate_fn=collate_fn,
             ),
             "test": DataLoader(
-                WheatDataset(dict(list(test_data.items())[:50])),
-                batch_size=1,
+                WheatDataset(test_data),
+                batch_size=4,
                 collate_fn=collate_fn,
                 shuffle=True,
             ),
