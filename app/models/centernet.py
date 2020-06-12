@@ -144,7 +144,6 @@ class Reg(nn.Module):
         channels = in_channels
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
         )
 
         self.out = nn.Sequential(

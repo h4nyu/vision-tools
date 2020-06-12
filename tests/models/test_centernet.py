@@ -44,12 +44,6 @@ def test_heatmap() -> None:
     res = fn(boxes)[0]
     c, _, _ = res.shape
     plot_heatmap(res[0], f"/store/plot/test-heatmap.png")
-    res = res[res > 0.99]
-    print(res.shape)
-    #  plot_heatmap(res, f"/store/plot/threshold-heatmap.png")
-
-    #  for i in range(c):
-    #      plot_heatmap(res[i], f"/store/plot/test-heatmap-{i}.png")
 
 
 def test_backbone() -> None:
