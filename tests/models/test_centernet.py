@@ -9,78 +9,37 @@ from app.models.centernet import (
     CenterNet,
     CenterHeatMap,
     Criterion,
+    FocalLoss,
 )
 from app.utils import plot_heatmap
 
 
-#  def test_boxregression() -> None:
-#      inputs = torch.rand((10, 128, 32, 32))
-#      fn = BoxRegression(in_channels=128, num_queries=100)
-#      outs = fn(inputs)
-#      assert outs.shape == (10, 100, 4)
-#
-#
-#  def test_labelclassification() -> None:
-#      inputs = torch.rand((10, 128, 32, 32))
-#      fn = LabelClassification(in_channels=128, num_queries=100, num_classes=2)
-#      outs = fn(inputs)
-#      assert outs.shape == (10, 100, 2)
-
-
-
-
-
-def test_criterion_neg_loss() -> None:
-    heatmaps = torch.zeros((1, 1, 128, 128))
-    heatmaps[:, :, 61:64, 61:64] = torch.tensor([
-        [0.1, 0.5, 0.1 ],
-        [0.9, 1.0, 0.5 ],
-        [0.1, 0.5, 0.1 ],
-    ])
-    fn = Criterion()
-
-    preds = torch.zeros((1, 1, 128, 128))
-    preds[:, :, 61:64, 61:64] = torch.tensor([
-        [0.0, 0.0, 0.0 ],
-        [0.0, 0.5, 0.0 ],
-        [0.0, 0.0, 0.0 ],
-    ])
-    res = fn.neg_loss(preds, heatmaps)
+def test_focal_loss() -> None:
+    heatmaps = torch.tensor([[1, 1, 0.0], [1, 1, 1], [1, 1, 1],])
+    fn = FocalLoss()
+    preds = torch.tensor([[1.0, 1.0, 1.0], [1.0, 1, 1.0], [1.0, 1.0, 1.0],])
+    res = fn(preds, heatmaps)
     print(res)
 
-    preds = torch.zeros((1, 1, 128, 128))
-    preds[:, :, 61:64, 61:64] = torch.tensor([
-        [0.0, 0.0, 0.0 ],
-        [0.0, 0.5, 0.5 ],
-        [0.0, 0.0, 0.0 ],
-    ])
-    res = fn.neg_loss(preds, heatmaps)
+    preds = torch.tensor([[0.0, 0.0, 0.0], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
+    res = fn(preds, heatmaps)
     print(res)
 
-    preds[:, :, 61:64, 61:64] = torch.tensor([
-        [0.1, 0.1, 0.1 ],
-        [0.1, 1.0, 0.1 ],
-        [0.1, 0.1, 0.1 ],
-    ])
-    res = fn.neg_loss(preds, heatmaps)
+    preds = torch.tensor([[0.0, 0.0, 1], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
+    res = fn(preds, heatmaps)
     print(res)
 
-    preds[:, :, 61:64, 61:64] = torch.tensor([
-        [0.1, 0.5, 0.1 ],
-        [0.9, 1.0, 0.5 ],
-        [0.1, 0.5, 0.1 ],
-    ])
-    res = fn.neg_loss(preds, heatmaps)
-    print(res)
 
 def test_heatmap() -> None:
-    boxes = torch.tensor([
-        [0.2, 0.2, 0.1, 0.2],
-        [0.2, 0.25, 0.1, 0.1],
-        [0.3, 0.4, 0.1, 0.1],
-        [0.51, 0.51, 0.1, 0.1],
-        [0.5, 0.5, 0.3, 0.1]
-    ])
+    boxes = torch.tensor(
+        [
+            [0.2, 0.2, 0.1, 0.2],
+            [0.2, 0.25, 0.1, 0.1],
+            [0.3, 0.4, 0.1, 0.1],
+            [0.51, 0.51, 0.1, 0.1],
+            [0.5, 0.5, 0.3, 0.1],
+        ]
+    )
     fn = CenterHeatMap(w=512, h=512)
     res = fn(boxes)[0]
     c, _, _ = res.shape

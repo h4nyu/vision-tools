@@ -12,10 +12,36 @@ from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy
 
+Outputs = t.TypedDict(
+    "Outputs", {"heatmap": Tensor, "box_size": Tensor,}  # [B, 1, W, H]  # [B, 2, W, H]
+)
 
-def gaussian_2d(shape:t.Any, sigma:float=1) -> np.ndarray:
-    m, n = int((shape[0] - 1.) / 2.), int((shape[1] - 1.) / 2.)
-    y, x = np.ogrid[-m:m+1,-n:n+1]
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha: float = 2.0, beta: float = 4.0, eps: float = 1e-4):
+        super().__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.eps = eps
+
+    def forward(self, pred: Tensor, gt: Tensor) -> Tensor:
+        alpha = self.alpha
+        beta = self.beta
+        pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
+        pos_mask = gt.eq(1).float()
+        neg_mask = gt.lt(1).float()
+        pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
+        neg_loss = (
+            -((1 - gt) ** beta) * (pred ** alpha) * torch.log(1 - pred) * neg_mask
+        )
+        loss = (pos_loss + neg_loss).sum()
+        num_pos = pos_mask.sum().clamp(1)
+        return loss / num_pos.float()
+
+
+def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
+    m, n = int((shape[0] - 1.0) / 2.0), int((shape[1] - 1.0) / 2.0)
+    y, x = np.ogrid[-m : m + 1, -n : n + 1]
     h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
@@ -30,10 +56,12 @@ class Backbone(nn.Module):
         else:
             num_channels = 2048
         self.layers = list(self.backbone.children())[:-2]
-        self.projects = nn.ModuleList([
-            nn.Conv2d(in_channels=i, out_channels=out_channels, kernel_size=1,)
-            for i in [64, 64, 128, 256, 512]
-        ])
+        self.projects = nn.ModuleList(
+            [
+                nn.Conv2d(in_channels=i, out_channels=out_channels, kernel_size=1,)
+                for i in [64, 64, 128, 256, 512]
+            ]
+        )
 
     def forward(self, x: Tensor) -> FP:
         internal_outputs = []
@@ -49,16 +77,22 @@ class Backbone(nn.Module):
             self.projects[4](p7),
         )
 
+
 class CenterHeatMap(nn.Module):
     def __init__(self, w: int, h: int) -> None:
         super().__init__()
         self.w = w
         self.h = h
         mount = gaussian_2d((64, 64), sigma=7)
-        self.mount = torch.tensor(mount).view(1, 1, mount.shape[0], mount.shape[1])
+        self.mount = (
+            torch.tensor(mount, dtype=torch.float32).view(
+                1, 1, mount.shape[0], mount.shape[1]
+            )
+            * 2
+        )
 
     def forward(self, boxes: Tensor) -> Tensor:
-        img = torch.zeros((1, 1, self.w, self.h)).float().to(boxes.device)
+        img = torch.zeros((1, 1, self.w, self.h), dtype=torch.float32).to(boxes.device)
         b, _ = boxes.shape
         if b == 0:
             return img
@@ -70,96 +104,57 @@ class CenterHeatMap(nn.Module):
         for box, size in zip(xyxy, sizes):
             x, y = box[0], box[1]
             w, h = size[0], size[1]
-            img[:, :, x:x + w, y:y+h] += F.interpolate(self.mount, size=(w, h)).to(boxes.device) #type:ignore
+            mount = F.interpolate(self.mount, size=(w, h)).to(boxes.device)
+            mount = torch.max(mount, img[:, :, x : x + w, y : y + h])  # type: ignore
+            img[:, :, x : x + w, y : y + h] = mount  # type: ignore
         return img
 
 
 class PreProcess(nn.Module):
-    def __init__(self,)->None:
+    def __init__(self,) -> None:
         super().__init__()
-        self.heatmap = CenterHeatMap(w=1024//2, h=1024//2)
+        self.heatmap = CenterHeatMap(w=1024 // 2, h=1024 // 2)
 
-    def forward(self, batch: t.Tuple[Tensor, t.List[Target]]) -> t.Tuple[Tensor, Tensor]:
+    def forward(
+        self, batch: t.Tuple[Tensor, t.List[Target]]
+    ) -> t.Tuple[Tensor, "CriterinoTarget"]:
         images, targets = batch
-        heatmaps = torch.cat([
-            self.heatmap(t['boxes'])
-            for t
-            in targets
-        ], dim=0)
-        return images, heatmaps
+        heatmap = torch.cat([self.heatmap(t["boxes"]) for t in targets], dim=0)
+        mask = (heatmap > 0.9).long()
+        return images, dict(heatmap=heatmap, mask=mask)
 
-Outputs = t.Tuple[Tensor, Tensor]
+
+CriterinoTarget = t.TypedDict("CriterinoTarget", {"heatmap": Tensor, "mask": Tensor,})
+
 
 class Criterion(nn.Module):
     def __init__(self) -> None:
         super().__init__()
+        self.focal_loss = FocalLoss()
 
-    def neg_loss(self, preds: Tensor, targets: Tensor) -> Tensor:
-        device = preds.device
-        pos_inds = targets.gt(0.95).float()
-        neg_inds = targets.lt(0.05).float()
-
-        neg_weights = torch.pow(1 - targets, 4)
-
-        loss = torch.tensor(0).to(device)
-        for pred in preds:
-            pred = torch.clamp(pred, min=1e-7, max=1 - 1e-7)
-            pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
-            neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
-
-            num_pos = pos_inds.float().sum()
-            pos_loss = pos_loss.sum()
-            neg_loss = neg_loss.sum()
-
-            if num_pos == 0:
-                loss = loss - neg_loss
-            else:
-                loss = loss - (pos_loss + neg_loss) / num_pos
-        return loss / len(preds)
-        #  src = src.unsqueeze(1).float()
-        #  tgt = tgt.unsqueeze(1).float()
-        #  pos_inds = tgt.eq(1).float()
-        #  neg_inds = tgt.lt(1).float()
-        #  neg_weights = torch.pow(1 - tgt, 4)
-        #  oss = torch.tensor(0).to(src.device)
-        #  pos_loss = torch.log(src + 1e-12) * torch.pow(1 - src, 3) * pos_inds
-        #  neg_loss = (
-        #      torch.log(1 - src + 1e-12) * torch.pow(src, 3) * neg_weights * neg_inds
-        #  )
-        #  num_pos = pos_inds.float().sum()
-        #  pos_loss = pos_loss.sum()
-        #  neg_loss = neg_loss.sum()
-        #  loss = loss - (pos_loss + neg_loss) / num_pos
-    def forward(self, src:Outputs, tgt:Tensor) -> Tensor:
-        hmap, _ = src
-        return self.neg_loss(hmap, tgt)
+    def forward(self, src: Outputs, tgt: CriterinoTarget) -> Tensor:
+        heatmap = src["heatmap"]
+        gt_mask = tgt["mask"]
+        return self.focal_loss(heatmap, gt_mask)
 
 
 class Reg(nn.Module):
-    def __init__(
-        self,
-        in_channels:int,
-        out_channels: int,
-    ) -> None:
+    def __init__(self, in_channels: int, out_channels: int,) -> None:
         super().__init__()
         channels = in_channels
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, channels, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
         )
 
         self.out = nn.Sequential(
-            nn.Conv2d(channels, out_channels, kernel_size=1, padding=0),
-            nn.Sigmoid()
+            nn.Conv2d(channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
         )
 
-    def forward(self, x:Tensor) -> Tensor:  # type: ignore
+    def forward(self, x: Tensor) -> Tensor:  # type: ignore
         x = self.conv(x)
         x = self.out(x)
         return x
-
 
 
 class CenterNet(nn.Module):
@@ -169,12 +164,9 @@ class CenterNet(nn.Module):
         super().__init__()
         channels = 32
         self.backbone = Backbone(name, out_channels=channels)
-        self.fpn = nn.Sequential(
-            BiFPN(channels=channels),
-            BiFPN(channels=channels),
-        )
-        self.outc = Reg(in_channels=channels, out_channels=1)
-        self.outr = nn.Conv2d(channels, 2, kernel_size=1)
+        self.fpn = nn.Sequential(BiFPN(channels=channels), BiFPN(channels=channels),)
+        self.heatmap = Reg(in_channels=channels, out_channels=1)
+        self.box_size = Reg(in_channels=channels, out_channels=2)
 
     def forward(self, x: Tensor) -> Outputs:
         """
@@ -182,7 +174,6 @@ class CenterNet(nn.Module):
         """
         fp = self.backbone(x)
         fp = self.fpn(fp)
-
-        outc = self.outc(fp[0])
-        outr = self.outr(fp[0])
-        return outc, outr
+        heatmap = self.heatmap(fp[0])
+        box_size = self.box_size(fp[0])
+        return dict(heatmap=heatmap, box_size=box_size)

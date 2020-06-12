@@ -17,6 +17,7 @@ from app.utils import plot_heatmap
 
 from app.dataset import collate_fn
 from app.models.centernet import CenterNet as NNModel, PreProcess, Criterion
+
 #  from app.models.set_criterion import SetCriterion as Criterion
 from app import config
 
@@ -79,9 +80,7 @@ class Trainer:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            samples, targets = self.preprocess(
-                (samples, targets)
-            )
+            samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
             self.optimizer.zero_grad()
@@ -90,11 +89,15 @@ class Trainer:
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_heatmap(
-                    targets[-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-tgt.png"),
+                    targets["heatmap"][-1][0].detach().cpu(),
+                    self.output_dir.joinpath("train-tgt-hm.png"),
                 )
                 plot_heatmap(
-                    outputs[0][-1][0].detach().cpu(),
+                    targets["mask"][-1][0].detach().cpu(),
+                    self.output_dir.joinpath("train-tgt-mask.png"),
+                )
+                plot_heatmap(
+                    outputs["heatmap"][-1][0].detach().cpu(),
                     self.output_dir.joinpath("train-src.png"),
                 )
         return (epoch_loss / count,)
@@ -109,19 +112,21 @@ class Trainer:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            samples, targets = self.preprocess(
-                (samples, targets)
-            )
+            samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
             epoch_loss += loss.item()
             if count % self.check_interval == 0:
                 plot_heatmap(
-                    targets[-1][0].detach().cpu(),
-                    self.output_dir.joinpath("test-tgt.png"),
+                    targets["heatmap"][-1][0].detach().cpu(),
+                    self.output_dir.joinpath("test-tgt-hm.png"),
                 )
                 plot_heatmap(
-                    outputs[0][-1][0].detach().cpu(),
+                    targets["mask"][-1][0].detach().cpu(),
+                    self.output_dir.joinpath("test-tgt-mask.png"),
+                )
+                plot_heatmap(
+                    outputs["heatmap"][-1][0].detach().cpu(),
                     self.output_dir.joinpath("test-src.png"),
                 )
 
