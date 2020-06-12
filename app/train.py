@@ -87,19 +87,18 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
-            if count % self.check_interval == 0:
-                plot_heatmap(
-                    targets["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-tgt-hm.png"),
-                )
-                plot_heatmap(
-                    targets["mask"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-tgt-mask.png"),
-                )
-                plot_heatmap(
-                    outputs["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-src.png"),
-                )
+        plot_heatmap(
+            targets["heatmap"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("train-tgt-hm.png"),
+        )
+        plot_heatmap(
+            targets["mask"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("train-tgt-mask.png"),
+        )
+        plot_heatmap(
+            outputs["heatmap"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("train-src.png"),
+        )
         return (epoch_loss / count,)
 
     @torch.no_grad()
@@ -116,19 +115,18 @@ class Trainer:
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
             epoch_loss += loss.item()
-            if count % self.check_interval == 0:
-                plot_heatmap(
-                    targets["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("test-tgt-hm.png"),
-                )
-                plot_heatmap(
-                    targets["mask"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("test-tgt-mask.png"),
-                )
-                plot_heatmap(
-                    outputs["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("test-src.png"),
-                )
+        plot_heatmap(
+            targets["heatmap"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("test-tgt-hm.png"),
+        )
+        plot_heatmap(
+            targets["mask"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("test-tgt-mask.png"),
+        )
+        plot_heatmap(
+            outputs["heatmap"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("test-src.png"),
+        )
 
         return (epoch_loss / count,)
 

@@ -120,7 +120,7 @@ class PreProcess(nn.Module):
     ) -> t.Tuple[Tensor, "CriterinoTarget"]:
         images, targets = batch
         heatmap = torch.cat([self.heatmap(t["boxes"]) for t in targets], dim=0)
-        mask = (heatmap > 0.9).long()
+        mask = (heatmap > 0.95).long()
         return images, dict(heatmap=heatmap, mask=mask)
 
 
