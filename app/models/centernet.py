@@ -11,10 +11,28 @@ from .bifpn import BiFPN, FP
 from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy
+from app.utils import plot_heatmap
+from pathlib import Path
 
 Outputs = t.TypedDict(
     "Outputs", {"heatmap": Tensor, "box_size": Tensor,}  # [B, 1, W, H]  # [B, 2, W, H]
 )
+
+
+class VisualizeHeatmap:
+    def __init__(self, output_dir: Path, prefix: str = "",) -> None:
+        self.prefix = prefix
+        self.output_dir = output_dir
+
+    def __call__(self, outputs: Outputs, targets: "CriterinoTarget") -> None:
+        plot_heatmap(
+            targets["mask"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("train-tgt-mask.png"),
+        )
+        plot_heatmap(
+            outputs["heatmap"][-1][0].detach().cpu(),
+            self.output_dir.joinpath("train-src.png"),
+        )
 
 
 class FocalLoss(nn.Module):
@@ -150,8 +168,9 @@ class Criterion(nn.Module):
 
     def forward(self, src: Outputs, tgt: CriterinoTarget) -> Tensor:
         heatmap = src["heatmap"]
+        b, _, _, _ = heatmap.shape
         mask = tgt["mask"]
-        return self.focal_loss(heatmap, mask)
+        return self.focal_loss(heatmap, mask) / b
 
 
 class Reg(nn.Module):
@@ -203,10 +222,10 @@ class ToBoxes(nn.Module):
 
 class CenterNet(nn.Module):
     def __init__(
-        self, name: str = "resnet18", num_classes: int = 1, num_queries: int = 100
+        self, name: str = "resnet34", num_classes: int = 1, num_queries: int = 100
     ) -> None:
         super().__init__()
-        channels = 32
+        channels = 64
         self.backbone = Backbone(name, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels), BiFPN(channels=channels),)
         self.heatmap = Reg(in_channels=channels, out_channels=1)

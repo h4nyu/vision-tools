@@ -4,10 +4,8 @@ image_dir = "/store/images"
 root_dir = "/store"
 
 random_state = 777
-lr = 1e-4
+lr = 1e-3
 n_splits = 5
-clip_max_norm = 0.1
-
 
 num_classes = 1
 num_queries = 50
@@ -21,3 +19,6 @@ loss_giou = 0
 cost_class = 1
 cost_box = 1
 cost_giou = 1
+
+batch_size: int = 16
+num_workers: int = 8

@@ -16,7 +16,12 @@ from app.utils import plot_heatmap
 #  from app.models.detr import DETR as NNModel
 
 from app.dataset import collate_fn
-from app.models.centernet import CenterNet as NNModel, PreProcess, Criterion
+from app.models.centernet import (
+    CenterNet as NNModel,
+    PreProcess,
+    Criterion,
+    VisualizeHeatmap,
+)
 
 #  from app.models.set_criterion import SetCriterion as Criterion
 from app import config
@@ -37,21 +42,24 @@ class Trainer:
             "train": DataLoader(
                 WheatDataset(train_data),
                 shuffle=True,
-                batch_size=16,
+                batch_size=config.batch_size,
                 drop_last=True,
                 collate_fn=collate_fn,
-                num_workers=4,
+                num_workers=config.num_workers,
             ),
             "test": DataLoader(
                 WheatDataset(test_data),
-                batch_size=16,
+                batch_size=config.batch_size,
                 collate_fn=collate_fn,
                 shuffle=True,
-                num_workers=4,
+                num_workers=config.num_workers,
             ),
         }
+        self.visualizes = {
+            "test": VisualizeHeatmap(output_dir, "test"),
+            "train": VisualizeHeatmap(output_dir, "train"),
+        }
         self.check_interval = 20
-        self.clip_max_norm = config.clip_max_norm
         self.preprocess = PreProcess().to(device)
 
         self.output_dir = output_dir
@@ -89,19 +97,7 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
-            if count % self.check_interval == 0:
-                plot_heatmap(
-                    targets["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-tgt-hm.png"),
-                )
-                plot_heatmap(
-                    targets["mask"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-tgt-mask.png"),
-                )
-                plot_heatmap(
-                    outputs["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("train-src.png"),
-                )
+        self.visualizes["train"](outputs, targets)
         return (epoch_loss / count,)
 
     @torch.no_grad()
@@ -118,20 +114,7 @@ class Trainer:
             outputs = self.model(samples)
             loss = self.criterion(outputs, targets)
             epoch_loss += loss.item()
-            if count % self.check_interval == 0:
-                plot_heatmap(
-                    targets["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("test-tgt-hm.png"),
-                )
-                plot_heatmap(
-                    targets["mask"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("test-tgt-mask.png"),
-                )
-                plot_heatmap(
-                    outputs["heatmap"][-1][0].detach().cpu(),
-                    self.output_dir.joinpath("test-src.png"),
-                )
-
+        self.visualizes["test"](outputs, targets)
         return (epoch_loss / count,)
 
     def save_checkpoint(self,) -> None:
