@@ -31,13 +31,13 @@ class VisualizeHeatmap:
         self.to_boxes = ToBoxes(thresold=0.3)
 
     def __call__(self, src: NetOutputs, tgt: NetOutputs) -> None:
-        src = {k: v[:1] for k,v  in src.items() } #type: ignore
-        tgt = {k: v[:1] for k,v  in tgt.items() } #type: ignore
+        src = {k: v[:1] for k, v in src.items()}  # type: ignore
+        tgt = {k: v[:1] for k, v in tgt.items()}  # type: ignore
         src_boxes = self.to_boxes(src)
         tgt_boxes = self.to_boxes(tgt)
         for sb, tb in zip(src_boxes, tgt_boxes):
             plot = DetectionPlot()
-            plot.with_boxes(sb[1], sb[0],  color="red")
+            plot.with_boxes(sb[1], sb[0], color="red")
             plot.with_boxes(tb[1], tb[0])
             plot.save(self.output_dir.joinpath(f"{self.prefix}-train.png"))
 
@@ -110,12 +110,8 @@ class HardHeatMap(nn.Module):
         self.h = h
 
     def forward(self, boxes: Tensor) -> "NetOutputs":
-        heatmap = torch.zeros((self.w, self.h), dtype=torch.float32).to(
-            boxes.device
-        )
-        sizemap = torch.zeros((2, self.w, self.h), dtype=torch.float32).to(
-            boxes.device
-        )
+        heatmap = torch.zeros((self.w, self.h), dtype=torch.float32).to(boxes.device)
+        sizemap = torch.zeros((2, self.w, self.h), dtype=torch.float32).to(boxes.device)
         b, _ = boxes.shape
         if b == 0:
             return dict(heatmap=heatmap, sizemap=sizemap)
@@ -168,10 +164,10 @@ class PreProcess(nn.Module):
         hms = []
         sms = []
         for t in targets:
-            boxes = t['boxes']
+            boxes = t["boxes"]
             res = self.heatmap(t["boxes"])
-            hms.append(res['heatmap'])
-            sms.append(res['sizemap'])
+            hms.append(res["heatmap"])
+            sms.append(res["sizemap"])
 
         heatmap = torch.cat(hms, dim=0)
         sizemap = torch.cat(sms, dim=0)
@@ -186,7 +182,7 @@ class Criterion(nn.Module):
     def forward(self, src: NetOutputs, tgt: NetOutputs) -> Tensor:
         b, _, _, _ = src["heatmap"].shape
         center_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
-        size_loss = F.l1_loss(src['sizemap'], tgt['sizemap'])
+        size_loss = F.l1_loss(src["sizemap"], tgt["sizemap"])
         return center_loss + size_loss
 
 
@@ -210,11 +206,9 @@ class ToBoxes:
     def __init__(self, thresold: float) -> None:
         self.thresold = thresold
 
-    def __call__(
-        self, inputs: NetOutputs
-    ) -> t.List[t.Tuple[Tensor, Tensor]]:
+    def __call__(self, inputs: NetOutputs) -> t.List[t.Tuple[Tensor, Tensor]]:
         heatmaps = inputs["heatmap"]
-        sizemaps = inputs['sizemap']
+        sizemaps = inputs["sizemap"]
         device = heatmaps.device
         kp_maps = (F.max_pool2d(heatmaps, 3, stride=1, padding=1) == heatmaps) & (
             heatmaps > self.thresold
@@ -222,7 +216,9 @@ class ToBoxes:
         batch_size, _, width, height = heatmaps.shape
         original_size = torch.tensor([width, height], dtype=torch.float32).to(device)
         targets: t.List[t.Tuple[Tensor, Tensor]] = []
-        for hm, kp_map, size_map in zip(heatmaps.squeeze(1), kp_maps.squeeze(1), sizemaps):
+        for hm, kp_map, size_map in zip(
+            heatmaps.squeeze(1), kp_maps.squeeze(1), sizemaps
+        ):
             pos = kp_map.nonzero()
             confidences = hm[pos[:, 0], pos[:, 1]]
             wh = size_map[:, pos[:, 0], pos[:, 1]]
@@ -252,7 +248,7 @@ class CenterNet(nn.Module):
         """
         x: [B, 3, W, H]
         """
-        x = inputs['images']
+        x = inputs["images"]
         fp = self.backbone(x)
         fp = self.fpn(fp)
         heatmap = self.heatmap(fp[1])

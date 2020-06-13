@@ -57,16 +57,11 @@ def test_focal_loss() -> None:
 
 
 def test_hardheatmap() -> None:
-    boxes = torch.tensor(
-        [
-            [0.2, 0.2, 0.1, 0.2],
-            [0.4, 0.4, 0.2, 0.1],
-        ]
-    )
+    boxes = torch.tensor([[0.2, 0.2, 0.1, 0.2], [0.4, 0.4, 0.2, 0.1],])
     fn = HardHeatMap(w=64, h=64)
     res = fn(boxes)
-    heatmap = res['heatmap']
-    sizemap = res['sizemap']
+    heatmap = res["heatmap"]
+    sizemap = res["sizemap"]
     plot = DetectionPlot()
     plot.with_image(heatmap[0, 0])
     plot.save(f"/store/plot/test-heatmap.png")
