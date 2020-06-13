@@ -17,8 +17,8 @@ from app.utils import plot_heatmap, DetectionPlot
 
 
 def test_toboxes() -> None:
-    keymap = torch.zeros((1, 1, 10, 10))
-    keymap[:, :, 3:6, 3:6] = torch.tensor(
+    keymap = torch.zeros((2, 1, 10, 10))
+    keymap[0, :, 3:6, 3:6] = torch.tensor(
         [[0.0, 0.1, 0.0,], [0.1, 0.3, 0.1,], [0.0, 0.1, 0.0,],],
     )
 
@@ -30,7 +30,7 @@ def test_toboxes() -> None:
     sizemap[:, :, 7, 7] = torch.tensor([0.1, 0.2]).view(1, 2)
     gt_boxes = torch.tensor([[0.4, 0.4, 0.2, 0.2]])
     fn = ToBoxes(thresold=0.1)
-    preds = fn(keymap, sizemap)
+    preds = fn(dict(heatmap=keymap, sizemap=sizemap))
     plot = DetectionPlot()
     plot.with_image(keymap[0, 0])
     for probs, boxes in preds:
@@ -60,15 +60,24 @@ def test_hardheatmap() -> None:
     boxes = torch.tensor(
         [
             [0.2, 0.2, 0.1, 0.2],
-            [0.2, 0.25, 0.1, 0.1],
-            [0.3, 0.4, 0.1, 0.1],
-            [0.51, 0.51, 0.1, 0.1],
-            [0.5, 0.5, 0.3, 0.1],
+            [0.4, 0.4, 0.2, 0.1],
         ]
     )
-    fn = HardHeatMap(w=512, h=512)
+    fn = HardHeatMap(w=64, h=64)
     res = fn(boxes)
-    plot_heatmap(res[0][0], f"/store/plot/test-hard-heatmap.png")
+    heatmap = res['heatmap']
+    sizemap = res['sizemap']
+    plot = DetectionPlot()
+    plot.with_image(heatmap[0, 0])
+    plot.save(f"/store/plot/test-heatmap.png")
+
+    plot = DetectionPlot()
+    plot.with_image(sizemap[0, 0])
+    plot.save(f"/store/plot/test-sizemap-w.png")
+
+    plot = DetectionPlot()
+    plot.with_image(sizemap[0, 1])
+    plot.save(f"/store/plot/test-sizemap-h.png")
 
 
 def test_softheatmap() -> None:

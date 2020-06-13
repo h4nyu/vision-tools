@@ -11,7 +11,7 @@ from .bifpn import BiFPN, FP
 from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy
-from app.utils import plot_heatmap
+from app.utils import plot_heatmap, DetectionPlot
 from pathlib import Path
 import albumentations as albm
 
@@ -19,21 +19,27 @@ Outputs = t.TypedDict(
     "Outputs", {"heatmap": Tensor, "box_size": Tensor,}  # [B, 1, W, H]  # [B, 2, W, H]
 )
 
+NetInputs = t.TypedDict("NetInputs", {"images": Tensor})
+
+NetOutputs = t.TypedDict("NetOutputs", {"heatmap": Tensor, "sizemap": Tensor,})
+
 
 class VisualizeHeatmap:
     def __init__(self, output_dir: Path, prefix: str = "",) -> None:
         self.prefix = prefix
         self.output_dir = output_dir
+        self.to_boxes = ToBoxes(thresold=0.3)
 
-    def __call__(self, outputs: Outputs, targets: "CriterinoTarget") -> None:
-        plot_heatmap(
-            targets["mask"][-1][0].detach().cpu(),
-            self.output_dir.joinpath(f"{self.prefix}-tgt-mask.png"),
-        )
-        plot_heatmap(
-            outputs["heatmap"][-1][0].detach().cpu(),
-            self.output_dir.joinpath(f"{self.prefix}-src.png"),
-        )
+    def __call__(self, src: NetOutputs, tgt: NetOutputs) -> None:
+        src = {k: v[:1] for k,v  in src.items() } #type: ignore
+        tgt = {k: v[:1] for k,v  in tgt.items() } #type: ignore
+        src_boxes = self.to_boxes(src)
+        tgt_boxes = self.to_boxes(tgt)
+        for sb, tb in zip(src_boxes, tgt_boxes):
+            plot = DetectionPlot()
+            plot.with_boxes(sb[1], sb[0],  color="red")
+            plot.with_boxes(tb[1], tb[0])
+            plot.save(self.output_dir.joinpath(f"{self.prefix}-train.png"))
 
 
 class FocalLoss(nn.Module):
@@ -103,14 +109,22 @@ class HardHeatMap(nn.Module):
         self.w = w
         self.h = h
 
-    def forward(self, boxes: Tensor) -> Tensor:
-        img = torch.zeros((1, 1, self.w, self.h), dtype=torch.float32).to(boxes.device)
+    def forward(self, boxes: Tensor) -> "NetOutputs":
+        heatmap = torch.zeros((self.w, self.h), dtype=torch.float32).to(
+            boxes.device
+        )
+        sizemap = torch.zeros((2, self.w, self.h), dtype=torch.float32).to(
+            boxes.device
+        )
         b, _ = boxes.shape
         if b == 0:
-            return img
+            return dict(heatmap=heatmap, sizemap=sizemap)
         cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
-        img[:, :, cx, cy] = 1.0
-        return img
+        heatmap[cx, cy] = 1.0
+        sizemap[:, cx, cy] = boxes[:, 2:4].permute(1, 0)
+        heatmap = heatmap.unsqueeze(0).unsqueeze(0)
+        sizemap = sizemap.unsqueeze(0)
+        return dict(heatmap=heatmap, sizemap=sizemap)
 
 
 class SoftHeatMap(nn.Module):
@@ -149,14 +163,19 @@ class PreProcess(nn.Module):
 
     def forward(
         self, batch: t.Tuple[Tensor, t.List[Target]]
-    ) -> t.Tuple[Tensor, "CriterinoTarget"]:
+    ) -> t.Tuple[NetInputs, NetOutputs]:
         images, targets = batch
-        heatmap = torch.cat([self.heatmap(t["boxes"]) for t in targets], dim=0)
-        mask = (heatmap > 0.5).long()
-        return images, dict(heatmap=heatmap, mask=mask)
+        hms = []
+        sms = []
+        for t in targets:
+            boxes = t['boxes']
+            res = self.heatmap(t["boxes"])
+            hms.append(res['heatmap'])
+            sms.append(res['sizemap'])
 
-
-CriterinoTarget = t.TypedDict("CriterinoTarget", {"heatmap": Tensor, "mask": Tensor,})
+        heatmap = torch.cat(hms, dim=0)
+        sizemap = torch.cat(sms, dim=0)
+        return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
 
 class Criterion(nn.Module):
@@ -164,11 +183,11 @@ class Criterion(nn.Module):
         super().__init__()
         self.focal_loss = FocalLoss()
 
-    def forward(self, src: Outputs, tgt: CriterinoTarget) -> Tensor:
-        heatmap = src["heatmap"]
-        b, _, _, _ = heatmap.shape
-        mask = tgt["mask"]
-        return self.focal_loss(heatmap, mask) / b
+    def forward(self, src: NetOutputs, tgt: NetOutputs) -> Tensor:
+        b, _, _, _ = src["heatmap"].shape
+        center_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
+        size_loss = F.l1_loss(src['sizemap'], tgt['sizemap'])
+        return center_loss + size_loss
 
 
 class Reg(nn.Module):
@@ -187,14 +206,15 @@ class Reg(nn.Module):
         return x
 
 
-class ToBoxes(nn.Module):
+class ToBoxes:
     def __init__(self, thresold: float) -> None:
-        super().__init__()
         self.thresold = thresold
 
-    def forward(
-        self, heatmaps: Tensor, sizes: Tensor
+    def __call__(
+        self, inputs: NetOutputs
     ) -> t.List[t.Tuple[Tensor, Tensor]]:
+        heatmaps = inputs["heatmap"]
+        sizemaps = inputs['sizemap']
         device = heatmaps.device
         kp_maps = (F.max_pool2d(heatmaps, 3, stride=1, padding=1) == heatmaps) & (
             heatmaps > self.thresold
@@ -202,12 +222,12 @@ class ToBoxes(nn.Module):
         batch_size, _, width, height = heatmaps.shape
         original_size = torch.tensor([width, height], dtype=torch.float32).to(device)
         targets: t.List[t.Tuple[Tensor, Tensor]] = []
-        for hm, kp_map, size_map in zip(heatmaps.squeeze(1), kp_maps.squeeze(1), sizes):
+        for hm, kp_map, size_map in zip(heatmaps.squeeze(1), kp_maps.squeeze(1), sizemaps):
             pos = kp_map.nonzero()
             confidences = hm[pos[:, 0], pos[:, 1]]
             wh = size_map[:, pos[:, 0], pos[:, 1]]
             cxcy = pos.float() / original_size
-            boxes = torch.cat([cxcy, wh], dim=1)
+            boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
             targets.append((confidences, boxes,))
         return targets
 
@@ -228,12 +248,13 @@ class CenterNet(nn.Module):
         self.heatmap = Reg(in_channels=channels, out_channels=1)
         self.box_size = Reg(in_channels=channels, out_channels=2)
 
-    def forward(self, x: Tensor) -> Outputs:
+    def forward(self, inputs: NetInputs) -> NetOutputs:
         """
         x: [B, 3, W, H]
         """
+        x = inputs['images']
         fp = self.backbone(x)
         fp = self.fpn(fp)
         heatmap = self.heatmap(fp[1])
-        box_size = self.box_size(fp[1])
-        return dict(heatmap=heatmap, box_size=box_size)
+        sizemap = self.box_size(fp[1])
+        return dict(heatmap=heatmap, sizemap=sizemap)
