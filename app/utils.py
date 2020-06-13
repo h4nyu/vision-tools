@@ -11,7 +11,7 @@ class DetectionPlot:
     def __init__(self, size: t.Tuple[int, int] = (128, 128)) -> None:
         self.w, self.h = size
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
-        self.ax.imshow(torch.ones(self.w, self.h, 3),interpolation="nearest")
+        self.ax.imshow(torch.ones(self.w, self.h, 3), interpolation="nearest")
 
     def __del__(self) -> None:
         plt.close(self.fig)
@@ -22,11 +22,11 @@ class DetectionPlot:
     def with_image(self, image: Tensor) -> None:
         if len(image.shape) == 2:
             self.ax.imshow(image, interpolation="nearest")
-            self.w, self.h = image.shape
+            self.h, self.w = image.shape
         elif len(image.shape) == 3:
             image = image.permute(1, 2, 0)
             self.ax.imshow(image, interpolation="nearest")
-            self.w, self.h, _ = image.shape
+            self.h, self.w, _ = image.shape
         else:
             shape = image.shape
             raise ValueError(f"invald {shape=}")

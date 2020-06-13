@@ -64,8 +64,8 @@ def box_xyxy_to_cxcywh(x: Tensor) -> Tensor:
 
 
 def box_xywh_to_xyxy(x: Tensor) -> Tensor:
-    x0, y0, x1, y1 = x.unbind(-1)
-    b = [x0, y0, (x1 + x0), (y1 + y0)]
+    x0, y0, w, h = x.unbind(-1)
+    b = [x0, y0, (x0 + w), (y0 + h)]
     return torch.stack(b, dim=-1)
 
 

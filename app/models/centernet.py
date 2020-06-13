@@ -46,7 +46,7 @@ class VisualizeHeatmap:
             plot.with_image(hm[0])
             plot.with_boxes(sb[1], sb[0], color="red")
             plot.with_boxes(tb[1], tb[0])
-            plot.save(self.output_dir.joinpath(f"{self.prefix}-boxes.png"))
+            plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes.png")))
 
 
 class FocalLoss(nn.Module):
@@ -236,14 +236,17 @@ class ToBoxes:
         self.thresold = thresold
 
     def __call__(self, inputs: NetOutputs) -> t.List[t.Tuple[Tensor, Tensor]]:
+        """
+        cxcywh 0-1
+        """
         heatmaps = inputs["heatmap"]
         sizemaps = inputs["sizemap"]
         device = heatmaps.device
         kp_maps = (F.max_pool2d(heatmaps, 3, stride=1, padding=1) == heatmaps) & (
             heatmaps > self.thresold
         )
-        batch_size, _, width, height = heatmaps.shape
-        original_size = torch.tensor([width, height], dtype=torch.float32).to(device)
+        batch_size, _, height, width = heatmaps.shape
+        original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         targets: t.List[t.Tuple[Tensor, Tensor]] = []
         for hm, kp_map, size_map in zip(
             heatmaps.squeeze(1), kp_maps.squeeze(1), sizemaps
@@ -251,7 +254,7 @@ class ToBoxes:
             pos = kp_map.nonzero()
             confidences = hm[pos[:, 0], pos[:, 1]]
             wh = size_map[:, pos[:, 0], pos[:, 1]]
-            cxcy = pos.float() / original_size
+            cxcy = pos[:, [1, 0]].float() / original_wh
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
             sort_idx = confidences.argsort(descending=True)[: self.limit]
             targets.append((confidences[sort_idx], boxes[sort_idx],))
