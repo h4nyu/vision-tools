@@ -161,7 +161,8 @@ class SoftHeatMap(nn.Module):
 class PreProcess(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
-        self.heatmap = HardHeatMap(w=1024 // 4, h=1024 // 4)
+        self.scale = 2 ** config.scale_factor
+        self.heatmap = HardHeatMap(w=1024 // self.scale, h=1024 // self.scale)
 
     def forward(
         self, batch: t.Tuple[Tensor, t.List[Target]]
@@ -177,6 +178,8 @@ class PreProcess(nn.Module):
 
         heatmap = torch.cat(hms, dim=0)
         sizemap = torch.cat(sms, dim=0)
+        _, _, w, h = heatmap.shape
+        images = F.interpolate(images, size=(w * 2, h * 2))
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
 
@@ -259,6 +262,6 @@ class CenterNet(nn.Module):
         x = inputs["images"]
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = self.heatmap(fp[1])
-        sizemap = self.box_size(fp[1])
+        heatmap = self.heatmap(fp[0])
+        sizemap = self.box_size(fp[0])
         return dict(heatmap=heatmap, sizemap=sizemap)
