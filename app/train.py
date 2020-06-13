@@ -4,7 +4,6 @@ import json
 import numpy as np
 
 
-from tqdm import tqdm
 from pathlib import Path
 from logging import getLogger
 from torch.utils.data import DataLoader
@@ -103,7 +102,7 @@ class Trainer:
         self.model.eval()
         epoch_loss = 0
         count = 0
-        for samples, targets in tqdm(self.data_loaders["test"]):
+        for samples, targets in self.data_loaders["test"]:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
