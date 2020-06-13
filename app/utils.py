@@ -13,6 +13,9 @@ class DetectionPlot:
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
         self.ax.imshow(torch.ones(self.w, self.h, 3))
 
+    def __del__(self) -> None:
+        plt.close(self.fig)
+
     def save(self, path: t.Union[str, Path]) -> None:
         self.fig.savefig(path)
 

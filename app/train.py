@@ -34,7 +34,8 @@ class Trainer:
         self, train_data: Annotations, test_data: Annotations, output_dir: Path,
     ) -> None:
         self.model = NNModel().to(device)
-        self.criterion = Criterion().to(device)
+        self.train_cri = Criterion("train").to(device).train()
+        self.test_cri = Criterion("test").to(device).eval()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -81,16 +82,15 @@ class Trainer:
 
     def train_one_epoch(self) -> t.Tuple[float]:
         self.model.train()
-        self.criterion.train()
         epoch_loss = 0
         count = 0
-        for samples, targets in tqdm(self.data_loaders["train"]):
+        for samples, targets in self.data_loaders["train"]:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss = self.criterion(outputs, targets)
+            loss = self.train_cri(outputs, targets)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -101,7 +101,6 @@ class Trainer:
     @torch.no_grad()
     def eval_one_epoch(self) -> t.Tuple[float]:
         self.model.eval()
-        self.criterion.eval()
         epoch_loss = 0
         count = 0
         for samples, targets in tqdm(self.data_loaders["test"]):
@@ -110,7 +109,7 @@ class Trainer:
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss = self.criterion(outputs, targets)
+            loss = self.test_cri(outputs, targets)
             epoch_loss += loss.item()
         self.visualizes["test"](outputs, targets)
         return (epoch_loss / count,)

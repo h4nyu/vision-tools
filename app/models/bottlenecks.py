@@ -19,10 +19,7 @@ class MobileV3(nn.Module):
         self.is_shortcut = (stride == 1) and (in_channels == out_channels)
 
         self.conv = nn.Sequential(
-            # pw
             ConvBR2d(in_channels, mid_channels, kernel_size=1, stride=1, padding=0),
-            Hswish(),
-            #  # dw
             ConvBR2d(
                 mid_channels,
                 mid_channels,
@@ -31,11 +28,19 @@ class MobileV3(nn.Module):
                 padding=padding,
                 groups=mid_channels,
                 bias=False,
+                activation=None,
             ),
             CSE2d(mid_channels, reduction=4),
             Hswish(),
             # pw-linear
-            ConvBR2d(mid_channels, out_channels, kernel_size=1, stride=1, padding=0),
+            ConvBR2d(
+                mid_channels,
+                out_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+                activation=None,
+            ),
         )
 
     def forward(self, x):  # type: ignore
@@ -63,7 +68,6 @@ class SENextBottleneck2d(nn.Module):
         mid_channels = groups * (out_channels // 2 // groups)
         self.conv = nn.Sequential(
             ConvBR2d(in_channels, mid_channels, kernel_size=1, stride=1, padding=0,),
-            Hswish(inplace=True),
             ConvBR2d(
                 mid_channels,
                 mid_channels,
@@ -72,7 +76,6 @@ class SENextBottleneck2d(nn.Module):
                 padding=1,
                 groups=groups,
             ),
-            Hswish(inplace=True),
         )
 
         self.bypass = nn.Sequential()
@@ -88,13 +91,19 @@ class SENextBottleneck2d(nn.Module):
                 ConvBR2d(
                     mid_channels, out_channels, kernel_size=1, padding=0, stride=1,
                 ),
-                Hswish(inplace=True),
             ),
         )
         if in_channels != out_channels:
             self.bypass.add_module(
                 "conv0",
-                ConvBR2d(in_channels, out_channels, kernel_size=1, padding=0, stride=1),
+                ConvBR2d(
+                    in_channels,
+                    out_channels,
+                    kernel_size=1,
+                    padding=0,
+                    stride=1,
+                    activation=None,
+                ),
             )
         self.cse = CSE2d(out_channels, reduction)
         self.activation = Hswish(inplace=True)

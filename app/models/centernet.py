@@ -15,6 +15,7 @@ from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy
 from app.utils import plot_heatmap, DetectionPlot
 from pathlib import Path
+from app.meters import EMAMeter
 import albumentations as albm
 
 logger = getLogger(__name__)
@@ -183,16 +184,28 @@ class PreProcess(nn.Module):
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
 
+#  CriOutputs = t.TypedDict("CriOutputs": {
+#      "heatmap": Tensor,
+#      "sizemap": Tensor,
+#  })
+
+
 class Criterion(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, name: str = "train") -> None:
         super().__init__()
         self.focal_loss = FocalLoss()
+        self.hm_meter = EMAMeter(f"{name}-hm")
+        self.size_meter = EMAMeter(f"{name}-size")
 
     def forward(self, src: NetOutputs, tgt: NetOutputs) -> Tensor:
         b, _, _, _ = src["heatmap"].shape
-        center_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
-        size_loss = F.l1_loss(src["sizemap"], tgt["sizemap"])
-        return center_loss * config.loss_label + size_loss * config.loss_box
+        hm_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
+        size_loss = (
+            F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none").mean() * 1e3
+        )
+        self.hm_meter.update(hm_loss.item())
+        self.size_meter.update(size_loss.item())
+        return hm_loss + size_loss
 
 
 class Reg(nn.Module):
