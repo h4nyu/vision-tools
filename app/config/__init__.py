@@ -22,3 +22,4 @@ cost_giou = 1
 
 batch_size: int = 8
 num_workers: int = 8
+scale = 0.4

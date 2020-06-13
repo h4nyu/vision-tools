@@ -95,7 +95,7 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
-        self.visualizes["test"](outputs, targets)
+        self.visualizes["train"](outputs, targets)
         return (epoch_loss / count,)
 
     @torch.no_grad()

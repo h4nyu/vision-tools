@@ -35,7 +35,6 @@ def test_toboxes() -> None:
     plot.with_image(keymap[0, 0])
     for probs, boxes in preds:
         plot.with_boxes(boxes, probs)
-    print(gt_boxes.shape)
     plot.with_boxes(gt_boxes, color="blue")
     plot.save("/store/plot/test-toboxes.png",)
 

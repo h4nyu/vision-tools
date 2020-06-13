@@ -6,6 +6,7 @@ import math
 import torch.nn.functional as F
 from app import config
 from torch import nn, Tensor
+from logging import getLogger
 from .modules import ConvBR2d, SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from app.dataset import Targets, Target
@@ -14,6 +15,8 @@ from .utils import box_cxcywh_to_xyxy
 from app.utils import plot_heatmap, DetectionPlot
 from pathlib import Path
 import albumentations as albm
+
+logger = getLogger(__name__)
 
 Outputs = t.TypedDict(
     "Outputs", {"heatmap": Tensor, "box_size": Tensor,}  # [B, 1, W, H]  # [B, 2, W, H]
@@ -28,18 +31,20 @@ class VisualizeHeatmap:
     def __init__(self, output_dir: Path, prefix: str = "",) -> None:
         self.prefix = prefix
         self.output_dir = output_dir
-        self.to_boxes = ToBoxes(thresold=0.3)
+        self.to_boxes = ToBoxes(thresold=0.1, limit=200)
 
     def __call__(self, src: NetOutputs, tgt: NetOutputs) -> None:
         src = {k: v[:1] for k, v in src.items()}  # type: ignore
         tgt = {k: v[:1] for k, v in tgt.items()}  # type: ignore
         src_boxes = self.to_boxes(src)
+        heatmaps = src["heatmap"][:1].detach().cpu()
         tgt_boxes = self.to_boxes(tgt)
-        for sb, tb in zip(src_boxes, tgt_boxes):
+        for sb, tb, hm in zip(src_boxes, tgt_boxes, heatmaps):
             plot = DetectionPlot()
+            plot.with_image(hm[0])
             plot.with_boxes(sb[1], sb[0], color="red")
             plot.with_boxes(tb[1], tb[0])
-            plot.save(self.output_dir.joinpath(f"{self.prefix}-train.png"))
+            plot.save(self.output_dir.joinpath(f"{self.prefix}-boxes.png"))
 
 
 class FocalLoss(nn.Module):
@@ -203,7 +208,8 @@ class Reg(nn.Module):
 
 
 class ToBoxes:
-    def __init__(self, thresold: float) -> None:
+    def __init__(self, thresold: float, limit: int = 200) -> None:
+        self.limit = limit
         self.thresold = thresold
 
     def __call__(self, inputs: NetOutputs) -> t.List[t.Tuple[Tensor, Tensor]]:
@@ -224,7 +230,8 @@ class ToBoxes:
             wh = size_map[:, pos[:, 0], pos[:, 1]]
             cxcy = pos.float() / original_size
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
-            targets.append((confidences, boxes,))
+            sort_idx = confidences.argsort(descending=True)[: self.limit]
+            targets.append((confidences[sort_idx], boxes[sort_idx],))
         return targets
 
 
