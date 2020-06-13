@@ -26,9 +26,9 @@ def test_toboxes() -> None:
         [[0.0, 0.5, 0.0,], [0.2, 0.6, 0.3,], [0.0, 0.4, 0.0,],],
     )
     sizemap = torch.zeros((1, 2, 10, 10))
-    sizemap[:, :, 4, 4] = torch.tensor([0.3, 0.4]).view(1, 2)
+    sizemap[:, :, 4, 4] = torch.tensor([0.2, 0.1]).view(1, 2)
     sizemap[:, :, 7, 7] = torch.tensor([0.1, 0.2]).view(1, 2)
-    gt_boxes = torch.tensor([[0.4, 0.4, 0.2, 0.2]])
+    gt_boxes = torch.tensor([[0.41, 0.41, 0.2, 0.1]])
     fn = ToBoxes(thresold=0.1)
     preds = fn(dict(heatmap=keymap, sizemap=sizemap))
     plot = DetectionPlot()

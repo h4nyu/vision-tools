@@ -33,7 +33,7 @@ class DetectionPlot:
         boxes: Tensor,
         probs: t.Optional[Tensor] = None,
         color: str = "black",
-        fontsize: int = 10,
+        fontsize: int = 7,
     ) -> None:
         b, _ = boxes.shape
         _probs = probs if probs is not None else torch.ones((b,))

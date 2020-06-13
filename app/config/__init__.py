@@ -12,14 +12,14 @@ num_queries = 50
 hidden_dim = 128
 
 eos_coef = 0.01
-loss_label = 2
-loss_box = 1
+loss_label = 1
+loss_box = 5
 loss_giou = 0
 
 cost_class = 1
 cost_box = 1
 cost_giou = 1
 
-batch_size: int = 8
+batch_size: int = 12
 num_workers: int = 8
 scale = 0.4

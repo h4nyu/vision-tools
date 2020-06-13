@@ -31,7 +31,7 @@ class VisualizeHeatmap:
     def __init__(self, output_dir: Path, prefix: str = "",) -> None:
         self.prefix = prefix
         self.output_dir = output_dir
-        self.to_boxes = ToBoxes(thresold=0.1, limit=200)
+        self.to_boxes = ToBoxes(thresold=0.1, limit=50)
 
     def __call__(self, src: NetOutputs, tgt: NetOutputs) -> None:
         src = {k: v[:1] for k, v in src.items()}  # type: ignore
@@ -188,7 +188,7 @@ class Criterion(nn.Module):
         b, _, _, _ = src["heatmap"].shape
         center_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
         size_loss = F.l1_loss(src["sizemap"], tgt["sizemap"])
-        return center_loss + size_loss
+        return center_loss * config.loss_label + size_loss * config.loss_box
 
 
 class Reg(nn.Module):
@@ -208,7 +208,7 @@ class Reg(nn.Module):
 
 
 class ToBoxes:
-    def __init__(self, thresold: float, limit: int = 200) -> None:
+    def __init__(self, thresold: float, limit: int=200) -> None:
         self.limit = limit
         self.thresold = thresold
 
