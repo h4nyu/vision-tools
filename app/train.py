@@ -3,12 +3,11 @@ import torch
 import json
 import numpy as np
 
-
 from pathlib import Path
 from logging import getLogger
 from torch.utils.data import DataLoader
 from app.entities import Annotations
-from app.dataset import WheatDataset, plot_row
+from app.dataset import WheatDataset
 from app.utils import plot_heatmap
 
 #  from app.dataset import detr_collate_fn as collate_fn

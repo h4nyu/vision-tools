@@ -14,11 +14,13 @@ from app.models.utils import box_xyxy_to_cxcywh, box_cxcywh_to_xyxy, box_xywh_to
 
 def parse_boxes(strs: t.List[str], width: float, height: float,) -> Tensor:
     xywh = torch.tensor(
-        np.stack([np.fromstring(s[1:-1], sep=",") for s in strs]), dtype=torch.float32
+        np.stack([np.fromstring(s[1:-1], sep=",") for s in strs]), dtype=np.float32
     )
     xyxy = box_xywh_to_xyxy(xywh)
+
     xyxy[:, [0, 2]] = xyxy[:, [0, 2]] / width
     xyxy[:, [1, 3]] = xyxy[:, [1, 3]] / height
+    xyxy = np.clip(xyxy, 0, 1 - 2 * 1e-3)
     cxcywh = box_xyxy_to_cxcywh(xyxy)
     return cxcywh
 
