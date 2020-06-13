@@ -184,12 +184,6 @@ class PreProcess(nn.Module):
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
 
-#  CriOutputs = t.TypedDict("CriOutputs": {
-#      "heatmap": Tensor,
-#      "sizemap": Tensor,
-#  })
-
-
 class Criterion(nn.Module):
     def __init__(self, name: str = "train") -> None:
         super().__init__()
@@ -271,7 +265,7 @@ class CenterNet(nn.Module):
         self, name: str = "resnet18", num_classes: int = 1, num_queries: int = 100
     ) -> None:
         super().__init__()
-        channels = 32
+        channels = 64
         self.backbone = Backbone(name, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels), BiFPN(channels=channels),)
         self.heatmap = Reg(in_channels=channels, out_channels=1)

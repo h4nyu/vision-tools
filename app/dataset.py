@@ -19,9 +19,6 @@ from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Annotations, Annotation
 from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
-normalize = T.Compose([T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
-
-
 Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
 Row = t.Tuple[Tensor, Target]
 Batch = t.Sequence[Row]
@@ -39,8 +36,18 @@ def collate_fn(batch: Batch) -> t.Tuple[Tensor, t.List[Target]]:
 
 
 train_transforms = albm.Compose(
-    [albm.VerticalFlip(), albm.RandomRotate90(), albm.HorizontalFlip()],
+    [
+        albm.RandomSizedBBoxSafeCrop(128 * 6, 128 * 6),
+        albm.VerticalFlip(),
+        albm.RandomRotate90(),
+        albm.HorizontalFlip(),
+    ],
     bbox_params=dict(format="albumentations", label_fields=["labels"]),
+)
+
+
+transforms = albm.Compose(
+    [albm.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]), ToTensorV2(),]
 )
 
 
