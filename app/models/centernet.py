@@ -198,10 +198,16 @@ class Criterion(nn.Module):
         self.size_meter = EMAMeter(f"{name}-size")
 
     def forward(self, src: NetOutputs, tgt: NetOutputs) -> Tensor:
+        # TODO test code
         b, _, _, _ = src["heatmap"].shape
         hm_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
         size_loss = (
-            F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none").mean() * 1e3
+            (
+                F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
+                * tgt["heatmap"]
+            ).sum()
+            / b
+            / 10
         )
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
