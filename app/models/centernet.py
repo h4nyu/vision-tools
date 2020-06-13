@@ -207,7 +207,7 @@ class Criterion(nn.Module):
                 * tgt["heatmap"]
             ).sum()
             / b
-            / 10
+            / 20
         )
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
