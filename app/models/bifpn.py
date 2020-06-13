@@ -2,7 +2,7 @@ import torch
 import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
-from .bottlenecks import MobileV3
+from .bottlenecks import MobileV3, SENextBottleneck2d
 
 
 class Down2d(nn.Module):
@@ -10,12 +10,15 @@ class Down2d(nn.Module):
         self, channels: int, bilinear: bool = False, merge: bool = True,
     ) -> None:
         super().__init__()
-        self.down = MobileV3(
-            in_channels=channels,
-            out_channels=channels,
-            mid_channels=channels // 2,
-            stride=2,
+        self.down = SENextBottleneck2d(
+            in_channels=channels, out_channels=channels, stride=2,
         )
+        #  self.down = MobileV3(
+        #      in_channels=channels,
+        #      out_channels=channels,
+        #      mid_channels=channels // 2,
+        #      stride=2,
+        #  )
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.down(x)

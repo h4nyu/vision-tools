@@ -7,7 +7,8 @@ import torch.nn.functional as F
 from app import config
 from torch import nn, Tensor
 from logging import getLogger
-from .modules import ConvBR2d, SENextBottleneck2d
+from .modules import ConvBR2d
+from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
@@ -208,7 +209,7 @@ class Reg(nn.Module):
 
 
 class ToBoxes:
-    def __init__(self, thresold: float, limit: int=200) -> None:
+    def __init__(self, thresold: float, limit: int = 200) -> None:
         self.limit = limit
         self.thresold = thresold
 
