@@ -30,23 +30,24 @@ NetOutputs = t.TypedDict("NetOutputs", {"heatmap": Tensor, "sizemap": Tensor,})
 
 
 class VisualizeHeatmap:
-    def __init__(self, output_dir: Path, prefix: str = "",) -> None:
+    def __init__(self, output_dir: Path, prefix: str = "", limit: int = 1) -> None:
         self.prefix = prefix
         self.output_dir = output_dir
+        self.limit = limit
         self.to_boxes = ToBoxes(thresold=0.1, limit=50)
 
     def __call__(self, samples: NetInputs, src: NetOutputs, tgt: NetOutputs) -> None:
-        src = {k: v[:1] for k, v in src.items()}  # type: ignore
-        tgt = {k: v[:1] for k, v in tgt.items()}  # type: ignore
+        src = {k: v[: self.limit] for k, v in src.items()}  # type: ignore
+        tgt = {k: v[: self.limit] for k, v in tgt.items()}  # type: ignore
         src_boxes = self.to_boxes(src)
-        images = samples["images"][:1].detach().cpu()
+        images = samples["images"][: self.limit].detach().cpu()
         tgt_boxes = self.to_boxes(tgt)
-        for sb, tb, img in zip(src_boxes, tgt_boxes, images):
+        for i, (sb, tb, img) in enumerate(zip(src_boxes, tgt_boxes, images)):
             plot = DetectionPlot()
             plot.with_image(img)
             plot.with_boxes(tb[1], tb[0], color="blue")
             plot.with_boxes(sb[1], sb[0], color="red")
-            plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes.png")))
+            plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes-{i}.png")))
 
 
 class FocalLoss(nn.Module):
@@ -218,9 +219,13 @@ class Criterion(nn.Module):
         b, _, _, _ = src["heatmap"].shape
         hm_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
         size_loss = (
-            F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
-            * tgt["heatmap"]
-        ).sum() / b / 20
+            (
+                F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
+                * tgt["heatmap"]
+            ).sum()
+            / b
+            / 20
+        )
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
         return hm_loss + size_loss

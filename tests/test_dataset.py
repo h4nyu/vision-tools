@@ -11,16 +11,10 @@ from app.dataset import collate_fn
 
 def test_plotrow() -> None:
     images = load_lables()
-    dataset = WheatDataset(images)
-    dataloader = DataLoader(dataset, shuffle=True, batch_size=8, collate_fn=collate_fn)
-    visualize = VisualizeHeatmap(Path("/store/plot"))
-    preprocess = PreProcess()
-
-    samples, targets = next(iter(dataloader))
-    samples, targets = preprocess((samples, targets))
-    visualize(samples, targets, targets)
-    #  img, annots = dataset[0]
-    #  plot = DetectionPlot()
-    #  plot.with_image(img)
-    #  plot.with_boxes(annots["boxes"], color="red")
-    #  plot.save(str(Path(config.plot_dir).joinpath(f"test-{i}.png")))
+    dataset = WheatDataset(images,)
+    for i in range(5):
+        img, annots = dataset[1]
+        plot = DetectionPlot(figsize=(6, 6))
+        plot.with_image(img)
+        plot.with_boxes(annots["boxes"], color="red")
+        plot.save(str(Path(config.plot_dir).joinpath(f"test-{i}.png")))
