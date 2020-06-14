@@ -183,6 +183,11 @@ class PreProcess(nn.Module):
         images = F.interpolate(images, size=(w * 2, h * 2))
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
+class PostProcess:
+    def __init__(self) -> None:
+        self.to_boxes = ToBoxes(thresold=0.1)
+
+
 
 class Criterion(nn.Module):
     def __init__(self, name: str = "train") -> None:
