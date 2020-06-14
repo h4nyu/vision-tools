@@ -37,7 +37,7 @@ def collate_fn(batch: Batch) -> t.Tuple[Tensor, t.List[Target]]:
 
 train_transforms = albm.Compose(
     [
-        albm.RandomSizedBBoxSafeCrop(128 * 6, 128 * 6),
+        albm.ShiftScaleRotate(),
         albm.VerticalFlip(),
         albm.RandomRotate90(),
         albm.HorizontalFlip(),
@@ -78,15 +78,16 @@ class WheatDataset(Dataset):
         image = self.get_img(row) if self.use_cache else row.get_img()
         boxes = row.boxes
         labels = torch.zeros(len(boxes)).long()
-
         if self.mode == "train":
             res = train_transforms(image=image, bboxes=boxes, labels=labels)
             image = res["image"]
             boxes = res["bboxes"]
+            labels = res["labels"]
 
         image = ToTensorV2()(image=image)["image"].float()
         boxes = torch.tensor(boxes, dtype=torch.float32)
         boxes = box_xyxy_to_cxcywh(boxes)
+        labels = torch.tensor(labels)
         target: Target = {
             "boxes": boxes,
             "labels": labels,

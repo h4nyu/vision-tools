@@ -119,8 +119,7 @@ class HardHeatMap(nn.Module):
     def forward(self, boxes: Tensor) -> "NetOutputs":
         heatmap = torch.zeros((self.w, self.h), dtype=torch.float32).to(boxes.device)
         sizemap = torch.zeros((2, self.w, self.h), dtype=torch.float32).to(boxes.device)
-        b, _ = boxes.shape
-        if b == 0:
+        if len(boxes) == 0:
             return dict(heatmap=heatmap, sizemap=sizemap)
         cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
         heatmap[cx, cy] = 1.0
@@ -162,13 +161,15 @@ class SoftHeatMap(nn.Module):
 class PreProcess(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
-        self.scale = 2 ** config.scale_factor
-        self.heatmap = HardHeatMap(w=1024 // self.scale, h=1024 // self.scale)
+        self.h = 1024 // 2 ** config.scale_factor
+        self.w = 1024 // 2 ** config.scale_factor
+        self.heatmap = HardHeatMap(w=self.w, h=self.h)
 
     def forward(
         self, batch: t.Tuple[Tensor, t.List[Target]]
     ) -> t.Tuple[NetInputs, NetOutputs]:
         images, targets = batch
+
         hms = []
         sms = []
         for t in targets:
@@ -177,10 +178,13 @@ class PreProcess(nn.Module):
             hms.append(res["heatmap"])
             sms.append(res["sizemap"])
 
-        heatmap = torch.cat(hms, dim=0)
-        sizemap = torch.cat(sms, dim=0)
-        _, _, w, h = heatmap.shape
-        images = F.interpolate(images, size=(w * 2, h * 2))
+        if len(targets) != 0:
+            heatmap = torch.cat(hms, dim=0)
+            sizemap = torch.cat(sms, dim=0)
+        else:
+            heatmap = torch.zeros((0, 0, 0, 0))
+            sizemap = torch.zeros((0, 0, 0, 0))
+        images = F.interpolate(images, size=(self.w * 2, self.h * 2))
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
 class PostProcess:
