@@ -37,7 +37,7 @@ class CSE2d(nn.Module):
             nn.Conv2d(in_channels, in_channels // reduction, 1),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels // reduction, in_channels, 1),
-            nn.Sigmoid(),
+            Hsigmoid(inplace=True),
         )
 
     def forward(self, x):  # type: ignore
@@ -56,7 +56,7 @@ class ConvBR2d(nn.Module):
         dilation: int = 1,
         groups: int = 1,
         bias: bool = False,
-        activation: t.Optional[nn.Module] = nn.ReLU(inplace=True),
+        activation: t.Optional[nn.Module] = Hswish(inplace=True),
     ):
         super().__init__()
         self.conv = nn.Conv2d(
