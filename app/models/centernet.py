@@ -235,10 +235,10 @@ class Reg(nn.Module):
     def __init__(self, in_channels: int, out_channels: int,) -> None:
         super().__init__()
         channels = in_channels
-        self.conv = nn.Sequential(SENextBottleneck2d(in_channels, channels))
+        self.conv = nn.Sequential(SENextBottleneck2d(in_channels, in_channels))
 
         self.out = nn.Sequential(
-            nn.Conv2d(channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
         )
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
