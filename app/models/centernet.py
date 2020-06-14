@@ -218,9 +218,9 @@ class Criterion(nn.Module):
         b, _, _, _ = src["heatmap"].shape
         hm_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
         size_loss = (
-            F.smooth_l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
+            F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
             * tgt["heatmap"]
-        ).sum() / b
+        ).sum() / b / 20
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
         return hm_loss + size_loss
