@@ -17,11 +17,9 @@ class MobileV3(nn.Module):
         padding = (kernel_size - 1) // 2
         self.stride = stride
         self.is_shortcut = (stride == 1) and (in_channels == out_channels)
-
         self.conv = nn.Sequential(
-            ConvBR2d(in_channels, mid_channels, kernel_size=1, stride=1, padding=0),
-            ConvBR2d(
-                mid_channels,
+            ConvBR2d(in_channels, mid_channels, kernel_size=1, stride=1, padding=0, bias=False),
+            ConvBR2d(mid_channels,
                 mid_channels,
                 kernel_size=kernel_size,
                 stride=stride,
@@ -89,7 +87,7 @@ class SENextBottleneck2d(nn.Module):
             "conv3",
             nn.Sequential(
                 ConvBR2d(
-                    mid_channels, out_channels, kernel_size=1, padding=0, stride=1,
+                    mid_channels, out_channels, kernel_size=1, padding=0, stride=1, activation=None
                 ),
             ),
         )
