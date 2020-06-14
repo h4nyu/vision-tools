@@ -41,6 +41,7 @@ train_transforms = albm.Compose(
         albm.VerticalFlip(),
         albm.RandomRotate90(),
         albm.HorizontalFlip(),
+        albm.RandomBrightnessContrast(),
     ],
     bbox_params=dict(format="albumentations", label_fields=["labels"]),
 )

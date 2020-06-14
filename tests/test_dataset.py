@@ -7,7 +7,7 @@ from app.utils import DetectionPlot
 
 
 def test_plotrow() -> None:
-    images = load_lables(limit=10)
+    images = load_lables()
     dataset = WheatDataset(images)
     for i in range(10):
         img, annots = dataset[0]
