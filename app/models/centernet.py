@@ -180,7 +180,7 @@ class PreProcess(nn.Module):
 
         heatmap = torch.cat(hms, dim=0)
         sizemap = torch.cat(sms, dim=0)
-        #  images = F.interpolate(images, size=(self.w * 2, self.h * 2))
+        images = F.interpolate(images, size=(self.w * 2, self.h * 2))
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
 
