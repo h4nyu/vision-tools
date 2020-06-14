@@ -8,9 +8,9 @@ from torch import Tensor
 
 
 class DetectionPlot:
-    def __init__(self, size: t.Tuple[int, int] = (128, 128)) -> None:
-        self.w, self.h = size
-        self.fig, self.ax = plt.subplots(figsize=(6, 6))
+    def __init__(self, figsize: t.Tuple[int, int] = (4, 4)) -> None:
+        self.w, self.h = (128, 128)
+        self.fig, self.ax = plt.subplots(figsize=figsize)
         self.ax.imshow(torch.ones(self.w, self.h, 3), interpolation="nearest")
 
     def __del__(self) -> None:
