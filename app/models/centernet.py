@@ -44,8 +44,8 @@ class VisualizeHeatmap:
         for sb, tb, img in zip(src_boxes, tgt_boxes, images):
             plot = DetectionPlot()
             plot.with_image(img)
-            plot.with_boxes(sb[1], sb[0], color="red")
             plot.with_boxes(tb[1], tb[0], color="blue")
+            plot.with_boxes(sb[1], sb[0], color="red")
             plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes.png")))
 
 
