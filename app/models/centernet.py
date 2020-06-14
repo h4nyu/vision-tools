@@ -35,17 +35,17 @@ class VisualizeHeatmap:
         self.output_dir = output_dir
         self.to_boxes = ToBoxes(thresold=0.1, limit=50)
 
-    def __call__(self, src: NetOutputs, tgt: NetOutputs) -> None:
+    def __call__(self, samples: NetInputs, src: NetOutputs, tgt: NetOutputs) -> None:
         src = {k: v[:1] for k, v in src.items()}  # type: ignore
         tgt = {k: v[:1] for k, v in tgt.items()}  # type: ignore
         src_boxes = self.to_boxes(src)
-        heatmaps = src["heatmap"][:1].detach().cpu()
+        images = samples["images"][:1].detach().cpu()
         tgt_boxes = self.to_boxes(tgt)
-        for sb, tb, hm in zip(src_boxes, tgt_boxes, heatmaps):
+        for sb, tb, img in zip(src_boxes, tgt_boxes, images):
             plot = DetectionPlot()
-            plot.with_image(hm[0])
+            plot.with_image(img)
             plot.with_boxes(sb[1], sb[0], color="red")
-            plot.with_boxes(tb[1], tb[0])
+            plot.with_boxes(tb[1], tb[0], color="blue")
             plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes.png")))
 
 
@@ -117,13 +117,13 @@ class HardHeatMap(nn.Module):
         self.h = h
 
     def forward(self, boxes: Tensor) -> "NetOutputs":
-        heatmap = torch.zeros((self.w, self.h), dtype=torch.float32).to(boxes.device)
-        sizemap = torch.zeros((2, self.w, self.h), dtype=torch.float32).to(boxes.device)
+        heatmap = torch.zeros((self.h, self.w), dtype=torch.float32).to(boxes.device)
+        sizemap = torch.zeros((2, self.h, self.w), dtype=torch.float32).to(boxes.device)
         if len(boxes) == 0:
             return dict(heatmap=heatmap, sizemap=sizemap)
         cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
-        heatmap[cx, cy] = 1.0
-        sizemap[:, cx, cy] = boxes[:, 2:4].permute(1, 0)
+        heatmap[cy, cx] = 1.0
+        sizemap[:, cy, cx] = boxes[:, 2:4].permute(1, 0)
         heatmap = heatmap.unsqueeze(0).unsqueeze(0)
         sizemap = sizemap.unsqueeze(0)
         return dict(heatmap=heatmap, sizemap=sizemap)
@@ -178,19 +178,32 @@ class PreProcess(nn.Module):
             hms.append(res["heatmap"])
             sms.append(res["sizemap"])
 
-        if len(targets) != 0:
-            heatmap = torch.cat(hms, dim=0)
-            sizemap = torch.cat(sms, dim=0)
-        else:
-            heatmap = torch.zeros((0, 0, 0, 0))
-            sizemap = torch.zeros((0, 0, 0, 0))
-        images = F.interpolate(images, size=(self.w * 2, self.h * 2))
+        heatmap = torch.cat(hms, dim=0)
+        sizemap = torch.cat(sms, dim=0)
+        #  images = F.interpolate(images, size=(self.w * 2, self.h * 2))
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
-class PostProcess:
-    def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.1)
 
+#  class Evaluate:
+#      def __init__(self) -> None:
+#          ...
+#
+#      def __call__(self, preds: NetOutputs, targets: NetInputs) -> None:
+#          ...
+
+#  class PostProcess:
+#      def __init__(self) -> None:
+#          self.to_boxes = ToBoxes(thresold=0.1)
+#      def __call__(self, samples: NetInputs, preds: NetOutputs, targets: NetInputs) -> t.List[t.Tuple[Tensor, Tensor]]:
+#          tgt_boxes = self.to_boxes(targets)
+#          pred_boxes = self.to_boxes(preds)
+#          imgs = samples.detach().cpu()
+#          for i, (sb, tb, hm) in enuzip(pred_boxes, tgt_boxes, imgs):
+#              plot = DetectionPlot()
+#              plot.with_image(hm[0])
+#              plot.with_boxes(sb[1], sb[0], color="red")
+#              plot.with_boxes(tb[1], tb[0])
+#              plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes.png")))
 
 
 class Criterion(nn.Module):

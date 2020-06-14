@@ -93,7 +93,7 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
-        self.visualizes["train"](outputs, targets)
+            self.visualizes["train"](samples, outputs, targets)
         return (epoch_loss / count,)
 
     @torch.no_grad()
@@ -109,7 +109,7 @@ class Trainer:
             outputs = self.model(samples)
             loss = self.test_cri(outputs, targets)
             epoch_loss += loss.item()
-        self.visualizes["test"](outputs, targets)
+        self.visualizes["test"](samples, outputs, targets)
         return (epoch_loss / count,)
 
     def save_checkpoint(self,) -> None:

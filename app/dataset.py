@@ -37,7 +37,6 @@ def collate_fn(batch: Batch) -> t.Tuple[Tensor, t.List[Target]]:
 
 train_transforms = albm.Compose(
     [
-        albm.ShiftScaleRotate(),
         albm.VerticalFlip(),
         albm.RandomRotate90(),
         albm.HorizontalFlip(),

@@ -24,9 +24,9 @@ class DetectionPlot:
             self.ax.imshow(image, interpolation="nearest")
             self.h, self.w = image.shape
         elif len(image.shape) == 3:
+            _, self.h, self.w, = image.shape
             image = image.permute(1, 2, 0)
             self.ax.imshow(image, interpolation="nearest")
-            self.h, self.w, _ = image.shape
         else:
             shape = image.shape
             raise ValueError(f"invald {shape=}")
@@ -53,8 +53,7 @@ class DetectionPlot:
                 height=box[3],
                 fill=False,
                 edgecolor=color,
-                linewidth=2,
-                alpha=float(p),
+                linewidth=1,
             )
             self.ax.add_patch(rect)
 
