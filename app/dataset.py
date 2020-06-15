@@ -43,19 +43,21 @@ train_transforms = albm.Compose(
         albm.OneOf(
             [
                 albm.Blur(blur_limit=7, p=0.5),
-                albm.Blur(blur_limit=11, p=0.5),
+                #  albm.Blur(blur_limit=11, p=0.5),
             ]
         ),
         albm.RandomShadow(p=0.5),
         albm.RandomBrightnessContrast(p=1),
-        albm.RandomGamma(),
     ],
     bbox_params=dict(format="albumentations", label_fields=["labels"]),
 )
 
 
 transforms = albm.Compose(
-    [albm.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]), ToTensorV2(),]
+    [
+        #  albm.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]), 
+        ToTensorV2(),
+    ]
 )
 
 
