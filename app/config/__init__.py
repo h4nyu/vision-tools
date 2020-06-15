@@ -20,6 +20,6 @@ cost_class = 1
 cost_box = 1
 cost_giou = 1
 
-batch_size: int = 5
+batch_size: int = 4
 num_workers: int = 8
-scale_factor = 2
+scale_factor = 1

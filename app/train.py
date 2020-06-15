@@ -82,7 +82,8 @@ class Trainer:
         self.model.train()
         epoch_loss = 0
         count = 0
-        for samples, targets in self.data_loaders["train"]:
+        loader = self.data_loaders["train"]
+        for samples, targets in loader:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -101,7 +102,8 @@ class Trainer:
         self.model.eval()
         epoch_loss = 0
         count = 0
-        for samples, targets in self.data_loaders["test"]:
+        loader = self.data_loaders["test"]
+        for samples, targets in loader:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]

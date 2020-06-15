@@ -89,7 +89,6 @@ def test_softheatmap() -> None:
 
 def test_centernet() -> None:
     inputs = torch.rand((1, 3, 1024, 1024))
-    num_classes = 1
-    fn = CenterNet(num_classes=num_classes)
+    fn = CenterNet()
     out = fn(dict(images=inputs))
     assert out["heatmap"].shape == (1, 1, 1024 // 2, 1024 // 2)

@@ -12,7 +12,7 @@ from .bifpn import BiFPN, FP
 from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy
-from .backbones import EfficientNetBackbone
+from .backbones import EfficientNetBackbone, ResNetBackbone
 from app.utils import plot_heatmap, DetectionPlot
 from pathlib import Path
 from app.meters import EMAMeter
@@ -192,8 +192,7 @@ class Criterion(nn.Module):
                 F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
                 * tgt["heatmap"]
             ).sum()
-            / b
-            / 20
+            / 30 / b
         )
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
@@ -253,10 +252,10 @@ class Augmention:
 
 
 class CenterNet(nn.Module):
-    def __init__(self, name: str = "resnet18", num_classes: int = 1) -> None:
+    def __init__(self) -> None:
         super().__init__()
         channels = 64
-        self.backbone = EfficientNetBackbone(1, out_channels=channels)
+        self.backbone = ResNetBackbone("resnet18", out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels), BiFPN(channels=channels),)
         self.heatmap = Reg(in_channels=channels, out_channels=1)
         self.box_size = Reg(in_channels=channels, out_channels=2)
