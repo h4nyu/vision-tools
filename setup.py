@@ -22,6 +22,7 @@ setup(
         "torchvision",
         "torchsummary",
         "albumentations",
+        "efficientnet_pytorch",
     ],
     extras_require={"dev": ["mypy", "pytest", "black",]},
     entry_points={"console_scripts": ["app=app.cmd:app"],},
