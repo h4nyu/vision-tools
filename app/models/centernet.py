@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 import typing as t
-import torchvision
 import math
 import torch.nn.functional as F
 from app import config
@@ -13,6 +12,7 @@ from .bifpn import BiFPN, FP
 from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy
+from .backbones import EfficientNetBackbone
 from app.utils import plot_heatmap, DetectionPlot
 from pathlib import Path
 from app.meters import EMAMeter
@@ -78,37 +78,6 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
     h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
     return h
-
-
-class Backbone(nn.Module):
-    def __init__(self, name: str, out_channels: int) -> None:
-        super().__init__()
-        self.backbone = torchvision.models.resnet18(pretrained=True)
-        if name == "resnet34" or name == "resnet18":
-            num_channels = 512
-        else:
-            num_channels = 2048
-        self.layers = list(self.backbone.children())[:-2]
-        self.projects = nn.ModuleList(
-            [
-                nn.Conv2d(in_channels=i, out_channels=out_channels, kernel_size=1,)
-                for i in [64, 64, 128, 256, 512]
-            ]
-        )
-
-    def forward(self, x: Tensor) -> FP:
-        internal_outputs = []
-        for layer in self.layers:
-            x = layer(x)
-            internal_outputs.append(x)
-        _, p3, _, p4, _, p5, p6, p7 = internal_outputs
-        return (
-            self.projects[0](p3),
-            self.projects[1](p4),
-            self.projects[2](p5),
-            self.projects[3](p6),
-            self.projects[4](p7),
-        )
 
 
 class HardHeatMap(nn.Module):
@@ -289,7 +258,7 @@ class CenterNet(nn.Module):
     ) -> None:
         super().__init__()
         channels = 64
-        self.backbone = Backbone(name, out_channels=channels)
+        self.backbone = EfficientNetBackbone(3, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels), BiFPN(channels=channels),)
         self.heatmap = Reg(in_channels=channels, out_channels=1)
         self.box_size = Reg(in_channels=channels, out_channels=2)
