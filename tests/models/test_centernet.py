@@ -92,4 +92,4 @@ def test_centernet() -> None:
     num_classes = 1
     fn = CenterNet(num_classes=num_classes)
     out = fn(dict(images=inputs))
-    assert out['heatmap'].shape == (1, 1, 1024 // 2, 1024 // 2)
+    assert out["heatmap"].shape == (1, 1, 1024 // 2, 1024 // 2)

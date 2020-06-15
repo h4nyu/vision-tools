@@ -253,9 +253,7 @@ class Augmention:
 
 
 class CenterNet(nn.Module):
-    def __init__(
-        self, name: str = "resnet18", num_classes: int = 1, num_queries: int = 100
-    ) -> None:
+    def __init__(self, name: str = "resnet18", num_classes: int = 1) -> None:
         super().__init__()
         channels = 64
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
