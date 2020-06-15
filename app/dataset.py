@@ -42,9 +42,8 @@ train_transforms = albm.Compose(
         albm.HorizontalFlip(),
         albm.OneOf(
             [
-                albm.Blur(blur_limit=9, p=0.5),
+                albm.Blur(blur_limit=7, p=0.5),
                 albm.Blur(blur_limit=11, p=0.5),
-                albm.Blur(blur_limit=15, p=0.5),
             ]
         ),
         albm.RandomShadow(p=0.5),
@@ -89,11 +88,10 @@ class WheatDataset(Dataset):
         if self.mode == "train":
             res = train_transforms(image=image, bboxes=boxes, labels=labels)
             image = res["image"]
-            boxes = res["bboxes"]
+            boxes = torch.tensor(res["bboxes"], dtype=torch.float32)
             labels = res["labels"]
 
-        image = ToTensorV2()(image=image)["image"].float()
-        boxes = torch.tensor(boxes, dtype=torch.float32)
+        image = transforms(image=image)["image"].float()
         boxes = box_xyxy_to_cxcywh(boxes)
         labels = torch.tensor(labels)
         target: Target = {
