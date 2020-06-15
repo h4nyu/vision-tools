@@ -45,7 +45,7 @@ class Trainer:
                 num_workers=config.num_workers,
             ),
             "test": DataLoader(
-                WheatDataset(test_data),
+                WheatDataset(test_data, "test"),
                 batch_size=config.batch_size,
                 collate_fn=collate_fn,
                 shuffle=True,
