@@ -4,7 +4,7 @@ image_dir = "/store/images"
 root_dir = "/store"
 
 random_state = 777
-lr = 1e-3
+lr = 1e-4
 n_splits = 5
 
 num_classes = 1
