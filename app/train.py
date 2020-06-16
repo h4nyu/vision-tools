@@ -70,10 +70,10 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            #  (train_loss,) = self.train_one_epoch()
-            #  logger.info(f"{train_loss=}")
+            (train_loss,) = self.train_one_epoch()
+            logger.info(f"{train_loss=}")
             (eval_loss, score) = self.eval_one_epoch()
-            logger.info(f"{eval_loss=}")
+            logger.info(f"{eval_loss=},{score=}")
             if score > self.best_score:
                 logger.info("update model")
                 self.best_score = score
@@ -88,9 +88,9 @@ class Trainer:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            samples, targets = self.preprocess((samples, targets))
+            samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss = self.train_cri(outputs, targets)
+            loss = self.train_cri(outputs, cri_targets)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()

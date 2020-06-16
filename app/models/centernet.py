@@ -38,16 +38,15 @@ class VisualizeHeatmap:
         self.limit = limit
         self.to_boxes = ToBoxes(thresold=0.1, limit=50)
 
-    def __call__(self, samples: NetInputs, src: NetOutputs, tgt: NetOutputs) -> None:
+    def __call__(self, samples: NetInputs, src: NetOutputs, targets: Targets) -> None:
         src = {k: v[: self.limit] for k, v in src.items()}  # type: ignore
-        tgt = {k: v[: self.limit] for k, v in tgt.items()}  # type: ignore
         src_boxes = self.to_boxes(src)
+        tgt_boxes = [t["boxes"] for t in targets][: self.limit]
         images = samples["images"][: self.limit].detach().cpu()
-        tgt_boxes = self.to_boxes(tgt)
         for i, (sb, tb, img) in enumerate(zip(src_boxes, tgt_boxes, images)):
             plot = DetectionPlot()
             plot.with_image(img)
-            plot.with_boxes(tb[1], tb[0], color="blue")
+            plot.with_boxes(tb, color="blue")
             plot.with_boxes(sb[1], sb[0], color="red")
             plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes-{i}.png")))
 
