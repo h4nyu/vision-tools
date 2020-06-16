@@ -38,14 +38,23 @@ class VisualizeHeatmap:
         self.limit = limit
         self.to_boxes = ToBoxes(thresold=0.1, limit=50)
 
-    def __call__(self, samples: NetInputs, src: NetOutputs, targets: Targets) -> None:
+    def __call__(
+        self,
+        samples: NetInputs,
+        src: NetOutputs,
+        cri_targets: NetOutputs,
+        targets: Targets,
+    ) -> None:
         src = {k: v[: self.limit] for k, v in src.items()}  # type: ignore
         src_boxes = self.to_boxes(src)
         tgt_boxes = [t["boxes"] for t in targets][: self.limit]
+        heatmaps = src["heatmap"][: self.limit].detach().cpu()
         images = samples["images"][: self.limit].detach().cpu()
-        for i, (sb, tb, img) in enumerate(zip(src_boxes, tgt_boxes, images)):
+        for i, (sb, tb, img, hm) in enumerate(
+            zip(src_boxes, tgt_boxes, images, heatmaps)
+        ):
             plot = DetectionPlot()
-            plot.with_image(img)
+            plot.with_image(hm[0])
             plot.with_boxes(tb, color="blue")
             plot.with_boxes(sb[1], sb[0], color="red")
             plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes-{i}.png")))
@@ -91,6 +100,7 @@ class HardHeatMap(nn.Module):
         heatmap = torch.zeros((self.h, self.w), dtype=torch.float32).to(boxes.device)
         sizemap = torch.zeros((2, self.h, self.w), dtype=torch.float32).to(boxes.device)
         if len(boxes) == 0:
+            sizemap = sizemap.unsqueeze(0)
             return dict(heatmap=heatmap, sizemap=sizemap)
         cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
         heatmap[cy, cx] = 1.0
@@ -110,11 +120,16 @@ class SoftHeatMap(nn.Module):
             1, 1, mount.shape[0], mount.shape[1]
         )
 
-    def forward(self, boxes: Tensor) -> Tensor:
-        img = torch.zeros((1, 1, self.w, self.h), dtype=torch.float32).to(boxes.device)
+    def forward(self, boxes: Tensor) -> "NetOutputs":
+        img = torch.zeros((1, 1, self.h, self.w), dtype=torch.float32).to(boxes.device)
+        sizemap = torch.zeros((2, self.h, self.w), dtype=torch.float32).to(boxes.device)
         b, _ = boxes.shape
         if b == 0:
-            return img
+            sizemap = sizemap.unsqueeze(0)
+            return dict(heatmap=img, sizemap=sizemap)
+        cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
+        sizemap[:, cy, cx] = boxes[:, 2:4].permute(1, 0)
+
         xyxy = box_cxcywh_to_xyxy(boxes)
         xyxy[:, [0, 2]] = xyxy[:, [0, 2]] * self.w
         xyxy[:, [1, 3]] = xyxy[:, [1, 3]] * self.w
@@ -123,10 +138,12 @@ class SoftHeatMap(nn.Module):
         for box, size in zip(xyxy, sizes):
             x, y = box[0], box[1]
             w, h = size[0], size[1]
-            mount = F.interpolate(self.mount, size=(w, h)).to(boxes.device)
-            mount = torch.max(mount, img[:, :, x : x + w, y : y + h])  # type: ignore
-            img[:, :, x : x + w, y : y + h] = mount  # type: ignore
-        return img
+            if (h > 0) and (w > 0):
+                mount = F.interpolate(self.mount, size=(h, w)).to(boxes.device)
+                mount = torch.max(mount, img[:, :, y : y + h, x : x + w])  # type: ignore
+                img[:, :, y : y + h, x : x + w] = mount  # type: ignore
+        sizemap = sizemap.unsqueeze(0)
+        return dict(heatmap=img, sizemap=sizemap)
 
 
 class PreProcess(nn.Module):
@@ -134,7 +151,7 @@ class PreProcess(nn.Module):
         super().__init__()
         self.h = 1024 // 2 ** config.scale_factor
         self.w = 1024 // 2 ** config.scale_factor
-        self.heatmap = HardHeatMap(w=self.w, h=self.h)
+        self.heatmap = SoftHeatMap(w=self.w, h=self.h)
 
     def forward(
         self, batch: t.Tuple[Tensor, Targets]
@@ -201,9 +218,9 @@ class Criterion(nn.Module):
         size_loss = (
             (
                 F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
-                * tgt["heatmap"]
+                * (tgt["heatmap"].eq(1))
             ).sum()
-            / 30
+            / 40
             / b
         )
         self.hm_meter.update(hm_loss.item())

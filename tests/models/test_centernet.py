@@ -45,46 +45,67 @@ def test_toboxes() -> None:
 
 
 def test_focal_loss() -> None:
-    heatmaps = torch.tensor([[1, 1, 0.0], [1, 1, 1], [1, 1, 1],])
+    heatmaps = torch.tensor([[0.0, 0.5, 0.0], [0.5, 1, 0.5], [0, 0.5, 0],])
     fn = FocalLoss()
-    preds = torch.tensor([[1.0, 1.0, 1.0], [1.0, 1, 1.0], [1.0, 1.0, 1.0],])
+    preds = torch.tensor([[0.0, 0.5, 0.0], [0.5, 1, 0.5], [0, 0.5, 0],])
     res = fn(preds, heatmaps)
     print(res)
 
-    preds = torch.tensor([[0.0, 0.0, 0.0], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
+    preds = torch.tensor([[0.9, 0.5, 0.0], [0.5, 1, 0.5], [0, 0.5, 0],])
     res = fn(preds, heatmaps)
     print(res)
-
-    preds = torch.tensor([[0.0, 0.0, 1], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
-    res = fn(preds, heatmaps)
-    print(res)
+    #
+    #  preds = torch.tensor([[0.0, 0.0, 0.0], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
+    #  res = fn(preds, heatmaps)
+    #  print(res)
+    #
+    #  preds = torch.tensor([[0.0, 0.0, 1], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
+    #  res = fn(preds, heatmaps)
+    #  print(res)
 
 
 def test_heatmap_box_conversion() -> None:
     in_boxes = torch.tensor([[0.2, 0.4, 0.1, 0.3]])
     to_boxes = ToBoxes(thresold=0.1)
     to_heatmap = HardHeatMap(w=64, h=64)
-    heatmap = to_heatmap(in_boxes)
-    _, out_boxes = next(iter(to_boxes(heatmap)))
+    res = to_heatmap(in_boxes)
+    hm = res["heatmap"]
+    sm = res["sizemap"]
+    assert sm.shape == (1, 2, 64, 64)
+    assert hm.shape == (1, 1, 64, 64)
+    assert (sm.nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
+    _, out_boxes = next(iter(to_boxes(res)))
     assert out_boxes[0, 0] < in_boxes[0, 0]
     assert out_boxes[0, 1] < in_boxes[0, 1]
     assert out_boxes[0, 2] == in_boxes[0, 2]
     assert out_boxes[0, 3] == in_boxes[0, 3]
+    plot = DetectionPlot()
+    plot.with_image(hm[0, 0])
+    plot.with_boxes(in_boxes, color="blue")
+    plot.with_boxes(out_boxes)
+    plot.save(f"/store/plot/test-hard-heatmap.png")
 
 
 def test_softheatmap() -> None:
-    boxes = torch.tensor(
-        [
-            [0.2, 0.2, 0.1, 0.2],
-            [0.2, 0.25, 0.1, 0.1],
-            [0.3, 0.4, 0.1, 0.1],
-            [0.51, 0.51, 0.1, 0.1],
-            [0.5, 0.5, 0.3, 0.1],
-        ]
-    )
-    fn = SoftHeatMap(w=512, h=512)
-    res = fn(boxes)
-    plot_heatmap(res[0][0], f"/store/plot/test-soft-heatmap.png")
+    in_boxes = torch.tensor([[0.2, 0.4, 0.1, 0.3]])
+    to_boxes = ToBoxes(thresold=0.1)
+    to_heatmap = SoftHeatMap(w=64, h=64)
+    res = to_heatmap(in_boxes)
+    hm = res["heatmap"]
+    sm = res["sizemap"]
+    assert (sm.nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
+    assert hm.shape == (1, 1, 64, 64)
+    assert sm.shape == (1, 2, 64, 64)
+    _, out_boxes = next(iter(to_boxes(res)))
+    assert out_boxes[0, 0] < in_boxes[0, 0]
+    assert out_boxes[0, 1] < in_boxes[0, 1]
+    assert out_boxes[0, 2] == in_boxes[0, 2]
+    assert out_boxes[0, 3] == in_boxes[0, 3]
+    plot = DetectionPlot()
+    plot.with_image(hm[0, 0])
+    plot.with_boxes(in_boxes, color="blue")
+    plot.with_boxes(out_boxes)
+    plot.save(f"/store/plot/test-soft-heatmap.png")
 
 
 def test_evaluate() -> None:
