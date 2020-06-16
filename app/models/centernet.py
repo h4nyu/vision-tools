@@ -78,8 +78,8 @@ class FocalLoss(nn.Module):
             -((1 - gt) ** beta) * (pred ** alpha) * torch.log(1 - pred) * neg_mask
         )
         loss = (pos_loss + neg_loss).sum()
-        num_pos = pos_mask.sum().clamp(1)
-        return loss / num_pos.float()
+        num_pos = pos_mask.sum().float()
+        return loss / num_pos
 
 
 def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
@@ -115,7 +115,7 @@ class SoftHeatMap(nn.Module):
         super().__init__()
         self.w = w
         self.h = h
-        mount = gaussian_2d((64, 64), sigma=7)
+        mount = gaussian_2d((16, 16), sigma=2)
         self.mount = torch.tensor(mount, dtype=torch.float32).view(
             1, 1, mount.shape[0], mount.shape[1]
         )
@@ -140,6 +140,7 @@ class SoftHeatMap(nn.Module):
             w, h = size[0], size[1]
             if (h > 0) and (w > 0):
                 mount = F.interpolate(self.mount, size=(h, w)).to(boxes.device)
+                mount = mount / mount.max()
                 mount = torch.max(mount, img[:, :, y : y + h, x : x + w])  # type: ignore
                 img[:, :, y : y + h, x : x + w] = mount  # type: ignore
         sizemap = sizemap.unsqueeze(0)
@@ -189,25 +190,12 @@ class Evaluate:
         return score / lenght
 
 
-#  class PostProcess:
-#      def __init__(self) -> None:
-#          self.to_boxes = ToBoxes(thresold=0.1)
-#      def __call__(self, samples: NetInputs, preds: NetOutputs, targets: NetInputs) -> t.List[t.Tuple[Tensor, Tensor]]:
-#          tgt_boxes = self.to_boxes(targets)
-#          pred_boxes = self.to_boxes(preds)
-#          imgs = samples.detach().cpu()
-#          for i, (sb, tb, hm) in enuzip(pred_boxes, tgt_boxes, imgs):
-#              plot = DetectionPlot()
-#              plot.with_image(hm[0])
-#              plot.with_boxes(sb[1], sb[0], color="red")
-#              plot.with_boxes(tb[1], tb[0])
-#              plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes.png")))
-
 
 class Criterion(nn.Module):
     def __init__(self, name: str = "train") -> None:
         super().__init__()
         self.focal_loss = FocalLoss()
+        self.reg_loss = RegLoss()
         self.hm_meter = EMAMeter(f"{name}-hm")
         self.size_meter = EMAMeter(f"{name}-size")
 
@@ -215,14 +203,7 @@ class Criterion(nn.Module):
         # TODO test code
         b, _, _, _ = src["heatmap"].shape
         hm_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
-        size_loss = (
-            (
-                F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
-                * (tgt["heatmap"].eq(1))
-            ).sum()
-            / 40
-            / b
-        )
+        size_loss = self.reg_loss(src['sizemap'], tgt['sizemap'], tgt["heatmap"]) / b
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
         return hm_loss + size_loss
@@ -275,9 +256,15 @@ class ToBoxes:
         return targets
 
 
-class Augmention:
-    def __call__(self, images: Tensor) -> None:
-        transform = albm.Compose([albm.VerticalFlip(), albm.HorizontalFlip(),])
+class RegLoss(nn.Module):
+    def forward(self, output:Tensor, target:Tensor, mask:Tensor) -> Tensor:
+        num = mask.gt(0.95).float().sum()
+        mask = mask.expand_as(target).float()
+        regr = output * mask
+        gt_regr = target * mask
+        regr_loss = nn.functional.smooth_l1_loss(regr, gt_regr, size_average=False)
+        regr_loss = regr_loss / (num + 1e-4)
+        return regr_loss
 
 
 class CenterNet(nn.Module):
