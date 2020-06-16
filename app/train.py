@@ -19,6 +19,7 @@ from app.models.centernet import (
     PreProcess,
     Criterion,
     VisualizeHeatmap,
+    Evaluate,
 )
 from app import config
 
@@ -35,6 +36,7 @@ class Trainer:
         self.train_cri = Criterion("train").to(device).train()
         self.test_cri = Criterion("test").to(device).eval()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
+        self.evaluate = Evaluate()
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 WheatDataset(train_data),
@@ -62,18 +64,17 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.best_score = np.inf
+        self.best_score = 0.0
         if self.checkpoint_path.exists():
             self.load_checkpoint()
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            (train_loss,) = self.train_one_epoch()
-            logger.info(f"{train_loss=}")
-            (eval_loss,) = self.eval_one_epoch()
+            #  (train_loss,) = self.train_one_epoch()
+            #  logger.info(f"{train_loss=}")
+            (eval_loss, score) = self.eval_one_epoch()
             logger.info(f"{eval_loss=}")
-            score = eval_loss
-            if score < self.best_score:
+            if score > self.best_score:
                 logger.info("update model")
                 self.best_score = score
                 self.save_checkpoint()
@@ -98,21 +99,23 @@ class Trainer:
         return (epoch_loss / count,)
 
     @torch.no_grad()
-    def eval_one_epoch(self) -> t.Tuple[float]:
+    def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
         epoch_loss = 0
         count = 0
         loader = self.data_loaders["test"]
+        score = 0.0
         for samples, targets in loader:
             count += 1
             samples = samples.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-            samples, targets = self.preprocess((samples, targets))
+            samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss = self.test_cri(outputs, targets)
+            loss = self.test_cri(outputs, cri_targets)
             epoch_loss += loss.item()
+            score += self.evaluate(outputs, targets)
         self.visualizes["test"](samples, outputs, targets)
-        return (epoch_loss / count,)
+        return (epoch_loss / count, score / count)
 
     def save_checkpoint(self,) -> None:
         with open(self.checkpoint_path, "w") as f:

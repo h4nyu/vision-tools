@@ -5,28 +5,30 @@ import torch
 import torch.nn as nn
 
 
-class BBoxIoU(nn.Module):
-    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+class BoxIoU(nn.Module):
+    def forward(self, src: Tensor, tgt: Tensor) -> Tensor:
         """
-        x: [Bx, 4], bbox, xyxy
-        y: [By, 4], bbox, xyxy
-        return: [Bx, By]
+        args:
+            x: [Bsrc, 4], bbox, xyxy
+            y: [Btgt, 4], bbox, xyxy
+        returns:
+            tensor [Bx, By]
         """
 
-        iw = (
-            torch.min(torch.unsqueeze(x[:, 2], dim=1), y[:, 2])
-            - torch.max(torch.unsqueeze(x[:, 0], 1), y[:, 0])
-        ).clamp(min=0)
-        ih = (
-            torch.min(torch.unsqueeze(x[:, 3], dim=1), y[:, 3])
-            - torch.max(torch.unsqueeze(x[:, 1], 1), y[:, 1])
-        ).clamp(min=0)
-
-        intersection = iw * ih
-        y_area = (y[:, 2] - y[:, 0]) * (y[:, 3] - y[:, 1])
-        x_area = (x[:, 2] - x[:, 0]) * (x[:, 3] - x[:, 1])
-        union = (torch.unsqueeze(x_area, dim=1) + y_area - intersection).clamp(min=0)
-
+        ix = torch.min(torch.unsqueeze(src[:, 2], dim=1), tgt[:, 2]) - torch.max(
+            torch.unsqueeze(src[:, 0], 1), tgt[:, 0]
+        )
+        ix = torch.clamp(ix, min=0)
+        iy = torch.min(torch.unsqueeze(src[:, 3], dim=1), tgt[:, 3]) - torch.max(
+            torch.unsqueeze(src[:, 1], 1), tgt[:, 1]
+        )
+        iy = torch.clamp(ix, min=0)
+        intersection = ix * iy
+        tgt_area = (tgt[:, 2] - tgt[:, 0]) * (tgt[:, 3] - tgt[:, 1])
+        src_area = (src[:, 2] - src[:, 0]) * (src[:, 3] - src[:, 1])
+        union = (torch.unsqueeze(src_area, dim=1) + tgt_area - intersection).clamp(
+            min=0
+        )
         iou = intersection / union
         return iou
 
@@ -36,7 +38,7 @@ class FocalLoss(nn.Module):
         super().__init__()
         self.gamma = gamma
         self.alpha = alpha
-        self.iou = BBoxIoU()
+        self.iou = BoxIoU()
 
     def forward(
         self,

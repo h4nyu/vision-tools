@@ -9,13 +9,15 @@ from logging import getLogger
 from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
+from .losses import BoxIoU
 from app.dataset import Targets, Target
 from scipy.stats import multivariate_normal
-from .utils import box_cxcywh_to_xyxy
+from .utils import box_cxcywh_to_xyxy, box_iou
 from .backbones import EfficientNetBackbone, ResNetBackbone
 from app.utils import plot_heatmap, DetectionPlot
 from pathlib import Path
 from app.meters import EMAMeter
+from app.eval import MeamPrecition
 import albumentations as albm
 
 logger = getLogger(__name__)
@@ -136,7 +138,7 @@ class PreProcess(nn.Module):
         self.heatmap = HardHeatMap(w=self.w, h=self.h)
 
     def forward(
-        self, batch: t.Tuple[Tensor, t.List[Target]]
+        self, batch: t.Tuple[Tensor, Targets]
     ) -> t.Tuple[NetInputs, NetOutputs]:
         images, targets = batch
 
@@ -154,12 +156,22 @@ class PreProcess(nn.Module):
         return dict(images=images), dict(heatmap=heatmap, sizemap=sizemap)
 
 
-#  class Evaluate:
-#      def __init__(self) -> None:
-#          ...
-#
-#      def __call__(self, preds: NetOutputs, targets: NetInputs) -> None:
-#          ...
+class Evaluate:
+    def __init__(self) -> None:
+        self.to_boxes = ToBoxes(thresold=0.1)
+        self.mean_precision = MeamPrecition()
+
+    def __call__(self, inputs: NetOutputs, targets: Targets) -> float:
+        src_boxes = self.to_boxes(inputs)
+        lenght = len(targets)
+        score = 0.0
+        for (_, sb), tgt in zip(src_boxes, targets):
+            tb = tgt["boxes"]
+            pred_boxes = box_cxcywh_to_xyxy(sb)
+            gt_boxes = box_cxcywh_to_xyxy(tgt["boxes"])
+            score += self.mean_precision(pred_boxes, gt_boxes)
+        return score / lenght
+
 
 #  class PostProcess:
 #      def __init__(self) -> None:
@@ -192,7 +204,8 @@ class Criterion(nn.Module):
                 F.l1_loss(src["sizemap"], tgt["sizemap"], reduction="none")
                 * tgt["heatmap"]
             ).sum()
-            / 30 / b
+            / 30
+            / b
         )
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())

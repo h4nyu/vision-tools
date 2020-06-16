@@ -87,6 +87,10 @@ def test_softheatmap() -> None:
     plot_heatmap(res[0][0], f"/store/plot/test-soft-heatmap.png")
 
 
+def test_evaluate() -> None:
+    ...
+
+
 def test_centernet() -> None:
     inputs = torch.rand((1, 3, 1024, 1024))
     fn = CenterNet()
