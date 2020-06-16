@@ -255,8 +255,8 @@ class CenterNet(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         channels = 64
-        self.backbone = ResNetBackbone("resnet18", out_channels=channels)
-        self.fpn = nn.Sequential(BiFPN(channels=channels), BiFPN(channels=channels),)
+        self.backbone = EfficientNetBackbone(1, out_channels=channels)
+        self.fpn = nn.Sequential(BiFPN(channels=channels))
         self.heatmap = Reg(in_channels=channels, out_channels=1)
         self.box_size = Reg(in_channels=channels, out_channels=2)
 
