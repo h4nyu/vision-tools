@@ -258,11 +258,11 @@ class ToBoxes:
 
 class RegLoss(nn.Module):
     def forward(self, output:Tensor, target:Tensor, mask:Tensor) -> Tensor:
-        num = mask.gt(0.95).float().sum()
+        num = mask.eq(1).float().sum()
         mask = mask.expand_as(target).float()
         regr = output * mask
         gt_regr = target * mask
-        regr_loss = nn.functional.smooth_l1_loss(regr, gt_regr, size_average=False)
+        regr_loss = F.l1_loss(regr, gt_regr, size_average=False).sum()
         regr_loss = regr_loss / (num + 1e-4)
         return regr_loss
 
