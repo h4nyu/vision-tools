@@ -115,34 +115,40 @@ class SoftHeatMap(nn.Module):
         super().__init__()
         self.w = w
         self.h = h
-        mount = gaussian_2d((16, 16), sigma=2)
+        self.mount_size = (3, 3)
+        self.mount_pad = (
+            self.mount_size[0] % 2,
+            self.mount_size[1] % 2,
+        )
+        mount = gaussian_2d(self.mount_size, sigma=1)
         self.mount = torch.tensor(mount, dtype=torch.float32).view(
             1, 1, mount.shape[0], mount.shape[1]
         )
+        self.mount = self.mount / self.mount.max()
 
     def forward(self, boxes: Tensor) -> "NetOutputs":
         img = torch.zeros((1, 1, self.h, self.w), dtype=torch.float32).to(boxes.device)
         sizemap = torch.zeros((2, self.h, self.w), dtype=torch.float32).to(boxes.device)
+        device = img.device
         b, _ = boxes.shape
         if b == 0:
             sizemap = sizemap.unsqueeze(0)
             return dict(heatmap=img, sizemap=sizemap)
         cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
         sizemap[:, cy, cx] = boxes[:, 2:4].permute(1, 0)
+        mount_w, mount_h = self.mount_size
+        pad_w, pad_h = self.mount_pad
+        mount_x0 = cx - mount_h // 2
+        mount_x1 = cx + mount_h // 2 + pad_h
+        mount_y0 = cy - mount_w // 2
+        mount_y1 = cy + mount_w // 2 + pad_w
 
-        xyxy = box_cxcywh_to_xyxy(boxes)
-        xyxy[:, [0, 2]] = xyxy[:, [0, 2]] * self.w
-        xyxy[:, [1, 3]] = xyxy[:, [1, 3]] * self.w
-        xyxy = xyxy.long()
-        sizes = xyxy[:, [2, 3]] - xyxy[:, [0, 1]]
-        for box, size in zip(xyxy, sizes):
-            x, y = box[0], box[1]
-            w, h = size[0], size[1]
-            if (h > 0) and (w > 0):
-                mount = F.interpolate(self.mount, size=(h, w)).to(boxes.device)
-                mount = mount / mount.max()
-                mount = torch.max(mount, img[:, :, y : y + h, x : x + w])  # type: ignore
-                img[:, :, y : y + h, x : x + w] = mount  # type: ignore
+        for x0, x1, y0, y1 in zip(mount_x0, mount_x1, mount_y0, mount_y1):
+            target = img[:, :, y0: y1,x0: x1] # type: ignore
+            _, _, target_h, target_w = target.shape
+            if (target_h >= mount_h) and (target_w >= mount_w):
+                mount = torch.max(self.mount.to(device), target)
+                img[:, :, y0 :  y1, x0 : x1] = mount  # type: ignore
         sizemap = sizemap.unsqueeze(0)
         return dict(heatmap=img, sizemap=sizemap)
 
