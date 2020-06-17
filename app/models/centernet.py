@@ -115,7 +115,7 @@ class SoftHeatMap(nn.Module):
         super().__init__()
         self.w = w
         self.h = h
-        self.mount_size = (3, 3)
+        self.mount_size = (5, 5)
         self.mount_pad = (
             self.mount_size[0] % 2,
             self.mount_size[1] % 2,
