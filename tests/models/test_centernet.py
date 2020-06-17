@@ -69,7 +69,8 @@ def test_heatmap_box_conversion() -> None:
     sm = res["sizemap"]
     assert sm.shape == (1, 2, 64, 64)
     assert hm.shape == (1, 1, 64, 64)
-    assert (sm.nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
+    assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
+    assert (sm[0, :, 25, 12] - torch.tensor([0.1, 0.3])).sum() == 0
     _, out_boxes = next(iter(to_boxes(res)))
     assert out_boxes[0, 0] < in_boxes[0, 0]
     assert out_boxes[0, 1] < in_boxes[0, 1]
@@ -89,9 +90,11 @@ def test_softheatmap() -> None:
     res = to_heatmap(in_boxes)
     hm = res["heatmap"]
     sm = res["sizemap"]
+    assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert (sm.nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert hm.shape == (1, 1, 64, 64)
     assert sm.shape == (1, 2, 64, 64)
+    assert (sm[0, :, 25, 12] - torch.tensor([0.1, 0.3])).sum() == 0
     _, out_boxes = next(iter(to_boxes(res)))
     assert out_boxes[0, 0] < in_boxes[0, 0]
     assert out_boxes[0, 1] < in_boxes[0, 1]

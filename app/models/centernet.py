@@ -115,12 +115,12 @@ class SoftHeatMap(nn.Module):
         super().__init__()
         self.w = w
         self.h = h
-        self.mount_size = (3, 3)
+        self.mount_size = (5, 5)
         self.mount_pad = (
             self.mount_size[0] % 2,
             self.mount_size[1] % 2,
         )
-        mount = gaussian_2d(self.mount_size, sigma=1)
+        mount = gaussian_2d(self.mount_size, sigma=1.)
         self.mount = torch.tensor(mount, dtype=torch.float32).view(
             1, 1, mount.shape[0], mount.shape[1]
         )
@@ -209,7 +209,7 @@ class Criterion(nn.Module):
         # TODO test code
         b, _, _, _ = src["heatmap"].shape
         hm_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
-        size_loss = self.reg_loss(src['sizemap'], tgt['sizemap'], tgt["heatmap"]) / b
+        size_loss = self.reg_loss(src['sizemap'], tgt['sizemap']) / b / 10
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
         return hm_loss + size_loss
@@ -235,7 +235,6 @@ class ToBoxes:
     def __init__(self, thresold: float, limit: int = 200) -> None:
         self.limit = limit
         self.thresold = thresold
-
     def __call__(self, inputs: NetOutputs) -> t.List[t.Tuple[Tensor, Tensor]]:
         """
         cxcywh 0-1
@@ -263,20 +262,18 @@ class ToBoxes:
 
 
 class RegLoss(nn.Module):
-    def forward(self, output:Tensor, target:Tensor, mask:Tensor) -> Tensor:
-        num = mask.eq(1).float().sum()
-        mask = mask.expand_as(target).float()
-        regr = output * mask
-        gt_regr = target * mask
-        regr_loss = F.l1_loss(regr, gt_regr, reduction="none").sum()
-        regr_loss = regr_loss / (num + 1e-4)
+    def forward(self, output:Tensor, target:Tensor) -> Tensor:
+        mask = (target > 0).view(target.shape)
+        num = mask.sum()
+        regr_loss = F.l1_loss(output, target, reduction="none") * mask
+        regr_loss = regr_loss.sum() / (num + 1e-4)
         return regr_loss
 
 
 class CenterNet(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        channels = 64
+        channels = 32
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels))
         self.heatmap = Reg(in_channels=channels, out_channels=1)
