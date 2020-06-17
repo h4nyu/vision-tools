@@ -115,12 +115,12 @@ class SoftHeatMap(nn.Module):
         super().__init__()
         self.w = w
         self.h = h
-        self.mount_size = (5, 5)
+        self.mount_size = (3, 3)
         self.mount_pad = (
             self.mount_size[0] % 2,
             self.mount_size[1] % 2,
         )
-        mount = gaussian_2d(self.mount_size, sigma=1.)
+        mount = gaussian_2d(self.mount_size, sigma=.5)
         self.mount = torch.tensor(mount, dtype=torch.float32).view(
             1, 1, mount.shape[0], mount.shape[1]
         )
@@ -181,7 +181,7 @@ class PreProcess(nn.Module):
 
 class Evaluate:
     def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.1)
+        self.to_boxes = ToBoxes(thresold=0.2)
         self.mean_precision = MeamPrecition()
 
     def __call__(self, inputs: NetOutputs, targets: Targets) -> float:
@@ -209,7 +209,7 @@ class Criterion(nn.Module):
         # TODO test code
         b, _, _, _ = src["heatmap"].shape
         hm_loss = self.focal_loss(src["heatmap"], tgt["heatmap"]) / b
-        size_loss = self.reg_loss(src['sizemap'], tgt['sizemap']) / b / 10
+        size_loss = self.reg_loss(src['sizemap'], tgt['sizemap'])
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
         return hm_loss + size_loss
@@ -232,7 +232,7 @@ class Reg(nn.Module):
 
 
 class ToBoxes:
-    def __init__(self, thresold: float, limit: int = 200) -> None:
+    def __init__(self, thresold: float, limit: int = 100) -> None:
         self.limit = limit
         self.thresold = thresold
     def __call__(self, inputs: NetOutputs) -> t.List[t.Tuple[Tensor, Tensor]]:

@@ -54,6 +54,7 @@ class DetectionPlot:
                 fill=False,
                 edgecolor=color,
                 linewidth=1,
+                alpha=p.item(),
             )
             self.ax.add_patch(rect)
 
