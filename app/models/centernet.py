@@ -262,7 +262,7 @@ class RegLoss(nn.Module):
         mask = mask.expand_as(target).float()
         regr = output * mask
         gt_regr = target * mask
-        regr_loss = F.l1_loss(regr, gt_regr, size_average=False).sum()
+        regr_loss = F.l1_loss(regr, gt_regr, reduction="none").sum()
         regr_loss = regr_loss / (num + 1e-4)
         return regr_loss
 
