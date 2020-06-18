@@ -19,6 +19,7 @@ from app.models.centernet import (
     PreProcess,
     Criterion,
     VisualizeHeatmap,
+    PostProcess,
     Evaluate,
 )
 from app import config
@@ -26,6 +27,16 @@ from app import config
 logger = getLogger(__name__)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoader,})
+
+
+def load_checkpoint(output_dir: Path, model: NNModel) -> t.Tuple[NNModel, float]:
+    with open(output_dir.joinpath("checkpoint.json"), "r") as f:
+        data = json.load(f)
+    best_score = data["best_score"]
+    model.load_state_dict(
+        torch.load(output_dir.joinpath(f"model.pth"))  # type: ignore
+    )
+    return model, best_score
 
 
 class Trainer:
@@ -66,7 +77,7 @@ class Trainer:
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
         self.best_score = 0.0
         if self.checkpoint_path.exists():
-            self.load_checkpoint()
+            self.model, self.best_score = load_checkpoint(self.output_dir, self.model)
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
@@ -95,7 +106,7 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
-        self.visualizes["train"](samples, outputs, cri_targets, targets)
+        self.visualizes["train"](samples, outputs, targets)
         return (epoch_loss / count,)
 
     @torch.no_grad()
@@ -114,7 +125,7 @@ class Trainer:
             loss = self.test_cri(outputs, cri_targets)
             epoch_loss += loss.item()
             score += self.evaluate(outputs, targets)
-        self.visualizes["test"](samples, outputs, cri_targets, targets)
+        self.visualizes["test"](samples, outputs, targets)
         return (epoch_loss / count, score / count)
 
     def save_checkpoint(self,) -> None:
@@ -122,10 +133,29 @@ class Trainer:
             json.dump({"best_score": self.best_score,}, f)
         torch.save(self.model.state_dict(), self.output_dir.joinpath(f"model.pth"))  # type: ignore
 
-    def load_checkpoint(self,) -> None:
-        with open(self.checkpoint_path, "r") as f:
-            data = json.load(f)
-        self.best_score = data["best_score"]
-        self.model.load_state_dict(
-            torch.load(self.output_dir.joinpath(f"model.pth"))  # type: ignore
+
+class Preditor:
+    def __init__(self, output_dir: Path, data: Annotations,) -> None:
+        self.model, _ = load_checkpoint(output_dir, NNModel().to(device),)
+        self.data_loader = DataLoader(
+            WheatDataset(data, "test"),
+            batch_size=config.batch_size,
+            collate_fn=collate_fn,
+            shuffle=False,
+            num_workers=config.num_workers,
         )
+        self.visualize = VisualizeHeatmap(output_dir, "pred")
+        self.preprocess = PreProcess().to(device)
+        self.postprocess = PostProcess()
+
+    @torch.no_grad()
+    def __call__(self) -> Annotations:
+        annotations: Annotations = dict()
+        for samples, targets, ids in self.data_loader:
+            samples = samples.to(device)
+            samples, _ = self.preprocess((samples, targets))
+            outputs = self.model(samples)
+            batch_annots = self.postprocess(outputs, ids)
+            self.visualize(samples, outputs, targets)
+            annotations.update(batch_annots)
+        return annotations

@@ -9,6 +9,8 @@ from app.models.centernet import (
     HardHeatMap,
     SoftHeatMap,
     ToBoxes,
+    TTAMerge,
+    NetOutputs,
 )
 from app.utils import plot_heatmap, DetectionPlot
 
@@ -47,7 +49,9 @@ def test_toboxes() -> None:
 def test_focal_loss() -> None:
     heatmaps = torch.tensor([[0.0, 0.5, 0.0], [0.5, 1, 0.5], [0, 0.5, 0],])
     fn = FocalLoss()
-    preds = torch.tensor([[0.0001, 0.5, 0.0001], [0.5, 0.999, 0.5], [0.001, 0.5, 0.0001],])
+    preds = torch.tensor(
+        [[0.0001, 0.5, 0.0001], [0.5, 0.999, 0.5], [0.001, 0.5, 0.0001],]
+    )
     res = fn(preds, heatmaps)
     print(res)
     #
@@ -107,8 +111,28 @@ def test_softheatmap() -> None:
     plot.save(f"/store/plot/test-soft-heatmap.png")
 
 
-def test_evaluate() -> None:
-    ...
+def test_ttamerge() -> None:
+    # TODO
+    to_heatmap = SoftHeatMap(w=100, h=100, mount_size=(9, 9), sigma=3)
+    in_boxes0 = torch.tensor([[0.2, 0.4, 0.1, 0.3]])
+    res0 = to_heatmap(in_boxes0)
+
+    in_boxes1 = torch.tensor([[0.21, 0.4, 0.1, 0.3]])
+    res1 = to_heatmap(in_boxes1)
+    hm0 = res0["heatmap"]
+    hm1 = res1["heatmap"]
+    hm = (hm0 + hm1) / 2
+    sm = (res0["sizemap"] + res1["sizemap"]) / 2
+    out: NetOutputs = dict(heatmap=hm, sizemap=sm)
+    to_boxes = ToBoxes(thresold=0.1)
+    _, out_boxes = next(iter(to_boxes(out)))
+
+    plot = DetectionPlot()
+    plot.with_image(hm[0, 0])
+    plot.with_boxes(in_boxes0, color="blue")
+    plot.with_boxes(in_boxes1, color="red")
+    plot.with_boxes(out_boxes, color="green")
+    plot.save(f"/store/plot/test-tta.png")
 
 
 def test_centernet() -> None:

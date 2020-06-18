@@ -3,9 +3,13 @@ from cytoolz.curried import groupby, valmap, pipe, unique, map, reduce
 from pathlib import Path
 import typing as t
 import matplotlib.pyplot as plt
-from app.train import Trainer
+from app.train import Trainer, Preditor
+from app.models.centernet import Evaluate
 from app.preprocess import load_lables, KFold
 from app import config
+from app.utils import DetectionPlot
+from app.models.utils import box_xyxy_to_cxcywh
+from albumentations.pytorch.transforms import ToTensorV2
 
 
 def eda_bboxes() -> None:
@@ -32,3 +36,24 @@ def train(fold_idx: int) -> None:
         train_data, test_data, Path(config.root_dir).joinpath(str(fold_idx))
     )
     trainer.train(1000)
+
+
+def pre_submit(fold_idx: int) -> None:
+    images = load_lables()
+    evaluate = Evaluate()
+    p = Preditor(Path(config.root_dir).joinpath(str(fold_idx)), images,)
+    preds = p()
+
+    score = evaluate(preds, images)
+    print(f"{score=}")
+
+    plot = DetectionPlot()
+    to_tensor = ToTensorV2()
+    sample_key = next(iter(preds.keys()))
+    sample = preds[sample_key]
+    gt = images[sample_key]
+
+    plot.with_image(to_tensor(image=sample.get_img())['image'])
+    plot.with_boxes(sample.boxes, sample.confidences, color="red")
+    plot.with_boxes(box_xyxy_to_cxcywh(gt.boxes), color="blue")
+    plot.save('/store/plot/sample.png')

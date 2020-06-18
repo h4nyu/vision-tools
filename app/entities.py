@@ -13,9 +13,16 @@ class Annotation:
     height: int
     bboxes: Tensor  # [L, 4] 0~1
     source: str
+    confidences: Tensor
 
     def __init__(
-        self, id: str, width: int, height: int, boxes: Tensor, source: str
+        self,
+        id: str,
+        width: int,
+        height: int,
+        boxes: Tensor,
+        source: str = "",
+        confidences: t.Optional[Tensor] = None,
     ) -> None:
         #  boxes[:, [0, 2]] = boxes[:, [0, 2]] / width
         #  boxes[:, [1, 3]] = boxes[:, [1, 3]] / height
@@ -24,6 +31,9 @@ class Annotation:
         self.height = height
         self.boxes = boxes
         self.source = source
+        self.confidences = (
+            confidences if confidences is not None else torch.ones((boxes.shape[0],))
+        )
 
     def __repr__(self,) -> str:
         id = self.id
