@@ -32,10 +32,10 @@ class Boxes:
         self,
         w: float,
         h: float,
+        fmt:BoxFmt,
         boxes: Tensor,
         confidences: t.Optional[Tensor] = None,
         id: str = "",
-        fmt:BoxFmt="cxcywh",
     ) -> None:
         self.id = id
         self.w = w
@@ -52,10 +52,10 @@ class Boxes:
         return self
 
     def to_cxcywh(self) -> "Boxes":
-        if self.fmt == "xyxy":
-            boxes = box_xyxy_to_cxcywh(self.boxes)
-        else:
+        if self.fmt == "cxcywh":
             boxes = self.boxes
+        else:
+            boxes = box_xyxy_to_cxcywh(self.boxes)
         return Boxes(
             w=self.w,
             h=self.h,
@@ -66,9 +66,9 @@ class Boxes:
 
     def to_xyxy(self) -> "Boxes":
         if self.fmt == "xyxy":
-            boxes = box_cxcywh_to_xyxy(self.boxes)
-        else:
             boxes = self.boxes
+        else:
+            boxes = box_cxcywh_to_xyxy(self.boxes)
         return Boxes(
             w=self.w,
             h=self.h,

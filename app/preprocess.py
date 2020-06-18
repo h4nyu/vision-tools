@@ -31,6 +31,7 @@ def load_lables(limit: t.Optional[int] = None) -> Annotations:
                 id=x[0]["image_id"],
                 w=x[0]["width"],
                 h=x[0]["height"],
+                fmt="cxcywh",
                 boxes=parse_boxes(
                     [b["bbox"] for b in x], x[0]["width"], x[0]["height"]
                 ),

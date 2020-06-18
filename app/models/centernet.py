@@ -16,6 +16,7 @@ from .utils import box_cxcywh_to_xyxy, box_iou
 from .backbones import EfficientNetBackbone, ResNetBackbone
 from app.utils import plot_heatmap, DetectionPlot
 from app.entities import Boxes, Images
+from torchvision.ops import nms
 
 from pathlib import Path
 from app.meters import EMAMeter
@@ -96,7 +97,7 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
 
 class SoftHeatMap(nn.Module):
     def __init__(
-        self, w: int, h: int, mount_size: t.Tuple[int, int] = (5, 5), sigma: float = 0.5
+        self, w: int, h: int, mount_size: t.Tuple[int, int] = (7, 7), sigma: float = 1
     ) -> None:
         super().__init__()
         self.w = w
@@ -141,11 +142,16 @@ class SoftHeatMap(nn.Module):
 
 class PostProcess:
     def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.2)
+        self.to_boxes = ToBoxes(thresold=0.2, limit=200)
 
     def __call__(self, inputs: NetOutputs, ids: t.List[str]) -> Annotations:
         res = self.to_boxes(inputs)
         for id, boxes in zip(ids, res):
+            boxes = boxes.to_xyxy()
+            idx = nms(boxes.boxes, boxes.confidences,iou_threshold=0.5)
+            boxes.boxes = boxes.boxes[idx]
+            boxes.confidences = boxes.confidences[idx]
+            boxes = boxes.to_cxcywh()
             boxes.id = id
         return res
 
@@ -217,6 +223,7 @@ class ToBoxes:
                     w=1024,
                     boxes=boxes[sort_idx],
                     confidences=confidences[sort_idx],
+                    fmt="cxcywh",
                 )
             )
         return rows
