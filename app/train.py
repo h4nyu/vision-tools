@@ -95,10 +95,9 @@ class Trainer:
         epoch_loss = 0
         count = 0
         loader = self.data_loaders["train"]
-        for samples, targets in loader:
+        for samples, targets, ids in loader:
             count += 1
             samples = samples.to(device)
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss = self.train_cri(outputs, cri_targets)
@@ -139,12 +138,11 @@ class Preditor:
         self.model, _ = load_checkpoint(output_dir, NNModel().to(device),)
         self.data_loader = DataLoader(
             WheatDataset(data, "test"),
-            batch_size=config.batch_size,
+            batch_size=config.batch_size * 2,
             collate_fn=collate_fn,
             shuffle=False,
             num_workers=config.num_workers,
         )
-        self.visualize = VisualizeHeatmap(output_dir, "pred")
         self.preprocess = PreProcess().to(device)
         self.postprocess = PostProcess()
 
@@ -156,6 +154,5 @@ class Preditor:
             samples, _ = self.preprocess((samples, targets))
             outputs = self.model(samples)
             batch_annots = self.postprocess(outputs, ids)
-            self.visualize(samples, outputs, targets)
             annotations.update(batch_annots)
         return annotations
