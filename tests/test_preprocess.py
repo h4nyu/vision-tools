@@ -4,8 +4,8 @@ from app.preprocess import load_lables, KFold
 
 def test_load_lables() -> None:
     images = load_lables()
-    first_sample = next(iter(images.values()))
-    assert len(first_sample.bboxes) == 47
+    first_sample = next(iter(images))
+    assert len(first_sample.boxes) == 47
 
 
 def test_kfold() -> None:

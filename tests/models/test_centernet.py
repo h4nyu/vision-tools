@@ -37,11 +37,11 @@ def test_toboxes() -> None:
         ]
     )
     fn = ToBoxes(thresold=0.1)
-    preds = fn(dict(heatmap=keymap, sizemap=sizemap))
+    preds = fn(NetOutputs(heatmap=keymap, sizemap=sizemap))
     plot = DetectionPlot()
     plot.with_image(keymap[0, 0])
-    for probs, boxes in preds:
-        plot.with_boxes(boxes, probs)
+    for pred in preds:
+        plot.with_boxes(pred.boxes, pred.confidences)
     plot.with_boxes(gt_boxes, color="blue")
     plot.save("/store/plot/test-toboxes.png",)
 
@@ -69,13 +69,13 @@ def test_heatmap_box_conversion() -> None:
     to_boxes = ToBoxes(thresold=0.1)
     to_heatmap = HardHeatMap(w=64, h=64)
     res = to_heatmap(in_boxes)
-    hm = res["heatmap"]
-    sm = res["sizemap"]
+    hm = res.heatmap
+    sm = res.sizemap
     assert sm.shape == (1, 2, 64, 64)
     assert hm.shape == (1, 1, 64, 64)
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert (sm[0, :, 25, 12] - torch.tensor([0.1, 0.3])).sum() == 0
-    _, out_boxes = next(iter(to_boxes(res)))
+    out_boxes = next(iter(to_boxes(res))).boxes
     assert out_boxes[0, 0] < in_boxes[0, 0]
     assert out_boxes[0, 1] < in_boxes[0, 1]
     assert out_boxes[0, 2] == in_boxes[0, 2]
@@ -92,14 +92,14 @@ def test_softheatmap() -> None:
     to_boxes = ToBoxes(thresold=0.1)
     to_heatmap = SoftHeatMap(w=64, h=64)
     res = to_heatmap(in_boxes)
-    hm = res["heatmap"]
-    sm = res["sizemap"]
+    hm = res.heatmap
+    sm = res.sizemap
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert (sm.nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert hm.shape == (1, 1, 64, 64)
     assert sm.shape == (1, 2, 64, 64)
     assert (sm[0, :, 25, 12] - torch.tensor([0.1, 0.3])).sum() == 0
-    _, out_boxes = next(iter(to_boxes(res)))
+    out_boxes = next(iter(to_boxes(res))).boxes
     assert out_boxes[0, 0] < in_boxes[0, 0]
     assert out_boxes[0, 1] < in_boxes[0, 1]
     assert out_boxes[0, 2] == in_boxes[0, 2]
@@ -111,32 +111,8 @@ def test_softheatmap() -> None:
     plot.save(f"/store/plot/test-soft-heatmap.png")
 
 
-def test_ttamerge() -> None:
-    # TODO
-    to_heatmap = SoftHeatMap(w=100, h=100, mount_size=(9, 9), sigma=3)
-    in_boxes0 = torch.tensor([[0.2, 0.4, 0.1, 0.3]])
-    res0 = to_heatmap(in_boxes0)
-
-    in_boxes1 = torch.tensor([[0.21, 0.4, 0.1, 0.3]])
-    res1 = to_heatmap(in_boxes1)
-    hm0 = res0["heatmap"]
-    hm1 = res1["heatmap"]
-    hm = (hm0 + hm1) / 2
-    sm = (res0["sizemap"] + res1["sizemap"]) / 2
-    out: NetOutputs = dict(heatmap=hm, sizemap=sm)
-    to_boxes = ToBoxes(thresold=0.1)
-    _, out_boxes = next(iter(to_boxes(out)))
-
-    plot = DetectionPlot()
-    plot.with_image(hm[0, 0])
-    plot.with_boxes(in_boxes0, color="blue")
-    plot.with_boxes(in_boxes1, color="red")
-    plot.with_boxes(out_boxes, color="green")
-    plot.save(f"/store/plot/test-tta.png")
-
-
 def test_centernet() -> None:
     inputs = torch.rand((1, 3, 1024, 1024))
     fn = CenterNet()
-    out = fn(dict(images=inputs))
-    assert out["heatmap"].shape == (1, 1, 1024 // 2, 1024 // 2)
+    out = fn(inputs)
+    assert out.heatmap.shape == (1, 1, 1024 // 2, 1024 // 2)

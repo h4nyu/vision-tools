@@ -50,11 +50,9 @@ class KFold:
     def __call__(
         self, annotations: Annotations
     ) -> t.Iterator[t.Tuple[Annotations, Annotations]]:
-        rows = list(annotations.values())
+        rows = annotations
         fold_keys = pipe(
             rows, map(lambda x: f"{x.source}-{x.boxes.shape[0] // 1}"), list
         )
         for train, valid in self._skf.split(X=rows, y=fold_keys):
-            train_rows = {rows[i].id: rows[i] for i in train}
-            valid_rows = {rows[i].id: rows[i] for i in valid}
-            yield (train_rows, valid_rows)
+            yield (train, valid)

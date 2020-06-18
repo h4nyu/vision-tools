@@ -1,10 +1,10 @@
 import numpy as np
 import typing as t
-from skimage.io import imread
 from pathlib import Path
 from app import config
 import torch
 from torch import Tensor
+from .box import Boxes
 
 
 class Annotation:
@@ -39,9 +39,15 @@ class Annotation:
         id = self.id
         return f"<Image {id=}>"
 
-    def get_img(self) -> Tensor:
-        image_path = Path(config.image_dir).joinpath(f"{self.id}.jpg")
-        return (imread(image_path) / 255).astype(np.float32)
+
+class Images:
+    images: Tensor
+    id: str
+
+    def __init__(self, id: str, images: Tensor) -> None:
+        self.images = images
 
 
-Annotations = t.Dict[str, Annotation]
+#  Annotations = t.Dict[str, Boxes]
+
+Annotations = t.List[Boxes]

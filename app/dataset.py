@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import torchvision.transforms as T
 import albumentations as albm
+from app.entities import Boxes
 from albumentations.pytorch.transforms import ToTensorV2
+from skimage.io import imread
 
 
 from pathlib import Path
@@ -64,22 +66,22 @@ class WheatDataset(Dataset):
         use_cache: bool = False,
     ) -> None:
         super().__init__()
-        self.rows = list(annotations.values())
+        self.rows = annotations
         self.mode = mode
         self.cache: t.Dict[str, t.Any] = dict()
         self.use_cache = use_cache
+        self.image_dir = Path(config.image_dir)
 
     def __len__(self) -> int:
         return len(self.rows)
 
-    def get_img(self, row: Annotation) -> t.Any:
-        if row.id not in self.cache:
-            self.cache[row.id] = row.get_img()
-        return self.cache[row.id]
+    def get_img(self, row: Boxes) -> t.Any:
+        image_path = self.image_dir.joinpath(f"{row.id}.jpg")
+        return (imread(image_path) / 255).astype(np.float32)
 
     def __getitem__(self, index: int) -> t.Any:
         row = self.rows[index]
-        image = self.get_img(row) if self.use_cache else row.get_img()
+        image = self.get_img(row)
         boxes = row.boxes
         labels = torch.zeros(len(boxes)).long()
         if self.mode == "train":
