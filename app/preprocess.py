@@ -8,7 +8,7 @@ from pathlib import Path
 from sklearn.model_selection import StratifiedKFold
 from torch import Tensor
 from app import config
-from app.entities import Annotations, Annotation
+from app.entities import Annotations, Boxes
 from app.models.utils import box_xyxy_to_cxcywh, box_cxcywh_to_xyxy, box_xywh_to_xyxy
 
 
@@ -27,16 +27,17 @@ def load_lables(limit: t.Optional[int] = None) -> Annotations:
         rows,
         groupby(lambda x: x["image_id"]),
         valmap(
-            lambda x: Annotation(
+            lambda x: Boxes(
                 id=x[0]["image_id"],
-                source=x[0]["source"],
-                width=x[0]["width"],
-                height=x[0]["height"],
+                w=x[0]["width"],
+                h=x[0]["height"],
                 boxes=parse_boxes(
                     [b["bbox"] for b in x], x[0]["width"], x[0]["height"]
                 ),
             )
         ),
+        lambda x: x.values(),
+        list
     )
     return images
 
@@ -52,7 +53,7 @@ class KFold:
     ) -> t.Iterator[t.Tuple[Annotations, Annotations]]:
         rows = annotations
         fold_keys = pipe(
-            rows, map(lambda x: f"{x.source}-{x.boxes.shape[0] // 1}"), list
+            rows, map(lambda x: f"{x.boxes.shape[0]}"), list
         )
         for train, valid in self._skf.split(X=rows, y=fold_keys):
-            yield (train, valid)
+            yield ([rows[i] for i in train], [rows[i] for i in valid])

@@ -1,7 +1,6 @@
 import typing as t
 import numpy as np
 import torch
-from app.dataset import Targets
 from app.models.centernet import (
     CenterNet,
     Criterion,

@@ -19,13 +19,14 @@ def box_cxcywh_to_xyxy(x: Tensor) -> Tensor:
     return torch.stack(out, dim=-1)
 
 
+BoxFmt = t.Literal["xyxy", "cxcywh"]
 class Boxes:
     id: str
     w: float
     h: float
     boxes: Tensor
     confidences: Tensor
-    fmt: t.Literal["xyxy", "cxcywh"]
+    fmt: BoxFmt
 
     def __init__(
         self,
@@ -34,23 +35,44 @@ class Boxes:
         boxes: Tensor,
         confidences: t.Optional[Tensor] = None,
         id: str = "",
+        fmt:BoxFmt="cxcywh",
     ) -> None:
         self.id = id
         self.w = w
         self.h = h
         self.boxes = boxes
+        self.fmt=fmt
         self.confidences = (
             confidences if confidences is not None else torch.ones(boxes.shape[0])
         )
 
-    def to_cxcywh(self) -> "Boxes":
-        if self.fmt == "xyxy":
-            self.boxes = box_xyxy_to_cxcywh(self.boxes)
-        self.fmt = "cxcywh"
+    def to(self, device:t.Any) -> "Boxes":
+        self.boxes = self.boxes.to(device)
+        self.confidences = self.confidences.to(device)
         return self
 
+    def to_cxcywh(self) -> "Boxes":
+        if self.fmt == "xyxy":
+            boxes = box_xyxy_to_cxcywh(self.boxes)
+        else:
+            boxes = self.boxes
+        return Boxes(
+            w=self.w,
+            h=self.h,
+            boxes=boxes,
+            fmt="cxcywh",
+            confidences=self.confidences,
+        )
+
     def to_xyxy(self) -> "Boxes":
-        if self.fmt == "cxcywh":
-            self.boxes = box_cxcywh_to_xyxy(self.boxes)
-        self.fmt = "xyxy"
-        return self
+        if self.fmt == "xyxy":
+            boxes = box_cxcywh_to_xyxy(self.boxes)
+        else:
+            boxes = self.boxes
+        return Boxes(
+            w=self.w,
+            h=self.h,
+            boxes=boxes,
+            fmt="xyxy",
+            confidences=self.confidences,
+        )

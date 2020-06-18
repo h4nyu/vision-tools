@@ -71,6 +71,7 @@ class Trainer:
         }
         self.check_interval = 20
         self.preprocess = PreProcess().to(device)
+        self.postprocess = PostProcess()
 
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
@@ -95,9 +96,8 @@ class Trainer:
         epoch_loss = 0
         count = 0
         loader = self.data_loaders["train"]
-        for samples, targets, ids in loader:
+        for samples, targets, _ in loader:
             count += 1
-            samples = samples.to(device)
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss = self.train_cri(outputs, cri_targets)
@@ -115,15 +115,14 @@ class Trainer:
         count = 0
         loader = self.data_loaders["test"]
         score = 0.0
-        for samples, targets in loader:
+        for samples, targets, ids in loader:
             count += 1
-            samples = samples.to(device)
-            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss = self.test_cri(outputs, cri_targets)
             epoch_loss += loss.item()
-            score += self.evaluate(outputs, targets)
+            preds = self.postprocess(outputs, ids)
+            score += self.evaluate(preds, targets)
         self.visualizes["test"](outputs, targets)
         return (epoch_loss / count, score / count)
 

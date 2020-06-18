@@ -38,7 +38,7 @@ class Evaluate:
         self.mean_precision = MeamPrecition()
 
     def __call__(self, pred: Annotations, gt: Annotations) -> float:
-        lenght = len(pred)
+        lenght = len(gt)
         score = 0.0
         for pred_boxes, gt_boxes in zip(pred, gt):
             pred_boxes = pred_boxes.to_xyxy()

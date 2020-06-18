@@ -42,10 +42,11 @@ class Annotation:
 
 class Images:
     images: Tensor
-    id: str
+    ids: t.List[str]
 
-    def __init__(self, id: str, images: Tensor) -> None:
+    def __init__(self, ids: t.List[str], images: Tensor) -> None:
         self.images = images
+        self.ids = ids
 
 
 #  Annotations = t.Dict[str, Boxes]

@@ -10,7 +10,6 @@ from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import BoxIoU
-from app.dataset import Targets, Target
 from app.entities import Annotations, Annotation
 from scipy.stats import multivariate_normal
 from .utils import box_cxcywh_to_xyxy, box_iou
@@ -162,7 +161,7 @@ class Criterion(nn.Module):
     def forward(self, src: NetOutputs, tgt: NetOutputs) -> Tensor:
         # TODO test code
         b, _, _, _ = src.heatmap.shape
-        hm_loss = self.focal_loss(src.heatmap, tgt.heatmap) / b
+        hm_loss = self.focal_loss(src.heatmap, tgt.heatmap)
         size_loss = self.reg_loss(src.sizemap, tgt.sizemap)
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
@@ -283,17 +282,20 @@ class PreProcess(nn.Module):
         self.h = 1024 // 2 ** config.scale_factor
         self.w = 1024 // 2 ** config.scale_factor
         self.heatmap = SoftHeatMap(w=self.w, h=self.h)
+        self.device = torch.device("cuda")
 
     def forward(
         self, batch: t.Tuple[Tensor, Annotations]
     ) -> t.Tuple[Tensor, NetOutputs]:
         images, annotations = batch
+        images = images.to(self.device)
         hms = []
         sms = []
         for annot in annotations:
+            annot = annot.to(self.device)
             res = self.heatmap(annot.boxes)
-            hms.append(res["heatmap"])
-            sms.append(res["sizemap"])
+            hms.append(res.heatmap)
+            sms.append(res.sizemap)
 
         heatmap = torch.cat(hms, dim=0)
         sizemap = torch.cat(sms, dim=0)

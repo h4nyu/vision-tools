@@ -21,22 +21,28 @@ from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Annotations, Annotation
 from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
-Target = t.TypedDict("Target", {"boxes": Tensor})
-Row = t.Tuple[Tensor, Target, str]
+Row = t.Tuple[Tensor, Tensor, str]
 Batch = t.Sequence[Row]
-Targets = t.List[Target]
 
 
-def collate_fn(batch: Batch) -> t.Tuple[Tensor, t.List[Target], t.List[str]]:
+def collate_fn(batch: Batch) -> t.Tuple[Tensor, Annotations, t.List[str]]:
     images: t.List[Tensor] = []
-    targets: t.List[Target] = []
+    annots: Annotations = []
     ids: t.List[str] = []
-    for img, tgt, id in batch:
-        targets.append(tgt)
+    for img, boxes, id in batch:
         images.append(img)
+        _,h, w = img.shape
+        annots.append(
+            Boxes(
+                boxes=boxes,
+                w=w,
+                h=h,
+                fmt="cxcywh",
+            )
+        )
         ids.append(id)
     images_tensor = torch.stack(images)
-    return images_tensor, targets, ids
+    return images_tensor, annots, ids
 
 
 train_transforms = albm.Compose(
@@ -91,7 +97,4 @@ class WheatDataset(Dataset):
 
         image = transforms(image=image)["image"].float()
         boxes = box_xyxy_to_cxcywh(boxes)
-        target: Target = {
-            "boxes": boxes,
-        }
-        return image, target, row.id
+        return image, boxes, row.id
