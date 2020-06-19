@@ -57,6 +57,11 @@ transforms = albm.Compose(
 )
 
 
+def get_img(image_id: str) -> t.Any:
+    image_path = f"{config.image_dir}/{image_id}.jpg"
+    return (imread(image_path) / 255).astype(np.float32)
+
+
 class WheatDataset(Dataset):
     def __init__(
         self,
@@ -74,13 +79,9 @@ class WheatDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def get_img(self, row: Boxes) -> t.Any:
-        image_path = self.image_dir.joinpath(f"{row.id}.jpg")
-        return (imread(image_path) / 255).astype(np.float32)
-
     def __getitem__(self, index: int) -> t.Any:
         row = self.rows[index]
-        image = self.get_img(row)
+        image = get_img(row.id)
         boxes = row.boxes
         labels = torch.zeros(len(boxes)).long()
         if self.mode == "train":
@@ -95,5 +96,14 @@ class WheatDataset(Dataset):
 
 class PreditionDataset(Dataset):
     def __init__(self, csv_path: str = config.submition_csv,) -> None:
-        df = pd.read_csv(csv_path)
-        print(df)
+        self.rows = pd.read_csv(csv_path)
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def __getitem__(self, index: int) -> t.Tuple[Tensor, str]:
+        row = self.rows.iloc[index]
+        id = row["image_id"]
+        image = get_img(id)
+        image = transforms(image=image)["image"].float()
+        return image, id

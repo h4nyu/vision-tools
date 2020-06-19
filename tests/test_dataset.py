@@ -22,3 +22,5 @@ def test_plotrow() -> None:
 
 def test_prediction_dataset() -> None:
     ds = PreditionDataset()
+    row = ds[0]
+    print(row)

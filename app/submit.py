@@ -22,10 +22,8 @@ def to_df(annots: Annotations) -> t.Any:
                 "PredictionString": f"{confidence} {int(cx)} {int(cy)} {int(w)} {int(h)}",
             }
             rows.append(row)
-    print(rows)
     df = pd.DataFrame.from_records(rows)
     df = df.set_index("image_id")
-    print(df)
     return df
 
 

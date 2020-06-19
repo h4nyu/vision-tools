@@ -7,9 +7,10 @@ from pathlib import Path
 from logging import getLogger
 from torch.utils.data import DataLoader
 from app.entities import Annotations
-from app.dataset import WheatDataset
+from app.dataset import WheatDataset, PreditionDataset
 from app.utils import plot_heatmap
 from tqdm import tqdm
+from torch import Tensor
 
 #  from app.dataset import detr_collate_fn as collate_fn
 #  from app.models.detr import DETR as NNModel
@@ -21,6 +22,7 @@ from app.models.centernet import (
     Criterion,
     VisualizeHeatmap,
     PostProcess,
+    PreProcessX,
 )
 from app.eval import Evaluate
 from app import config
@@ -135,27 +137,26 @@ class Trainer:
 
 
 class Preditor:
-    def __init__(self, output_dir: Path, data: Annotations,) -> None:
+    def __init__(self, output_dir: Path) -> None:
         self.model, _ = load_checkpoint(output_dir, NNModel().to(device),)
         self.data_loader = DataLoader(
-            WheatDataset(data, "test"),
+            PreditionDataset(),
             batch_size=config.no_grad_batch_size,
-            collate_fn=collate_fn,
             shuffle=False,
             num_workers=config.num_workers,
         )
-        self.preprocess = PreProcess().to(device)
         self.postprocess = PostProcess()
+        self.preprocess_x = PreProcessX()
 
     @torch.no_grad()
-    def __call__(self) -> t.Tuple[Annotations, Annotations]:
+    def __call__(self) -> t.Tuple[t.List[Tensor], Annotations]:
         annotations: Annotations = []
-        gt_annots: Annotations = []
-        for samples, targets, ids in tqdm(self.data_loader):
+        images: t.List[Tensor] = []
+        for samples, ids in tqdm(self.data_loader):
             samples = samples.to(device)
-            samples, _ = self.preprocess((samples, targets))
+            samples = self.preprocess_x(samples)
             outputs = self.model(samples)
             batch_annots = self.postprocess(outputs, ids)
             annotations += batch_annots
-            gt_annots += targets
-        return annotations, gt_annots
+            images += list(samples.unbind(0))
+        return images, annotations

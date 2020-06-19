@@ -1,7 +1,7 @@
 label_path = "/store/train.csv"
 plot_dir = "/store/plot"
 image_dir = "/store/images"
-submition_csv = "/store/sample_submissions.csv"
+submition_csv = "/store/sample_submission.csv"
 root_dir = "/store"
 
 random_state = 777

@@ -54,7 +54,6 @@ class DetectionPlot:
                 fill=False,
                 edgecolor=color,
                 linewidth=1,
-                alpha=p.item(),
             )
             self.ax.add_patch(rect)
 
@@ -81,7 +80,6 @@ def plot_boxes(
             fill=False,
             edgecolor="red",
             linewidth=2,
-            alpha=float(p),
         )
         ax.add_patch(rect)
     plt.savefig(path)

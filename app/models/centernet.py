@@ -166,11 +166,11 @@ class PostProcess:
         in_boxes = self.to_boxes(inputs)
         out_boxes: Annotations = []
         for id, boxes in zip(ids, in_boxes):
-            boxes = boxes.to_xyxy()
+            boxes.to_xyxy()
             idx = nms(boxes.boxes, boxes.confidences, iou_threshold=0.8)
             boxes.boxes = boxes.boxes[idx]
             boxes.confidences = boxes.confidences[idx]
-            boxes = boxes.to_cxcywh()
+            boxes.to_cxcywh()
             boxes.id = id
             out_boxes.append(boxes)
         return out_boxes
@@ -313,3 +313,13 @@ class PreProcess(nn.Module):
         sizemap = torch.cat(sms, dim=0)
         images = F.interpolate(images, size=(self.w * 2, self.h * 2))
         return images, NetOutputs(heatmap=heatmap, sizemap=sizemap)
+
+
+class PreProcessX:
+    def __init__(self,) -> None:
+        self.h = 1024 // 2 ** config.scale_factor
+        self.w = 1024 // 2 ** config.scale_factor
+
+    def __call__(self, images: Tensor) -> Tensor:
+        images = F.interpolate(images, size=(self.w * 2, self.h * 2))
+        return images

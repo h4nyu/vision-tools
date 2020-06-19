@@ -63,9 +63,11 @@ class Boxes:
     def to_cxcywh(self) -> "Boxes":
         if self.fmt == "xyxy":
             self.boxes = box_xyxy_to_cxcywh(self.boxes)
+        self.fmt = "cxcywh"
         return self
 
     def to_xyxy(self) -> "Boxes":
         if self.fmt == "cxcywh":
             self.boxes = box_cxcywh_to_xyxy(self.boxes)
+        self.fmt = "xyxy"
         return self
