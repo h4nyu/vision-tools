@@ -18,7 +18,6 @@ setup(
         "tqdm",
         "scikit-image",
         "torchvision",
-        "torchsummary",
         "albumentations",
         "efficientnet_pytorch",
     ],
