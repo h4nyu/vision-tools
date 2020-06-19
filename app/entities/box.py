@@ -46,6 +46,9 @@ class Boxes:
             confidences if confidences is not None else torch.ones(boxes.shape[0])
         )
 
+    def __len__(self,) -> int:
+        return len(self.boxes)
+
     def to(self, device:t.Any) -> "Boxes":
         self.boxes = self.boxes.to(device)
         self.confidences = self.confidences.to(device)

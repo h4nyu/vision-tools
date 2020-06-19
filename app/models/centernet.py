@@ -31,6 +31,23 @@ Outputs = t.TypedDict(
 
 NetInputs = t.TypedDict("NetInputs", {"images": Tensor, "ids": t.List[str]})
 
+class Reg(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, depth:int) -> None:
+        super().__init__()
+        channels = in_channels
+        self.conv = nn.Sequential(*[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)])
+
+        self.out = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
+        )
+
+    def forward(self, x: Tensor) -> Tensor:  # type: ignore
+        x = self.conv(x)
+        x = self.out(x)
+        return x
+
+
+
 
 class NetOutputs:
     heatmap: Tensor
@@ -50,8 +67,8 @@ class CenterNet(nn.Module):
         channels = 32
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels))
-        self.heatmap = Reg(in_channels=channels, out_channels=1)
-        self.box_size = Reg(in_channels=channels, out_channels=2)
+        self.heatmap = Reg(in_channels=channels, out_channels=1, depth=2)
+        self.box_size = Reg(in_channels=channels, out_channels=2, depth=2)
 
     def forward(self, images: Tensor) -> NetOutputs:
         """
@@ -145,15 +162,17 @@ class PostProcess:
         self.to_boxes = ToBoxes(thresold=0.2, limit=200)
 
     def __call__(self, inputs: NetOutputs, ids: t.List[str]) -> Annotations:
-        res = self.to_boxes(inputs)
-        for id, boxes in zip(ids, res):
+        in_boxes = self.to_boxes(inputs)
+        out_boxes: Annotations = []
+        for id, boxes in zip(ids, in_boxes):
             boxes = boxes.to_xyxy()
             idx = nms(boxes.boxes, boxes.confidences,iou_threshold=0.5)
             boxes.boxes = boxes.boxes[idx]
             boxes.confidences = boxes.confidences[idx]
             boxes = boxes.to_cxcywh()
             boxes.id = id
-        return res
+            out_boxes.append(boxes)
+        return out_boxes
 
 
 class Criterion(nn.Module):
@@ -172,25 +191,6 @@ class Criterion(nn.Module):
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
         return hm_loss + size_loss
-
-
-class Reg(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int,) -> None:
-        super().__init__()
-        channels = in_channels
-        self.conv = nn.Sequential(
-            SENextBottleneck2d(in_channels, in_channels),
-            SENextBottleneck2d(in_channels, in_channels),
-        )
-
-        self.out = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
-        )
-
-    def forward(self, x: Tensor) -> Tensor:  # type: ignore
-        x = self.conv(x)
-        x = self.out(x)
-        return x
 
 
 class ToBoxes:
