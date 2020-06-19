@@ -39,26 +39,6 @@ def train(fold_idx: int) -> None:
     trainer.train(1000)
 
 
-def pre_submit(fold_idx: int) -> None:
-    ...
-    #  images = load_lables()
-    #  evaluate = Evaluate()
-    #  p = Preditor(Path(config.root_dir).joinpath(str(fold_idx)), images,)
-    #  preds, gts = p()
-    #
-    #  score = evaluate(preds, gts)
-    #  print(f"{score=}")
-    #
-    #  plot = DetectionPlot()
-    #  to_tensor = ToTensorV2()
-    #  sample = next(iter(preds))
-    #  gt = next(iter(gts))
-    #
-    #  plot.with_boxes(sample.boxes, sample.confidences, color="red")
-    #  plot.with_boxes(gt.boxes, color="blue")
-    #  plot.save("/store/plot/sample.png")
-
-
 def submit(fold_idx: int) -> None:
     p = Preditor(Path(config.root_dir).joinpath(str(fold_idx)))
     images, preds = p()
@@ -66,5 +46,5 @@ def submit(fold_idx: int) -> None:
         plot = DetectionPlot(figsize=(6, 6))
         plot.with_image(img.detach().cpu())
         plot.with_boxes(boxes.boxes, boxes.confidences, color="red")
-        plot.save(f"/store/plot/pred-{i}.png")
-    save_csv(preds, "/store/submit.csv")
+        plot.save(f"/kaggle/output/pred-{i}.png")
+    save_csv(preds, "/kaggle/output/submission.csv")
