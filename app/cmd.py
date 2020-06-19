@@ -1,10 +1,25 @@
-import typer
-from .pipeline import eda_bboxes, train, pre_submit, submit
+import argparse
 
-app = typer.Typer()
+from .pipeline import train, submit
 
-app.command()(eda_bboxes)
+parser = argparse.ArgumentParser(description="")
+subparsers = parser.add_subparsers()
 
-app.command()(train)
-app.command()(pre_submit)
-app.command()(submit)
+parser_train = subparsers.add_parser("train")
+parser_train.add_argument("--id", type=int, dest="fold_idx")
+parser_train.set_defaults(handler=train)
+
+parser_submit = subparsers.add_parser("submit")
+parser_submit.add_argument("--id", type=int, dest="fold_idx", default=0)
+parser_submit.set_defaults(handler=submit)
+
+
+def main() -> None:
+    args = parser.parse_args()
+    if args.handler is not None:
+        kwargs = vars(args)
+        handler = args.handler
+        kwargs.pop("handler")
+        handler(**kwargs)
+    else:
+        parser.print_help()
