@@ -159,7 +159,7 @@ class SoftHeatMap(nn.Module):
 
 class PostProcess:
     def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.2, limit=200)
+        self.to_boxes = ToBoxes(thresold=0.2, limit=300)
 
     def __call__(self, inputs: NetOutputs, ids: t.List[str]) -> Annotations:
         in_boxes = self.to_boxes(inputs)
@@ -187,7 +187,7 @@ class Criterion(nn.Module):
         # TODO test code
         b, _, _, _ = src.heatmap.shape
         hm_loss = self.focal_loss(src.heatmap, tgt.heatmap)
-        size_loss = self.reg_loss(src.sizemap, tgt.sizemap)
+        size_loss = self.reg_loss(src.sizemap, tgt.sizemap) * 10
         self.hm_meter.update(hm_loss.item())
         self.size_meter.update(size_loss.item())
         return hm_loss + size_loss
@@ -251,13 +251,12 @@ class VisualizeHeatmap:
         self.prefix = prefix
         self.output_dir = output_dir
         self.limit = limit
-        self.to_boxes = ToBoxes(thresold=0.1, limit=50)
 
-    def __call__(self, src: NetOutputs, targets: Annotations,) -> None:
+    def __call__(self, src: NetOutputs, src_annots:Annotations, tgt_annots: Annotations,) -> None:
         src = src[: self.limit]  # type: ignore
         heatmaps = src.heatmap.detach().cpu()
-        src_boxes = self.to_boxes(src)
-        tgt_boxes = targets[: self.limit]
+        tgt_boxes = tgt_annots[:self.limit]
+        src_boxes = src_annots[:self.limit]
         for i, (sb, tb, hm) in enumerate(zip(src_boxes, tgt_boxes, heatmaps)):
             plot = DetectionPlot()
             plot.with_image(hm[0])

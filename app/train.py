@@ -96,7 +96,7 @@ class Trainer:
         epoch_loss = 0
         count = 0
         loader = self.data_loaders["train"]
-        for samples, targets, _ in loader:
+        for samples, targets, ids in loader:
             count += 1
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
@@ -105,7 +105,8 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.item()
-        self.visualizes["train"](outputs, targets)
+        preds = self.postprocess(outputs, ids)
+        self.visualizes["train"](outputs, preds, targets)
         return (epoch_loss / count,)
 
     @torch.no_grad()
@@ -123,7 +124,7 @@ class Trainer:
             epoch_loss += loss.item()
             preds = self.postprocess(outputs, ids)
             score += self.evaluate(preds, targets)
-        self.visualizes["test"](outputs, targets)
+        self.visualizes["test"](outputs, preds, targets)
         return (epoch_loss / count, score / count)
 
     def save_checkpoint(self,) -> None:
