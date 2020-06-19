@@ -1,6 +1,7 @@
 label_path = "/store/train.csv"
 plot_dir = "/store/plot"
 image_dir = "/store/images"
+submition_csv = "/store/sample_submissions.csv"
 root_dir = "/store"
 
 random_state = 777
@@ -21,5 +22,6 @@ cost_box = 1
 cost_giou = 1
 
 batch_size: int = 8
+no_grad_batch_size: int = 16
 num_workers: int = 8
 scale_factor = 2

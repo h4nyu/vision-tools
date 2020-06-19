@@ -41,6 +41,8 @@ class Evaluate:
         lenght = len(gt)
         score = 0.0
         for pred_boxes, gt_boxes in zip(pred, gt):
+            device = pred_boxes.device
+            gt_boxes = gt_boxes.to(device)
             pred_boxes = pred_boxes.to_xyxy()
             gt_boxes = gt_boxes.to_xyxy()
             score += self.mean_precision(pred_boxes.boxes, gt_boxes.boxes)

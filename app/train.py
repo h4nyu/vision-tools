@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from app.entities import Annotations
 from app.dataset import WheatDataset
 from app.utils import plot_heatmap
+from tqdm import tqdm
 
 #  from app.dataset import detr_collate_fn as collate_fn
 #  from app.models.detr import DETR as NNModel
@@ -133,26 +134,28 @@ class Trainer:
         torch.save(self.model.state_dict(), self.output_dir.joinpath(f"model.pth"))  # type: ignore
 
 
-#  class Preditor:
-#      def __init__(self, output_dir: Path, data: Annotations,) -> None:
-#          self.model, _ = load_checkpoint(output_dir, NNModel().to(device),)
-#          self.data_loader = DataLoader(
-#              WheatDataset(data, "test"),
-#              batch_size=config.batch_size * 2,
-#              collate_fn=collate_fn,
-#              shuffle=False,
-#              num_workers=config.num_workers,
-#          )
-#          self.preprocess = PreProcess().to(device)
-#          self.postprocess = PostProcess()
-#
-#      @torch.no_grad()
-#      def __call__(self) -> Annotations:
-#          annotations: Annotations = dict()
-#          for samples, targets, ids in self.data_loader:
-#              samples = samples.to(device)
-#              samples, _ = self.preprocess((samples, targets))
-#              outputs = self.model(samples)
-#              batch_annots = self.postprocess(outputs, ids)
-#              annotations.update(batch_annots)
-#          return annotations
+class Preditor:
+    def __init__(self, output_dir: Path, data: Annotations,) -> None:
+        self.model, _ = load_checkpoint(output_dir, NNModel().to(device),)
+        self.data_loader = DataLoader(
+            WheatDataset(data, "test"),
+            batch_size=config.no_grad_batch_size,
+            collate_fn=collate_fn,
+            shuffle=False,
+            num_workers=config.num_workers,
+        )
+        self.preprocess = PreProcess().to(device)
+        self.postprocess = PostProcess()
+
+    @torch.no_grad()
+    def __call__(self) -> t.Tuple[Annotations, Annotations]:
+        annotations: Annotations = []
+        gt_annots: Annotations = []
+        for samples, targets, ids in tqdm(self.data_loader):
+            samples = samples.to(device)
+            samples, _ = self.preprocess((samples, targets))
+            outputs = self.model(samples)
+            batch_annots = self.postprocess(outputs, ids)
+            annotations += batch_annots
+            gt_annots += targets
+        return annotations, gt_annots

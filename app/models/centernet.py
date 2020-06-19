@@ -31,11 +31,14 @@ Outputs = t.TypedDict(
 
 NetInputs = t.TypedDict("NetInputs", {"images": Tensor, "ids": t.List[str]})
 
+
 class Reg(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, depth:int) -> None:
+    def __init__(self, in_channels: int, out_channels: int, depth: int) -> None:
         super().__init__()
         channels = in_channels
-        self.conv = nn.Sequential(*[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)])
+        self.conv = nn.Sequential(
+            *[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)]
+        )
 
         self.out = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
@@ -45,8 +48,6 @@ class Reg(nn.Module):
         x = self.conv(x)
         x = self.out(x)
         return x
-
-
 
 
 class NetOutputs:
@@ -166,7 +167,7 @@ class PostProcess:
         out_boxes: Annotations = []
         for id, boxes in zip(ids, in_boxes):
             boxes = boxes.to_xyxy()
-            idx = nms(boxes.boxes, boxes.confidences,iou_threshold=0.5)
+            idx = nms(boxes.boxes, boxes.confidences, iou_threshold=0.8)
             boxes.boxes = boxes.boxes[idx]
             boxes.confidences = boxes.confidences[idx]
             boxes = boxes.to_cxcywh()
@@ -252,11 +253,13 @@ class VisualizeHeatmap:
         self.output_dir = output_dir
         self.limit = limit
 
-    def __call__(self, src: NetOutputs, src_annots:Annotations, tgt_annots: Annotations,) -> None:
+    def __call__(
+        self, src: NetOutputs, src_annots: Annotations, tgt_annots: Annotations,
+    ) -> None:
         src = src[: self.limit]  # type: ignore
         heatmaps = src.heatmap.detach().cpu()
-        tgt_boxes = tgt_annots[:self.limit]
-        src_boxes = src_annots[:self.limit]
+        tgt_boxes = tgt_annots[: self.limit]
+        src_boxes = src_annots[: self.limit]
         for i, (sb, tb, hm) in enumerate(zip(src_boxes, tgt_boxes, heatmaps)):
             plot = DetectionPlot()
             plot.with_image(hm[0])

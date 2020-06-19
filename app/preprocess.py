@@ -38,7 +38,7 @@ def load_lables(limit: t.Optional[int] = None) -> Annotations:
             )
         ),
         lambda x: x.values(),
-        list
+        list,
     )
     return images
 
@@ -53,8 +53,6 @@ class KFold:
         self, annotations: Annotations
     ) -> t.Iterator[t.Tuple[Annotations, Annotations]]:
         rows = annotations
-        fold_keys = pipe(
-            rows, map(lambda x: f"{x.boxes.shape[0]}"), list
-        )
+        fold_keys = pipe(rows, map(lambda x: f"{x.boxes.shape[0]}"), list)
         for train, valid in self._skf.split(X=rows, y=fold_keys):
             yield ([rows[i] for i in train], [rows[i] for i in valid])

@@ -31,15 +31,8 @@ def collate_fn(batch: Batch) -> t.Tuple[Tensor, Annotations, t.List[str]]:
     ids: t.List[str] = []
     for img, boxes, id in batch:
         images.append(img)
-        _,h, w = img.shape
-        annots.append(
-            Boxes(
-                boxes=boxes,
-                w=w,
-                h=h,
-                fmt="cxcywh",
-            )
-        )
+        _, h, w = img.shape
+        annots.append(Boxes(boxes=boxes, w=w, h=h, fmt="cxcywh",))
         ids.append(id)
     images_tensor = torch.stack(images)
     return images_tensor, annots, ids
@@ -98,3 +91,9 @@ class WheatDataset(Dataset):
         image = transforms(image=image)["image"].float()
         boxes = box_xyxy_to_cxcywh(boxes)
         return image, boxes, row.id
+
+
+class PreditionDataset(Dataset):
+    def __init__(self, csv_path: str = config.submition_csv,) -> None:
+        df = pd.read_csv(csv_path)
+        print(df)
