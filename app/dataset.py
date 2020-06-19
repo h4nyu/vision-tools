@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import torchvision.transforms as T
 import albumentations as albm
+from app.entities import Boxes
 from albumentations.pytorch.transforms import ToTensorV2
+from skimage.io import imread
 
 
 from pathlib import Path
@@ -19,20 +21,21 @@ from albumentations.pytorch.transforms import ToTensorV2
 from .entities import Annotations, Annotation
 from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
-Target = t.TypedDict("Target", {"boxes": Tensor, "labels": Tensor})
-Row = t.Tuple[Tensor, Target]
+Row = t.Tuple[Tensor, Tensor, str]
 Batch = t.Sequence[Row]
-Targets = t.List[Target]
 
 
-def collate_fn(batch: Batch) -> t.Tuple[Tensor, t.List[Target]]:
+def collate_fn(batch: Batch) -> t.Tuple[Tensor, Annotations, t.List[str]]:
     images: t.List[Tensor] = []
-    targets: t.List[Target] = []
-    for img, tgt in batch:
-        targets.append(tgt)
+    annots: Annotations = []
+    ids: t.List[str] = []
+    for img, boxes, id in batch:
         images.append(img)
+        _, h, w = img.shape
+        annots.append(Boxes(boxes=boxes, w=w, h=h, fmt="cxcywh",))
+        ids.append(id)
     images_tensor = torch.stack(images)
-    return images_tensor, targets
+    return images_tensor, annots, ids
 
 
 train_transforms = albm.Compose(
@@ -54,6 +57,11 @@ transforms = albm.Compose(
 )
 
 
+def get_img(image_id: str) -> t.Any:
+    image_path = f"{config.image_dir}/{image_id}.jpg"
+    return (imread(image_path) / 255).astype(np.float32)
+
+
 class WheatDataset(Dataset):
     def __init__(
         self,
@@ -62,35 +70,40 @@ class WheatDataset(Dataset):
         use_cache: bool = False,
     ) -> None:
         super().__init__()
-        self.rows = list(annotations.values())
+        self.rows = annotations
         self.mode = mode
         self.cache: t.Dict[str, t.Any] = dict()
         self.use_cache = use_cache
+        self.image_dir = Path(config.image_dir)
 
     def __len__(self) -> int:
         return len(self.rows)
 
-    def get_img(self, row: Annotation) -> t.Any:
-        if row.id not in self.cache:
-            self.cache[row.id] = row.get_img()
-        return self.cache[row.id]
-
     def __getitem__(self, index: int) -> t.Any:
         row = self.rows[index]
-        image = self.get_img(row) if self.use_cache else row.get_img()
+        image = get_img(row.id)
         boxes = row.boxes
         labels = torch.zeros(len(boxes)).long()
         if self.mode == "train":
             res = train_transforms(image=image, bboxes=boxes, labels=labels)
             image = res["image"]
             boxes = torch.tensor(res["bboxes"], dtype=torch.float32)
-            labels = res["labels"]
 
         image = transforms(image=image)["image"].float()
         boxes = box_xyxy_to_cxcywh(boxes)
-        labels = torch.tensor(labels)
-        target: Target = {
-            "boxes": boxes,
-            "labels": labels,
-        }
-        return image, target
+        return image, boxes, row.id
+
+
+class PreditionDataset(Dataset):
+    def __init__(self, csv_path: str = config.submition_csv,) -> None:
+        self.rows = pd.read_csv(csv_path)
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def __getitem__(self, index: int) -> t.Tuple[Tensor, str]:
+        row = self.rows.iloc[index]
+        id = row["image_id"]
+        image = get_img(id)
+        image = transforms(image=image)["image"].float()
+        return image, id

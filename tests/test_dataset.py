@@ -1,5 +1,5 @@
 import torch
-from app.dataset import WheatDataset
+from app.dataset import WheatDataset, PreditionDataset
 from app.preprocess import load_lables
 from app.models.centernet import VisualizeHeatmap, PreProcess
 from torch.utils.data import DataLoader
@@ -18,3 +18,9 @@ def test_plotrow() -> None:
         plot.with_image(img)
         plot.with_boxes(annots["boxes"], color="red")
         plot.save(str(Path(config.plot_dir).joinpath(f"test-{i}.png")))
+
+
+def test_prediction_dataset() -> None:
+    ds = PreditionDataset()
+    row = ds[0]
+    print(row)

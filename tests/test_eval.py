@@ -1,4 +1,4 @@
-from app.eval import MeamPrecition, precition
+from app.eval import MeamPrecition, precition, Evaluate
 import torch
 
 

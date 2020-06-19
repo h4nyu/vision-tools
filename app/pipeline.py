@@ -3,21 +3,26 @@ from cytoolz.curried import groupby, valmap, pipe, unique, map, reduce
 from pathlib import Path
 import typing as t
 import matplotlib.pyplot as plt
-from app.train import Trainer
+from app.train import Trainer, Preditor
+from app.eval import Evaluate
 from app.preprocess import load_lables, KFold
 from app import config
+from app.utils import DetectionPlot
+from app.models.utils import box_xyxy_to_cxcywh
+from app.submit import save_csv
+from albumentations.pytorch.transforms import ToTensorV2
 
 
 def eda_bboxes() -> None:
     images = load_lables()
-    box_counts = pipe(images.values(), map(lambda x: len(x.boxes)), list)
+    box_counts = pipe(images, map(lambda x: len(x.boxes)), list)
     max_counts = max(box_counts)
     print(f"{max_counts=}")
     min_counts = min(box_counts)
     print(f"{min_counts=}")
     mean_counts = np.mean(box_counts)
     print(f"{mean_counts=}")
-    ws = pipe(images.values(), map(lambda x: x.width), list)
+    ws = pipe(images, map(lambda x: x.w), list)
     max_width = max(ws)
     print(f"{max_width=}")
     min_width = min(ws)
@@ -32,3 +37,34 @@ def train(fold_idx: int) -> None:
         train_data, test_data, Path(config.root_dir).joinpath(str(fold_idx))
     )
     trainer.train(1000)
+
+
+def pre_submit(fold_idx: int) -> None:
+    ...
+    #  images = load_lables()
+    #  evaluate = Evaluate()
+    #  p = Preditor(Path(config.root_dir).joinpath(str(fold_idx)), images,)
+    #  preds, gts = p()
+    #
+    #  score = evaluate(preds, gts)
+    #  print(f"{score=}")
+    #
+    #  plot = DetectionPlot()
+    #  to_tensor = ToTensorV2()
+    #  sample = next(iter(preds))
+    #  gt = next(iter(gts))
+    #
+    #  plot.with_boxes(sample.boxes, sample.confidences, color="red")
+    #  plot.with_boxes(gt.boxes, color="blue")
+    #  plot.save("/store/plot/sample.png")
+
+
+def submit(fold_idx: int) -> None:
+    p = Preditor(Path(config.root_dir).joinpath(str(fold_idx)))
+    images, preds = p()
+    for i, (img, boxes) in enumerate(zip(images, preds)):
+        plot = DetectionPlot(figsize=(6, 6))
+        plot.with_image(img.detach().cpu())
+        plot.with_boxes(boxes.boxes, boxes.confidences, color="red")
+        plot.save(f"/store/plot/pred-{i}.png")
+    save_csv(preds, "/store/submit.csv")

@@ -1,7 +1,6 @@
 import typing as t
 import numpy as np
 import torch
-from app.dataset import Targets
 from app.models.centernet import (
     CenterNet,
     Criterion,
@@ -9,6 +8,8 @@ from app.models.centernet import (
     HardHeatMap,
     SoftHeatMap,
     ToBoxes,
+    TTAMerge,
+    NetOutputs,
 )
 from app.utils import plot_heatmap, DetectionPlot
 
@@ -35,11 +36,11 @@ def test_toboxes() -> None:
         ]
     )
     fn = ToBoxes(thresold=0.1)
-    preds = fn(dict(heatmap=keymap, sizemap=sizemap))
+    preds = fn(NetOutputs(heatmap=keymap, sizemap=sizemap))
     plot = DetectionPlot()
     plot.with_image(keymap[0, 0])
-    for probs, boxes in preds:
-        plot.with_boxes(boxes, probs)
+    for pred in preds:
+        plot.with_boxes(pred.boxes, pred.confidences)
     plot.with_boxes(gt_boxes, color="blue")
     plot.save("/store/plot/test-toboxes.png",)
 
@@ -47,7 +48,9 @@ def test_toboxes() -> None:
 def test_focal_loss() -> None:
     heatmaps = torch.tensor([[0.0, 0.5, 0.0], [0.5, 1, 0.5], [0, 0.5, 0],])
     fn = FocalLoss()
-    preds = torch.tensor([[0.0001, 0.5, 0.0001], [0.5, 0.999, 0.5], [0.001, 0.5, 0.0001],])
+    preds = torch.tensor(
+        [[0.0001, 0.5, 0.0001], [0.5, 0.999, 0.5], [0.001, 0.5, 0.0001],]
+    )
     res = fn(preds, heatmaps)
     print(res)
     #
@@ -65,13 +68,13 @@ def test_heatmap_box_conversion() -> None:
     to_boxes = ToBoxes(thresold=0.1)
     to_heatmap = HardHeatMap(w=64, h=64)
     res = to_heatmap(in_boxes)
-    hm = res["heatmap"]
-    sm = res["sizemap"]
+    hm = res.heatmap
+    sm = res.sizemap
     assert sm.shape == (1, 2, 64, 64)
     assert hm.shape == (1, 1, 64, 64)
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert (sm[0, :, 25, 12] - torch.tensor([0.1, 0.3])).sum() == 0
-    _, out_boxes = next(iter(to_boxes(res)))
+    out_boxes = next(iter(to_boxes(res))).boxes
     assert out_boxes[0, 0] < in_boxes[0, 0]
     assert out_boxes[0, 1] < in_boxes[0, 1]
     assert out_boxes[0, 2] == in_boxes[0, 2]
@@ -88,14 +91,14 @@ def test_softheatmap() -> None:
     to_boxes = ToBoxes(thresold=0.1)
     to_heatmap = SoftHeatMap(w=64, h=64)
     res = to_heatmap(in_boxes)
-    hm = res["heatmap"]
-    sm = res["sizemap"]
+    hm = res.heatmap
+    sm = res.sizemap
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert (sm.nonzero()[0, 2:] - torch.tensor([[25, 12]])).sum() == 0
     assert hm.shape == (1, 1, 64, 64)
     assert sm.shape == (1, 2, 64, 64)
     assert (sm[0, :, 25, 12] - torch.tensor([0.1, 0.3])).sum() == 0
-    _, out_boxes = next(iter(to_boxes(res)))
+    out_boxes = next(iter(to_boxes(res))).boxes
     assert out_boxes[0, 0] < in_boxes[0, 0]
     assert out_boxes[0, 1] < in_boxes[0, 1]
     assert out_boxes[0, 2] == in_boxes[0, 2]
@@ -107,12 +110,8 @@ def test_softheatmap() -> None:
     plot.save(f"/store/plot/test-soft-heatmap.png")
 
 
-def test_evaluate() -> None:
-    ...
-
-
 def test_centernet() -> None:
     inputs = torch.rand((1, 3, 1024, 1024))
     fn = CenterNet()
-    out = fn(dict(images=inputs))
-    assert out["heatmap"].shape == (1, 1, 1024 // 2, 1024 // 2)
+    out = fn(inputs)
+    assert out.heatmap.shape == (1, 1, 1024 // 2, 1024 // 2)
