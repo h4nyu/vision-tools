@@ -114,7 +114,7 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
 
 class SoftHeatMap(nn.Module):
     def __init__(
-        self, w: int, h: int, mount_size: t.Tuple[int, int] = (7, 7), sigma: float = 1
+        self, w: int, h: int, mount_size: t.Tuple[int, int] = (5, 5), sigma: float = 1
     ) -> None:
         super().__init__()
         self.w = w
