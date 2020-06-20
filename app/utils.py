@@ -29,7 +29,7 @@ class DetectionPlot:
             self.ax.imshow(image, interpolation="nearest")
         else:
             shape = image.shape
-            raise ValueError(f"invald {shape=}")
+            raise ValueError(f"invald shape={shape}")
 
     def with_boxes(
         self,

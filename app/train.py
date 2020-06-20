@@ -86,9 +86,9 @@ class Trainer:
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
             (train_loss,) = self.train_one_epoch()
-            logger.info(f"{train_loss=}")
+            logger.info(f"train_loss={train_loss}")
             (eval_loss, score) = self.eval_one_epoch()
-            logger.info(f"{eval_loss=},{score=}")
+            logger.info(f"eval_loss={eval_loss},score={score}")
             if score > self.best_score:
                 logger.info("update model")
                 self.best_score = score

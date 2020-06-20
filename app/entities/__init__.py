@@ -36,8 +36,7 @@ class Annotation:
         )
 
     def __repr__(self,) -> str:
-        id = self.id
-        return f"<Image {id=}>"
+        return f"<Image id={self.id}>"
 
 
 class Images:
@@ -47,8 +46,5 @@ class Images:
     def __init__(self, ids: t.List[str], images: Tensor) -> None:
         self.images = images
         self.ids = ids
-
-
-#  Annotations = t.Dict[str, Boxes]
 
 Annotations = t.List[Boxes]
