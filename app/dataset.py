@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import torchvision.transforms as T
 import albumentations as albm
+from glob import glob
 from app.entities import Boxes
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage.io import imread
@@ -95,15 +96,19 @@ class WheatDataset(Dataset):
 
 
 class PreditionDataset(Dataset):
-    def __init__(self, csv_path: str = config.submition_csv,) -> None:
-        self.rows = pd.read_csv(csv_path)
+    def __init__(self, image_dir: str = config.test_image_dir,) -> None:
+        print(f"{config.test_image_dir}/*.jpg")
+        rows:t.List[t.Tuple[str, Path]] = []
+        for p in glob(f"{config.test_image_dir}/*.jpg"):
+            path = Path(p)
+            rows.append((path.stem, path))
+        self.rows = rows
 
     def __len__(self) -> int:
         return len(self.rows)
 
     def __getitem__(self, index: int) -> t.Tuple[Tensor, str]:
-        row = self.rows.iloc[index]
-        id = row["image_id"]
-        image = get_img(id)
+        id, path = self.rows[index]
+        image = (imread(path) / 255).astype(np.float32)
         image = transforms(image=image)["image"].float()
         return image, id

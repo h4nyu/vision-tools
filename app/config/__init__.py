@@ -3,6 +3,9 @@ plot_dir = "/kaggle/plot"
 image_dir = "/kaggle/images"
 submition_csv = "/kaggle/sample_submission.csv"
 root_dir = "/kaggle"
+test_image_dir = "/kaggle/input/global-wheat-detection/test"
+output_dir = "/kaggle/working"
+model_dir = "/kaggle/input/models"
 
 random_state = 777
 lr = 1e-3

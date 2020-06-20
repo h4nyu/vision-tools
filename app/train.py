@@ -137,8 +137,8 @@ class Trainer:
 
 
 class Preditor:
-    def __init__(self, output_dir: Path) -> None:
-        self.model, _ = load_checkpoint(output_dir, NNModel().to(device),)
+    def __init__(self, output_dir: str) -> None:
+        self.model, _ = load_checkpoint(Path(output_dir), NNModel().to(device),)
         self.data_loader = DataLoader(
             PreditionDataset(),
             batch_size=config.no_grad_batch_size,

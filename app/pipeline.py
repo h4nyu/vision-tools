@@ -40,11 +40,11 @@ def train(fold_idx: int) -> None:
 
 
 def submit(fold_idx: int) -> None:
-    p = Preditor(Path(config.root_dir).joinpath(str(fold_idx)))
+    p = Preditor(f"{config.model_dir}/{fold_idx}")
     images, preds = p()
     for i, (img, boxes) in enumerate(zip(images, preds)):
         plot = DetectionPlot(figsize=(6, 6))
         plot.with_image(img.detach().cpu())
         plot.with_boxes(boxes.boxes, boxes.confidences, color="red")
-        plot.save(f"/kaggle/output/pred-{i}.png")
-    save_csv(preds, "/kaggle/output/submission.csv")
+        plot.save(f"{config.output_dir}/pred-{i}.png")
+    save_csv(preds, f"{config.output_dir}/submission.csv")
