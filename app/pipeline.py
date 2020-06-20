@@ -17,16 +17,11 @@ def eda_bboxes() -> None:
     images = load_lables()
     box_counts = pipe(images, map(lambda x: len(x.boxes)), list)
     max_counts = max(box_counts)
-    print(f"{max_counts=}")
     min_counts = min(box_counts)
-    print(f"{min_counts=}")
     mean_counts = np.mean(box_counts)
-    print(f"{mean_counts=}")
     ws = pipe(images, map(lambda x: x.w), list)
     max_width = max(ws)
-    print(f"{max_width=}")
     min_width = min(ws)
-    print(f"{min_width=}")
 
 
 def train(fold_idx: int) -> None:
