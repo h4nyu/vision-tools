@@ -14,7 +14,3 @@ file_handler = FileHandler(filename="app.log")
 logger.addHandler(file_handler)
 file_handler.setLevel(INFO)
 file_handler.setFormatter(handler_format)
-
-Path(config.plot_dir).mkdir(exist_ok=True)
-Path(config.output_dir).mkdir(exist_ok=True)
-Path(config.model_dir).mkdir(exist_ok=True)
