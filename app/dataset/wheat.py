@@ -15,6 +15,7 @@ from app.entities import Sample
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage.io import imread
 from cytoolz.curried import pipe, groupby, valmap
+from typing_extensions import Literal
 
 
 from pathlib import Path
@@ -36,33 +37,16 @@ def parse_boxes(strs: t.List[str]) -> CoCoBoxes:
 
 def load_lables(
     annot_file: str, limit: t.Optional[int] = None
-) -> t.List[t.Tuple[ImageId, ImageSize, CoCoBoxes]]:
+) -> t.Sequence[t.Tuple[ImageId, ImageSize, CoCoBoxes]]:
     df = pd.read_csv(annot_file, nrows=limit)
-    rows = pipe(
-        df.to_dict("records"),
-        groupby(lambda x: x["image_id"]),
-        valmap(
-            lambda x: (
-                ImageId(x[0]["image_id"]),
-                ((x[0]["width"], x[0]["height"])),
-                parse_boxes([b["bbox"] for b in x]),
-            )
-        ),
-        lambda x: x.values(),
-        list,
+    df["bbox"] = df["bbox"].apply(lambda x: np.fromstring(x[1:-1], sep=","))
+    return df.groupby("image_id").apply(
+        lambda x: (
+            ImageId(x["image_id"].iloc[0]),
+            (x["width"].iloc[0], x["height"].iloc[0]),
+            (torch.tensor(np.stack(x["bbox"]))),
+        )
     )
-    return rows
-
-
-train_transforms = albm.Compose(
-    [
-        albm.VerticalFlip(),
-        albm.RandomRotate90(),
-        albm.HorizontalFlip(),
-        albm.RandomBrightness(limit=0.1),
-    ],
-    bbox_params=dict(format="albumentations", label_fields=["labels"]),
-)
 
 
 transforms = albm.Compose(
@@ -82,33 +66,43 @@ class WheatDataset(Dataset):
     def __init__(
         self,
         annot_file: str,
-        mode: t.Literal["train", "test"] = "train",
-        use_cache: bool = False,
+        imput_size: int = 1024,
+        mode: Literal["train", "test"] = "train",
     ) -> None:
         super().__init__()
         self.annot_file = Path(annot_file)
         self.rows = load_lables(annot_file)
         self.mode = mode
         self.cache: t.Dict[str, t.Any] = dict()
-        self.use_cache = use_cache
         self.image_dir = Path(config.image_dir)
+
+        bbox_params = {"format": "coco", "label_fields": ["labels"]}
+        self.train_transforms = albm.Compose(
+            [
+                albm.VerticalFlip(),
+                albm.RandomRotate90(),
+                albm.HorizontalFlip(),
+                albm.RandomBrightness(limit=0.1),
+            ],
+            bbox_params=bbox_params,
+        )
+
         self.post_transforms = albm.Compose([ToTensorV2(),])
 
     def __len__(self) -> int:
         return len(self.rows)
 
     def __getitem__(self, index: int) -> Sample:
-        image_id, image_size, coco = self.rows[index]
+        image_id, image_size, boxes = self.rows[index]
         image = get_img(image_id)
-        labels = torch.zeros(len(coco)).long()
+        labels = np.zeros(boxes.shape[0])
         if self.mode == "train":
-            res = train_transforms(image=image, bboxes=coco, labels=labels)
-            boxes = torch.tensor(res["bboxes"], dtype=torch.float32)
+            res = self.train_transforms(image=image, bboxes=boxes, labels=labels)
+            boxes = res["bboxes"]
+            image = res["image"]
 
-        image = res["image"]
-        image = self.post_transforms(image=image)["image"]
-        boxes = CoCoBoxes(torch.tensor(res["bboxes"]))
-        image = transforms(image=image)["image"].float()
+        boxes = CoCoBoxes(torch.tensor(boxes).float())
+        image = self.post_transforms(image=image)["image"].float()
         yolo_boxes = coco_to_yolo(boxes, image_size)
         return image_id, Image(image), yolo_boxes
 

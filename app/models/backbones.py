@@ -5,6 +5,7 @@ import torchvision
 from torch import Tensor
 from efficientnet_pytorch.model import EfficientNet
 from .bifpn import FP
+from typing_extensions import Literal
 
 SIDEOUT = {  # phi: (stages, channels)
     0: ([0, 2, 4, 10, 15], [16, 24, 40, 112, 320]),
@@ -17,7 +18,7 @@ SIDEOUT = {  # phi: (stages, channels)
     7: ([3, 10, 17, 37, 54], [32, 48, 80, 224, 640]),
 }
 
-Phi = t.Literal[
+Phi = Literal[
     0, 1, 2, 3, 4, 5, 6, 7,
 ]
 

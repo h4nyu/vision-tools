@@ -4,9 +4,10 @@ import torch
 from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
 from app import config
+from typing_extensions import TypedDict
 
-Outputs = t.TypedDict("Outputs", {"pred_logits": Tensor, "pred_boxes": Tensor})
-Target = t.TypedDict("Target", {"labels": Tensor, "boxes": Tensor})
+Outputs = TypedDict("Outputs", {"pred_logits": Tensor, "pred_boxes": Tensor})
+Target = TypedDict("Target", {"labels": Tensor, "boxes": Tensor})
 Targets = t.List[Target]
 MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
 

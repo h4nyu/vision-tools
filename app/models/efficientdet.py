@@ -13,10 +13,11 @@ from .bifpn import BiFPN
 #  from .efficientnet import EfficientNet
 from .losses import FocalLoss
 from .anchors import Anchors
+from typing_extensions import Literal
 
 logger = getLogger(__name__)
 
-ModelName = t.Literal[
+ModelName = Literal[
     "efficientdet-d0",
     "efficientdet-d1",
     "efficientdet-d2",

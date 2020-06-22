@@ -6,9 +6,10 @@ from torch import nn, Tensor
 from .matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 from .utils import box_cxcywh_to_xyxy, generalized_box_iou
 from app import config
+from typing_extensions import TypedDict
 
 
-Losses = t.TypedDict("Losses", {"box": Tensor, "label": Tensor,})
+Losses = TypedDict("Losses", {"box": Tensor, "label": Tensor,})
 
 
 class SetCriterion(nn.Module):

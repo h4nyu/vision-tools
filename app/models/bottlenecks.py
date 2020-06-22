@@ -2,6 +2,7 @@ import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
 from .modules import Hswish, ConvBR2d, CSE2d
+from typing_extensions import Literal
 
 
 class MobileV3(nn.Module):
@@ -10,8 +11,8 @@ class MobileV3(nn.Module):
         in_channels: int,
         out_channels: int,
         mid_channels: int,
-        kernel_size: t.Literal[3, 5] = 3,
-        stride: t.Literal[1, 2] = 1,
+        kernel_size: Literal[3, 5] = 3,
+        stride: Literal[1, 2] = 1,
     ):
         super().__init__()
         padding = (kernel_size - 1) // 2
@@ -68,7 +69,7 @@ class SENextBottleneck2d(nn.Module):
         stride: int = 1,
         reduction: int = 8,
         groups: int = 16,
-        pool: t.Literal["max", "avg"] = "max",
+        pool: Literal["max", "avg"] = "max",
     ) -> None:
         super().__init__()
         mid_channels = groups * (out_channels // 2 // groups)
