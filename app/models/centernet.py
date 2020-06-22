@@ -237,11 +237,9 @@ class PostProcess:
     def __call__(
         self, x: NetOutput, image_ids: List[ImageId], images: ImageBatch
     ) -> List[Tuple[ImageId, YoloBoxes, Confidences]]:
+        _, _, h, w = images.shape
         rows = []
-        for image_id, img, (boxes, confidences) in zip(
-            image_ids, images, self.to_boxes(x)
-        ):
-            _, _, h, w = img.shape
+        for image_id, (boxes, confidences) in zip(image_ids, self.to_boxes(x)):
             idx = nms(yolo_to_pascal(boxes, (w, h)), confidences, iou_threshold=0.8)
             boxes = pascal_to_yolo(PascalBoxes(boxes[idx]), (w, h))
             confidences = Confidences(confidences[idx])
