@@ -8,7 +8,10 @@ import json
 import random
 import numpy as np
 from torch import Tensor
+from logging import getLogger
 from app.entities.box import CoCoBoxes, YoloBoxes, yolo_to_coco
+
+logger = getLogger(__name__)
 
 
 def init_seed(seed: int) -> None:
@@ -95,11 +98,13 @@ class ModelLoader:
             self.load()
 
     def load(self) -> None:
+        logger.info(f"load model from {self.out_dir}")
         with open(self.checkpoint_file, "r") as f:
             data = json.load(f)
         self.model.load_state_dict(
-            torch.load(output_dir.joinpath(f"model.pth"))  # type: ignore
+            torch.load(self.out_dir.joinpath(f"model.pth"))  # type: ignore
         )
 
     def save(self) -> None:
+        logger.info(f"save model to {self.out_dir}")
         torch.save(self.model.state_dict(), self.out_dir / f"model.pth")  # type: ignore

@@ -32,7 +32,9 @@ def train(fold_idx: int) -> None:
         collate_fn=collate_fn,
         num_workers=config.num_workers,
     )
-    model_loader = ModelLoader(out_dir=f"/kaggle/input/{fold_idx}", model=CenterNet())
+    model_loader = ModelLoader(
+        out_dir=f"/kaggle/input/models/{fold_idx}", model=CenterNet()
+    )
     trainer = Trainer(train_loader, test_loader, model_loader, config.device)
     trainer.train(100)
 
