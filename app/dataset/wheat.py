@@ -9,9 +9,12 @@ import matplotlib.patches as mpatches
 import torchvision.transforms as T
 import albumentations as albm
 from glob import glob
-from app.entities import Boxes
+from app.entities.box import CoCoBoxes, coco_to_yolo
+from app.entities.image import ImageSize, ImageId, Image
+from app.entities import Sample
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage.io import imread
+from cytoolz.curried import pipe, groupby, valmap
 
 
 from pathlib import Path
@@ -19,24 +22,36 @@ from app import config
 from torch import Tensor
 from torch.utils.data import Dataset
 from albumentations.pytorch.transforms import ToTensorV2
-from .entities import Annotations, Annotation
-from .models.utils import NestedTensor, box_xyxy_to_cxcywh
 
 Row = t.Tuple[Tensor, Tensor, str]
 Batch = t.Sequence[Row]
 
 
-def collate_fn(batch: Batch) -> t.Tuple[Tensor, Annotations, t.List[str]]:
-    images: t.List[Tensor] = []
-    annots: Annotations = []
-    ids: t.List[str] = []
-    for img, boxes, id in batch:
-        images.append(img)
-        _, h, w = img.shape
-        annots.append(Boxes(boxes=boxes, w=w, h=h, fmt="cxcywh",))
-        ids.append(id)
-    images_tensor = torch.stack(images)
-    return images_tensor, annots, ids
+def parse_boxes(strs: t.List[str]) -> CoCoBoxes:
+    coco = CoCoBoxes(
+        torch.tensor(np.stack([np.fromstring(s[1:-1], sep=",") for s in strs]))
+    )
+    return coco
+
+
+def load_lables(
+    annot_file: str, limit: t.Optional[int] = None
+) -> t.List[t.Tuple[ImageId, ImageSize, CoCoBoxes]]:
+    df = pd.read_csv(annot_file, nrows=limit)
+    rows = pipe(
+        df.to_dict("records"),
+        groupby(lambda x: x["image_id"]),
+        valmap(
+            lambda x: (
+                ImageId(x[0]["image_id"]),
+                ((x[0]["width"], x[0]["height"])),
+                parse_boxes([b["bbox"] for b in x]),
+            )
+        ),
+        lambda x: x.values(),
+        list,
+    )
+    return rows
 
 
 train_transforms = albm.Compose(
@@ -58,7 +73,7 @@ transforms = albm.Compose(
 )
 
 
-def get_img(image_id: str) -> t.Any:
+def get_img(image_id: ImageId) -> t.Any:
     image_path = f"{config.image_dir}/{image_id}.jpg"
     return (imread(image_path) / 255).astype(np.float32)
 
@@ -66,39 +81,42 @@ def get_img(image_id: str) -> t.Any:
 class WheatDataset(Dataset):
     def __init__(
         self,
-        annotations: Annotations,
+        annot_file: str,
         mode: t.Literal["train", "test"] = "train",
         use_cache: bool = False,
     ) -> None:
         super().__init__()
-        self.rows = annotations
+        self.annot_file = Path(annot_file)
+        self.rows = load_lables(annot_file)
         self.mode = mode
         self.cache: t.Dict[str, t.Any] = dict()
         self.use_cache = use_cache
         self.image_dir = Path(config.image_dir)
+        self.post_transforms = albm.Compose([ToTensorV2(),])
 
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, index: int) -> t.Any:
-        row = self.rows[index]
-        image = get_img(row.id)
-        boxes = row.boxes
-        labels = torch.zeros(len(boxes)).long()
+    def __getitem__(self, index: int) -> Sample:
+        image_id, image_size, coco = self.rows[index]
+        image = get_img(image_id)
+        labels = torch.zeros(len(coco)).long()
         if self.mode == "train":
-            res = train_transforms(image=image, bboxes=boxes, labels=labels)
-            image = res["image"]
+            res = train_transforms(image=image, bboxes=coco, labels=labels)
             boxes = torch.tensor(res["bboxes"], dtype=torch.float32)
 
+        image = res["image"]
+        image = self.post_transforms(image=image)["image"]
+        boxes = CoCoBoxes(torch.tensor(res["bboxes"]))
         image = transforms(image=image)["image"].float()
-        boxes = box_xyxy_to_cxcywh(boxes)
-        return image, boxes, row.id
+        yolo_boxes = coco_to_yolo(boxes, image_size)
+        return image_id, Image(image), yolo_boxes
 
 
 class PreditionDataset(Dataset):
     def __init__(self, image_dir: str = config.test_image_dir,) -> None:
         print(f"{config.test_image_dir}/*.jpg")
-        rows:t.List[t.Tuple[str, Path]] = []
+        rows: t.List[t.Tuple[str, Path]] = []
         for p in glob(f"{config.test_image_dir}/*.jpg"):
             path = Path(p)
             rows.append((path.stem, path))

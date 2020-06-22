@@ -6,30 +6,30 @@ import torch.nn.functional as F
 from app import config
 from torch import nn, Tensor
 from logging import getLogger
+from app.entities import YoloBoxes, Confidences
 from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
-from .losses import BoxIoU
-from app.entities import Annotations, Annotation
-from scipy.stats import multivariate_normal
-from .utils import box_cxcywh_to_xyxy, box_iou
 from .backbones import EfficientNetBackbone, ResNetBackbone
-from app.utils import plot_heatmap, DetectionPlot
-from app.entities import Boxes, Images
+from app.entities import ImageBatch, PredBoxes, Image, Batch
 from torchvision.ops import nms
 
 from pathlib import Path
-from app.meters import EMAMeter
-from app.eval import MeamPrecition
 import albumentations as albm
 
 logger = getLogger(__name__)
 
-Outputs = t.TypedDict(
-    "Outputs", {"heatmap": Tensor, "box_size": Tensor,}  # [B, 1, W, H]  # [B, 2, W, H]
-)
 
-NetInputs = t.TypedDict("NetInputs", {"images": Tensor, "ids": t.List[str]})
+def collate_fn(batch: Batch) -> t.Tuple[ImageBatch, t.List[YoloBoxes], t.List[str]]:
+    images: t.List[t.Any] = []
+    id_batch: t.List[str] = []
+    box_batch: t.List[YoloBoxes] = []
+
+    for id, img, boxes in batch:
+        images.append(img)
+        box_batch.append(boxes)
+        id_batch.append(id)
+    return ImageBatch(torch.stack(images)), box_batch, id_batch
 
 
 class Reg(nn.Module):
@@ -50,16 +50,9 @@ class Reg(nn.Module):
         return x
 
 
-class NetOutputs:
-    heatmap: Tensor
-    sizemap: Tensor
-
-    def __init__(self, heatmap: Tensor, sizemap: Tensor) -> None:
-        self.heatmap = heatmap
-        self.sizemap = sizemap
-
-    def __getitem__(self, idx: slice) -> "NetOutputs":
-        return NetOutputs(heatmap=self.heatmap[idx], sizemap=self.sizemap[idx])
+Heatmap = t.NewType("Heatmap", Tensor)
+Sizemap = t.NewType("Sizemap", Tensor)
+NetOutput = t.Tuple[Heatmap, Sizemap]
 
 
 class CenterNet(nn.Module):
@@ -71,16 +64,12 @@ class CenterNet(nn.Module):
         self.heatmap = Reg(in_channels=channels, out_channels=1, depth=2)
         self.box_size = Reg(in_channels=channels, out_channels=2, depth=2)
 
-    def forward(self, images: Tensor) -> NetOutputs:
-        """
-        x: [B, 3, W, H]
-        """
-        x = images
+    def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
         heatmap = self.heatmap(fp[0])
         sizemap = self.box_size(fp[0])
-        return NetOutputs(heatmap=heatmap, sizemap=sizemap)
+        return Heatmap(heatmap), Sizemap(sizemap)
 
 
 class FocalLoss(nn.Module):
@@ -105,6 +94,29 @@ class FocalLoss(nn.Module):
         return loss / num_pos
 
 
+class Criterion:
+    def __init__(self,) -> None:
+        super().__init__()
+        self.focal_loss = FocalLoss()
+        self.reg_loss = RegLoss()
+
+    def __call__(self, src: NetOutput, tgt: NetOutput) -> Tensor:
+        s_hm, s_sm = src
+        t_hm, t_sm = tgt
+        hm_loss = self.focal_loss(s_hm, t_hm)
+        size_loss = self.reg_loss(s_sm, t_sm) * 10
+        return hm_loss + size_loss
+
+
+class RegLoss:
+    def __call__(self, output: Sizemap, target: Sizemap,) -> Tensor:
+        mask = (target > 0).view(target.shape)
+        num = mask.sum()
+        regr_loss = F.l1_loss(output, target, reduction="none") * mask
+        regr_loss = regr_loss.sum() / (num + 1e-4)
+        return regr_loss
+
+
 def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
     m, n = int((shape[0] - 1.0) / 2.0), int((shape[1] - 1.0) / 2.0)
     y, x = np.ogrid[-m : m + 1, -n : n + 1]
@@ -113,13 +125,39 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
     return h
 
 
-class SoftHeatMap(nn.Module):
+class ToBoxes:
+    def __init__(self, thresold: float, limit: int = 100) -> None:
+        self.limit = limit
+        self.thresold = thresold
+
+    def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
+        heatmaps, sizemaps = inputs
+        device = heatmaps.device
+        kp_maps = (F.max_pool2d(heatmaps, 3, stride=1, padding=1) == heatmaps) & (
+            heatmaps > self.thresold
+        )
+        batch_size, _, height, width = heatmaps.shape
+        original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
+        rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
+        for hm, kp_map, size_map in zip(
+            heatmaps.squeeze(1), kp_maps.squeeze(1), sizemaps
+        ):
+            pos = kp_map.nonzero()
+            confidences = hm[pos[:, 0], pos[:, 1]]
+            wh = size_map[:, pos[:, 0], pos[:, 1]]
+            cxcy = pos[:, [1, 0]].float() / original_wh
+            boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
+            sort_idx = confidences.argsort(descending=True)[: self.limit]
+            rows.append(
+                (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
+            )
+        return rows
+
+
+class SoftHeatMap:
     def __init__(
-        self, w: int, h: int, mount_size: t.Tuple[int, int] = (5, 5), sigma: float = 1
+        self, mount_size: t.Tuple[int, int] = (5, 5), sigma: float = 1,
     ) -> None:
-        super().__init__()
-        self.w = w
-        self.h = h
         self.mount_size = mount_size
         self.mount_pad = (
             self.mount_size[0] % 2,
@@ -131,195 +169,54 @@ class SoftHeatMap(nn.Module):
         )
         self.mount = self.mount / self.mount.max()
 
-    def forward(self, boxes: Tensor) -> "NetOutputs":
-        img = torch.zeros((1, 1, self.h, self.w), dtype=torch.float32).to(boxes.device)
-        sizemap = torch.zeros((2, self.h, self.w), dtype=torch.float32).to(boxes.device)
-        device = img.device
-        b, _ = boxes.shape
-        if b == 0:
-            sizemap = sizemap.unsqueeze(0)
-            return NetOutputs(heatmap=img, sizemap=sizemap)
-        cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
-        sizemap[:, cy, cx] = boxes[:, 2:4].permute(1, 0)
+    def __call__(self, boxes: YoloBoxes, size: t.Tuple[int, int]) -> NetOutput:
+        device = boxes.device
+        w, h = size
+        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
+        sizemap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
+        box_count, _ = boxes.shape
+        if box_count == 0:
+            return Heatmap(heatmap), Sizemap(sizemap)
+        box_cx, box_cy, box_w, box_h = torch.unbind(boxes, dim=1)
+        box_cx = (box_cx * w).long()
+        box_cy = (box_cy * h).long()
+        sizemap[:, :, box_cy, box_cx] = torch.stack([box_w, box_h], dim=0)
         mount_w, mount_h = self.mount_size
         pad_w, pad_h = self.mount_pad
-        mount_x0 = cx - mount_h // 2
-        mount_x1 = cx + mount_h // 2 + pad_h
-        mount_y0 = cy - mount_w // 2
-        mount_y1 = cy + mount_w // 2 + pad_w
+        mount_x0 = box_cx - mount_h // 2
+        mount_x1 = box_cx + mount_h // 2 + pad_h
+        mount_y0 = box_cy - mount_w // 2
+        mount_y1 = box_cy + mount_w // 2 + pad_w
 
+        mount = self.mount.to(device)
         for x0, x1, y0, y1 in zip(mount_x0, mount_x1, mount_y0, mount_y1):
-            target = img[:, :, y0:y1, x0:x1]  # type: ignore
+            target = heatmap[:, :, y0:y1, x0:x1]  # type: ignore
             _, _, target_h, target_w = target.shape
             if (target_h >= mount_h) and (target_w >= mount_w):
-                mount = torch.max(self.mount.to(device), target)
-                img[:, :, y0:y1, x0:x1] = mount  # type: ignore
-        sizemap = sizemap.unsqueeze(0)
-        return NetOutputs(heatmap=img, sizemap=sizemap)
+                mount = torch.max(mount, target)
+                heatmap[:, :, y0:y1, x0:x1] = mount  # type: ignore
+        return Heatmap(heatmap), Sizemap(sizemap)
 
 
-class PostProcess:
-    def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.2, limit=300)
-
-    def __call__(self, inputs: NetOutputs, ids: t.List[str]) -> Annotations:
-        in_boxes = self.to_boxes(inputs)
-        out_boxes: Annotations = []
-        for id, boxes in zip(ids, in_boxes):
-            boxes.to_xyxy()
-            idx = nms(boxes.boxes, boxes.confidences, iou_threshold=0.8)
-            boxes.boxes = boxes.boxes[idx]
-            boxes.confidences = boxes.confidences[idx]
-            boxes.to_cxcywh()
-            boxes.id = id
-            out_boxes.append(boxes)
-        return out_boxes
-
-
-class Criterion(nn.Module):
-    def __init__(self, name: str = "train") -> None:
+class PreProcess:
+    def __init__(self, device: t.Any) -> None:
         super().__init__()
-        self.focal_loss = FocalLoss()
-        self.reg_loss = RegLoss()
-        self.hm_meter = EMAMeter(f"{name}-hm")
-        self.size_meter = EMAMeter(f"{name}-size")
-
-    def forward(self, src: NetOutputs, tgt: NetOutputs) -> Tensor:
-        # TODO test code
-        b, _, _, _ = src.heatmap.shape
-        hm_loss = self.focal_loss(src.heatmap, tgt.heatmap)
-        size_loss = self.reg_loss(src.sizemap, tgt.sizemap) * 10
-        self.hm_meter.update(hm_loss.item())
-        self.size_meter.update(size_loss.item())
-        return hm_loss + size_loss
-
-
-class ToBoxes:
-    def __init__(self, thresold: float, limit: int = 100) -> None:
-        self.limit = limit
-        self.thresold = thresold
-
-    def __call__(self, inputs: NetOutputs) -> Annotations:
-        """
-        cxcywh 0-1
-        """
-        heatmaps = inputs.heatmap
-        sizemaps = inputs.sizemap
-        device = heatmaps.device
-        kp_maps = (F.max_pool2d(heatmaps, 3, stride=1, padding=1) == heatmaps) & (
-            heatmaps > self.thresold
-        )
-        batch_size, _, height, width = heatmaps.shape
-        original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
-        rows: Annotations = []
-        for hm, kp_map, size_map in zip(
-            heatmaps.squeeze(1), kp_maps.squeeze(1), sizemaps
-        ):
-            pos = kp_map.nonzero()
-            confidences = hm[pos[:, 0], pos[:, 1]]
-            wh = size_map[:, pos[:, 0], pos[:, 1]]
-            cxcy = pos[:, [1, 0]].float() / original_wh
-            boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
-            sort_idx = confidences.argsort(descending=True)[: self.limit]
-            rows.append(
-                Boxes(
-                    h=1024,
-                    w=1024,
-                    boxes=boxes[sort_idx],
-                    confidences=confidences[sort_idx],
-                    fmt="cxcywh",
-                )
-            )
-        return rows
-
-
-class RegLoss(nn.Module):
-    def forward(self, output: Tensor, target: Tensor) -> Tensor:
-        mask = (target > 0).view(target.shape)
-        num = mask.sum()
-        regr_loss = F.l1_loss(output, target, reduction="none") * mask
-        regr_loss = regr_loss.sum() / (num + 1e-4)
-        return regr_loss
-
-
-class TTAMerge:
-    def __call__(self, inputs: NetOutputs, target: NetOutputs) -> NetOutputs:
-        ...
-
-
-class VisualizeHeatmap:
-    def __init__(self, output_dir: Path, prefix: str = "", limit: int = 1) -> None:
-        self.prefix = prefix
-        self.output_dir = output_dir
-        self.limit = limit
+        self.heatmap = SoftHeatMap()
+        self.device = device
 
     def __call__(
-        self, src: NetOutputs, src_annots: Annotations, tgt_annots: Annotations,
-    ) -> None:
-        src = src[: self.limit]  # type: ignore
-        heatmaps = src.heatmap.detach().cpu()
-        tgt_boxes = tgt_annots[: self.limit]
-        src_boxes = src_annots[: self.limit]
-        for i, (sb, tb, hm) in enumerate(zip(src_boxes, tgt_boxes, heatmaps)):
-            plot = DetectionPlot()
-            plot.with_image(hm[0])
-            plot.with_boxes(tb.boxes, color="blue")
-            plot.with_boxes(sb.boxes, sb.confidences, color="red")
-            plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes-{i}.png")))
-
-
-class HardHeatMap(nn.Module):
-    def __init__(self, w: int, h: int) -> None:
-        super().__init__()
-        self.w = w
-        self.h = h
-
-    def forward(self, boxes: Tensor) -> NetOutputs:
-        heatmap = torch.zeros((self.h, self.w), dtype=torch.float32).to(boxes.device)
-        sizemap = torch.zeros((2, self.h, self.w), dtype=torch.float32).to(boxes.device)
-        if len(boxes) == 0:
-            sizemap = sizemap.unsqueeze(0)
-            return NetOutputs(heatmap=heatmap, sizemap=sizemap)
-        cx, cy = (boxes[:, 0] * self.w).long(), (boxes[:, 1] * self.h).long()
-        heatmap[cy, cx] = 1.0
-        sizemap[:, cy, cx] = boxes[:, 2:4].permute(1, 0)
-        heatmap = heatmap.unsqueeze(0).unsqueeze(0)
-        sizemap = sizemap.unsqueeze(0)
-        return NetOutputs(heatmap=heatmap, sizemap=sizemap)
-
-
-class PreProcess(nn.Module):
-    def __init__(self,) -> None:
-        super().__init__()
-        self.h = 1024 // 2 ** config.scale_factor
-        self.w = 1024 // 2 ** config.scale_factor
-        self.heatmap = SoftHeatMap(w=self.w, h=self.h)
-        self.device = torch.device("cuda")
-
-    def forward(
-        self, batch: t.Tuple[Tensor, Annotations]
-    ) -> t.Tuple[Tensor, NetOutputs]:
-        images, annotations = batch
-        images = images.to(self.device)
-        hms = []
-        sms = []
-        for annot in annotations:
-            annot = annot.to(self.device)
-            res = self.heatmap(annot.boxes)
-            hms.append(res.heatmap)
-            sms.append(res.sizemap)
+        self, batch: t.Tuple[ImageBatch, t.List[YoloBoxes]]
+    ) -> t.Tuple[ImageBatch, NetOutput]:
+        image_batch, boxes_batch = batch
+        image_batch = ImageBatch(image_batch.to(self.device))
+        hms: t.List[t.Any] = []
+        sms: t.List[t.Any] = []
+        _, _, h, w = image_batch.shape
+        for img, boxes in zip(image_batch.unbind(0), boxes_batch):
+            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w // 2, h // 2))
+            hms.append(hm)
+            sms.append(sm)
 
         heatmap = torch.cat(hms, dim=0)
         sizemap = torch.cat(sms, dim=0)
-        images = F.interpolate(images, size=(self.w * 2, self.h * 2))
-        return images, NetOutputs(heatmap=heatmap, sizemap=sizemap)
-
-
-class PreProcessX:
-    def __init__(self,) -> None:
-        self.h = 1024 // 2 ** config.scale_factor
-        self.w = 1024 // 2 ** config.scale_factor
-
-    def __call__(self, images: Tensor) -> Tensor:
-        images = F.interpolate(images, size=(self.w * 2, self.h * 2))
-        return images
+        return image_batch, (Heatmap(heatmap), Sizemap(sizemap))

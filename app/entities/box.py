@@ -1,73 +1,70 @@
-import typing as t
 import torch
+import typing as t
 from torch import Tensor
+from .image import ImageSize
+
+CoCoBoxes = t.NewType(
+    "CoCoBoxes", Tensor
+)  # [B, Pos] Pos:[x0, y0, width, height] original
+YoloBoxes = t.NewType(
+    "YoloBoxes", Tensor
+)  # [B, Pos] Pos:[cx, cy, width, height] normalized
+PascalBoxes = t.NewType("PascalBoxes", Tensor)  # [B, Pos] Pos:[x0, y0, x1, y1] original
+
+Labels = t.NewType("Labels", Tensor)
+Confidences = t.NewType("Confidences", Tensor)
+
+PredBoxes = t.Tuple[CoCoBoxes, Confidences]
+LabelBoxes = t.Tuple[CoCoBoxes, Labels]
 
 
-def box_xyxy_to_cxcywh(x: Tensor) -> Tensor:
-    if x.shape[0] == 0:
-        return x
-    x0, y0, x1, y1 = x.unbind(-1)
-    b = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0), (y1 - y0)]
-    return torch.stack(b, dim=-1)
+def yoyo_to_pascal(x: CoCoBoxes, size: ImageSize) -> YoloBoxes:
+    ...
 
 
-def box_cxcywh_to_xyxy(x: Tensor) -> Tensor:
-    if x.shape[0] == 0:
-        return x
-    x_c, y_c, w, h = x.unbind(-1)
-    out = [(x_c - 0.5 * w), (y_c - 0.5 * h), (x_c + 0.5 * w), (y_c + 0.5 * h)]
-    return torch.stack(out, dim=-1)
+def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
+    size_w, size_h = size
+    x0, y0, x1, y1 = coco_to_pascal(coco).unbind(-1)
+    b = [
+        (x0 + x1) / 2 / size_w,
+        (y0 + y1) / 2 / size_h,
+        (x1 - x0) / size_w,
+        (y1 - y0) / size_h,
+    ]
+    return YoloBoxes(torch.stack(b, dim=-1))
 
 
-BoxFmt = t.Literal["xyxy", "cxcywh"]
+def coco_to_pascal(coco: CoCoBoxes) -> PascalBoxes:
+    x0, y0, w, h = coco.unbind(-1)
+    b = [x0, y0, x0 + w, y0 + h]
+    return PascalBoxes(torch.stack(b, dim=-1))
 
 
-class Boxes:
-    id: str
-    w: float
-    h: float
-    boxes: Tensor
-    confidences: Tensor
-    fmt: BoxFmt
+def yolo_to_pascal(yolo: YoloBoxes, size: ImageSize) -> PascalBoxes:
+    cx, cy, w, h = yolo.unbind(-1)
+    size_w, size_h = size
+    b = [
+        (cx - 0.5 * w) * size_w,
+        (cy - 0.5 * h) * size_h,
+        (cx + 0.5 * w) * size_w,
+        (cy + 0.5 * h) * size_h,
+    ]
+    return PascalBoxes(torch.stack(b, dim=-1))
 
-    def __init__(
-        self,
-        w: float,
-        h: float,
-        fmt: BoxFmt,
-        boxes: Tensor,
-        confidences: t.Optional[Tensor] = None,
-        id: str = "",
-    ) -> None:
-        self.id = id
-        self.w = w
-        self.h = h
-        self.boxes = boxes
-        self.fmt = fmt
-        self.confidences = (
-            confidences if confidences is not None else torch.ones(boxes.shape[0])
-        )
 
-    def __len__(self,) -> int:
-        return len(self.boxes)
+def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:
+    x0, y0, x1, y1 = yolo_to_pascal(yolo, size).unbind(-1)
+    b = torch.stack([x0, y0, x1 - x0, y1 - y0], dim=-1).long()
+    return CoCoBoxes(b)
 
-    @property
-    def device(self) -> t.Any:
-        return self.boxes.device
 
-    def to(self, device: t.Any) -> "Boxes":
-        self.boxes = self.boxes.to(device)
-        self.confidences = self.confidences.to(device)
-        return self
-
-    def to_cxcywh(self) -> "Boxes":
-        if self.fmt == "xyxy":
-            self.boxes = box_xyxy_to_cxcywh(self.boxes)
-        self.fmt = "cxcywh"
-        return self
-
-    def to_xyxy(self) -> "Boxes":
-        if self.fmt == "cxcywh":
-            self.boxes = box_cxcywh_to_xyxy(self.boxes)
-        self.fmt = "xyxy"
-        return self
+def pascal_to_yolo(pascal: PascalBoxes, size: ImageSize) -> YoloBoxes:
+    x0, y0, x1, y1 = pascal.unbind(-1)
+    size_w, size_h = size
+    b = [
+        (x0 + x1) / 2 / size_w,
+        (y0 + y1) / 2 / size_h,
+        (x1 - x0) / size_w,
+        (y1 - y0) / size_h,
+    ]
+    return YoloBoxes(torch.stack(b, dim=-1))

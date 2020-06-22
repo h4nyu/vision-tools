@@ -4,7 +4,6 @@ import numpy as np
 from collections import defaultdict
 from torch import Tensor
 from torchvision.ops.boxes import box_iou
-from app.entities import Annotations
 
 
 def precition(iou_matrix: Tensor, threshold: float) -> float:
@@ -37,13 +36,14 @@ class Evaluate:
     def __init__(self) -> None:
         self.mean_precision = MeamPrecition()
 
-    def __call__(self, pred: Annotations, gt: Annotations) -> float:
-        lenght = len(gt)
-        score = 0.0
-        for pred_boxes, gt_boxes in zip(pred, gt):
-            device = pred_boxes.device
-            gt_boxes = gt_boxes.to(device)
-            pred_boxes = pred_boxes.to_xyxy()
-            gt_boxes = gt_boxes.to_xyxy()
-            score += self.mean_precision(pred_boxes.boxes, gt_boxes.boxes)
-        return score / lenght
+    #  def __call__(self, pred: Annotations, gt: Annotations) -> float:
+    #  ...
+    #  lenght = len(gt)
+    #  score = 0.0
+    #  for pred_boxes, gt_boxes in zip(pred, gt):
+    #      device = pred_boxes.device
+    #      gt_boxes = gt_boxes.to(device)
+    #      pred_boxes = pred_boxes.to_xyxy()
+    #      gt_boxes = gt_boxes.to_xyxy()
+    #      score += self.mean_precision(pred_boxes.boxes, gt_boxes.boxes)
+    #  return score / lenght
