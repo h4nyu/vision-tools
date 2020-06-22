@@ -4,6 +4,7 @@ import typing as t
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader, Subset, ConcatDataset
+from app.meters import BestWatcher
 from app.models.centernet import collate_fn, CenterNet
 from app.dataset.wheat import WheatDataset
 from app.utils import ModelLoader
@@ -35,7 +36,10 @@ def train(fold_idx: int) -> None:
     model_loader = ModelLoader(
         out_dir=f"/kaggle/input/models/{fold_idx}", model=CenterNet()
     )
-    trainer = Trainer(train_loader, test_loader, model_loader, config.device)
+    best_watcher = BestWatcher()
+    trainer = Trainer(
+        train_loader, test_loader, model_loader, best_watcher, config.device
+    )
     trainer.train(100)
 
 

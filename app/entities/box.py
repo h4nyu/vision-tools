@@ -18,10 +18,6 @@ PredBoxes = t.Tuple[CoCoBoxes, Confidences]
 LabelBoxes = t.Tuple[CoCoBoxes, Labels]
 
 
-def yoyo_to_pascal(x: CoCoBoxes, size: ImageSize) -> YoloBoxes:
-    ...
-
-
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
     size_w, size_h = size
     x0, y0, x1, y1 = coco_to_pascal(coco).unbind(-1)

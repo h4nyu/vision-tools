@@ -3,10 +3,18 @@ import numpy as np
 import typing as t
 import math
 import torch.nn.functional as F
+from typing import List, Tuple
 from app import config
 from torch import nn, Tensor
 from logging import getLogger
-from app.entities import YoloBoxes, Confidences
+from app.entities.box import (
+    YoloBoxes,
+    Confidences,
+    yolo_to_pascal,
+    PascalBoxes,
+    pascal_to_yolo,
+)
+from app.entities.image import ImageId
 from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
@@ -20,10 +28,10 @@ import albumentations as albm
 logger = getLogger(__name__)
 
 
-def collate_fn(batch: Batch) -> t.Tuple[ImageBatch, t.List[YoloBoxes], t.List[str]]:
-    images: t.List[t.Any] = []
-    id_batch: t.List[str] = []
-    box_batch: t.List[YoloBoxes] = []
+def collate_fn(batch: Batch) -> Tuple[ImageBatch, List[YoloBoxes], List[ImageId]]:
+    images: List[t.Any] = []
+    id_batch: List[ImageId] = []
+    box_batch: List[YoloBoxes] = []
 
     for id, img, boxes in batch:
         images.append(img)
@@ -220,3 +228,43 @@ class PreProcess:
         heatmap = torch.cat(hms, dim=0)
         sizemap = torch.cat(sms, dim=0)
         return image_batch, (Heatmap(heatmap), Sizemap(sizemap))
+
+
+class PostProcess:
+    def __init__(self) -> None:
+        self.to_boxes = ToBoxes(thresold=0.2, limit=300)
+
+    def __call__(
+        self, x: NetOutput, image_ids: List[ImageId], images: ImageBatch
+    ) -> List[Tuple[ImageId, YoloBoxes, Confidences]]:
+        rows = []
+        for image_id, img, (boxes, confidences) in zip(
+            image_ids, images, self.to_boxes(x)
+        ):
+            _, _, h, w = img.shape
+            idx = nms(yolo_to_pascal(boxes, (w, h)), confidences, iou_threshold=0.8)
+            boxes = pascal_to_yolo(PascalBoxes(boxes[idx]), (w, h))
+            confidences = Confidences(confidences[idx])
+            rows.append((image_id, boxes, confidences))
+        return rows
+
+
+#  class VisualizeHeatmap:
+#      def __init__(self, out_dir: str, prefix: str = "", limit: int = 1) -> None:
+#          self.prefix = prefix
+#          self.out_dir = Path(out_dir)
+#          self.limit = limit
+#
+#      def __call__(
+#          self, src: NetOutputs, src_annots: Annotations, tgt_annots: Annotations,
+#      ) -> None:
+#          src = src[: self.limit]  # type: ignore
+#          heatmaps = src.heatmap.detach().cpu()
+#          tgt_boxes = tgt_annots[: self.limit]
+#          src_boxes = src_annots[: self.limit]
+#          for i, (sb, tb, hm) in enumerate(zip(src_boxes, tgt_boxes, heatmaps)):
+#              plot = DetectionPlot()
+#              plot.with_image(hm[0])
+#              plot.with_boxes(tb.boxes, color="blue")
+#              plot.with_boxes(sb.boxes, sb.confidences, color="red")
+#              plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes-{i}.png")))
