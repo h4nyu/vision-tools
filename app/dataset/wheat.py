@@ -66,7 +66,7 @@ class WheatDataset(Dataset):
     def __init__(
         self,
         annot_file: str,
-        imput_size: int = 1024,
+        max_size: int = 512,
         mode: Literal["train", "test"] = "train",
     ) -> None:
         super().__init__()
@@ -77,6 +77,9 @@ class WheatDataset(Dataset):
         self.image_dir = Path(config.image_dir)
 
         bbox_params = {"format": "coco", "label_fields": ["labels"]}
+        self.pre_transforms = albm.Compose(
+            [albm.LongestMaxSize(max_size=max_size),], bbox_params=bbox_params,
+        )
         self.train_transforms = albm.Compose(
             [
                 albm.VerticalFlip(),
@@ -96,15 +99,14 @@ class WheatDataset(Dataset):
         image_id, image_size, boxes = self.rows[index]
         image = get_img(image_id)
         labels = np.zeros(boxes.shape[0])
+        res = self.pre_transforms(image=image, bboxes=boxes, labels=labels)
         if self.mode == "train":
-            res = self.train_transforms(image=image, bboxes=boxes, labels=labels)
-            boxes = res["bboxes"]
-            image = res["image"]
-
-        boxes = CoCoBoxes(torch.tensor(boxes).float())
-        image = self.post_transforms(image=image)["image"].float()
+            res = self.train_transforms(**res)
+        res = self.post_transforms(**res)
+        image = Image(res["image"].float())
+        boxes = CoCoBoxes(torch.tensor(res["bboxes"]).float())
         yolo_boxes = coco_to_yolo(boxes, image_size)
-        return image_id, Image(image), yolo_boxes
+        return image_id, image, yolo_boxes
 
 
 class PreditionDataset(Dataset):

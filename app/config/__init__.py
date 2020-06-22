@@ -9,6 +9,9 @@ model_dir = "/kaggle/input/models"
 annot_file = "/kaggle/input/global-wheat-detection/train.csv"
 working_dir = "/kaggle/working"
 
+max_size = 512
+
+device = "cuda"
 random_state = 777
 lr = 1e-3
 n_splits = 5
