@@ -93,7 +93,7 @@ class ModelLoader:
         self.checkpoint_file = self.out_dir / "checkpoint.json"
         self.model = model
 
-        self.out_dir.mkdir(exist_ok=True)
+        self.out_dir.mkdir(exist_ok=True, parents=True)
         if self.checkpoint_file.exists():
             self.load()
 

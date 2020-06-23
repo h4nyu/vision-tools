@@ -14,6 +14,7 @@ from app.entities.box import (
     PascalBoxes,
     pascal_to_yolo,
 )
+from app.utils import DetectionPlot
 from app.entities.image import ImageId
 from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
@@ -60,7 +61,7 @@ class Reg(nn.Module):
 
 Heatmap = t.NewType("Heatmap", Tensor)
 Sizemap = t.NewType("Sizemap", Tensor)
-NetOutput = t.Tuple[Heatmap, Sizemap]
+NetOutput = Tuple[Heatmap, Sizemap]
 
 
 class CenterNet(nn.Module):
@@ -247,22 +248,24 @@ class PostProcess:
         return rows
 
 
-#  class VisualizeHeatmap:
-#      def __init__(self, out_dir: str, prefix: str = "", limit: int = 1) -> None:
-#          self.prefix = prefix
-#          self.out_dir = Path(out_dir)
-#          self.limit = limit
-#
-#      def __call__(
-#          self, src: NetOutputs, src_annots: Annotations, tgt_annots: Annotations,
-#      ) -> None:
-#          src = src[: self.limit]  # type: ignore
-#          heatmaps = src.heatmap.detach().cpu()
-#          tgt_boxes = tgt_annots[: self.limit]
-#          src_boxes = src_annots[: self.limit]
-#          for i, (sb, tb, hm) in enumerate(zip(src_boxes, tgt_boxes, heatmaps)):
-#              plot = DetectionPlot()
-#              plot.with_image(hm[0])
-#              plot.with_boxes(tb.boxes, color="blue")
-#              plot.with_boxes(sb.boxes, sb.confidences, color="red")
-#              plot.save(str(self.output_dir.joinpath(f"{self.prefix}-boxes-{i}.png")))
+class Visualize:
+    def __init__(self, out_dir: str, prefix: str = "", limit: int = 1) -> None:
+        self.prefix = prefix
+        self.out_dir = Path(out_dir)
+        self.limit = limit
+
+    def __call__(
+        self,
+        net_out: NetOutput,
+        src: List[Tuple[ImageId, YoloBoxes, Confidences]],
+        tgt: List[YoloBoxes],
+    ) -> None:
+        heatmap, _ = net_out
+        src = src[: self.limit]
+        tgt = tgt[: self.limit]
+        for i, ((_, sb, sc), tb, hm) in enumerate(zip(src, tgt, heatmap)):
+            plot = DetectionPlot()
+            plot.with_image(hm[0])
+            plot.with_yolo_boxes(tb, color="blue")
+            plot.with_yolo_boxes(sb, sc, color="red")
+            plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")

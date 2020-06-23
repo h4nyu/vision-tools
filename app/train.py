@@ -7,6 +7,7 @@ from app.models.centernet import (
     Criterion,
     PreProcess,
     PostProcess,
+    Visualize,
 )
 from app import config
 from app.utils import ModelLoader
@@ -37,6 +38,8 @@ class Trainer:
         self.preprocess = PreProcess(self.device)
         self.post_process = PostProcess()
         self.best_watcher = best_watcher
+        self.train_visalize = Visualize("train")
+        self.test_visalize = Visualize("test")
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
@@ -58,10 +61,12 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.eval()
         loader = self.test_loader
+        visualize = self.test_visalize
         for samples, targets, ids in loader:
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss = self.criterion(outputs, cri_targets)
             if self.best_watcher.step(loss.item()):
                 self.model_loader.save()
-            self.post_process(outputs, ids, samples)
+            preds = self.post_process(outputs, ids, samples)
+            visualize(outputs, preds, samples)
