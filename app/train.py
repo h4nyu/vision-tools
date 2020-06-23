@@ -43,7 +43,7 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            self.train_one_epoch()
+            #  self.train_one_epoch()
             self.eval_one_epoch()
 
     def train_one_epoch(self) -> None:
@@ -68,4 +68,4 @@ class Trainer:
             if self.best_watcher.step(loss.item()):
                 self.model_loader.save()
             preds = self.post_process(outputs, ids, samples)
-        self.visualize(outputs, preds, targets)
+            self.visualize(outputs, preds, targets)

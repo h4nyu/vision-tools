@@ -49,14 +49,6 @@ def load_lables(
     )
 
 
-transforms = albm.Compose(
-    [
-        #  albm.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ToTensorV2(),
-    ]
-)
-
-
 def get_img(image_id: ImageId) -> t.Any:
     image_path = f"{config.image_dir}/{image_id}.jpg"
     return (imread(image_path) / 255).astype(np.float32)
@@ -96,33 +88,36 @@ class WheatDataset(Dataset):
         return len(self.rows)
 
     def __getitem__(self, index: int) -> Sample:
-        image_id, image_size, boxes = self.rows[index]
+        image_id, _, boxes = self.rows[index]
         image = get_img(image_id)
         labels = np.zeros(boxes.shape[0])
         res = self.pre_transforms(image=image, bboxes=boxes, labels=labels)
         if self.mode == "train":
             res = self.train_transforms(**res)
         res = self.post_transforms(**res)
+
         image = Image(res["image"].float())
+        _, h, w = image.shape
         boxes = CoCoBoxes(torch.tensor(res["bboxes"]).float())
-        yolo_boxes = coco_to_yolo(boxes, image_size)
+        yolo_boxes = coco_to_yolo(boxes, (w, h))
         return image_id, image, yolo_boxes
 
 
-class PreditionDataset(Dataset):
-    def __init__(self, image_dir: str = config.test_image_dir,) -> None:
-        print(f"{config.test_image_dir}/*.jpg")
-        rows: t.List[t.Tuple[str, Path]] = []
-        for p in glob(f"{config.test_image_dir}/*.jpg"):
-            path = Path(p)
-            rows.append((path.stem, path))
-        self.rows = rows
-
-    def __len__(self) -> int:
-        return len(self.rows)
-
-    def __getitem__(self, index: int) -> t.Tuple[Tensor, str]:
-        id, path = self.rows[index]
-        image = (imread(path) / 255).astype(np.float32)
-        image = transforms(image=image)["image"].float()
-        return image, id
+#
+#  class PreditionDataset(Dataset):
+#      def __init__(self, image_dir: str = config.test_image_dir,) -> None:
+#          print(f"{config.test_image_dir}/*.jpg")
+#          rows: t.List[t.Tuple[str, Path]] = []
+#          for p in glob(f"{config.test_image_dir}/*.jpg"):
+#              path = Path(p)
+#              rows.append((path.stem, path))
+#          self.rows = rows
+#
+#      def __len__(self) -> int:
+#          return len(self.rows)
+#
+#      def __getitem__(self, index: int) -> t.Tuple[Tensor, str]:
+#          id, path = self.rows[index]
+#          image = (imread(path) / 255).astype(np.float32)
+#          image = transforms(image=image)["image"].float()
+#          return image, id
