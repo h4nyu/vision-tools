@@ -1,7 +1,7 @@
 import typing as t
 import numpy as np
 import torch
-from app.models.backbones import (
+from object_detection.models.backbones import (
     ResNetBackbone,
     EfficientNetBackbone,
 )

@@ -1,10 +1,10 @@
 import typing as t
 import numpy as np
 import torch
-from app.models.centernet import CenterNet, SoftHeatMap, ToBoxes, FocalLoss
-from app.entities import YoloBoxes, Image
-from app.entities.box import yolo_to_coco
-from app.utils import DetectionPlot
+from object_detection.models.centernet import CenterNet, SoftHeatMap, ToBoxes, FocalLoss
+from object_detection.entities import YoloBoxes, Image
+from object_detection.entities.box import yolo_to_coco
+from object_detection.utils import DetectionPlot
 
 
 def test_focal_loss() -> None:

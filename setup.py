@@ -8,6 +8,7 @@ setup(
     author_email="yao.ntno@google.com",
     license="TODO",
     packages=find_packages(),
+    package_data={"object_detection": ["py.typed"],},
     install_requires=[
         "pandas",
         "scikit-learn",

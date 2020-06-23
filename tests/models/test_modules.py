@@ -1,5 +1,5 @@
 import torch
-from app.models.modules import (
+from object_detection.models.modules import (
     Hswish,
     Hsigmoid,
     CSE2d,

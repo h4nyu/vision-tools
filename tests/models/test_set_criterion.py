@@ -1,6 +1,6 @@
 import torch
-from app.models.set_criterion import SetCriterion
-from app.models.matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
+from object_detection.models.set_criterion import SetCriterion
+from object_detection.models.matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 
 
 def test_loss_lables() -> None:

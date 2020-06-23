@@ -1,6 +1,6 @@
 import torch
-from app.models.losses import BoxIoU
-from app.models.anchors import Anchors
+from object_detection.models.losses import BoxIoU
+from object_detection.models.anchors import Anchors
 
 
 def test_iou() -> None:

@@ -1,5 +1,5 @@
 import torch
-from app.models.bottlenecks import MobileV3, SENextBottleneck2d
+from object_detection.models.bottlenecks import MobileV3, SENextBottleneck2d
 
 
 def test_mobilev3() -> None:

@@ -10,7 +10,7 @@ from torch import nn
 from pathlib import Path
 from torch import Tensor
 from logging import getLogger
-from app.entities.box import CoCoBoxes, YoloBoxes, yolo_to_coco
+from .entities.box import CoCoBoxes, YoloBoxes, yolo_to_coco
 
 logger = getLogger(__name__)
 

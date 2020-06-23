@@ -1,5 +1,5 @@
 import torch
-from app.models.efficientdet import (
+from object_detection.models.efficientdet import (
     ClipBoxes,
     BBoxTransform,
     RegressionModel,

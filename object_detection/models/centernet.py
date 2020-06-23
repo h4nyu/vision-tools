@@ -6,24 +6,24 @@ import torch.nn.functional as F
 from typing import List, Tuple
 from torch import nn, Tensor
 from logging import getLogger
-from app.entities.box import (
+from object_detection.entities.box import (
     YoloBoxes,
     Confidences,
     yolo_to_pascal,
     PascalBoxes,
     pascal_to_yolo,
 )
-from app.utils import DetectionPlot
-from app.entities.image import ImageId
+from object_detection.utils import DetectionPlot
+from object_detection.entities.image import ImageId
 from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .backbones import EfficientNetBackbone, ResNetBackbone
-from app.meters import BestWatcher, EMAMeter
-from app.entities import ImageBatch, PredBoxes, Image, Batch
+from object_detection.meters import BestWatcher, EMAMeter
+from object_detection.entities import ImageBatch, PredBoxes, Image, Batch
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
-from app.model_loader import ModelLoader
+from object_detection.model_loader import ModelLoader
 
 from pathlib import Path
 import albumentations as albm

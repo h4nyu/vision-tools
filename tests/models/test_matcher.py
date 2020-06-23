@@ -1,5 +1,5 @@
 import torch
-from app.models.matcher import HungarianMatcher, Outputs, Targets
+from object_detection.models.matcher import HungarianMatcher, Outputs, Targets
 
 
 def test_hungarian_matcher() -> None:

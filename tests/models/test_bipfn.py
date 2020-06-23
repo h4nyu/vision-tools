@@ -1,5 +1,5 @@
 import torch
-from app.models.bifpn import BiFPN
+from object_detection.models.bifpn import BiFPN
 
 
 def test_bifpn() -> None:
@@ -10,9 +10,4 @@ def test_bifpn() -> None:
     res = m(req)
 
     for i, o in zip(req, res):
-        print(i.shape)
         assert i.shape == o.shape
-    res = m(res)
-
-    #  for i, o in zip(req, res):
-    #      assert i.shape == o.shape

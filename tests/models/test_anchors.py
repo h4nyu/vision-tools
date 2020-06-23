@@ -2,7 +2,7 @@ from pathlib import Path
 import torch
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from app.models.efficientdet import Anchors
+from object_detection.models.efficientdet import Anchors
 
 
 def test_anchors() -> None:
