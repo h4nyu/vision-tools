@@ -43,7 +43,7 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            #  self.train_one_epoch()
+            self.train_one_epoch()
             self.eval_one_epoch()
 
     def train_one_epoch(self) -> None:
