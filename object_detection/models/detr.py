@@ -119,12 +119,7 @@ class MLP(nn.Module):
 
 
 class DETR(nn.Module):
-    def __init__(
-        self,
-        num_classes: int,
-        num_queries: int,
-        hidden_dim: int,
-    ) -> None:
+    def __init__(self, num_classes: int, num_queries: int, hidden_dim: int,) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.num_queries = num_queries

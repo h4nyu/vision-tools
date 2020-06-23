@@ -26,7 +26,6 @@ from torch.utils.data import DataLoader
 from object_detection.model_loader import ModelLoader
 
 from pathlib import Path
-import albumentations as albm
 
 logger = getLogger(__name__)
 

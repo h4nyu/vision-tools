@@ -12,7 +12,12 @@ Losses = TypedDict("Losses", {"box": Tensor, "label": Tensor,})
 
 
 class SetCriterion(nn.Module):
-    def __init__(self, num_classes: int, eos_coef: float=1.0, matcher:HungarianMatcher=HungarianMatcher()) -> None:
+    def __init__(
+        self,
+        num_classes: int,
+        eos_coef: float = 1.0,
+        matcher: HungarianMatcher = HungarianMatcher(),
+    ) -> None:
         super().__init__()
         self.matcher = matcher
         self.num_classes = num_classes
@@ -31,7 +36,8 @@ class SetCriterion(nn.Module):
         loss_box = self.loss_boxes(outputs, targets, indices, num_boxes)
         #  print(f"{loss_giou=}")
         return (
-            loss_label + loss_box
+            loss_label
+            + loss_box
             #  + loss_cardinality
             #  + config.loss_giou * loss_giou
         )

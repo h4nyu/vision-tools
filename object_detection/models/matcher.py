@@ -13,10 +13,7 @@ MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
 
 class HungarianMatcher(nn.Module):
     def __init__(
-        self,
-        cost_class: float=1.0,
-        cost_box: float=1.0,
-        cost_giou: float=1.0,
+        self, cost_class: float = 1.0, cost_box: float = 1.0, cost_giou: float = 1.0,
     ) -> None:
         """Creates the matcher
         Params:
