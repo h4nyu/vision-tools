@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="app",
+    name="object_detection",
     version="0.0.0",
     description="TODO",
     author="Xinyuan Yao",
