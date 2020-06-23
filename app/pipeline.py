@@ -1,10 +1,10 @@
+import torch
 from cytoolz.curried import groupby, valmap, pipe, unique, map, reduce
 from pathlib import Path
 import typing as t
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader, Subset, ConcatDataset
-from app.meters import BestWatcher
 from app.models.centernet import collate_fn, CenterNet, Visualize, Trainer
 from app.dataset.wheat import WheatDataset
 from app.model_loader import ModelLoader
@@ -33,11 +33,12 @@ def train(fold_idx: int) -> None:
         num_workers=config.num_workers,
     )
     out_dir = f"/kaggle/input/models/{fold_idx}"
-    model_loader = ModelLoader(out_dir=out_dir, model=CenterNet())
-    best_watcher = BestWatcher()
-    visualize = Visualize(out_dir, "test")
+    model = CenterNet()
+    model_loader = ModelLoader(out_dir=out_dir, model=model)
+    visualize = Visualize("./", "centernet", limit=10)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr,)
     trainer = Trainer(
-        train_loader, test_loader, model_loader, best_watcher, visualize, config.device
+        train_loader, test_loader, model_loader, optimizer, visualize, config.device
     )
     trainer.train(100)
 

@@ -4,7 +4,6 @@ import typing as t
 import math
 import torch.nn.functional as F
 from typing import List, Tuple
-from app import config
 from torch import nn, Tensor
 from logging import getLogger
 from app.entities.box import (
@@ -291,20 +290,20 @@ class Trainer:
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
-        best_watcher: BestWatcher,
+        optimizer: t.Any,
         visualize: Visualize,
         device: str,
     ) -> None:
         self.device = torch.device(device)
         self.model_loader = model_loader
         self.model = model_loader.model.to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
+        self.optimizer = optimizer
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.criterion = Criterion()
         self.preprocess = PreProcess(self.device)
         self.post_process = PostProcess()
-        self.best_watcher = best_watcher
+        self.best_watcher = BestWatcher()
         self.visualize = visualize
         self.meters = {
             key: EMAMeter(key)
@@ -320,7 +319,7 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            #  self.train_one_epoch()
+            self.train_one_epoch()
             self.eval_one_epoch()
 
     def train_one_epoch(self) -> None:
@@ -334,7 +333,6 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
 
-            self.meters["train_loss"].update(loss.item())
             self.meters["train_loss"].update(loss.item())
             self.meters["train_hm"].update(hm_loss.item())
             self.meters["train_sm"].update(sm_loss.item())
@@ -355,5 +353,4 @@ class Trainer:
 
             if self.best_watcher.step(self.meters["test_loss"].get_value()):
                 self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
-
         self.visualize(outputs, preds, targets)
