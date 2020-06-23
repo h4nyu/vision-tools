@@ -264,6 +264,10 @@ class Visualize:
         src = src[: self.limit]
         tgt = tgt[: self.limit]
         for i, ((_, sb, sc), tb, hm) in enumerate(zip(src, tgt, heatmap)):
+            sb = YoloBoxes(sb.detach().cpu())
+            sc = Confidences(sc.detach().cpu())
+            tb = YoloBoxes(tb.detach().cpu())
+            hm = Heatmap(heatmap.detach().cpu())
             plot = DetectionPlot()
             plot.with_image(hm[0])
             plot.with_yolo_boxes(tb, color="blue")
