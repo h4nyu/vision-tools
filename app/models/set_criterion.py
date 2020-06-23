@@ -5,7 +5,6 @@ from torch import nn, Tensor
 
 from .matcher import HungarianMatcher, Outputs, Targets, MatchIndecies
 from .utils import box_cxcywh_to_xyxy, generalized_box_iou
-from app import config
 from typing_extensions import TypedDict
 
 
@@ -13,9 +12,9 @@ Losses = TypedDict("Losses", {"box": Tensor, "label": Tensor,})
 
 
 class SetCriterion(nn.Module):
-    def __init__(self, num_classes: int, eos_coef: float = config.eos_coef) -> None:
+    def __init__(self, num_classes: int, eos_coef: float=1.0, matcher:HungarianMatcher=HungarianMatcher()) -> None:
         super().__init__()
-        self.matcher = HungarianMatcher()
+        self.matcher = matcher
         self.num_classes = num_classes
         self.eos_coef = eos_coef
         weight = torch.ones(self.num_classes + 1)
@@ -32,8 +31,7 @@ class SetCriterion(nn.Module):
         loss_box = self.loss_boxes(outputs, targets, indices, num_boxes)
         #  print(f"{loss_giou=}")
         return (
-            loss_label * config.loss_label
-            + config.loss_box * loss_box
+            loss_label + loss_box
             #  + loss_cardinality
             #  + config.loss_giou * loss_giou
         )

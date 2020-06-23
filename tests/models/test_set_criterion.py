@@ -13,7 +13,9 @@ def test_loss_lables() -> None:
         ([0], [2], [0], 0.65),
         ([0], [0], [0], 1.2),
     ]
-    fn = SetCriterion(num_classes=1,)
+    fn = SetCriterion(
+        num_classes=1,
+    )
     for tgt, src_ids, tgt_ids, loss in patters:
         tgt_labels = [torch.tensor(tgt).long()]  # dynamic size for each batch
         indices: MatchIndecies = [(torch.tensor(src_ids), torch.tensor(tgt_ids))]

@@ -1,7 +1,6 @@
 from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
 from pathlib import Path
 from datetime import datetime
-from . import config
 
 logger = getLogger()
 logger.setLevel(INFO)

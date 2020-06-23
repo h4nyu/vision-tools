@@ -8,7 +8,6 @@ from .utils import NestedTensor
 from .transformer import Transformer
 from .matcher import Outputs
 from .position_embedding import PositionEmbeddingSine
-from app import config
 
 
 class Joiner(nn.Module):
@@ -122,9 +121,9 @@ class MLP(nn.Module):
 class DETR(nn.Module):
     def __init__(
         self,
-        num_classes: int = config.num_classes,
-        num_queries: int = config.num_queries,
-        hidden_dim: int = config.hidden_dim,
+        num_classes: int,
+        num_queries: int,
+        hidden_dim: int,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes

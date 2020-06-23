@@ -3,7 +3,6 @@ from torch import nn, Tensor
 import torch
 from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
-from app import config
 from typing_extensions import TypedDict
 
 Outputs = TypedDict("Outputs", {"pred_logits": Tensor, "pred_boxes": Tensor})
@@ -15,9 +14,9 @@ MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
 class HungarianMatcher(nn.Module):
     def __init__(
         self,
-        cost_class: float = config.cost_class,
-        cost_box: float = config.cost_box,
-        cost_giou: float = config.cost_giou,
+        cost_class: float=1.0,
+        cost_box: float=1.0,
+        cost_giou: float=1.0,
     ) -> None:
         """Creates the matcher
         Params:

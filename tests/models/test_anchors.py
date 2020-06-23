@@ -1,4 +1,3 @@
-from app import config
 from pathlib import Path
 import torch
 import matplotlib.pyplot as plt
@@ -37,7 +36,3 @@ def test_anchors() -> None:
                 linewidth=1,
             )
             ax.add_patch(rect)
-
-    plt.savefig(Path(config.plot_dir).joinpath(f"test-anchor.png"))
-    #  print(res.shape)
-    #  assert res.shape == (1, 9 * 4, 4)
