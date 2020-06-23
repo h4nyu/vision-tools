@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader, Subset, ConcatDataset
 from app.meters import BestWatcher
-from app.models.centernet import collate_fn, CenterNet
+from app.models.centernet import collate_fn, CenterNet, Visualize
 from app.dataset.wheat import WheatDataset
 from app.utils import ModelLoader
 from app import config
@@ -33,12 +33,12 @@ def train(fold_idx: int) -> None:
         collate_fn=collate_fn,
         num_workers=config.num_workers,
     )
-    model_loader = ModelLoader(
-        out_dir=f"/kaggle/input/models/{fold_idx}", model=CenterNet()
-    )
+    out_dir = f"/kaggle/input/models/{fold_idx}"
+    model_loader = ModelLoader(out_dir=out_dir, model=CenterNet())
     best_watcher = BestWatcher()
+    visualize = Visualize(out_dir, "test")
     trainer = Trainer(
-        train_loader, test_loader, model_loader, best_watcher, config.device
+        train_loader, test_loader, model_loader, best_watcher, visualize, config.device
     )
     trainer.train(100)
 

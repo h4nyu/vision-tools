@@ -26,6 +26,7 @@ class Trainer:
         test_loader: DataLoader,
         model_loader: ModelLoader,
         best_watcher: BestWatcher,
+        visualize: Visualize,
         device: str,
     ) -> None:
         self.device = torch.device(device)
@@ -38,8 +39,7 @@ class Trainer:
         self.preprocess = PreProcess(self.device)
         self.post_process = PostProcess()
         self.best_watcher = best_watcher
-        self.train_visalize = Visualize("train")
-        self.test_visalize = Visualize("test")
+        self.visualize = visualize
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
@@ -61,7 +61,6 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.eval()
         loader = self.test_loader
-        visualize = self.test_visalize
         for samples, targets, ids in loader:
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
@@ -69,4 +68,4 @@ class Trainer:
             if self.best_watcher.step(loss.item()):
                 self.model_loader.save()
             preds = self.post_process(outputs, ids, samples)
-            visualize(outputs, preds, samples)
+            self.visualize(outputs, preds, samples)

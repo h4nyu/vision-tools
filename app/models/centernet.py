@@ -249,7 +249,7 @@ class PostProcess:
 
 
 class Visualize:
-    def __init__(self, out_dir: str, prefix: str = "", limit: int = 1) -> None:
+    def __init__(self, out_dir: str, prefix: str, limit: int = 1) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
