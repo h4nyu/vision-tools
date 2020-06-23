@@ -5,11 +5,10 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader, Subset, ConcatDataset
 from app.meters import BestWatcher
-from app.models.centernet import collate_fn, CenterNet, Visualize
+from app.models.centernet import collate_fn, CenterNet, Visualize, Trainer
 from app.dataset.wheat import WheatDataset
-from app.utils import ModelLoader
+from app.model_loader import ModelLoader
 from app import config
-from app.train import Trainer
 from app.preprocess import kfold
 
 

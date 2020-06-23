@@ -20,8 +20,11 @@ from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .backbones import EfficientNetBackbone, ResNetBackbone
+from app.meters import BestWatcher
 from app.entities import ImageBatch, PredBoxes, Image, Batch
 from torchvision.ops import nms
+from torch.utils.data import DataLoader
+from app.model_loader import ModelLoader
 
 from pathlib import Path
 import albumentations as albm
@@ -233,7 +236,7 @@ class PreProcess:
 
 class PostProcess:
     def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.2, limit=300)
+        self.to_boxes = ToBoxes(thresold=0.0, limit=300)
 
     def __call__(
         self, x: NetOutput, image_ids: List[ImageId], images: ImageBatch
@@ -274,3 +277,57 @@ class Visualize:
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
+
+
+class Trainer:
+    def __init__(
+        self,
+        train_loader: DataLoader,
+        test_loader: DataLoader,
+        model_loader: ModelLoader,
+        best_watcher: BestWatcher,
+        visualize: Visualize,
+        device: str,
+    ) -> None:
+        self.device = torch.device(device)
+        self.model_loader = model_loader
+        self.model = model_loader.model.to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
+        self.train_loader = train_loader
+        self.test_loader = test_loader
+        self.criterion = Criterion()
+        self.preprocess = PreProcess(self.device)
+        self.post_process = PostProcess()
+        self.best_watcher = best_watcher
+        self.visualize = visualize
+
+    def train(self, num_epochs: int) -> None:
+        for epoch in range(num_epochs):
+            self.train_one_epoch()
+            self.eval_one_epoch()
+
+    def train_one_epoch(self) -> None:
+        self.model.train()
+        loader = self.train_loader
+        for samples, targets, ids in loader:
+            samples, cri_targets = self.preprocess((samples, targets))
+            outputs = self.model(samples)
+            loss = self.criterion(outputs, cri_targets)
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+    @torch.no_grad()
+    def eval_one_epoch(self) -> None:
+        self.model.eval()
+        loader = self.test_loader
+        for samples, targets, ids in loader:
+            samples, cri_targets = self.preprocess((samples, targets))
+            outputs = self.model(samples)
+            loss = self.criterion(outputs, cri_targets)
+            if self.best_watcher.step(loss.item()):
+                self.model_loader.save(
+                    {"loss": loss.item()}
+                )
+            preds = self.post_process(outputs, ids, samples)
+            self.visualize(outputs, preds, targets)

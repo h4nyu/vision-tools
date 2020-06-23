@@ -2,11 +2,12 @@ import torch
 import typing as t
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from torch import nn
-from pathlib import Path
 import json
 import random
 import numpy as np
+from typing import Dict
+from torch import nn
+from pathlib import Path
 from torch import Tensor
 from logging import getLogger
 from app.entities.box import CoCoBoxes, YoloBoxes, yolo_to_coco
@@ -85,26 +86,3 @@ class DetectionPlot:
                 linewidth=1,
             )
             self.ax.add_patch(rect)
-
-
-class ModelLoader:
-    def __init__(self, out_dir: str, model: nn.Module,) -> None:
-        self.out_dir = Path(out_dir)
-        self.checkpoint_file = self.out_dir / "checkpoint.json"
-        self.model = model
-
-        self.out_dir.mkdir(exist_ok=True, parents=True)
-        if self.checkpoint_file.exists():
-            self.load()
-
-    def load(self) -> None:
-        logger.info(f"load model from {self.out_dir}")
-        with open(self.checkpoint_file, "r") as f:
-            data = json.load(f)
-        self.model.load_state_dict(
-            torch.load(self.out_dir.joinpath(f"model.pth"))  # type: ignore
-        )
-
-    def save(self) -> None:
-        logger.info(f"save model to {self.out_dir}")
-        torch.save(self.model.state_dict(), self.out_dir / f"model.pth")  # type: ignore
