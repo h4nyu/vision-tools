@@ -68,4 +68,4 @@ class Trainer:
             if self.best_watcher.step(loss.item()):
                 self.model_loader.save()
             preds = self.post_process(outputs, ids, samples)
-            self.visualize(outputs, preds, samples)
+        self.visualize(outputs, preds, targets)

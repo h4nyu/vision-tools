@@ -59,8 +59,8 @@ class Reg(nn.Module):
         return x
 
 
-Heatmap = t.NewType("Heatmap", Tensor)
-Sizemap = t.NewType("Sizemap", Tensor)
+Heatmap = t.NewType("Heatmap", Tensor) # [B, 1, H, W]
+Sizemap = t.NewType("Sizemap", Tensor) # [B, 2, H, W]
 NetOutput = Tuple[Heatmap, Sizemap]
 
 
@@ -261,13 +261,14 @@ class Visualize:
         tgt: List[YoloBoxes],
     ) -> None:
         heatmap, _ = net_out
+        heatmap = Heatmap(heatmap[:self.limit])
         src = src[: self.limit]
         tgt = tgt[: self.limit]
         for i, ((_, sb, sc), tb, hm) in enumerate(zip(src, tgt, heatmap)):
             sb = YoloBoxes(sb.detach().cpu())
             sc = Confidences(sc.detach().cpu())
             tb = YoloBoxes(tb.detach().cpu())
-            hm = Heatmap(heatmap.detach().cpu())
+            hm = hm.detach().cpu()
             plot = DetectionPlot()
             plot.with_image(hm[0])
             plot.with_yolo_boxes(tb, color="blue")
