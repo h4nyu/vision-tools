@@ -4,6 +4,22 @@ from torch import Tensor
 import torch
 import torch.nn as nn
 
+from typing import Dict
+
+
+class WeightReduce:
+    def __init__(self, weights: Dict[str, float]) -> None:
+        self.weights = weights
+
+    def __call__(self, inputs: Dict[str, Tensor]) -> Tensor:
+        loss = torch.tensor(0.0)
+        for k, v in inputs.items():
+            if k in self.weights:
+                loss += self.weights[k] * v
+            else:
+                loss += v
+        return loss
+
 
 class BoxIoU(nn.Module):
     def forward(self, src: Tensor, tgt: Tensor) -> Tensor:

@@ -20,7 +20,7 @@ from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .backbones import EfficientNetBackbone, ResNetBackbone
-from app.meters import BestWatcher
+from app.meters import BestWatcher, EMAMeter
 from app.entities import ImageBatch, PredBoxes, Image, Batch
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
@@ -107,17 +107,26 @@ class FocalLoss(nn.Module):
 
 
 class Criterion:
-    def __init__(self,) -> None:
+    def __init__(
+        self, heatmap_weight: float = 1.0, sizemap_weight: float = 1.0,
+    ) -> None:
         super().__init__()
         self.focal_loss = FocalLoss()
         self.reg_loss = RegLoss()
+        self.sizemap_weight = sizemap_weight
+        self.heatmap_weight = heatmap_weight
 
-    def __call__(self, src: NetOutput, tgt: NetOutput) -> Tensor:
+    def __call__(self, src: NetOutput, tgt: NetOutput) -> Tuple[Tensor, Tensor, Tensor]:
         s_hm, s_sm = src
         t_hm, t_sm = tgt
         hm_loss = self.focal_loss(s_hm, t_hm)
-        size_loss = self.reg_loss(s_sm, t_sm) * 10
-        return hm_loss + size_loss
+        sm_loss = self.reg_loss(s_sm, t_sm)
+        loss = hm_loss * self.heatmap_weight + sm_loss + self.sizemap_weight
+        return (
+            loss,
+            hm_loss,
+            sm_loss,
+        )
 
 
 class RegLoss:
@@ -236,7 +245,7 @@ class PreProcess:
 
 class PostProcess:
     def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.0, limit=300)
+        self.to_boxes = ToBoxes(thresold=0.1, limit=300)
 
     def __call__(
         self, x: NetOutput, image_ids: List[ImageId], images: ImageBatch
@@ -244,9 +253,6 @@ class PostProcess:
         _, _, h, w = images.shape
         rows = []
         for image_id, (boxes, confidences) in zip(image_ids, self.to_boxes(x)):
-            idx = nms(yolo_to_pascal(boxes, (w, h)), confidences, iou_threshold=0.8)
-            boxes = pascal_to_yolo(PascalBoxes(boxes[idx]), (w, h))
-            confidences = Confidences(confidences[idx])
             rows.append((image_id, boxes, confidences))
         return rows
 
@@ -300,10 +306,21 @@ class Trainer:
         self.post_process = PostProcess()
         self.best_watcher = best_watcher
         self.visualize = visualize
+        self.meters = {
+            key: EMAMeter(key)
+            for key in [
+                "test_loss",
+                "test_hm",
+                "test_sm",
+                "train_loss",
+                "train_sm",
+                "train_hm",
+            ]
+        }
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            self.train_one_epoch()
+            #  self.train_one_epoch()
             self.eval_one_epoch()
 
     def train_one_epoch(self) -> None:
@@ -312,10 +329,15 @@ class Trainer:
         for samples, targets, ids in loader:
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss = self.criterion(outputs, cri_targets)
+            loss, hm_loss, sm_loss = self.criterion(outputs, cri_targets)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+
+            self.meters["train_loss"].update(loss.item())
+            self.meters["train_loss"].update(loss.item())
+            self.meters["train_hm"].update(hm_loss.item())
+            self.meters["train_sm"].update(sm_loss.item())
 
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
@@ -324,10 +346,14 @@ class Trainer:
         for samples, targets, ids in loader:
             samples, cri_targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss = self.criterion(outputs, cri_targets)
-            if self.best_watcher.step(loss.item()):
-                self.model_loader.save(
-                    {"loss": loss.item()}
-                )
+            loss, hm_loss, sm_loss = self.criterion(outputs, cri_targets)
             preds = self.post_process(outputs, ids, samples)
-            self.visualize(outputs, preds, targets)
+
+            self.meters["test_loss"].update(loss.item())
+            self.meters["test_hm"].update(hm_loss.item())
+            self.meters["test_sm"].update(sm_loss.item())
+
+            if self.best_watcher.step(self.meters["test_loss"].get_value()):
+                self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
+
+        self.visualize(outputs, preds, targets)

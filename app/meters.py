@@ -7,7 +7,7 @@ from typing_extensions import Literal
 
 class EMAMeter:
     def __init__(
-        self, name: str = "", alpha: float = 0.99, log_period: int = 50
+        self, name: str = "", alpha: float = 0.99, log_period: int = 10
     ) -> None:
         self.alpha = alpha
         self.ema = np.nan
