@@ -11,8 +11,4 @@ services:
     shm_size: '30gb'
     volumes:
       - .:/srv
-      - ./store:/kaggle
     runtime: nvidia
-    environment:
-      - KAGGLE_USERNAME
-      - KAGGLE_KEY
