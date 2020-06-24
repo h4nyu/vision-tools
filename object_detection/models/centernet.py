@@ -66,9 +66,9 @@ NetOutput = Tuple[Heatmap, Sizemap]
 
 
 class CenterNet(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, channels:int=32) -> None:
         super().__init__()
-        channels = 32
+        self.channels = channels
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels))
         self.heatmap = Reg(in_channels=channels, out_channels=1, depth=2)
