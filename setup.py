@@ -17,5 +17,4 @@ setup(
         "typing_extensions",
     ],
     extras_require={"dev": ["mypy", "pytest", "black",]},
-    entry_points={"console_scripts": ["app=app.cmd:main"],},
 )
