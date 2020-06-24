@@ -24,12 +24,16 @@ def init_seed(seed: int) -> None:
 
 class DetectionPlot:
     def __init__(
-        self, figsize: t.Tuple[int, int] = (4, 4), use_alpha: bool = True
+        self,
+        figsize: t.Tuple[int, int] = (4, 4),
+        use_alpha: bool = True,
+        show_probs: bool = False,
     ) -> None:
         self.w, self.h = (128, 128)
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self.ax.imshow(torch.ones(self.w, self.h, 3), interpolation="nearest")
         self.use_alpha = use_alpha
+        self.show_probs = show_probs
 
     def __del__(self) -> None:
         plt.close(self.fig)
@@ -79,7 +83,8 @@ class DetectionPlot:
         for box, p in zip(_boxes, _probs):
             x0 = box[0]
             y0 = box[1]
-            self.ax.text(x0, y0, f"{p:.2f}", fontsize=fontsize, color=color)
+            if self.show_probs:
+                self.ax.text(x0, y0, f"{p:.2f}", fontsize=fontsize, color=color)
             rect = mpatches.Rectangle(
                 (x0, y0),
                 width=box[2],
