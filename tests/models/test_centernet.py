@@ -1,10 +1,38 @@
 import typing as t
 import numpy as np
 import torch
-from object_detection.models.centernet import CenterNet, SoftHeatMap, ToBoxes, FocalLoss
-from object_detection.entities import YoloBoxes, Image
+from typing import Any
+from object_detection.models.centernet import (
+    CenterNet,
+    SoftHeatMap,
+    ToBoxes,
+    FocalLoss,
+    Trainer,
+    Visualize,
+    collate_fn,
+)
+from object_detection.entities import YoloBoxes, Image, ImageSize
 from object_detection.entities.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
+from object_detection.dataset import DummyDataset
+from torch.utils.data import DataLoader
+
+
+def test_trainer(mocker: Any) -> None:
+    dataset = DummyDataset((128, 128))
+    model = CenterNet()
+    model_loader = mocker.Mock()
+    model_loader.model = model
+    optimizer = torch.optim.Adam(model.parameters())
+    trainer = Trainer(
+        DataLoader(dataset, collate_fn=collate_fn, batch_size=2),
+        DataLoader(dataset, collate_fn=collate_fn, batch_size=2),
+        model_loader,
+        optimizer,
+        Visualize("/store", "test"),
+        "cpu",
+    )
+    trainer.train(2)
 
 
 def test_focal_loss() -> None:
@@ -16,7 +44,7 @@ def test_focal_loss() -> None:
     res = fn(preds, heatmaps)
 
 
-def test_centernet() -> None:
+def test_centernet_foward() -> None:
     inputs = torch.rand((1, 3, 1024, 1024))
     fn = CenterNet()
     heatmap, sizemap = fn(inputs)

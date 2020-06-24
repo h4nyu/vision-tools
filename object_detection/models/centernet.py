@@ -51,7 +51,7 @@ class Reg(nn.Module):
         )
 
         self.out = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0), nn.Sigmoid()
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
         )
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
@@ -65,14 +65,37 @@ Sizemap = t.NewType("Sizemap", Tensor)  # [B, 2, H, W]
 NetOutput = Tuple[Heatmap, Sizemap]
 
 
+class Up2d(nn.Module):
+    up: t.Union[nn.Upsample, nn.ConvTranspose2d]
+
+    def __init__(self, channels: int, bilinear: bool = False,) -> None:
+        super().__init__()
+        if bilinear:
+            self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        else:
+            self.up = nn.ConvTranspose2d(channels, channels, kernel_size=2, stride=2)
+
+    def forward(self, x):  # type: ignore
+        x = self.up(x)
+        return x
+
+
 class CenterNet(nn.Module):
-    def __init__(self, channels:int=32) -> None:
+    def __init__(self, channels: int = 32) -> None:
         super().__init__()
         self.channels = channels
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels))
-        self.heatmap = Reg(in_channels=channels, out_channels=1, depth=2)
-        self.box_size = Reg(in_channels=channels, out_channels=2, depth=2)
+        self.heatmap = nn.Sequential(
+            Up2d(channels=channels),
+            Reg(in_channels=channels, out_channels=1, depth=1),
+            nn.Sigmoid(),
+        )
+        self.box_size = nn.Sequential(
+            Up2d(channels=channels),
+            Reg(in_channels=channels, out_channels=2, depth=1),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
@@ -232,7 +255,7 @@ class PreProcess:
         sms: t.List[t.Any] = []
         _, _, h, w = image_batch.shape
         for img, boxes in zip(image_batch.unbind(0), boxes_batch):
-            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w // 2, h // 2))
+            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w, h))
             hms.append(hm)
             sms.append(sm)
 
