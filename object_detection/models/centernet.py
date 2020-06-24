@@ -256,10 +256,13 @@ class PostProcess:
 
 
 class Visualize:
-    def __init__(self, out_dir: str, prefix: str, limit: int = 1) -> None:
+    def __init__(
+        self, out_dir: str, prefix: str, limit: int = 1, use_alpha: bool = True
+    ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
+        self.use_alpha = use_alpha
 
     def __call__(
         self,
@@ -276,7 +279,7 @@ class Visualize:
             sc = Confidences(sc.detach().cpu())
             tb = YoloBoxes(tb.detach().cpu())
             hm = hm.detach().cpu()
-            plot = DetectionPlot()
+            plot = DetectionPlot(use_alpha=self.use_alpha)
             plot.with_image(hm[0])
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")

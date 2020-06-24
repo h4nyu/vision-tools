@@ -43,4 +43,4 @@ def test_softheatmap() -> None:
     plot.with_image(hm[0, 0])
     plot.with_yolo_boxes(in_boxes, color="blue")
     plot.with_yolo_boxes(out_boxes)
-    plot.save(f"/store/plot/test-soft-heatmap.png")
+    plot.save(f"/store/test-soft-heatmap.png")

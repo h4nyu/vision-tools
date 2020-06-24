@@ -11,4 +11,5 @@ services:
     shm_size: '30gb'
     volumes:
       - .:/srv
+      - ./store:/store
     runtime: nvidia

@@ -23,10 +23,13 @@ def init_seed(seed: int) -> None:
 
 
 class DetectionPlot:
-    def __init__(self, figsize: t.Tuple[int, int] = (4, 4)) -> None:
+    def __init__(
+        self, figsize: t.Tuple[int, int] = (4, 4), use_alpha: bool = True
+    ) -> None:
         self.w, self.h = (128, 128)
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self.ax.imshow(torch.ones(self.w, self.h, 3), interpolation="nearest")
+        self.use_alpha = use_alpha
 
     def __del__(self) -> None:
         plt.close(self.fig)
@@ -84,5 +87,6 @@ class DetectionPlot:
                 fill=False,
                 edgecolor=color,
                 linewidth=1,
+                alpha=float(p) if self.use_alpha else None,
             )
             self.ax.add_patch(rect)
