@@ -55,7 +55,7 @@ class DetectionPlot:
                     .squeeze(0)
                     .squeeze(0)
                 )
-            self.ax.imshow(image, interpolation="nearest", alpha=alpha)
+            self.ax.imshow(image.detach().cpu(), interpolation="nearest", alpha=alpha)
         elif len(image.shape) == 3:
             _, h, w, = image.shape
             if (h != self.h) and (w != self.w):
@@ -63,7 +63,7 @@ class DetectionPlot:
                     image.unsqueeze(0), size=(self.h, self.w)
                 ).squeeze(0)
             image = image.permute(1, 2, 0)
-            self.ax.imshow(image, interpolation="nearest", alpha=alpha)
+            self.ax.imshow(image.detach().cpu(), interpolation="nearest", alpha=alpha)
         else:
             shape = image.shape
             raise ValueError(f"invald shape={shape}")

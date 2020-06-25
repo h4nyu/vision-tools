@@ -299,11 +299,6 @@ class Visualize:
         for i, ((_, sb, sc), tb, hm, img) in enumerate(
             zip(src, tgt, heatmap, image_batch)
         ):
-            sb = YoloBoxes(sb.detach().cpu())
-            sc = Confidences(sc.detach().cpu())
-            tb = YoloBoxes(tb.detach().cpu())
-            hm = hm.detach().cpu()
-            img = img.detach().cpu()
             plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
             plot.with_image(img, alpha=0.5)
             plot.with_image(hm[0], alpha=0.5)
