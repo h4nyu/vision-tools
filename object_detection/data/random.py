@@ -27,4 +27,3 @@ class RandomDataset(Dataset):
 
     def __len__(self) -> int:
         return self.num_samples
-

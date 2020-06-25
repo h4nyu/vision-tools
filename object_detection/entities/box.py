@@ -5,11 +5,13 @@ from .image import ImageSize
 
 CoCoBoxes = t.NewType(
     "CoCoBoxes", Tensor
-)  # [B, Pos] Pos:[x0, y0, width, height] original
+)  # [B, Pos] Pos:[x0, y0, width, height] original torch.int32
 YoloBoxes = t.NewType(
     "YoloBoxes", Tensor
 )  # [B, Pos] Pos:[cx, cy, width, height] normalized
-PascalBoxes = t.NewType("PascalBoxes", Tensor)  # [B, Pos] Pos:[x0, y0, x1, y1] original
+PascalBoxes = t.NewType(
+    "PascalBoxes", Tensor
+)  # [B, Pos] Pos:[x0, y0, x1, y1] original torch.int32
 
 Labels = t.NewType("Labels", Tensor)
 Confidences = t.NewType("Confidences", Tensor)
@@ -55,7 +57,7 @@ def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:
 
 
 def pascal_to_yolo(pascal: PascalBoxes, size: ImageSize) -> YoloBoxes:
-    x0, y0, x1, y1 = pascal.unbind(-1)
+    x0, y0, x1, y1 = pascal.float().unbind(-1)
     size_w, size_h = size
     b = [
         (x0 + x1) / 2 / size_w,

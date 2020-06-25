@@ -1,7 +1,10 @@
 import typing as t
-from torch import Tensor
+from typing import NewType, Tuple
+from torch import Tensor, ByteTensor, FloatTensor
 
-ImageId = t.NewType("ImageId", str)
-Image = t.NewType("Image", Tensor)  # [C, H, W]
-ImageBatch = t.NewType("ImageBatch", Tensor)  # [B, C, H, W]
-ImageSize = t.Tuple[int, int]
+ImageId = NewType("ImageId", str)
+Image = NewType("Image", Tensor)  # [C, H, W] dtype
+
+ImageBatch = NewType("ImageBatch", Tensor)  # [B, C, H, W]
+ImageSize = Tuple[int, int]
+RGB = Tuple[int, int, int]

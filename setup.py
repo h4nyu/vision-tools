@@ -14,6 +14,8 @@ setup(
         "torch",
         "torchvision",
         "efficientnet_pytorch",
+        "scipy",
+        "opencv-python",
         "typing_extensions",
     ],
     extras_require={"dev": ["mypy", "pytest", "black",]},
