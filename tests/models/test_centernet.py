@@ -14,23 +14,26 @@ from object_detection.models.centernet import (
 from object_detection.entities import YoloBoxes, Image, ImageSize
 from object_detection.entities.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
-from object_detection.data.random import RandomDataset
+from object_detection.data.object import ObjectDataset
 from torch.utils.data import DataLoader
 
 
 def test_trainer(mocker: Any) -> None:
-    dataset = RandomDataset((128, 128))
+    train_dataset = ObjectDataset(
+        (256, 128), object_size_range=(32, 64), num_samples=128
+    )
+    test_dataset = ObjectDataset((256, 128), object_size_range=(32, 64), num_samples=8)
     model = CenterNet()
     model_loader = mocker.Mock()
     model_loader.model = model
     optimizer = torch.optim.Adam(model.parameters())
     trainer = Trainer(
-        DataLoader(dataset, collate_fn=collate_fn, batch_size=2),
-        DataLoader(dataset, collate_fn=collate_fn, batch_size=2),
+        DataLoader(train_dataset, collate_fn=collate_fn, batch_size=8),
+        DataLoader(test_dataset, collate_fn=collate_fn, batch_size=8),
         model_loader,
         optimizer,
         Visualize("/store", "test"),
-        "cpu",
+        "cuda",
     )
     trainer.train(2)
 

@@ -18,5 +18,5 @@ setup(
         "opencv-python",
         "typing_extensions",
     ],
-    extras_require={"dev": ["mypy", "pytest", "black",]},
+    extras_require={"dev": ["mypy", "pytest", "black", "pytest-mock"]},
 )

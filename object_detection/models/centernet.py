@@ -87,14 +87,10 @@ class CenterNet(nn.Module):
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels))
         self.heatmap = nn.Sequential(
-            Up2d(channels=channels),
-            Reg(in_channels=channels, out_channels=1, depth=1),
-            nn.Sigmoid(),
+            Reg(in_channels=channels, out_channels=1, depth=1), nn.Sigmoid(),
         )
         self.box_size = nn.Sequential(
-            Up2d(channels=channels),
-            Reg(in_channels=channels, out_channels=2, depth=1),
-            nn.Sigmoid(),
+            Reg(in_channels=channels, out_channels=2, depth=1), nn.Sigmoid(),
         )
 
     def forward(self, x: ImageBatch) -> NetOutput:
@@ -255,7 +251,7 @@ class PreProcess:
         sms: t.List[t.Any] = []
         _, _, h, w = image_batch.shape
         for img, boxes in zip(image_batch.unbind(0), boxes_batch):
-            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w, h))
+            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w // 2, h // 2))
             hms.append(hm)
             sms.append(sm)
 
@@ -292,18 +288,25 @@ class Visualize:
         net_out: NetOutput,
         src: List[Tuple[ImageId, YoloBoxes, Confidences]],
         tgt: List[YoloBoxes],
+        image_batch: ImageBatch,
     ) -> None:
         heatmap, _ = net_out
+        image_batch = ImageBatch(image_batch[: self.limit])
         heatmap = Heatmap(heatmap[: self.limit])
         src = src[: self.limit]
         tgt = tgt[: self.limit]
-        for i, ((_, sb, sc), tb, hm) in enumerate(zip(src, tgt, heatmap)):
+        _, _, h, w = image_batch.shape
+        for i, ((_, sb, sc), tb, hm, img) in enumerate(
+            zip(src, tgt, heatmap, image_batch)
+        ):
             sb = YoloBoxes(sb.detach().cpu())
             sc = Confidences(sc.detach().cpu())
             tb = YoloBoxes(tb.detach().cpu())
             hm = hm.detach().cpu()
-            plot = DetectionPlot(use_alpha=self.use_alpha)
-            plot.with_image(hm[0])
+            img = img.detach().cpu()
+            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
+            plot.with_image(img, alpha=0.5)
+            plot.with_image(hm[0], alpha=0.5)
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
@@ -378,4 +381,4 @@ class Trainer:
 
             if self.best_watcher.step(self.meters["test_loss"].get_value()):
                 self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
-        self.visualize(outputs, preds, targets)
+        self.visualize(outputs, preds, targets, samples)

@@ -5,7 +5,8 @@ import matplotlib.patches as mpatches
 import json
 import random
 import numpy as np
-from typing import Dict
+import torch.nn.functional as F
+from typing import Dict, Optional
 from torch import nn
 from pathlib import Path
 from torch import Tensor
@@ -25,11 +26,13 @@ def init_seed(seed: int) -> None:
 class DetectionPlot:
     def __init__(
         self,
+        w: int = 128,
+        h: int = 128,
         figsize: t.Tuple[int, int] = (4, 4),
         use_alpha: bool = True,
         show_probs: bool = False,
     ) -> None:
-        self.w, self.h = (128, 128)
+        self.w, self.h = (w, h)
         self.fig, self.ax = plt.subplots(figsize=figsize)
         self.ax.imshow(torch.ones(self.w, self.h, 3), interpolation="nearest")
         self.use_alpha = use_alpha
@@ -41,14 +44,26 @@ class DetectionPlot:
     def save(self, path: t.Union[str, Path]) -> None:
         self.fig.savefig(path)
 
-    def with_image(self, image: Tensor) -> None:
+    def with_image(self, image: Tensor, alpha: Optional[float] = None) -> None:
         if len(image.shape) == 2:
-            self.ax.imshow(image, interpolation="nearest")
-            self.h, self.w = image.shape
+            h, w = image.shape
+            if (h != self.h) and (w != self.w):
+                image = (
+                    F.interpolate(
+                        image.unsqueeze(0).unsqueeze(0), size=(self.h, self.w)
+                    )
+                    .squeeze(0)
+                    .squeeze(0)
+                )
+            self.ax.imshow(image, interpolation="nearest", alpha=alpha)
         elif len(image.shape) == 3:
-            _, self.h, self.w, = image.shape
+            _, h, w, = image.shape
+            if (h != self.h) and (w != self.w):
+                image = F.interpolate(
+                    image.unsqueeze(0), size=(self.h, self.w)
+                ).squeeze(0)
             image = image.permute(1, 2, 0)
-            self.ax.imshow(image, interpolation="nearest")
+            self.ax.imshow(image, interpolation="nearest", alpha=alpha)
         else:
             shape = image.shape
             raise ValueError(f"invald shape={shape}")
