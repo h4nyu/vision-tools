@@ -136,9 +136,9 @@ class Criterion:
     def __call__(self, src: NetOutput, tgt: NetOutput) -> Tuple[Tensor, Tensor, Tensor]:
         s_hm, s_sm = src
         t_hm, t_sm = tgt
-        hm_loss = self.focal_loss(s_hm, t_hm)
-        sm_loss = self.reg_loss(s_sm, t_sm)
-        loss = hm_loss * self.heatmap_weight + sm_loss + self.sizemap_weight
+        hm_loss = self.focal_loss(s_hm, t_hm) * self.heatmap_weight
+        sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
+        loss = hm_loss + sm_loss
         return (
             loss,
             hm_loss,
@@ -315,7 +315,8 @@ class Trainer:
         model_loader: ModelLoader,
         optimizer: t.Any,
         visualize: Visualize,
-        device: str,
+        device: str = "cpu",
+        criterion: Criterion = Criterion(),
     ) -> None:
         self.device = torch.device(device)
         self.model_loader = model_loader
@@ -323,7 +324,7 @@ class Trainer:
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.test_loader = test_loader
-        self.criterion = Criterion()
+        self.criterion = criterion
         self.preprocess = PreProcess(self.device)
         self.post_process = PostProcess()
         self.best_watcher = BestWatcher()
