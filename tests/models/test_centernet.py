@@ -14,12 +14,12 @@ from object_detection.models.centernet import (
 from object_detection.entities import YoloBoxes, Image, ImageSize
 from object_detection.entities.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
-from object_detection.dataset import DummyDataset
+from object_detection.data.random import RandomDataset
 from torch.utils.data import DataLoader
 
 
 def test_trainer(mocker: Any) -> None:
-    dataset = DummyDataset((128, 128))
+    dataset = RandomDataset((128, 128))
     model = CenterNet()
     model_loader = mocker.Mock()
     model_loader.model = model

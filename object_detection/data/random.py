@@ -11,7 +11,7 @@ from object_detection.entities import (
 import random
 
 
-class DummyDataset(Dataset):
+class RandomDataset(Dataset):
     def __init__(self, image_size: ImageSize, num_samples: int = 8) -> None:
         self.image_size = image_size
         self.num_samples = num_samples
@@ -27,3 +27,4 @@ class DummyDataset(Dataset):
 
     def __len__(self) -> int:
         return self.num_samples
+
