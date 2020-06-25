@@ -374,6 +374,6 @@ class Trainer:
             self.meters["test_hm"].update(hm_loss.item())
             self.meters["test_sm"].update(sm_loss.item())
 
-            if self.best_watcher.step(self.meters["test_loss"].get_value()):
-                self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
+        if self.best_watcher.step(self.meters["test_loss"].get_value()):
+            self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
         self.visualize(outputs, preds, targets, samples)
