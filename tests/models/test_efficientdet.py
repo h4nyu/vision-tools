@@ -1,4 +1,5 @@
 import torch
+from object_detection.entities.image import ImageBatch
 from object_detection.models.efficientdet import (
     ClipBoxes,
     BBoxTransform,
@@ -6,6 +7,7 @@ from object_detection.models.efficientdet import (
     ClassificationModel,
     EfficientDet,
 )
+from object_detection.models.backbones import EfficientNetBackbone
 
 
 def test_clip_boxes() -> None:
@@ -42,8 +44,10 @@ def test_classification_model() -> None:
 
 
 def test_effdet() -> None:
-    images = torch.ones((1, 100, 1024, 1024))
+    images = ImageBatch(torch.ones((1, 3, 512, 512)))
     annotations = torch.ones((1, 10, 5))
-    fn = EfficientDet(num_classes=2)
-    res = fn(images, annotations)
+    channels = 32
+    backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
+    fn = EfficientDet(num_classes=2, backbone=backbone, channels=32,)
     res = fn(images)
+    print(res)
