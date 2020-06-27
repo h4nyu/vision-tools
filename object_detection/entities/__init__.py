@@ -4,6 +4,6 @@ from .image import Image, ImageBatch, ImageId, ImageSize
 from typing_extensions import Literal
 
 
-Sample = Tuple[ImageId, Image, YoloBoxes]
+Sample = Tuple[ImageId, Image, YoloBoxes, Labels]
 Batch = List[Sample]
 PyramidIdx = Literal[3, 4, 5, 6, 7]

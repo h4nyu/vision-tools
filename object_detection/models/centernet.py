@@ -36,7 +36,7 @@ def collate_fn(batch: Batch) -> Tuple[ImageBatch, List[YoloBoxes], List[ImageId]
     id_batch: List[ImageId] = []
     box_batch: List[YoloBoxes] = []
 
-    for id, img, boxes in batch:
+    for id, img, boxes, _ in batch:
         images.append(img)
         box_batch.append(boxes)
         id_batch.append(id)

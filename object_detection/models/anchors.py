@@ -9,13 +9,13 @@ from object_detection.entities import PyramidIdx
 class Anchors:
     def __init__(
         self,
-        pyramid_idx: PyramidIdx = 3,
+        size: int,
+        stride: int = 1,
         ratios: t.List[float] = [0.5, 1, 2],
         scales: t.List[float] = [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)],
     ) -> None:
-        self.pyramid_idx = pyramid_idx
-        self.stride = 2 ** self.pyramid_idx
-        self.size = 2 ** (self.pyramid_idx + 2)
+        self.size = size
+        self.stride = stride
         self.ratios = ratios
         self.scales = scales
 
@@ -26,14 +26,10 @@ class Anchors:
         """
         _, _, h, w = image.shape
         image_shape = np.array((h, w))
-        feature_shape = (image_shape + 2 ** self.pyramid_idx - 1) // (
-            2 ** self.pyramid_idx
-        )
-
         anchors = generate_anchors(
             base_size=self.size, ratios=self.ratios, scales=self.scales
         )
-        all_anchors = shift(feature_shape, self.stride, anchors).astype(np.float32)
+        all_anchors = shift(image_shape, self.stride, anchors).astype(np.float32)
         return pascal_to_yolo(
             PascalBoxes(torch.from_numpy(all_anchors).to(image.device)), (w, h)
         )

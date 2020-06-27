@@ -12,6 +12,7 @@ from object_detection.entities import (
     ImageSize,
     YoloBoxes,
     ImageId,
+    Labels,
 )
 import random
 
@@ -75,10 +76,12 @@ class ObjectDataset(Dataset):
         for s in sizes:
             poly.add(s)
         image, boxes = poly()
+        labels = torch.zeros((len(boxes),), dtype=torch.int32)
         return (
             ImageId(""),
             Image(image),
             YoloBoxes(boxes.float()),
+            Labels(labels),
         )
 
     def __len__(self) -> int:

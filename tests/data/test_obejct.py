@@ -19,7 +19,7 @@ def test_objectdataset() -> None:
         image_size=(300, 400), object_count_range=(1, 10), object_size_range=(64, 128),
     )
     for i in range(10):
-        _, img, boxes = dataset[0]
+        _, img, boxes, _ = dataset[0]
         plot = DetectionPlot()
         plot.with_image(img)
         plot.with_yolo_boxes(boxes, color="red")

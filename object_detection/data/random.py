@@ -7,6 +7,7 @@ from object_detection.entities import (
     ImageSize,
     YoloBoxes,
     ImageId,
+    Labels,
 )
 import random
 
@@ -19,11 +20,8 @@ class RandomDataset(Dataset):
     def __getitem__(self, idx: int) -> Sample:
         image = torch.rand((3, *self.image_size), dtype=torch.float32)
         boxes = torch.rand((random.randint(1, 9), 4), dtype=torch.float32).clamp(0, 1.0)
-        return (
-            ImageId(""),
-            Image(image),
-            YoloBoxes(boxes.float()),
-        )
+        labels = torch.zeros((len(boxes),))
+        return (ImageId(""), Image(image), YoloBoxes(boxes.float()), Labels(labels))
 
     def __len__(self) -> int:
         return self.num_samples

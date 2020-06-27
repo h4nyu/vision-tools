@@ -5,7 +5,6 @@ from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import YoloBoxes, Labels
 from object_detection.models.efficientdet import (
     ClipBoxes,
-    BBoxTransform,
     RegressionModel,
     ClassificationModel,
     EfficientDet,
@@ -28,19 +27,11 @@ def test_clip_boxes() -> None:
     ).sum() == 0  # TODO ??? [10, 0, 10, 0]
 
 
-def test_bbox_transform() -> None:
-    boxes = torch.tensor([[[2, 2, 20, 6], [4, 2, 8, 6],]])
-
-    deltas = torch.tensor([[[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1],]])
-    fn = BBoxTransform()
-    res = fn(boxes, deltas)
-
-
 def test_regression_model() -> None:
-    h, w = 10, 10
+    c, h, w = 4, 10, 10
     num_anchors = 9
-    images = torch.ones((1, 1, h, w))
-    fn = RegressionModel(in_channels=1, num_anchors=num_anchors)
+    images = torch.ones((1, c, h, w))
+    fn = RegressionModel(in_channels=c, num_anchors=num_anchors)
     res = fn(images)
     assert res.shape == (1, h * w * num_anchors, 4)
 
@@ -109,5 +100,6 @@ def test_effdet() -> None:
     channels = 32
     backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
     fn = EfficientDet(num_classes=2, backbone=backbone, channels=32,)
-    res = fn(images)
-    print(res)
+    anchors, boxes, labels = fn(images)
+    assert anchors.shape == boxes.shape[1:]
+    assert labels.shape[:2] == boxes.shape[:2]
