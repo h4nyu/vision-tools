@@ -161,10 +161,8 @@ class RegLoss:
     def __call__(self, output: Sizemap, target: Sizemap,) -> Tensor:
         mask = (target > 0).view(target.shape)
         num = mask.sum()
-        if num == 0:
-            return torch.tensor(0)
         regr_loss = F.l1_loss(output, target, reduction="none") * mask
-        regr_loss = regr_loss.sum()
+        regr_loss = regr_loss.sum() / num.clamp(min=1.0)
         return regr_loss
 
 

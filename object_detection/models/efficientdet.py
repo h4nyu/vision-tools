@@ -14,6 +14,7 @@ from itertools import product as product
 from .backbones import EfficientNetBackbone
 from logging import getLogger
 from .bifpn import BiFPN, FP
+from .losses import FocalLoss
 
 #  from .losses import FocalLoss
 
@@ -244,10 +245,20 @@ class Criterion:
                 continue
             iou_matrix = box_iou(anchors, gt_boxes)
             iou_max, match_indices = torch.max(iou_matrix, dim=1)
-            positive_indices = torch.ge(iou_max, self.iou_threshold)
-
-            matched_gt_labels = gt_lables[match_indices]
-            gt_one_hot = F.one_hot(matched_gt_labels)
+            # debug
+            iou_max = torch.tensor([0.0, 0.45, 0.8,])
+            #
+            #  positive_indices = torch.ge(IoU_max, 0.5)
+            #
+            #  num_positive_anchors = positive_indices.sum()
+            #
+            #  assigned_annotations = bbox_annotation[IoU_argmax, :]
+            #
+            #  targets[positive_indices, :] = 0
+            #  targets[positive_indices,
+            #          assigned_annotations[positive_indices, 4].long()] = 1
+            #
+            #  alpha_factor = torch.ones(targets.shape).cuda() * alpha
             #  self.focal_loss(
             #      pred_classes,
             #      matched_gt_labels,
@@ -378,3 +389,29 @@ class Criterion:
         #      torch.stack(classification_losses).mean(dim=0, keepdim=True),
         #      torch.stack(regression_losses).mean(dim=0, keepdim=True),
         #  )
+
+
+class LabelLoss:
+    def __init__(self) -> None:
+        self.focal_loss = FocalLoss()
+
+    def __call__(
+        self,
+        iou_max: Tensor,
+        match_indices: Tensor,
+        pred_classes: Tensor,
+        gt_classes: Tensor,
+        alpha: float = 0.25,
+        iou_thresholds: Tuple[float, float] = (0.4, 0.5),
+    ) -> Tensor:
+        device = pred_classes.device
+        low, high = iou_thresholds
+        positive_indices = iou_max > high
+        ignore_indecices = (iou_max >= low) & (iou_max <= high)
+        negative_indices = iou_max < low
+        matched_gt_classes = gt_classes[match_indices]
+
+        targets = torch.zeros(pred_classes.shape).to(device)
+        targets[positive_indices, matched_gt_classes[positive_indices]] = 1
+        pred_classes[ignore_indecices] = 0
+        return self.focal_loss(pred_classes, targets)

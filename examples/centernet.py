@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
-from object_detection.models.centernet import ( collate_fn,
+from object_detection.models.centernet import (
+    collate_fn,
     CenterNet,
     Visualize,
     Trainer,

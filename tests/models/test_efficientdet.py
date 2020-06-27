@@ -1,4 +1,6 @@
 import torch
+import pytest
+from typing import Any
 from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import YoloBoxes, Labels
 from object_detection.models.efficientdet import (
@@ -8,6 +10,7 @@ from object_detection.models.efficientdet import (
     ClassificationModel,
     EfficientDet,
     Criterion,
+    LabelLoss,
 )
 from object_detection.models.anchors import Anchors
 from object_detection.models.backbones import EfficientNetBackbone
@@ -48,19 +51,38 @@ def test_classification_model() -> None:
     assert res.shape == (1, 900, 2)
 
 
-def test_criterion() -> None:
-    num_classes = 2
-    batch_size = 1
-    criterion = Criterion(iou_threshold=0.0)
-    images = torch.ones(batch_size, 3, 5, 5)
-    anchors = Anchors(pyramid_idx=3)(images)
-    num_anchors = anchors.shape[0]
-    cls_preds = torch.rand(batch_size, num_anchors, num_classes)
-    box_preds = YoloBoxes(torch.rand(batch_size, num_anchors, 4))
-    gt_boxes = [YoloBoxes(torch.rand(2, 4)) for _ in range(batch_size)]
+@pytest.mark.parametrize(
+    "preds,expected",
+    [
+        ([[0.0, 0.0], [0.0, 0.0], [1.0, 0.0],], 1e-4),
+        ([[0.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 1e-4),
+        ([[1.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 1e1),
+        ([[1.0, 1.0], [1.0, 1.0], [1.0, 0.0],], 2e1),
+    ],
+)
+def test_cls_loss(preds: Any, expected: float) -> None:
+    iou_max = torch.tensor([0.0, 0.4, 0.6,])
+    match_indices = torch.tensor([0, 1, 0,])
+    pred_classes = torch.tensor(preds)
+    gt_classes = torch.tensor([0, 1])
+    fn = LabelLoss()
+    res = fn(
+        iou_max=iou_max,
+        match_indices=match_indices,
+        pred_classes=pred_classes,
+        gt_classes=gt_classes,
+    )
+    assert res < expected
 
-    gt_lables = [Labels(torch.tensor([0, 1])) for _ in range(batch_size)]
-    criterion(cls_preds, box_preds, anchors, gt_boxes, gt_lables)
+    #  images = torch.ones(batch_size, 3, 5, 5)
+    #  anchors = Anchors(pyramid_idx=3, scales=[0.5, 1.0, 1.5], ratios=[1.0])(images)
+    #  num_anchors = anchors.shape[0]
+    #  cls_preds = torch.rand(batch_size, num_anchors, num_classes)
+    #  box_preds = YoloBoxes(torch.rand(batch_size, num_anchors, 4))
+    #  gt_boxes = [YoloBoxes(torch.rand(2, 4)) for _ in range(batch_size)]
+    #
+    #  gt_lables = [Labels(torch.tensor([0, 1])) for _ in range(batch_size)]
+    #  criterion(cls_preds, box_preds, anchors, gt_boxes, gt_lables)
 
 
 def test_effdet() -> None:
