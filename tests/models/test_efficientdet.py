@@ -52,7 +52,7 @@ def test_classification_model() -> None:
         ([[1.0, 1.0], [1.0, 1.0], [1.0, 0.0],], 2e1),
     ],
 )
-def test_cls_loss(preds: Any, expected: float) -> None:
+def test_label_loss(preds: Any, expected: float) -> None:
     iou_max = torch.tensor([0.0, 0.4, 0.6,])
     match_indices = torch.tensor([0, 1, 0,])
     pred_classes = torch.tensor(preds)

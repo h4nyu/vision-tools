@@ -6,7 +6,7 @@ from torch import Tensor
 import torch
 import torch.nn as nn
 
-from typing import Dict
+from typing import Dict, Tuple
 
 Reduction = Literal["none", "mean", "sum"]
 
@@ -37,6 +37,5 @@ class FocalLoss(nn.Module):
         neg_mask = gt.eq(0).float()
         pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
         neg_loss = -(pred ** alpha) * torch.log(1 - pred) * neg_mask
-        loss = (pos_loss + neg_loss).sum()
-        num_pos = pos_mask.sum().float()
-        return loss / num_pos
+        loss = (pos_loss + neg_loss)
+        return loss

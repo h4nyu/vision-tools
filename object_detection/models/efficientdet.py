@@ -245,7 +245,7 @@ class BoxLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.4, 0.5)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.3, 0.5)) -> None:
         """
         wrap focal_loss
         """
@@ -268,8 +268,8 @@ class LabelLoss:
 
         targets = torch.zeros(pred_classes.shape).to(device)
         targets[positive_indices, matched_gt_classes[positive_indices].long()] = 1
-        loss = self.focal_loss(pred_classes, targets)
-        #  pred_classes[ignore_indecices] = 0
+        loss = self.focal_loss(pred_classes, targets).sum(1) * ~ignore_indecices
+        loss = loss.sum() / positive_indices.sum()
         return loss
 
 
