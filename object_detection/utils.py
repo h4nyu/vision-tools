@@ -11,7 +11,13 @@ from torch import nn
 from pathlib import Path
 from torch import Tensor
 from logging import getLogger
-from .entities.box import CoCoBoxes, YoloBoxes, yolo_to_coco
+from .entities.box import (
+    CoCoBoxes,
+    YoloBoxes,
+    PascalBoxes,
+    yolo_to_coco,
+    pascal_to_coco,
+)
 
 logger = getLogger(__name__)
 
@@ -80,6 +86,17 @@ class DetectionPlot:
             probs=probs,
             color=color,
             fontsize=fontsize,
+        )
+
+    def with_pascal_boxes(
+        self,
+        boxes: PascalBoxes,
+        probs: t.Optional[Tensor] = None,
+        color: str = "black",
+        fontsize: int = 7,
+    ) -> None:
+        self.with_coco_boxes(
+            boxes=pascal_to_coco(boxes), probs=probs, color=color, fontsize=fontsize,
         )
 
     def with_coco_boxes(

@@ -2,48 +2,41 @@ import torch
 import numpy as np
 import typing as t
 from torch import nn, Tensor
+from object_detection.entities.box import YoloBoxes, PascalBoxes, pascal_to_yolo
+from object_detection.entities import PyramidIdx
 
 
-class Anchors(nn.Module):
+class Anchors:
     def __init__(
         self,
-        pyramid_levels: t.List[int] = [3, 4, 5, 6, 7],
+        pyramid_idx: PyramidIdx = 3,
         ratios: t.List[float] = [0.5, 1, 2],
         scales: t.List[float] = [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)],
     ) -> None:
-        super().__init__()
-        self.pyramid_levels = pyramid_levels
-        self.strides = [2 ** x for x in self.pyramid_levels]
-        self.sizes = [2 ** (x + 2) for x in self.pyramid_levels]
+        self.pyramid_idx = pyramid_idx
+        self.stride = 2 ** self.pyramid_idx
+        self.size = 2 ** (self.pyramid_idx + 2)
         self.ratios = ratios
         self.scales = scales
 
-    def forward(self, image: Tensor) -> Tensor:
+    def __call__(self, image: Tensor) -> YoloBoxes:
         """
-        image: [B, C, W, H]
+        image: [B, C, H, W]
         return: [B, num_anchors, 4]
         """
-        image_shape = image.shape[2:]
-        image_shape = np.array(image_shape)
-        feature_shapes = [
-            (image_shape + 2 ** x - 1) // (2 ** x) for x in self.pyramid_levels
-        ]
+        _, _, h, w = image.shape
+        image_shape = np.array((h, w))
+        feature_shape = (image_shape + 2 ** self.pyramid_idx - 1) // (
+            2 ** self.pyramid_idx
+        )
 
-        # compute anchors over all pyramid levels
-        all_anchors = np.zeros((0, 4)).astype(np.float32)
-
-        for feature_shape, size, stride in zip(
-            feature_shapes, self.sizes, self.strides,
-        ):
-            anchors = generate_anchors(
-                base_size=size, ratios=self.ratios, scales=self.scales
-            )
-            shifted_anchors = shift(feature_shape, stride, anchors)
-            all_anchors = np.append(all_anchors, shifted_anchors, axis=0)
-
-        all_anchors = np.expand_dims(all_anchors, axis=0)
-
-        return torch.from_numpy(all_anchors.astype(np.float32)).to(image.device)
+        anchors = generate_anchors(
+            base_size=self.size, ratios=self.ratios, scales=self.scales
+        )
+        all_anchors = shift(feature_shape, self.stride, anchors).astype(np.float32)
+        return pascal_to_yolo(
+            PascalBoxes(torch.from_numpy(all_anchors).to(image.device)), (w, h)
+        )
 
 
 def shift(shape: t.Any, stride: int, anchors: t.Any) -> t.Any:

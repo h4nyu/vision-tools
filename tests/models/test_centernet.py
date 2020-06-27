@@ -6,7 +6,7 @@ from object_detection.models.centernet import (
     CenterNet,
     SoftHeatMap,
     ToBoxes,
-    FocalLoss,
+    HMLoss,
     Trainer,
     Visualize,
     collate_fn,
@@ -38,13 +38,17 @@ def test_trainer(mocker: Any) -> None:
     trainer.train(2)
 
 
-def test_focal_loss() -> None:
+def test_hm_loss() -> None:
     heatmaps = torch.tensor([[0.0, 0.5, 0.0], [0.5, 1, 0.5], [0, 0.5, 0],])
-    fn = FocalLoss()
-    preds = torch.tensor(
-        [[0.0001, 0.5, 0.0001], [0.5, 0.999, 0.5], [0.001, 0.5, 0.0001],]
-    )
+    fn = HMLoss()
+    preds = torch.tensor([[0.0, 0.5, 0.0], [0.5, 1, 0.5], [0.0, 0.5, 0.0],])
     res = fn(preds, heatmaps)
+    print(res)
+    #  preds = torch.tensor(
+    #      [[0.05, 0.5, 0.5], [0.5, 1, 0.5], [0.001, 0.5, 0.0001],]
+    #  )
+    #  res = fn(preds, heatmaps)
+    #  print(res)
 
 
 def test_centernet_foward() -> None:

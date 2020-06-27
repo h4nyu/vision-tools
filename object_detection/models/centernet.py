@@ -19,7 +19,8 @@ from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .backbones import EfficientNetBackbone, ResNetBackbone
-from object_detection.meters import BestWatcher, EMAMeter
+from .losses import Reduction
+from object_detection.meters import BestWatcher, MeanMeter
 from object_detection.entities import ImageBatch, PredBoxes, Image, Batch
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
@@ -101,26 +102,52 @@ class CenterNet(nn.Module):
         return Heatmap(heatmap), Sizemap(sizemap)
 
 
-class FocalLoss(nn.Module):
-    def __init__(self, alpha: float = 2.0, beta: float = 4.0, eps: float = 1e-4):
+class HMLoss(nn.Module):
+    """
+    Modified focal loss
+    """
+
+    def __init__(
+        self,
+        alpha: float = 2.0,
+        beta: float = 4.0,
+        eps: float = 1e-4,
+        reduction: Reduction = "mean",
+    ):
         super().__init__()
         self.alpha = alpha
         self.beta = beta
         self.eps = eps
+        self.reduction = reduction
 
     def forward(self, pred: Tensor, gt: Tensor) -> Tensor:
+        """
+        pred: 0-1 [B, C,..]
+        gt: 0-1 [B, C,..]
+        """
         alpha = self.alpha
         beta = self.beta
+        eps = self.eps
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
         pos_mask = gt.eq(1).float()
         neg_mask = gt.lt(1).float()
+        neg_weight = (1 - gt) ** beta
+
         pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
         neg_loss = (
-            -((1 - gt) ** beta) * (pred ** alpha) * torch.log(1 - pred) * neg_mask
+            -((pred - gt).abs() ** alpha)
+            * torch.log((gt - pred).abs().clamp(eps, 1 - eps))
+            * neg_mask
         )
         loss = (pos_loss + neg_loss).sum()
         num_pos = pos_mask.sum().float()
         return loss / num_pos
+        if self.reduction == "mean":
+            return loss.mean()
+        elif self.reduction == "sum":
+            return loss.sum()
+        else:
+            return loss
 
 
 class Criterion:
@@ -128,7 +155,7 @@ class Criterion:
         self, heatmap_weight: float = 1.0, sizemap_weight: float = 1.0,
     ) -> None:
         super().__init__()
-        self.focal_loss = FocalLoss()
+        self.hmloss = HMLoss()
         self.reg_loss = RegLoss()
         self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
@@ -136,7 +163,7 @@ class Criterion:
     def __call__(self, src: NetOutput, tgt: NetOutput) -> Tuple[Tensor, Tensor, Tensor]:
         s_hm, s_sm = src
         t_hm, t_sm = tgt
-        hm_loss = self.focal_loss(s_hm, t_hm) * self.heatmap_weight
+        hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
         sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
         loss = hm_loss + sm_loss
         return (
@@ -194,7 +221,7 @@ class ToBoxes:
 
 class SoftHeatMap:
     def __init__(
-        self, mount_size: t.Tuple[int, int] = (5, 5), sigma: float = 1,
+        self, mount_size: t.Tuple[int, int] = (3, 3), sigma: float = 1,
     ) -> None:
         self.mount_size = mount_size
         self.mount_pad = (
@@ -330,7 +357,7 @@ class Trainer:
         self.best_watcher = BestWatcher()
         self.visualize = visualize
         self.meters = {
-            key: EMAMeter(key)
+            key: MeanMeter()
             for key in [
                 "test_loss",
                 "test_hm",
@@ -341,10 +368,20 @@ class Trainer:
             ]
         }
 
+    def log(self) -> None:
+        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
+        logger.info(value)
+
+    def reset_meters(self) -> None:
+        for v in self.meters.values():
+            v.reset()
+
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
             self.train_one_epoch()
             self.eval_one_epoch()
+            self.log()
+            self.reset_meters()
 
     def train_one_epoch(self) -> None:
         self.model.train()

@@ -23,7 +23,7 @@ class ModelLoader:
         with open(self.checkpoint_file, "r") as f:
             data = json.load(f)
         self.model.load_state_dict(
-            torch.load(self.out_dir.joinpath(f"model.pth"))  # type: ignore
+            torch.load(self.out_dir / f"model.pth")  # type: ignore
         )
 
     def save(self, metrics: Dict[str, float] = {}) -> None:

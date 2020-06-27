@@ -1,23 +1,23 @@
 import torch
-import typing as t
+from typing import NewType, Tuple
 from torch import Tensor
 from .image import ImageSize
 
-CoCoBoxes = t.NewType(
+CoCoBoxes = NewType(
     "CoCoBoxes", Tensor
 )  # [B, Pos] Pos:[x0, y0, width, height] original torch.int32
-YoloBoxes = t.NewType(
+YoloBoxes = NewType(
     "YoloBoxes", Tensor
 )  # [B, Pos] Pos:[cx, cy, width, height] normalized
-PascalBoxes = t.NewType(
+PascalBoxes = NewType(
     "PascalBoxes", Tensor
 )  # [B, Pos] Pos:[x0, y0, x1, y1] original torch.int32
 
-Labels = t.NewType("Labels", Tensor)
-Confidences = t.NewType("Confidences", Tensor)
+Labels = NewType("Labels", Tensor)
+Confidences = NewType("Confidences", Tensor)
 
-PredBoxes = t.Tuple[CoCoBoxes, Confidences]
-LabelBoxes = t.Tuple[CoCoBoxes, Labels]
+PredBoxes = Tuple[CoCoBoxes, Confidences]
+LabelBoxes = Tuple[CoCoBoxes, Labels]
 
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
@@ -66,3 +66,42 @@ def pascal_to_yolo(pascal: PascalBoxes, size: ImageSize) -> YoloBoxes:
         (y1 - y0) / size_h,
     ]
     return YoloBoxes(torch.stack(b, dim=-1))
+
+
+def pascal_to_coco(pascal: PascalBoxes) -> CoCoBoxes:
+    x0, y0, x1, y1 = pascal.unbind(-1)
+    b = [
+        x0,
+        y0,
+        (x1 - x0),
+        (y1 - y0),
+    ]
+    return CoCoBoxes(torch.stack(b, dim=-1))
+
+
+def box_iou(a: YoloBoxes, b: YoloBoxes) -> Tensor:
+    area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
+
+    iw = torch.min(torch.unsqueeze(a[:, 2], dim=1), b[:, 2]) - torch.max(
+        torch.unsqueeze(a[:, 0], 1), b[:, 0]
+    )
+    ih = torch.min(torch.unsqueeze(a[:, 3], dim=1), b[:, 3]) - torch.max(
+        torch.unsqueeze(a[:, 1], 1), b[:, 1]
+    )
+
+    iw = torch.clamp(iw, min=0)
+    ih = torch.clamp(ih, min=0)
+
+    ua = (
+        torch.unsqueeze((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]), dim=1)
+        + area
+        - iw * ih
+    )
+
+    ua = torch.clamp(ua, min=1e-8)
+
+    intersection = iw * ih
+
+    iou = intersection / ua
+
+    return iou

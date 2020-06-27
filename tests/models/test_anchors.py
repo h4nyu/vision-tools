@@ -1,38 +1,30 @@
-from pathlib import Path
 import torch
+import pytest
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from object_detection.models.efficientdet import Anchors
+
+from pathlib import Path
+from typing import List
+from object_detection.entities.box import YoloBoxes
+from object_detection.models.anchors import Anchors
+from object_detection.utils import DetectionPlot
 
 
-def test_anchors() -> None:
-    scales = [1.0]
-    ratios = [0.5, 1.0, 2]
-
-    images = torch.ones((1, 1, 1024, 1024))
-    fn = Anchors(pyramid_levels=[6], scales=scales, ratios=ratios)
+@pytest.mark.parametrize(
+    "scales, ratios", [([1.0], [1.0]), ([1.0], [0.5, 1.0]), ([1.0], [0.5, 1.0, 1.5]),]
+)
+def test_anchors(scales: List[float], ratios: List[float]) -> None:
+    h = 128
+    w = 128
+    phi = 4
+    images = torch.zeros((1, 3, h, w), dtype=torch.float32)
+    fn = Anchors(pyramid_idx=4, scales=scales, ratios=ratios)
     res = fn(images)
-
-    _, ax = plt.subplots(figsize=(6, 6))
-    ax.imshow(images[0, 0])
-    unit = len(scales) * len(ratios)
-
-    ax.scatter(
-        (res[0][:, 0] + res[0][:, 2]) / 2,
-        (res[0][:, 1] + res[0][:, 3]) / 2,
-        s=10,
-        marker=".",
-        c="r",
-    )
-    for offset, color in [(0, "red"), (1, "blue")]:
-        for bbox in res[0][unit * offset : unit * (offset + 1)]:
-            bbox = bbox.numpy()
-            rect = mpatches.Rectangle(
-                (bbox[0], bbox[1]),
-                bbox[2] - bbox[0],
-                bbox[3] - bbox[1],
-                fill=False,
-                edgecolor=color,
-                linewidth=1,
-            )
-            ax.add_patch(rect)
+    print(res.shape)
+    num_anchors = len(scales) * len(ratios)
+    anchor_count = (w // (2 ** phi)) * (h // (2 ** phi)) * num_anchors
+    assert res.shape == (anchor_count, 4)
+    offset = res.shape[1] // 2
+    plot = DetectionPlot(w=w, h=h)
+    plot.with_yolo_boxes(YoloBoxes(res[offset : offset + num_anchors]), color="red")
+    plot.save(f"/store/test-anchors-{num_anchors}.png")
