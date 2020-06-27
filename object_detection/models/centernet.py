@@ -110,15 +110,13 @@ class HMLoss(nn.Module):
     def __init__(
         self,
         alpha: float = 2.0,
-        beta: float = 4.0,
+        beta: float = 2.0,
         eps: float = 1e-4,
-        reduction: Reduction = "mean",
     ):
         super().__init__()
         self.alpha = alpha
         self.beta = beta
         self.eps = eps
-        self.reduction = reduction
 
     def forward(self, pred: Tensor, gt: Tensor) -> Tensor:
         """
@@ -132,23 +130,11 @@ class HMLoss(nn.Module):
         pos_mask = gt.eq(1).float()
         neg_mask = gt.lt(1).float()
         neg_weight = (1 - gt) ** beta
-
         pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
-        neg_loss = (
-            -((pred - gt).abs() ** alpha)
-            * torch.log((gt - pred).abs().clamp(eps, 1 - eps))
-            * neg_mask
-        )
+        neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
         loss = (pos_loss + neg_loss).sum()
         num_pos = pos_mask.sum().float()
         return loss / num_pos
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        else:
-            return loss
-
 
 class Criterion:
     def __init__(
