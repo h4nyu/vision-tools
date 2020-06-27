@@ -108,10 +108,7 @@ class HMLoss(nn.Module):
     """
 
     def __init__(
-        self,
-        alpha: float = 2.0,
-        beta: float = 2.0,
-        eps: float = 1e-4,
+        self, alpha: float = 2.0, beta: float = 2.0, eps: float = 1e-4,
     ):
         super().__init__()
         self.alpha = alpha
@@ -135,6 +132,7 @@ class HMLoss(nn.Module):
         loss = (pos_loss + neg_loss).sum()
         num_pos = pos_mask.sum().float()
         return loss / num_pos
+
 
 class Criterion:
     def __init__(
@@ -163,8 +161,10 @@ class RegLoss:
     def __call__(self, output: Sizemap, target: Sizemap,) -> Tensor:
         mask = (target > 0).view(target.shape)
         num = mask.sum()
+        if num == 0:
+            return torch.tensor(0)
         regr_loss = F.l1_loss(output, target, reduction="none") * mask
-        regr_loss = regr_loss.sum() / (num + 1e-4)
+        regr_loss = regr_loss.sum()
         return regr_loss
 
 
@@ -345,12 +345,12 @@ class Trainer:
         self.meters = {
             key: MeanMeter()
             for key in [
-                "test_loss",
-                "test_hm",
-                "test_sm",
                 "train_loss",
                 "train_sm",
                 "train_hm",
+                "test_loss",
+                "test_hm",
+                "test_sm",
             ]
         }
 

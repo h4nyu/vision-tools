@@ -27,7 +27,7 @@ test_dataset = ObjectDataset(
 )
 model = CenterNet()
 model_loader = ModelLoader("/store/centernet", model=model)
-criterion = Criterion(sizemap_weight=3.0)
+criterion = Criterion(sizemap_weight=1.0)
 optimizer = torch.optim.Adam(model.parameters())
 trainer = Trainer(
     DataLoader(
