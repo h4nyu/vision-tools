@@ -1,7 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from object_detection.models.centernet import (
-    collate_fn,
+from object_detection.models.centernet import ( collate_fn,
     CenterNet,
     Visualize,
     Trainer,
@@ -28,7 +27,7 @@ test_dataset = ObjectDataset(
 model = CenterNet()
 model_loader = ModelLoader("/store/centernet", model=model)
 criterion = Criterion(sizemap_weight=1.0)
-optimizer = torch.optim.Adam(model.parameters())
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 trainer = Trainer(
     DataLoader(
         train_dataset, collate_fn=collate_fn, batch_size=8, num_workers=4, shuffle=True
