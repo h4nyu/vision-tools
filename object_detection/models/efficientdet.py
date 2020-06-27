@@ -15,10 +15,6 @@ from .backbones import EfficientNetBackbone
 from logging import getLogger
 from .bifpn import BiFPN, FP
 from .losses import FocalLoss
-
-#  from .losses import FocalLoss
-
-#  from .efficientnet import EfficientNet
 from .anchors import Anchors
 from typing_extensions import Literal
 
@@ -220,7 +216,8 @@ class Criterion:
     def __init__(self, iou_threshold: float = 0.5, num_classes: int = 1,) -> None:
         self.iou_threshold = iou_threshold
         self.num_classes = num_classes
-        #  self.focal_loss = FocalLoss()
+        self.label_loss = LabelLoss()
+        self.box_loss = BoxLoss()
 
     def __call__(
         self,
@@ -233,50 +230,26 @@ class Criterion:
         device = classifications.device
         batch_size = classifications.shape[0]
         box_losses: List[Tensor] = []
-        class_losses: List[Tensor] = []
+        label_losses: List[Tensor] = []
 
         # foreach batch item
-        for pred_boxes, pred_classes, gt_boxes, gt_lables in zip(
+        for pred_boxes, pred_labels, gt_boxes, gt_lables in zip(
             regressions, classifications, gt_boxes_list, gt_classes_list
         ):
             if len(gt_boxes) == 0:
                 box_losses.append(torch.tensor(0).to(device))
-                class_losses.append(torch.tensor(0).to(device))
                 continue
             iou_matrix = box_iou(anchors, gt_boxes)
             iou_max, match_indices = torch.max(iou_matrix, dim=1)
-            # debug
-            iou_max = torch.tensor([0.0, 0.45, 0.8,])
-            #
-            #  positive_indices = torch.ge(IoU_max, 0.5)
-            #
-            #  num_positive_anchors = positive_indices.sum()
-            #
-            #  assigned_annotations = bbox_annotation[IoU_argmax, :]
-            #
-            #  targets[positive_indices, :] = 0
-            #  targets[positive_indices,
-            #          assigned_annotations[positive_indices, 4].long()] = 1
-            #
-            #  alpha_factor = torch.ones(targets.shape).cuda() * alpha
-            #  self.focal_loss(
-            #      pred_classes,
-            #      matched_gt_labels,
-            #  )
+            label_losses.append(
+                self.label_loss(
+                    iou_max=iou_max,
+                    match_indices=match_indices,
+                    pred_classes=pred_labels,
+                    gt_classes=gt_lables,
+                )
+            )
 
-            #  print(matched_gt_labels)
-            #  print(gt_boxes[match_indices, 4])
-
-            #  num_pos = positive_indices.sum()
-            #  matched_gt_labels = gt_lables[]
-
-            #  matched_anchors = anchors[match_indices]
-
-        # pascal to yolo ?
-        #  anchor_widths = anchor[:, 2] - anchor[:, 0]
-        #  anchor_heights = anchor[:, 3] - anchor[:, 1]
-        #  anchor_ctr_x = anchor[:, 0] + 0.5 * anchor_widths
-        #  anchor_ctr_y = anchor[:, 1] + 0.5 * anchor_heights
         return torch.tensor(0)
 
         #  for pred_class, pred_boxes, gt_class, gt_boxes in zip(classifications, regressions)
@@ -391,9 +364,40 @@ class Criterion:
         #  )
 
 
+class BoxLoss:
+    def __init__(self, iou_threshold: float = 0.5) -> None:
+        """
+        wrap focal_loss
+        """
+        self.iou_threshold = iou_threshold
+
+    def __call__(
+        self,
+        iou_max: Tensor,
+        match_indices: Tensor,
+        anchors: Tensor,
+        pred_boxes: Tensor,
+        gt_boxes: Tensor,
+    ) -> Tensor:
+        device = pred_boxes.device
+        high = self.iou_threshold
+        positive_indices = iou_max > high
+        num_pos = positive_indices.sum()
+        matched_gt_boxes = gt_boxes[match_indices][positive_indices]
+        matched_anchors = anchors[positive_indices]
+        matched_pred_boxes = pred_boxes[positive_indices]
+        diffs = matched_gt_boxes - matched_anchors
+        return F.l1_loss(matched_pred_boxes, diffs, reduction="none").sum() / num_pos
+
+
 class LabelLoss:
-    def __init__(self) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.4, 0.5)) -> None:
+        """
+        wrap focal_loss
+        """
+
         self.focal_loss = FocalLoss()
+        self.iou_thresholds = iou_thresholds
 
     def __call__(
         self,
@@ -401,11 +405,9 @@ class LabelLoss:
         match_indices: Tensor,
         pred_classes: Tensor,
         gt_classes: Tensor,
-        alpha: float = 0.25,
-        iou_thresholds: Tuple[float, float] = (0.4, 0.5),
     ) -> Tensor:
         device = pred_classes.device
-        low, high = iou_thresholds
+        low, high = self.iou_thresholds
         positive_indices = iou_max > high
         ignore_indecices = (iou_max >= low) & (iou_max <= high)
         negative_indices = iou_max < low

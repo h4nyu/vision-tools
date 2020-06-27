@@ -11,6 +11,7 @@ from object_detection.models.efficientdet import (
     EfficientDet,
     Criterion,
     LabelLoss,
+    BoxLoss,
 )
 from object_detection.models.anchors import Anchors
 from object_detection.models.backbones import EfficientNetBackbone
@@ -74,15 +75,32 @@ def test_cls_loss(preds: Any, expected: float) -> None:
     )
     assert res < expected
 
-    #  images = torch.ones(batch_size, 3, 5, 5)
-    #  anchors = Anchors(pyramid_idx=3, scales=[0.5, 1.0, 1.5], ratios=[1.0])(images)
-    #  num_anchors = anchors.shape[0]
-    #  cls_preds = torch.rand(batch_size, num_anchors, num_classes)
-    #  box_preds = YoloBoxes(torch.rand(batch_size, num_anchors, 4))
-    #  gt_boxes = [YoloBoxes(torch.rand(2, 4)) for _ in range(batch_size)]
-    #
-    #  gt_lables = [Labels(torch.tensor([0, 1])) for _ in range(batch_size)]
-    #  criterion(cls_preds, box_preds, anchors, gt_boxes, gt_lables)
+
+@pytest.mark.parametrize(
+    "preds,expected",
+    [
+        ([[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1], [0.0, 0.0, 0.0, 0.0],], 1e-4),
+        ([[0.0, 0.0, 0.0, 0.0], [0.1, 0.1, 0.1, 0.1], [0.0, 0.0, 0.0, 0.0],], 1e-4),
+        ([[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1], [0.5, 0.0, 0.0, 0.0],], 1e0),
+    ],
+)
+def test_box_loss(preds: Any, expected: float) -> None:
+    iou_max = torch.tensor([0.0, 0.4, 0.6,])
+    match_indices = torch.tensor([0, 1, 0,])
+    anchors = torch.tensor(
+        [[0.5, 0.5, 0.1, 0.1], [0.5, 0.5, 0.1, 0.1], [0.5, 0.5, 0.1, 0.1],]
+    )
+    pred_boxes = torch.tensor(preds)
+    gt_boxes = torch.tensor([[0.5, 0.5, 0.1, 0.1], [0.8, 0.8, 0.1, 0.1],])
+    fn = BoxLoss()
+    res = fn(
+        iou_max=iou_max,
+        match_indices=match_indices,
+        anchors=anchors,
+        pred_boxes=pred_boxes,
+        gt_boxes=gt_boxes,
+    )
+    assert res < expected
 
 
 def test_effdet() -> None:
