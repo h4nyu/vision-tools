@@ -274,6 +274,7 @@ class LabelLoss:
         focal_loss
         """
         self.gamma = 2.0
+        self.alpha = 0.25
         self.iou_thresholds = iou_thresholds
 
     def __call__(
@@ -286,7 +287,6 @@ class LabelLoss:
         device = pred_classes.device
         low, high = self.iou_thresholds
         positive_indices = iou_max > high
-        ignore_indecices = (iou_max >= low) & (iou_max <= high)
         negative_indices = iou_max < low
         matched_gt_classes = gt_classes[match_indices]
 
@@ -295,13 +295,15 @@ class LabelLoss:
         targets[negative_indices, :] = 0
         pred_classes = torch.clamp(pred_classes, min=1e-4, max=1 - 1e-4)
         pos_loss = (
-            -((1 - pred_classes) ** self.gamma)
+            - self.alpha
+            * ((1 - pred_classes) ** self.gamma)
             * torch.log(pred_classes)
             * targets.eq(1.0)
         )
         pos_loss = pos_loss.sum()
         neg_loss = (
-            -((pred_classes) ** self.gamma)
+            - (1-self.alpha)
+            *((pred_classes) ** self.gamma)
             * torch.log(1 - pred_classes)
             * targets.eq(0.0)
         )
