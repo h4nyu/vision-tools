@@ -6,6 +6,7 @@ from object_detection.models.efficientdet import (
     EfficientDet,
     Trainer,
     Criterion,
+    Visualize,
 )
 from object_detection.model_loader import ModelLoader
 from object_detection.data.object import ObjectDataset
@@ -31,6 +32,7 @@ model = EfficientDet(num_classes=1, channels=channels, backbone=backbone)
 model_loader = ModelLoader("/store/efficientdet", model=model)
 criterion = Criterion()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+visualize = Visualize("/store/efficientdet", "test", limit=2)
 trainer = Trainer(
     DataLoader(
         train_dataset,
@@ -40,11 +42,12 @@ trainer = Trainer(
         shuffle=True,
     ),
     DataLoader(
-        test_dataset, collate_fn=collate_fn, batch_size=16, num_workers=16, shuffle=True
+        test_dataset, collate_fn=collate_fn, batch_size=8, num_workers=8, shuffle=True
     ),
-    model_loader,
-    optimizer,
-    "cuda",
+    model_loader=model_loader,
+    optimizer=optimizer,
+    visualize=visualize,
     criterion=criterion,
+    device="cuda",
 )
 trainer.train(100)

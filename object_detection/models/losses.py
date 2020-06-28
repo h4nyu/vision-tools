@@ -17,10 +17,9 @@ class FocalLoss(nn.Module):
     """
 
     def __init__(
-        self, alpha: float = 0.25, gamma: float = 2.0, eps: float = 1e-4,
+        self, gamma: float = 2.0, eps: float = 1e-4,
     ):
         super().__init__()
-        self.alpha = alpha
         self.gamma = gamma
         self.eps = eps
 
@@ -29,13 +28,10 @@ class FocalLoss(nn.Module):
         pred: 0-1 [B, C,..]
         gt: 0-1 [B, C,..]
         """
-        alpha = self.alpha
         gamma = self.gamma
         eps = self.eps
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
-        pos_mask = gt.eq(1).float()
-        neg_mask = gt.eq(0).float()
-        pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
-        neg_loss = -(pred ** alpha) * torch.log(1 - pred) * neg_mask
-        loss = (pos_loss + neg_loss)
+        pos_loss = -((1 - pred) ** gamma) * torch.log(pred)
+        neg_loss = -(pred ** gamma) * torch.log(1 - pred)
+        loss = pos_loss + neg_loss
         return loss

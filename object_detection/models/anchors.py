@@ -18,6 +18,7 @@ class Anchors:
         self.stride = stride
         self.ratios = ratios
         self.scales = scales
+        self.num_anchors = len(ratios) * len(scales)
 
     def __call__(self, image: Tensor) -> YoloBoxes:
         """

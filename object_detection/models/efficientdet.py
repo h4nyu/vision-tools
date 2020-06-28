@@ -7,21 +7,24 @@ import torchvision
 
 from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import Labels, YoloBoxes, PascalBoxes, yolo_to_pascal
-from object_detection.entities import Batch, ImageId
+from object_detection.entities import Batch, ImageId, Confidences
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import BestWatcher, MeanMeter
+from object_detection.utils import DetectionPlot
 from typing import Any, List, Tuple
 from torchvision.ops import nms
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
 from torch import nn, Tensor
 from itertools import product as product
-from .backbones import EfficientNetBackbone
 from logging import getLogger
+from pathlib import Path
+from typing_extensions import Literal
+
+from .backbones import EfficientNetBackbone
 from .bifpn import BiFPN, FP
 from .losses import FocalLoss
 from .anchors import Anchors
-from typing_extensions import Literal
 
 logger = getLogger(__name__)
 
@@ -35,6 +38,33 @@ ModelName = Literal[
     "efficientdet-d6",
     "efficientdet-d7",
 ]
+
+
+class Visualize:
+    def __init__(
+        self, out_dir: str, prefix: str, limit: int = 1, use_alpha: bool = True
+    ) -> None:
+        self.prefix = prefix
+        self.out_dir = Path(out_dir)
+        self.limit = limit
+        self.use_alpha = use_alpha
+
+    def __call__(
+        self,
+        src: List[Tuple[ImageId, YoloBoxes, Confidences]],
+        tgt: List[YoloBoxes],
+        image_batch: ImageBatch,
+    ) -> None:
+        image_batch = ImageBatch(image_batch[: self.limit])
+        src = src[: self.limit]
+        tgt = tgt[: self.limit]
+        _, _, h, w = image_batch.shape
+        for i, ((_, sb, sc), tb, img) in enumerate(zip(src, tgt, image_batch)):
+            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
+            plot.with_image(img, alpha=0.5)
+            plot.with_yolo_boxes(tb, color="blue")
+            plot.with_yolo_boxes(sb, sc, color="red")
+            plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
 
 def collate_fn(
@@ -90,6 +120,8 @@ class ClassificationModel(nn.Module):
         self.num_anchors = num_anchors
         self.conv1 = nn.Conv2d(num_features_in, feature_size, kernel_size=3, padding=1)
         self.act1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
+        self.act2 = nn.ReLU()
         self.output = nn.Conv2d(
             feature_size, num_anchors * num_classes, kernel_size=3, padding=1
         )
@@ -98,6 +130,8 @@ class ClassificationModel(nn.Module):
     def forward(self, x):  # type: ignore
         out = self.conv1(x)
         out = self.act1(out)
+        out = self.conv2(out)
+        out = self.act2(out)
         out = self.output(out)
         out = self.output_act(out)
         # out is B x C x W x H, with C = n_classes + n_anchors
@@ -114,14 +148,23 @@ class RegressionModel(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1)
         self.act1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(
+            hidden_channels, hidden_channels, kernel_size=3, padding=1
+        )
+        self.act2 = nn.ReLU()
         self.out = nn.Conv2d(hidden_channels, num_anchors * 4, kernel_size=3, padding=1)
+        self.out_act = nn.Tanh()
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv1(x)
         x = self.act1(x)
+        x = self.conv2(x)
+        x = self.act2(x)
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
-        return x.contiguous().view(x.shape[0], -1, 4)
+        x = x.contiguous().view(x.shape[0], -1, 4)
+        x = self.out_act(x)
+        return x
 
 
 NetOutput = Tuple[YoloBoxes, YoloBoxes, Tensor]
@@ -134,19 +177,21 @@ class EfficientDet(nn.Module):
         backbone: EfficientNetBackbone,
         channels: int = 32,
         threshold: float = 0.01,
-        iou_threshold: float = 0.5,
     ) -> None:
         super().__init__()
-        self.anchors = Anchors(size=4)
+        self.anchors = Anchors(size=2)
         self.backbone = backbone
         self.clip_boxes = ClipBoxes()
         self.neck = BiFPN(channels=channels)
         self.threshold = threshold
         self.regression = RegressionModel(
-            in_channels=channels, hidden_channels=channels, num_anchors=9
+            in_channels=channels,
+            hidden_channels=channels,
+            num_anchors=self.anchors.num_anchors,
         )
-        self.classification = ClassificationModel(channels, num_classes=num_classes)
-        self.iou_threshold = iou_threshold
+        self.classification = ClassificationModel(
+            channels, num_classes=num_classes, num_anchors=self.anchors.num_anchors
+        )
 
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
@@ -159,12 +204,10 @@ class EfficientDet(nn.Module):
 class Criterion:
     def __init__(
         self,
-        iou_threshold: float = 0.5,
         num_classes: int = 1,
         box_weight: float = 1.0,
-        label_weight: float = 1.0,
+        label_weight: float = 10.0,
     ) -> None:
-        self.iou_threshold = iou_threshold
         self.num_classes = num_classes
         self.box_weight = box_weight
         self.label_weight = label_weight
@@ -217,7 +260,7 @@ class Criterion:
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.5) -> None:
+    def __init__(self, iou_threshold: float = 0.6) -> None:
         """
         wrap focal_loss
         """
@@ -245,11 +288,11 @@ class BoxLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.3, 0.5)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.5, 0.55)) -> None:
         """
-        wrap focal_loss
+        focal_loss
         """
-        self.focal_loss = FocalLoss()
+        self.gamma = 2.0
         self.iou_thresholds = iou_thresholds
 
     def __call__(
@@ -266,10 +309,23 @@ class LabelLoss:
         negative_indices = iou_max < low
         matched_gt_classes = gt_classes[match_indices]
 
-        targets = torch.zeros(pred_classes.shape).to(device)
+        targets = torch.ones(pred_classes.shape).to(device) * -1.0
         targets[positive_indices, matched_gt_classes[positive_indices].long()] = 1
-        loss = self.focal_loss(pred_classes, targets).sum(1) * ~ignore_indecices
-        loss = loss.sum() / positive_indices.sum()
+        targets[negative_indices, :] = 0
+        pred_classes = torch.clamp(pred_classes, min=1e-4, max=1 - 1e-4)
+        pos_loss = (
+            -((1 - pred_classes) ** self.gamma)
+            * torch.log(pred_classes)
+            * targets.eq(1.0)
+        )
+        pos_loss = pos_loss.sum() / positive_indices.sum().clamp(min=1)
+        neg_loss = (
+            -((pred_classes) ** self.gamma)
+            * torch.log(1 - pred_classes)
+            * targets.eq(0.0)
+        )
+        neg_loss = neg_loss.sum() / negative_indices.sum().clamp(min=1)
+        loss = pos_loss + neg_loss
         return loss
 
 
@@ -279,6 +335,7 @@ class Trainer:
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
+        visualize: Visualize,
         optimizer: t.Any,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
@@ -287,13 +344,23 @@ class Trainer:
         self.model_loader = model_loader
         self.model = model_loader.model.to(self.device)
         self.preprocess = PreProcess(self.device)
+        self.postprocess = PostProcess()
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.criterion = criterion
         self.best_watcher = BestWatcher()
+        self.visualize = visualize
         self.meters = {
-            key: MeanMeter() for key in ["train_loss", "train_box", "train_label",]
+            key: MeanMeter()
+            for key in [
+                "train_loss",
+                "train_box",
+                "train_label",
+                "test_loss",
+                "test_box",
+                "test_label",
+            ]
         }
 
     def log(self) -> None:
@@ -307,6 +374,7 @@ class Trainer:
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
             self.train_one_epoch()
+            self.eval_one_epoch()
             self.log()
             self.reset_meters()
 
@@ -329,6 +397,26 @@ class Trainer:
             self.meters["train_box"].update(box_loss.item())
             self.meters["train_label"].update(label_loss.item())
 
+    @torch.no_grad()
+    def eval_one_epoch(self) -> None:
+        self.model.train()
+        loader = self.train_loader
+        for samples, gt_boxes_list, gt_labes_list, ids in loader:
+            samples, gt_boxes_list, gt_labels_list = self.preprocess(
+                (samples, gt_boxes_list, gt_labes_list)
+            )
+            outputs = self.model(samples)
+            loss, box_loss, label_loss = self.criterion(
+                samples, outputs, gt_boxes_list, gt_labes_list
+            )
+            self.meters["test_loss"].update(loss.item())
+            self.meters["test_box"].update(box_loss.item())
+            self.meters["test_label"].update(label_loss.item())
+        preds = self.postprocess(outputs, ids, samples)
+        self.visualize(preds, gt_boxes_list, samples)
+        if self.best_watcher.step(self.meters["test_loss"].get_value()):
+            self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
+
 
 class PreProcess:
     def __init__(self, device: t.Any) -> None:
@@ -344,3 +432,28 @@ class PreProcess:
             [YoloBoxes(x.to(self.device)) for x in boxes_batch],
             [Labels(x.to(self.device)) for x in label_batch],
         )
+
+
+class PostProcess:
+    def __init__(self, box_limit: int = 100) -> None:
+        self.box_limit = box_limit
+
+    def __call__(
+        self, net_output: NetOutput, image_ids: List[ImageId], images: ImageBatch,
+    ) -> List[Tuple[ImageId, YoloBoxes, Confidences]]:
+        _, _, h, w = images.shape
+        anchors, boxes_batch, labels_batch = net_output
+        rows = []
+        for image_id, diff_boxes, confidences in zip(
+            image_ids, boxes_batch, labels_batch
+        ):
+            boxes = anchors + diff_boxes
+            confidences, _ = confidences.max(dim=1)
+            sort_idx = nms(
+                yolo_to_pascal(YoloBoxes(boxes), (w, h)), confidences, iou_threshold=0.5
+            )
+            sort_idx = sort_idx[: self.box_limit]
+            boxes = boxes[sort_idx]
+            confidences = confidences[sort_idx]
+            rows.append((image_id, YoloBoxes(boxes), Confidences(confidences)))
+        return rows
