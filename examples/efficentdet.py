@@ -31,7 +31,7 @@ backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
 model = EfficientDet(num_classes=1, channels=channels, backbone=backbone)
 model_loader = ModelLoader("/store/efficientdet", model=model)
 criterion = Criterion()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/efficientdet", "test", limit=2)
 trainer = Trainer(
     DataLoader(

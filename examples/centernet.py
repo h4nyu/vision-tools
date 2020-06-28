@@ -28,7 +28,7 @@ test_dataset = ObjectDataset(
 model = CenterNet()
 model_loader = ModelLoader("/store/centernet", model=model)
 criterion = Criterion(sizemap_weight=1.0)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 trainer = Trainer(
     DataLoader(
         train_dataset, collate_fn=collate_fn, batch_size=8, num_workers=4, shuffle=True
@@ -42,4 +42,4 @@ trainer = Trainer(
     "cuda",
     criterion=criterion,
 )
-trainer.train(100)
+trainer.train(500)

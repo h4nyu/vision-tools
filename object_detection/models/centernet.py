@@ -82,16 +82,16 @@ class Up2d(nn.Module):
 
 
 class CenterNet(nn.Module):
-    def __init__(self, channels: int = 32) -> None:
+    def __init__(self, channels: int = 32, depth:int = 2) -> None:
         super().__init__()
         self.channels = channels
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels))
         self.heatmap = nn.Sequential(
-            Reg(in_channels=channels, out_channels=1, depth=1), nn.Sigmoid(),
+            Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
         )
         self.box_size = nn.Sequential(
-            Reg(in_channels=channels, out_channels=2, depth=1), nn.Sigmoid(),
+            Reg(in_channels=channels, out_channels=2, depth=depth), nn.Sigmoid(),
         )
 
     def forward(self, x: ImageBatch) -> NetOutput:
