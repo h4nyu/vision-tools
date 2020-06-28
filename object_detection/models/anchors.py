@@ -12,7 +12,7 @@ class Anchors:
         size: int,
         stride: int = 1,
         ratios: t.List[float] = [0.5, 1, 2],
-        scales: t.List[float] = [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)],
+        scales: t.List[float] = [1.0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)],
     ) -> None:
         self.size = size
         self.stride = stride

@@ -163,7 +163,7 @@ class EfficientDet(nn.Module):
         threshold: float = 0.01,
     ) -> None:
         super().__init__()
-        self.anchors = Anchors(size=2)
+        self.anchors = Anchors(size=2, )
         self.backbone = backbone
         self.clip_boxes = ClipBoxes()
         self.neck = BiFPN(channels=channels)
@@ -178,7 +178,7 @@ class EfficientDet(nn.Module):
         )
 
     def forward(self, images: ImageBatch) -> NetOutput:
-        features = self.backbone(images)
+        features = self.backbone(images)[3:]
         anchors = torch.cat([self.anchors(i) for i in features], dim=0)
         box_diffs = torch.cat([self.regression(i) for i in features], dim=1)
         labels = torch.cat([self.classification(i) for i in features], dim=1)
@@ -187,7 +187,7 @@ class EfficientDet(nn.Module):
 
 class Criterion:
     def __init__(
-        self, num_classes: int = 1, box_weight: float = 1.0, label_weight: float = 1.0,
+        self, num_classes: int = 1, box_weight: float = 1.0, label_weight: float = 10.0,
     ) -> None:
         self.num_classes = num_classes
         self.box_weight = box_weight
@@ -289,7 +289,6 @@ class LabelLoss:
         positive_indices = iou_max > high
         negative_indices = iou_max < low
         matched_gt_classes = gt_classes[match_indices]
-
         targets = torch.ones(pred_classes.shape).to(device) * -1.0
         targets[positive_indices, matched_gt_classes[positive_indices].long()] = 1
         targets[negative_indices, :] = 0
