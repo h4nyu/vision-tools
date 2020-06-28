@@ -37,8 +37,8 @@ trainer = Trainer(
     DataLoader(
         train_dataset,
         collate_fn=collate_fn,
-        batch_size=16,
-        num_workers=16,
+        batch_size=8,
+        num_workers=8,
         shuffle=True,
     ),
     DataLoader(

@@ -128,10 +128,11 @@ class HMLoss(nn.Module):
         neg_mask = gt.lt(1).float()
         neg_weight = (1 - gt) ** beta
         pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
+        pos_loss = pos_loss.sum()
         neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
-        loss = (pos_loss + neg_loss).sum()
-        num_pos = pos_mask.sum().float()
-        return loss / num_pos
+        neg_loss = neg_loss.sum()
+        loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
+        return loss
 
 
 class Criterion:

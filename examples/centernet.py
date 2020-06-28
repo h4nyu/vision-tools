@@ -38,7 +38,7 @@ trainer = Trainer(
     ),
     model_loader,
     optimizer,
-    Visualize("/store/centernet", "test", limit=5),
+    Visualize("/store/centernet", "test", limit=2),
     "cuda",
     criterion=criterion,
 )

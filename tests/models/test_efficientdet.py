@@ -38,7 +38,7 @@ def test_regression_model() -> None:
 
 def test_classification_model() -> None:
     images = torch.ones((1, 100, 10, 10))
-    fn = ClassificationModel(num_features_in=100, num_classes=2)
+    fn = ClassificationModel(in_channels=100, num_classes=2)
     res = fn(images)
     assert res.shape == (1, 900, 2)
 

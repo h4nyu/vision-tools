@@ -7,6 +7,7 @@ import torchvision
 
 from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import Labels, YoloBoxes, PascalBoxes, yolo_to_pascal
+from .bottlenecks import SENextBottleneck2d
 from object_detection.entities import Batch, ImageId, Confidences
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import BestWatcher, MeanMeter
@@ -27,18 +28,6 @@ from .losses import FocalLoss
 from .anchors import Anchors
 
 logger = getLogger(__name__)
-
-ModelName = Literal[
-    "efficientdet-d0",
-    "efficientdet-d1",
-    "efficientdet-d2",
-    "efficientdet-d3",
-    "efficientdet-d4",
-    "efficientdet-d5",
-    "efficientdet-d6",
-    "efficientdet-d7",
-]
-
 
 class Visualize:
     def __init__(
@@ -109,61 +98,56 @@ class ClipBoxes(nn.Module):
 class ClassificationModel(nn.Module):
     def __init__(
         self,
-        num_features_in: int,
+        in_channels: int,
         num_anchors: int = 9,
         num_classes: int = 80,
         prior: float = 0.01,
         feature_size: int = 256,
+        depth: int = 1,
     ) -> None:
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.conv1 = nn.Conv2d(num_features_in, feature_size, kernel_size=3, padding=1)
-        self.act1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
-        self.act2 = nn.ReLU()
+        self.in_conv = SENextBottleneck2d(in_channels, feature_size)
+        self.bottlenecks = nn.Sequential(
+            *[SENextBottleneck2d(feature_size, feature_size) for _ in range(depth)]
+        )
         self.output = nn.Conv2d(
             feature_size, num_anchors * num_classes, kernel_size=3, padding=1
         )
         self.output_act = nn.Sigmoid()
 
-    def forward(self, x):  # type: ignore
-        out = self.conv1(x)
-        out = self.act1(out)
-        out = self.conv2(out)
-        out = self.act2(out)
-        out = self.output(out)
-        out = self.output_act(out)
+    def forward(self, x:Tensor)->Tensor:
+        x = self.in_conv(x)
+        x = self.bottlenecks(x)
+        x = self.output(x)
+        x = self.output_act(x)
         # out is B x C x W x H, with C = n_classes + n_anchors
-        out1 = out.permute(0, 2, 3, 1)
-        batch_size, width, height, channels = out1.shape
-        out2 = out1.view(batch_size, width, height, self.num_anchors, self.num_classes)
-        return out2.contiguous().view(x.shape[0], -1, self.num_classes)
+        out = x.permute(0, 2, 3, 1)
+        batch_size, width, height, channels = out.shape
+        out = out.view(batch_size, width, height, self.num_anchors, self.num_classes)
+        return out.contiguous().view(batch_size, -1, self.num_classes)
 
 
 class RegressionModel(nn.Module):
     def __init__(
-        self, in_channels: int, num_anchors: int = 9, hidden_channels: int = 256
+        self, in_channels: int, num_anchors: int = 9, hidden_channels: int = 256, depth:int=1,
     ) -> None:
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1)
-        self.act1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(
-            hidden_channels, hidden_channels, kernel_size=3, padding=1
+        self.in_conv = SENextBottleneck2d(in_channels, hidden_channels)
+        self.bottlenecks = nn.Sequential(
+            *[SENextBottleneck2d(hidden_channels, hidden_channels) for _ in range(depth)]
         )
-        self.act2 = nn.ReLU()
         self.out = nn.Conv2d(hidden_channels, num_anchors * 4, kernel_size=3, padding=1)
-        self.out_act = nn.Tanh()
+        self.act = nn.Tanh()
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.conv1(x)
-        x = self.act1(x)
-        x = self.conv2(x)
-        x = self.act2(x)
+        x = self.in_conv(x)
+        x = self.bottlenecks(x)
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
         x = x.contiguous().view(x.shape[0], -1, 4)
-        x = self.out_act(x)
+        x = self.act(x)
         return x
 
 
@@ -203,10 +187,7 @@ class EfficientDet(nn.Module):
 
 class Criterion:
     def __init__(
-        self,
-        num_classes: int = 1,
-        box_weight: float = 1.0,
-        label_weight: float = 10.0,
+        self, num_classes: int = 1, box_weight: float = 1.0, label_weight: float = 1.0,
     ) -> None:
         self.num_classes = num_classes
         self.box_weight = box_weight
@@ -288,7 +269,7 @@ class BoxLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.5, 0.55)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.4, 0.5)) -> None:
         """
         focal_loss
         """
@@ -318,14 +299,14 @@ class LabelLoss:
             * torch.log(pred_classes)
             * targets.eq(1.0)
         )
-        pos_loss = pos_loss.sum() / positive_indices.sum().clamp(min=1)
+        pos_loss = pos_loss.sum()
         neg_loss = (
             -((pred_classes) ** self.gamma)
             * torch.log(1 - pred_classes)
             * targets.eq(0.0)
         )
-        neg_loss = neg_loss.sum() / negative_indices.sum().clamp(min=1)
-        loss = pos_loss + neg_loss
+        neg_loss = neg_loss.sum()
+        loss = (pos_loss + neg_loss) / positive_indices.sum().clamp(min=1.0)
         return loss
 
 
@@ -450,7 +431,7 @@ class PostProcess:
             boxes = anchors + diff_boxes
             confidences, _ = confidences.max(dim=1)
             sort_idx = nms(
-                yolo_to_pascal(YoloBoxes(boxes), (w, h)), confidences, iou_threshold=0.5
+                yolo_to_pascal(YoloBoxes(boxes), (w, h)), confidences, iou_threshold=0.3
             )
             sort_idx = sort_idx[: self.box_limit]
             boxes = boxes[sort_idx]
