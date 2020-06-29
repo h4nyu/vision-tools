@@ -151,7 +151,6 @@ class RegressionModel(nn.Module):
         self.out = nn.Conv2d(
             hidden_channels, num_anchors * self.out_size, kernel_size=3, padding=1
         )
-        self.out_act = nn.Tanh()
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.in_conv(x)
@@ -159,7 +158,6 @@ class RegressionModel(nn.Module):
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
         x = x.contiguous().view(x.shape[0], -1, self.out_size)
-        x = self.out_act(x)
         return x
 
 
@@ -306,7 +304,7 @@ class SizeLoss:
         matched_gt_boxes = gt_boxes[match_indices][positive_indices][:, 2:]
         matched_anchors = anchors[positive_indices][:, 2:]
         pred_diff = size_diff[positive_indices]
-        gt_diff = matched_gt_boxes - matched_anchors
+        gt_diff = matched_gt_boxes / matched_anchors
         return F.l1_loss(pred_diff, gt_diff, reduction="none").sum() / num_pos
 
 
@@ -329,14 +327,15 @@ class PosLoss:
         if num_pos == 0:
             return torch.tensor(0.0).to(device)
         matched_gt_boxes = gt_boxes[match_indices][positive_indices][:, :2]
-        matched_anchors = anchors[positive_indices][:, :2]
+        matched_anchor_pos = anchors[positive_indices][:, :2]
+        matched_anchor_size = anchors[positive_indices][:, 2:]
         pred_diff = pos_diff[positive_indices]
-        gt_diff = matched_gt_boxes - matched_anchors
+        gt_diff = (matched_gt_boxes - matched_anchor_pos) / matched_anchor_size
         return F.l1_loss(pred_diff, gt_diff, reduction="none").sum() / num_pos
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.5, 0.5)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.4, 0.5)) -> None:
         """
         focal_loss
         """
@@ -506,8 +505,9 @@ class PostProcess:
         for image_id, pos_diff, size_diff, confidences in zip(
             image_ids, pos_diffs, size_diffs, labels_batch
         ):
-            diff_boxes = torch.cat([pos_diff, size_diff], dim=1)
-            boxes = anchors + diff_boxes
+            box_pos = anchors[:, 2:] * pos_diff + anchors[:,:2]
+            box_size = anchors[:, 2:] * size_diff
+            boxes = torch.cat([box_pos, box_size], dim=1)
             confidences, _ = confidences.max(dim=1)
             sort_idx = nms(
                 yolo_to_pascal(YoloBoxes(boxes), (w, h)), confidences, iou_threshold=0.5
