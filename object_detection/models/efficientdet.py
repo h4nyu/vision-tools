@@ -178,7 +178,7 @@ class EfficientDet(nn.Module):
         threshold: float = 0.01,
     ) -> None:
         super().__init__()
-        self.anchors = Anchors(size=4, scales=[0.5, 1.0, 2])
+        self.anchors = Anchors(size=4)
         self.backbone = backbone
         self.clip_boxes = ClipBoxes()
         self.neck = BiFPN(channels=channels)
@@ -370,7 +370,6 @@ class LabelLoss:
         pos_loss = pos_loss.sum()
         neg_loss = (
             -(1 - self.alpha)
-            #  * neg_weight
             * ((pred_classes) ** self.gamma)
             * torch.log(1 - pred_classes)
             * targets.eq(0.0)
