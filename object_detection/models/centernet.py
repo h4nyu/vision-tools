@@ -82,7 +82,7 @@ class Up2d(nn.Module):
 
 
 class CenterNet(nn.Module):
-    def __init__(self, channels: int = 32, depth:int = 2) -> None:
+    def __init__(self, channels: int = 32, depth: int = 2) -> None:
         super().__init__()
         self.channels = channels
         self.backbone = EfficientNetBackbone(1, out_channels=channels)

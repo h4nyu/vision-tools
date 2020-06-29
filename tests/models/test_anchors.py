@@ -28,5 +28,7 @@ def test_anchors(scales: List[float], ratios: List[float]) -> None:
     offset = res.shape[0] // 2 + 1 * num_anchors
     plot = DetectionPlot(w=w, h=h)
     plot.with_yolo_boxes(YoloBoxes(res[offset : offset + num_anchors]), color="red")
-    plot.with_yolo_boxes(YoloBoxes(res[offset + num_anchors : offset + num_anchors*2]), color="blue")
+    plot.with_yolo_boxes(
+        YoloBoxes(res[offset + num_anchors : offset + num_anchors * 2]), color="blue"
+    )
     plot.save(f"/store/test-anchors-{num_anchors}.png")

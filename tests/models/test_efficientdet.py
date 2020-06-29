@@ -10,7 +10,8 @@ from object_detection.models.efficientdet import (
     EfficientDet,
     Criterion,
     LabelLoss,
-    BoxLoss,
+    PosLoss,
+    PosDiff,
 )
 from object_detection.models.anchors import Anchors
 from object_detection.models.backbones import EfficientNetBackbone
@@ -31,7 +32,7 @@ def test_regression_model() -> None:
     c, h, w = 4, 10, 10
     num_anchors = 9
     images = torch.ones((1, c, h, w))
-    fn = RegressionModel(in_channels=c, num_anchors=num_anchors)
+    fn = RegressionModel(in_channels=c, num_anchors=num_anchors, out_size=c)
     res = fn(images)
     assert res.shape == (1, h * w * num_anchors, 4)
 
@@ -70,25 +71,25 @@ def test_label_loss(preds: Any, expected: float) -> None:
 @pytest.mark.parametrize(
     "preds,expected",
     [
-        ([[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1], [0.0, 0.0, 0.0, 0.0],], 1e-4),
-        ([[0.0, 0.0, 0.0, 0.0], [0.1, 0.1, 0.1, 0.1], [0.0, 0.0, 0.0, 0.0],], 1e-4),
-        ([[0.1, 0.1, 0.1, 0.1], [0.1, 0.1, 0.1, 0.1], [0.5, 0.0, 0.0, 0.0],], 1e0),
+        ([[0.1, 0.1], [0.1, 0.1], [0.0, 0.0],], 1e-4),
+        ([[0.0, 0.0], [0.1, 0.1], [0.0, 0.0],], 1e-4),
+        ([[0.1, 0.1], [0.1, 0.1], [0.5, 0.0],], 1e0),
     ],
 )
-def test_box_loss(preds: Any, expected: float) -> None:
+def test_pos_loss(preds: Any, expected: float) -> None:
     iou_max = torch.tensor([0.0, 0.4, 0.6,])
     match_indices = torch.tensor([0, 1, 0,])
     anchors = torch.tensor(
         [[0.5, 0.5, 0.1, 0.1], [0.5, 0.5, 0.1, 0.1], [0.5, 0.5, 0.1, 0.1],]
     )
-    pred_boxes = torch.tensor(preds)
-    gt_boxes = torch.tensor([[0.5, 0.5, 0.1, 0.1], [0.8, 0.8, 0.1, 0.1],])
-    fn = BoxLoss()
+    pos_diff = PosDiff(torch.tensor(preds))
+    gt_boxes = YoloBoxes(torch.tensor([[0.5, 0.5, 0.1, 0.1], [0.8, 0.8, 0.1, 0.1],]))
+    fn = PosLoss()
     res = fn(
         iou_max=iou_max,
         match_indices=match_indices,
         anchors=anchors,
-        pred_boxes=pred_boxes,
+        pos_diff=pos_diff,
         gt_boxes=gt_boxes,
     )
     assert res < expected
