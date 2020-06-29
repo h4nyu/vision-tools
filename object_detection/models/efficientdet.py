@@ -180,7 +180,7 @@ class EfficientDet(nn.Module):
         threshold: float = 0.01,
     ) -> None:
         super().__init__()
-        self.anchors = Anchors(size=2, scales=[0.5, 1.0, 2])
+        self.anchors = Anchors(size=4, scales=[0.5, 1.0, 2])
         self.backbone = backbone
         self.clip_boxes = ClipBoxes()
         self.neck = BiFPN(channels=channels)
@@ -200,7 +200,7 @@ class EfficientDet(nn.Module):
         )
 
     def forward(self, images: ImageBatch) -> NetOutput:
-        features = self.backbone(images)[1:]
+        features = self.backbone(images)
         anchors = torch.cat([self.anchors(i) for i in features], dim=0)
         pos_diffs = torch.cat([self.pos_reg(i) for i in features], dim=1)
         size_diffs = torch.cat([self.size_reg(i) for i in features], dim=1)
@@ -311,7 +311,7 @@ class SizeLoss:
 
 
 class PosLoss:
-    def __init__(self, iou_threshold: float = 0.3) -> None:
+    def __init__(self, iou_threshold: float = 0.5) -> None:
         self.iou_threshold = iou_threshold
 
     def __call__(
@@ -336,7 +336,7 @@ class PosLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.3, 0.3)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.5, 0.5)) -> None:
         """
         focal_loss
         """
@@ -369,8 +369,6 @@ class LabelLoss:
             * targets.eq(1.0)
         )
         pos_loss = pos_loss.sum()
-        #  neg_weight = (1 - iou_max) ** self.beta
-        #  print(neg_weight.shape)
         neg_loss = (
             -(1 - self.alpha)
             #  * neg_weight

@@ -25,7 +25,7 @@ train_dataset = ObjectDataset(
 test_dataset = ObjectDataset(
     (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=8
 )
-model = CenterNet()
+model = CenterNet(channels=128)
 model_loader = ModelLoader("/store/centernet", model=model)
 criterion = Criterion(sizemap_weight=1.0)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)

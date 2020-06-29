@@ -26,7 +26,7 @@ train_dataset = ObjectDataset(
 test_dataset = ObjectDataset(
     (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=8
 )
-channels = 128
+channels = 64
 backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
 model = EfficientDet(num_classes=1, channels=channels, backbone=backbone)
 model_loader = ModelLoader("/store/efficientdet", model=model)
@@ -35,7 +35,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 visualize = Visualize("/store/efficientdet", "test", limit=2)
 trainer = Trainer(
     DataLoader(
-        train_dataset, collate_fn=collate_fn, batch_size=8, num_workers=8, shuffle=True,
+        train_dataset, collate_fn=collate_fn, batch_size=4, num_workers=8, shuffle=True,
     ),
     DataLoader(
         test_dataset, collate_fn=collate_fn, batch_size=2, num_workers=8, shuffle=True
