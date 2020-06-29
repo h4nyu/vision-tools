@@ -198,7 +198,7 @@ class EfficientDet(nn.Module):
         )
 
     def forward(self, images: ImageBatch) -> NetOutput:
-        features = self.backbone(images)
+        features = self.backbone(images)[1:]
         anchors = torch.cat([self.anchors(i) for i in features], dim=0)
         pos_diffs = torch.cat([self.pos_reg(i) for i in features], dim=1)
         size_diffs = torch.cat([self.size_reg(i) for i in features], dim=1)
@@ -304,8 +304,8 @@ class SizeLoss:
         matched_gt_boxes = gt_boxes[match_indices][positive_indices][:, 2:]
         matched_anchors = anchors[positive_indices][:, 2:]
         pred_diff = size_diff[positive_indices]
-        gt_diff = matched_gt_boxes / matched_anchors
-        return F.l1_loss(pred_diff, gt_diff, reduction="none").sum() / num_pos
+        gt_diff = torch.log(matched_gt_boxes / matched_anchors)
+        return F.l1_loss(pred_diff, gt_diff, reduction="mean")
 
 
 class PosLoss:
@@ -331,7 +331,7 @@ class PosLoss:
         matched_anchor_size = anchors[positive_indices][:, 2:]
         pred_diff = pos_diff[positive_indices]
         gt_diff = (matched_gt_boxes - matched_anchor_pos) / matched_anchor_size
-        return F.l1_loss(pred_diff, gt_diff, reduction="none").sum() / num_pos
+        return F.l1_loss(pred_diff, gt_diff, reduction="mean")
 
 
 class LabelLoss:
@@ -506,7 +506,7 @@ class PostProcess:
             image_ids, pos_diffs, size_diffs, labels_batch
         ):
             box_pos = anchors[:, 2:] * pos_diff + anchors[:,:2]
-            box_size = anchors[:, 2:] * size_diff
+            box_size = anchors[:, 2:] * size_diff.exp()
             boxes = torch.cat([box_pos, box_size], dim=1)
             confidences, _ = confidences.max(dim=1)
             sort_idx = nms(
