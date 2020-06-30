@@ -164,7 +164,7 @@ class Criterion:
 
     def __call__(
         self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Heatmap]:
         s_hm, s_sm, s_dm = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
@@ -173,7 +173,7 @@ class Criterion:
         sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
         dm_loss = self.reg_loss(s_dm, t_dm) * self.diff_weight
         loss = hm_loss + sm_loss + dm_loss
-        return (loss, hm_loss, sm_loss, dm_loss)
+        return (loss, hm_loss, sm_loss, dm_loss, t_hm)
 
 
 class RegLoss:
@@ -340,15 +340,13 @@ class Visualize:
         src: List[Tuple[ImageId, YoloBoxes, Confidences]],
         tgt: List[YoloBoxes],
         image_batch: ImageBatch,
+        gt_hms: Heatmap,
     ) -> None:
         heatmap, _, _ = net_out
-        image_batch = ImageBatch(image_batch[: self.limit])
-        heatmap = Heatmap(heatmap[: self.limit])
         src = src[: self.limit]
-        tgt = tgt[: self.limit]
         _, _, h, w = image_batch.shape
-        for i, ((_, sb, sc), tb, hm, img) in enumerate(
-            zip(src, tgt, heatmap, image_batch)
+        for i, ((_, sb, sc), tb, hm, img, gt_hm) in enumerate(
+            zip(src, tgt, heatmap, image_batch, gt_hms)
         ):
             plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
             plot.with_image(img, alpha=0.5)
@@ -356,6 +354,11 @@ class Visualize:
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
+
+            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
+            plot.with_image(img, alpha=0.5)
+            plot.with_image((gt_hm[0] + 1e-4).log(), alpha=0.5)
+            plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
 
 
 class Trainer:
@@ -415,7 +418,9 @@ class Trainer:
         for samples, targets, ids in loader:
             samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss, hm_loss, sm_loss, dm_loss = self.criterion(samples, outputs, targets)
+            loss, hm_loss, sm_loss, dm_loss, _ = self.criterion(
+                samples, outputs, targets
+            )
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -432,7 +437,9 @@ class Trainer:
         for samples, targets, ids in loader:
             samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss, hm_loss, sm_loss, dm_loss = self.criterion(samples, outputs, targets)
+            loss, hm_loss, sm_loss, dm_loss, gt_hms = self.criterion(
+                samples, outputs, targets
+            )
             preds = self.post_process(outputs, ids, samples)
 
             self.meters["test_loss"].update(loss.item())
@@ -440,6 +447,6 @@ class Trainer:
             self.meters["test_sm"].update(sm_loss.item())
             self.meters["test_dm"].update(dm_loss.item())
 
-        self.visualize(outputs, preds, targets, samples)
+        self.visualize(outputs, preds, targets, samples, gt_hms)
         if self.best_watcher.step(self.meters["test_loss"].get_value()):
             self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
