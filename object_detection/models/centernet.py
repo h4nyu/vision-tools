@@ -152,6 +152,7 @@ class Criterion:
         heatmap_weight: float = 1.0,
         sizemap_weight: float = 1.0,
         diff_weight: float = 1.0,
+        sigma: float = 0.3,
     ) -> None:
         super().__init__()
         self.hmloss = HMLoss()
@@ -159,7 +160,7 @@ class Criterion:
         self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
         self.diff_weight = diff_weight
-        self.mkmaps = MkMaps()
+        self.mkmaps = MkMaps(sigma)
 
     def __call__(
         self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]

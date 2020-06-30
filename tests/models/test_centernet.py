@@ -66,7 +66,7 @@ def test_centernet_foward() -> None:
 def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(thresold=0.1)
-    mkmaps = MkMaps()
+    mkmaps = MkMaps(sigma=0.3)
     hm, sm, dm = mkmaps([in_boxes], (h, h), (h * 10, w * 10))
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
     assert (sm.nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
