@@ -10,6 +10,7 @@ def test_yolo_to_coco() -> None:
     coco = yolo_to_coco(yolo, (w, h))
     print(coco)
 
+
 def test_yolo_to_pascal() -> None:
     w = 100
     h = 200

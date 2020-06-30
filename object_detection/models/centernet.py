@@ -1,7 +1,8 @@
 import torch
 import numpy as np
-import typing as t
 import math
+import typing as t
+import torch as tr
 import torch.nn.functional as F
 from typing import List, Tuple
 from torch import nn, Tensor
@@ -145,10 +146,14 @@ class Criterion:
         self.reg_loss = RegLoss()
         self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
+        self.to_heatmap = SoftHeatMap()
 
-    def __call__(self, src: NetOutput, tgt: NetOutput) -> Tuple[Tensor, Tensor, Tensor]:
+    def __call__(
+        self, src: NetOutput, gt_boxes: List[YoloBoxes]
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         s_hm, s_sm = src
-        t_hm, t_sm = tgt
+        _, _, h, w = s_hm.shape
+        t_hm, t_sm = self.to_heatmap(gt_boxes, (h, w))
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
         sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
         loss = hm_loss + sm_loss
@@ -169,11 +174,10 @@ class RegLoss:
 
 
 def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
-    m, n = int((shape[0] - 1.0) / 2.0), int((shape[1] - 1.0) / 2.0)
-    y, x = np.ogrid[-m : m + 1, -n : n + 1]
-    h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
+    w, h = shape
+    cx, cy = w / 2, h / 2
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
-    return h
+    return h.astype(np.float32)
 
 
 class ToBoxes:
@@ -206,44 +210,53 @@ class ToBoxes:
 
 
 class SoftHeatMap:
-    def __init__(self, sigma: float = 1,) -> None:
+    def __init__(self, sigma: float = 0.5,) -> None:
         self.sigma = sigma
 
-    def __call__(self, boxes: YoloBoxes, size: t.Tuple[int, int]) -> NetOutput:
+    def _mkmaps(self, boxes: YoloBoxes, size: t.Tuple[int, int]) -> NetOutput:
         device = boxes.device
-        w, h = size
+        h, w = size
         heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
         sizemap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
         box_count, _ = boxes.shape
         if box_count == 0:
             return Heatmap(heatmap), Sizemap(sizemap)
-        box_cx, box_cy, box_w, box_h = torch.unbind(boxes, dim=1)
-        orig_x0, orig_y0, orig_w, orig_h = yolo_to_coco(boxes, (w, h)).unbind(-1)
+        box_cx, box_cy, box_w, box_h = boxes.unbind(-1)
+        xs0, ys0, xs1, ys1 = yolo_to_pascal(boxes, (w, h)).unbind(-1)
         orig_cx = box_cx * w
         orig_cy = box_cy * h
-        sizemap[:, :, orig_x0, orig_y0] = torch.stack([box_w, box_h], dim=0)
-
-        base_mount = (
-            torch.from_numpy(gaussian_2d((32, 32), sigma=self.sigma))
-            .unsqueeze(0)
-            .unsqueeze(0)
-            .float()
-            .to(device)
-        )
-        for bx0, by0, bw, bh in zip(orig_x0, orig_y0, orig_w, orig_h):
-            mount_size = torch.min(bw, bh)
-            pad = mount_size % 2
-            half = mount_size // 2
-            x0 = (cx - half).long()
-            x1 = (cx + half + pad).long()
-            y0 = (cy - half).long()
-            y1 = (cy + half + pad).long()
-            target = heatmap[:, :, y0:y1, x0:x1]  # type: ignore
-            mount = F.interpolate(base_mount, size=target.shape[2:])
-            mount = torch.max(mount, target)
-            mount = mount / mount.max()
-            heatmap[:, :, y0:y1, x0:x1] = mount  # type: ignore
+        for x0, y0, x1, y1, yolo_w, yolo_h in zip(xs0, ys0, xs1, ys1, box_w, box_h):
+            bw = x1 - x0
+            bh = y1 - y0
+            if (bw > 0) and (bh > 0):
+                mount_cx = bw / 2.0
+                mount_cy = bh / 2.0
+                grid_y, grid_x = tr.meshgrid(
+                    tr.arange(bh, dtype=torch.float32),
+                    tr.arange(bw, dtype=torch.float32),
+                )  # type:ignore
+                mount = tr.exp(
+                    -((grid_x - mount_cx) ** 2 + (grid_y - mount_cy) ** 2)
+                    / (2 * self.sigma ** 2)
+                )
+                mount = mount.unsqueeze(0).unsqueeze(0).to(device)
+                region = heatmap[:, :, y0:y1, x0:x1]  # type:ignore
+                mount = torch.max(mount, region)
+                heatmap[:, :, y0:y1, x0:x1] = mount
+                cx = (x0 + mount_cx).long()
+                cy = (y0 + mount_cy).long()
+                sizemap[:, :, cy, cx] = tr.stack([yolo_w, yolo_h])
         return Heatmap(heatmap), Sizemap(sizemap)
+
+    def __call__(self, box_batch: List[YoloBoxes], size: Tuple[int, int]) -> NetOutput:
+        hms: List[Tensor] = []
+        sms: List[Tensor] = []
+        for boxes in box_batch:
+            hm, sm = self._mkmaps(boxes, size)
+            hms.append(hm)
+            sms.append(sm)
+
+        return Heatmap(tr.cat(hms, dim=0)), Sizemap(tr.cat(sms, dim=0))
 
 
 class PreProcess:
@@ -254,20 +267,12 @@ class PreProcess:
 
     def __call__(
         self, batch: t.Tuple[ImageBatch, t.List[YoloBoxes]]
-    ) -> t.Tuple[ImageBatch, NetOutput]:
-        image_batch, boxes_batch = batch
+    ) -> t.Tuple[ImageBatch, List[YoloBoxes]]:
+        image_batch, box_batch = batch
         image_batch = ImageBatch(image_batch.to(self.device))
-        hms: t.List[t.Any] = []
-        sms: t.List[t.Any] = []
-        _, _, h, w = image_batch.shape
-        for img, boxes in zip(image_batch.unbind(0), boxes_batch):
-            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w // 4, h // 4))
-            hms.append(hm)
-            sms.append(sm)
+        box_batch = [YoloBoxes(x.to(self.device)) for x in box_batch]
 
-        heatmap = torch.cat(hms, dim=0)
-        sizemap = torch.cat(sms, dim=0)
-        return image_batch, (Heatmap(heatmap), Sizemap(sizemap))
+        return image_batch, box_batch
 
 
 class PostProcess:
@@ -370,9 +375,9 @@ class Trainer:
         self.model.train()
         loader = self.train_loader
         for samples, targets, ids in loader:
-            samples, cri_targets = self.preprocess((samples, targets))
+            samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss, hm_loss, sm_loss = self.criterion(outputs, cri_targets)
+            loss, hm_loss, sm_loss = self.criterion(outputs, targets)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -386,9 +391,9 @@ class Trainer:
         self.model.eval()
         loader = self.test_loader
         for samples, targets, ids in loader:
-            samples, cri_targets = self.preprocess((samples, targets))
+            samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
-            loss, hm_loss, sm_loss = self.criterion(outputs, cri_targets)
+            loss, hm_loss, sm_loss = self.criterion(outputs, targets)
             preds = self.post_process(outputs, ids, samples)
 
             self.meters["test_loss"].update(loss.item())

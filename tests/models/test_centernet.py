@@ -63,12 +63,11 @@ def test_centernet_foward() -> None:
 
 def test_softheatmap() -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.2, 0.4, 0.1, 0.3]]))
-    in_image = Image(torch.zeros(1, 200, 200))
+    in_image = Image(torch.zeros(1, 100, 100))
     _, h, w = in_image.shape
     to_boxes = ToBoxes(thresold=0.1)
     to_heatmap = SoftHeatMap()
-    hm, sm = to_heatmap(in_boxes, (h, w))
-    #  print(hm.eq(1).nonzero()) #type: ignore
+    hm, sm = to_heatmap([in_boxes], (h, w))
     #  assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
     #  assert (sm.nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
     #  assert hm.shape == (1, 1, 100, 100)
