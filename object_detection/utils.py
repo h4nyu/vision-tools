@@ -34,7 +34,7 @@ class DetectionPlot:
         self,
         w: int = 128,
         h: int = 128,
-        figsize: t.Tuple[int, int] = (4, 4),
+        figsize: t.Tuple[int, int] = (10, 10),
         use_alpha: bool = True,
         show_probs: bool = False,
     ) -> None:

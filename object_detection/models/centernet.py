@@ -328,12 +328,13 @@ class PostProcess:
 
 class Visualize:
     def __init__(
-        self, out_dir: str, prefix: str, limit: int = 1, use_alpha: bool = True
+        self, out_dir: str, prefix: str, limit: int = 1, use_alpha: bool = True, figsize: Tuple[int, int]=(10, 10)
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
         self.use_alpha = use_alpha
+        self.figsize = figsize
 
     def __call__(
         self,
@@ -349,14 +350,14 @@ class Visualize:
         for i, ((_, sb, sc), tb, hm, img, gt_hm) in enumerate(
             zip(src, tgt, heatmap, image_batch, gt_hms)
         ):
-            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
+            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize)
             plot.with_image(img, alpha=0.5)
             plot.with_image(hm[0].log(), alpha=0.5)
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
-            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
+            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize)
             plot.with_image(img, alpha=0.5)
             plot.with_image((gt_hm[0] + 1e-4).log(), alpha=0.5)
             plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
