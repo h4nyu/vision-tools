@@ -1,4 +1,5 @@
 import typing as t
+import pytest
 import numpy as np
 import torch
 from typing import Any
@@ -61,19 +62,19 @@ def test_centernet_foward() -> None:
     assert heatmap.shape == (1, 1, 1024 // 2, 1024 // 2)
 
 
-def test_mkmaps() -> None:
-    in_boxes = YoloBoxes(torch.tensor([[0.2, 0.4, 0.1, 0.3]]))
-    in_image = Image(torch.zeros(1, 100, 100))
-    _, h, w = in_image.shape
+@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
+def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+    in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(thresold=0.1)
     mkmaps = MkMaps()
-    hm, sm = mkmaps([in_boxes], (h, w))
-    assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
-    assert (sm.nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
-    assert hm.shape == (1, 1, 100, 100)
-    assert sm.shape == (1, 2, 100, 100)
-    assert (sm[0, :, 40, 20] - torch.tensor([0.1, 0.3])).sum() == 0
-    out_boxes, _ = next(iter(to_boxes((hm, sm))))
+    hm, sm, dm = mkmaps([in_boxes], (h, h), (h * 10, w * 10))
+    assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
+    assert (sm.nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
+    assert hm.shape == (1, 1, h, w)
+    assert sm.shape == (1, 2, h, w)
+    assert (sm[0, :, cy, cx] - torch.tensor([0.1, 0.3])).sum() == 0
+    assert (dm[0, :, cy, cx] - torch.tensor([dx, dy])).sum().abs() < 1e-7
+    out_boxes, _ = next(iter(to_boxes((hm, sm, dm))))
     assert out_boxes[0, 0] == in_boxes[0, 0]
     assert out_boxes[0, 1] == in_boxes[0, 1]
     assert out_boxes[0, 2] == in_boxes[0, 2]
