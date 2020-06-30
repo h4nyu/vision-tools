@@ -148,14 +148,14 @@ class Criterion:
         self.reg_loss = RegLoss()
         self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
-        self.to_heatmap = SoftHeatMap()
+        self.mkmaps = MkMaps()
 
     def __call__(
         self, src: NetOutput, gt_boxes: List[YoloBoxes]
     ) -> Tuple[Tensor, Tensor, Tensor]:
         s_hm, s_sm = src
         _, _, h, w = s_hm.shape
-        t_hm, t_sm = self.to_heatmap(gt_boxes, (h, w))
+        t_hm, t_sm = self.mkmaps(gt_boxes, (h, w))
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
         sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
         loss = hm_loss + sm_loss
@@ -211,7 +211,7 @@ class ToBoxes:
         return rows
 
 
-class SoftHeatMap:
+class MkMaps:
     def __init__(self, sigma: float = 0.5,) -> None:
         self.sigma = sigma
 
@@ -264,7 +264,6 @@ class SoftHeatMap:
 class PreProcess:
     def __init__(self, device: t.Any) -> None:
         super().__init__()
-        self.heatmap = SoftHeatMap()
         self.device = device
 
     def __call__(

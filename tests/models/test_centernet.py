@@ -4,7 +4,7 @@ import torch
 from typing import Any
 from object_detection.models.centernet import (
     CenterNet,
-    SoftHeatMap,
+    MkMaps,
     ToBoxes,
     HMLoss,
     Trainer,
@@ -61,23 +61,23 @@ def test_centernet_foward() -> None:
     assert heatmap.shape == (1, 1, 1024 // 2, 1024 // 2)
 
 
-def test_softheatmap() -> None:
+def test_mkmaps() -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.2, 0.4, 0.1, 0.3]]))
     in_image = Image(torch.zeros(1, 100, 100))
     _, h, w = in_image.shape
     to_boxes = ToBoxes(thresold=0.1)
-    to_heatmap = SoftHeatMap()
-    hm, sm = to_heatmap([in_boxes], (h, w))
-    #  assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
-    #  assert (sm.nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
-    #  assert hm.shape == (1, 1, 100, 100)
-    #  assert sm.shape == (1, 2, 100, 100)
-    #  assert (sm[0, :, 40, 20] - torch.tensor([0.1, 0.3])).sum() == 0
+    mkmaps = MkMaps()
+    hm, sm = mkmaps([in_boxes], (h, w))
+    assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
+    assert (sm.nonzero()[0, 2:] - torch.tensor([[40, 20]])).sum() == 0  # type: ignore
+    assert hm.shape == (1, 1, 100, 100)
+    assert sm.shape == (1, 2, 100, 100)
+    assert (sm[0, :, 40, 20] - torch.tensor([0.1, 0.3])).sum() == 0
     out_boxes, _ = next(iter(to_boxes((hm, sm))))
-    #  assert out_boxes[0, 0] == in_boxes[0, 0]
-    #  assert out_boxes[0, 1] == in_boxes[0, 1]
-    #  assert out_boxes[0, 2] == in_boxes[0, 2]
-    #  assert out_boxes[0, 3] == in_boxes[0, 3]
+    assert out_boxes[0, 0] == in_boxes[0, 0]
+    assert out_boxes[0, 1] == in_boxes[0, 1]
+    assert out_boxes[0, 2] == in_boxes[0, 2]
+    assert out_boxes[0, 3] == in_boxes[0, 3]
     plot = DetectionPlot(w=w, h=h)
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(in_boxes, color="blue")
