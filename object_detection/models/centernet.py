@@ -100,8 +100,8 @@ class CenterNet(nn.Module):
         self.size_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=2, depth=depth), nn.Sigmoid(),
         )
-        self.pos_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=2, depth=depth), nn.Sigmoid(),
+        self.diff_reg = nn.Sequential(
+            Reg(in_channels=channels, out_channels=2, depth=depth), nn.Tanh(),
         )
 
     def forward(self, x: ImageBatch) -> NetOutput:
@@ -109,8 +109,8 @@ class CenterNet(nn.Module):
         fp = self.fpn(fp)
         heatmap = self.hm_reg(fp[self.out_idx])
         sizemap = self.size_reg(fp[self.out_idx])
-        posmap = self.pos_reg(fp[self.out_idx])
-        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(posmap)
+        diffmap = self.diff_reg(fp[self.out_idx])
+        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap)
 
 
 class HMLoss(nn.Module):
@@ -272,6 +272,7 @@ class MkMaps:
 
         return Heatmap(heatmap), Sizemap(sizemap), DiffMap(posmap)
 
+    @torch.no_grad()
     def __call__(
         self,
         box_batch: List[YoloBoxes],
