@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from typing import List, Tuple, NewType, Union
 from torch import nn, Tensor
 from logging import getLogger
+from tqdm import tqdm
 from object_detection.entities import (
     YoloBoxes,
     Confidences,
@@ -420,7 +421,7 @@ class Trainer:
     def train_one_epoch(self) -> None:
         self.model.train()
         loader = self.train_loader
-        for samples, targets, ids in loader:
+        for samples, targets, ids in tqdm(loader):
             samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss, hm_loss, sm_loss, dm_loss, _ = self.criterion(
@@ -439,7 +440,7 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.eval()
         loader = self.test_loader
-        for samples, targets, ids in loader:
+        for samples, targets, ids in tqdm(loader):
             samples, targets = self.preprocess((samples, targets))
             outputs = self.model(samples)
             loss, hm_loss, sm_loss, dm_loss, gt_hms = self.criterion(
