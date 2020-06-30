@@ -99,8 +99,8 @@ class CenterNet(nn.Module):
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = self.heatmap(fp[1])
-        sizemap = self.box_size(fp[1])
+        heatmap = self.heatmap(fp[0])
+        sizemap = self.box_size(fp[0])
         return Heatmap(heatmap), Sizemap(sizemap)
 
 
@@ -231,10 +231,10 @@ class SoftHeatMap:
             if (bw > 0) and (bh > 0):
                 mount_cx = bw / 2.0
                 mount_cy = bh / 2.0
-                grid_y, grid_x = tr.meshgrid(
+                grid_y, grid_x = tr.meshgrid(# type:ignore
                     tr.arange(bh, dtype=torch.float32),
                     tr.arange(bw, dtype=torch.float32),
-                )  # type:ignore
+                )
                 mount = tr.exp(
                     -((grid_x - mount_cx) ** 2 + (grid_y - mount_cy) ** 2)
                     / (2 * self.sigma ** 2)
@@ -242,7 +242,7 @@ class SoftHeatMap:
                 mount = mount.unsqueeze(0).unsqueeze(0).to(device)
                 region = heatmap[:, :, y0:y1, x0:x1]  # type:ignore
                 mount = torch.max(mount, region)
-                heatmap[:, :, y0:y1, x0:x1] = mount
+                heatmap[:, :, y0:y1, x0:x1] = mount / mount.max()
                 cx = (x0 + mount_cx).long()
                 cy = (y0 + mount_cy).long()
                 sizemap[:, :, cy, cx] = tr.stack([yolo_w, yolo_h])
