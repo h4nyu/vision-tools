@@ -7,11 +7,12 @@ import torch.nn.functional as F
 from typing import List, Tuple
 from torch import nn, Tensor
 from logging import getLogger
-from object_detection.entities.box import (
+from object_detection.entities import (
     YoloBoxes,
     Confidences,
-    yolo_to_pascal,
     PascalBoxes,
+    PyramidIdx,
+    yolo_to_pascal,
     pascal_to_yolo,
     yolo_to_coco,
 )
@@ -84,8 +85,9 @@ class Up2d(nn.Module):
 
 
 class CenterNet(nn.Module):
-    def __init__(self, channels: int = 32, depth: int = 2) -> None:
+    def __init__(self, channels: int = 32, depth: int = 2, out_idx:PyramidIdx=4) -> None:
         super().__init__()
+        self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = EfficientNetBackbone(1, out_channels=channels)
         self.fpn = nn.Sequential(BiFPN(channels=channels))
@@ -99,8 +101,8 @@ class CenterNet(nn.Module):
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = self.heatmap(fp[0])
-        sizemap = self.box_size(fp[0])
+        heatmap = self.heatmap(fp[self.out_idx])
+        sizemap = self.box_size(fp[self.out_idx])
         return Heatmap(heatmap), Sizemap(sizemap)
 
 

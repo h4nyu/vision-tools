@@ -1,6 +1,6 @@
 from typing import Tuple, List
-from .box import CoCoBoxes, Labels, PredBoxes, LabelBoxes, Confidences, YoloBoxes
-from .image import Image, ImageBatch, ImageId, ImageSize
+from .box import *
+from .image import *
 from typing_extensions import Literal
 
 
