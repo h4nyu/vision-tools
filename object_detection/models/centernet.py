@@ -148,7 +148,10 @@ class HMLoss(nn.Module):
 
 class Criterion:
     def __init__(
-        self, heatmap_weight: float = 1.0, sizemap_weight: float = 1.0, diff_weight:float=1.0,
+        self,
+        heatmap_weight: float = 1.0,
+        sizemap_weight: float = 1.0,
+        diff_weight: float = 1.0,
     ) -> None:
         super().__init__()
         self.hmloss = HMLoss()
@@ -169,16 +172,13 @@ class Criterion:
         sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
         dm_loss = self.reg_loss(s_dm, t_dm) * self.diff_weight
         loss = hm_loss + sm_loss + dm_loss
-        return (
-            loss,
-            hm_loss,
-            sm_loss,
-            dm_loss
-        )
+        return (loss, hm_loss, sm_loss, dm_loss)
 
 
 class RegLoss:
-    def __call__(self, output: Union[Sizemap, DiffMap], target: Union[Sizemap, DiffMap],) -> Tensor:
+    def __call__(
+        self, output: Union[Sizemap, DiffMap], target: Union[Sizemap, DiffMap],
+    ) -> Tensor:
         mask = (target > 0).view(target.shape)
         num = mask.sum()
         regr_loss = F.l1_loss(output, target, reduction="none") * mask
