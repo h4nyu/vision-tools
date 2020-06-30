@@ -373,8 +373,6 @@ class Trainer:
         criterion: Criterion = Criterion(),
     ) -> None:
         self.device = torch.device(device)
-        self.model_loader = model_loader
-        self.model = model_loader.model.to(self.device)
         self.optimizer = optimizer
         self.train_loader = train_loader
         self.test_loader = test_loader
@@ -382,6 +380,13 @@ class Trainer:
         self.preprocess = PreProcess(self.device)
         self.post_process = PostProcess()
         self.best_watcher = BestWatcher()
+
+        self.model_loader = model_loader
+        self.model = model_loader.model.to(self.device)
+        if model_loader.check_point_exits:
+            self.model, meta = model_loader.load()
+            self.best_watcher.step(meta["loss"])
+
         self.visualize = visualize
         self.meters = {
             key: MeanMeter()
