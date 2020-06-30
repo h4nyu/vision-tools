@@ -504,7 +504,7 @@ class PostProcess:
         for image_id, pos_diff, size_diff, confidences in zip(
             image_ids, pos_diffs, size_diffs, labels_batch
         ):
-            box_pos = anchors[:, 2:] * pos_diff + anchors[:,:2]
+            box_pos = anchors[:, 2:] * pos_diff + anchors[:, :2]
             box_size = anchors[:, 2:] * size_diff.exp()
             boxes = torch.cat([box_pos, box_size], dim=1)
             confidences, _ = confidences.max(dim=1)

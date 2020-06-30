@@ -12,6 +12,7 @@ from object_detection.entities.box import (
     yolo_to_pascal,
     PascalBoxes,
     pascal_to_yolo,
+    yolo_to_coco,
 )
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
@@ -55,7 +56,7 @@ class Reg(nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
         )
 
-    def forward(self, x: Tensor) -> Tensor:  # type: ignore
+    def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
         x = self.out(x)
         return x
@@ -97,8 +98,8 @@ class CenterNet(nn.Module):
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = self.heatmap(fp[0])
-        sizemap = self.box_size(fp[0])
+        heatmap = self.heatmap(fp[1])
+        sizemap = self.box_size(fp[1])
         return Heatmap(heatmap), Sizemap(sizemap)
 
 
@@ -205,19 +206,8 @@ class ToBoxes:
 
 
 class SoftHeatMap:
-    def __init__(
-        self, mount_size: t.Tuple[int, int] = (3, 3), sigma: float = 1,
-    ) -> None:
-        self.mount_size = mount_size
-        self.mount_pad = (
-            self.mount_size[0] % 2,
-            self.mount_size[1] % 2,
-        )
-        mount = gaussian_2d(self.mount_size, sigma=sigma)
-        self.mount = torch.tensor(mount, dtype=torch.float32).view(
-            1, 1, mount.shape[0], mount.shape[1]
-        )
-        self.mount = self.mount / self.mount.max()
+    def __init__(self, sigma: float = 1,) -> None:
+        self.sigma = sigma
 
     def __call__(self, boxes: YoloBoxes, size: t.Tuple[int, int]) -> NetOutput:
         device = boxes.device
@@ -228,23 +218,31 @@ class SoftHeatMap:
         if box_count == 0:
             return Heatmap(heatmap), Sizemap(sizemap)
         box_cx, box_cy, box_w, box_h = torch.unbind(boxes, dim=1)
-        box_cx = (box_cx * w).long()
-        box_cy = (box_cy * h).long()
-        sizemap[:, :, box_cy, box_cx] = torch.stack([box_w, box_h], dim=0)
-        mount_w, mount_h = self.mount_size
-        pad_w, pad_h = self.mount_pad
-        mount_x0 = box_cx - mount_h // 2
-        mount_x1 = box_cx + mount_h // 2 + pad_h
-        mount_y0 = box_cy - mount_w // 2
-        mount_y1 = box_cy + mount_w // 2 + pad_w
+        orig_x0, orig_y0, orig_w, orig_h = yolo_to_coco(boxes, (w, h)).unbind(-1)
+        orig_cx = box_cx * w
+        orig_cy = box_cy * h
+        sizemap[:, :, orig_x0, orig_y0] = torch.stack([box_w, box_h], dim=0)
 
-        mount = self.mount.to(device)
-        for x0, x1, y0, y1 in zip(mount_x0, mount_x1, mount_y0, mount_y1):
+        base_mount = (
+            torch.from_numpy(gaussian_2d((32, 32), sigma=self.sigma))
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .float()
+            .to(device)
+        )
+        for bx0, by0, bw, bh in zip(orig_x0, orig_y0, orig_w, orig_h):
+            mount_size = torch.min(bw, bh)
+            pad = mount_size % 2
+            half = mount_size // 2
+            x0 = (cx - half).long()
+            x1 = (cx + half + pad).long()
+            y0 = (cy - half).long()
+            y1 = (cy + half + pad).long()
             target = heatmap[:, :, y0:y1, x0:x1]  # type: ignore
-            _, _, target_h, target_w = target.shape
-            if (target_h >= mount_h) and (target_w >= mount_w):
-                mount = torch.max(mount, target)
-                heatmap[:, :, y0:y1, x0:x1] = mount  # type: ignore
+            mount = F.interpolate(base_mount, size=target.shape[2:])
+            mount = torch.max(mount, target)
+            mount = mount / mount.max()
+            heatmap[:, :, y0:y1, x0:x1] = mount  # type: ignore
         return Heatmap(heatmap), Sizemap(sizemap)
 
 
@@ -263,7 +261,7 @@ class PreProcess:
         sms: t.List[t.Any] = []
         _, _, h, w = image_batch.shape
         for img, boxes in zip(image_batch.unbind(0), boxes_batch):
-            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w // 2, h // 2))
+            hm, sm = self.heatmap(YoloBoxes(boxes.to(self.device)), (w // 4, h // 4))
             hms.append(hm)
             sms.append(sm)
 
@@ -313,7 +311,7 @@ class Visualize:
         ):
             plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
             plot.with_image(img, alpha=0.5)
-            plot.with_image(hm[0], alpha=0.5)
+            plot.with_image(hm[0].log(), alpha=0.5)
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")

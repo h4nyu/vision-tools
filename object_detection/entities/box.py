@@ -42,12 +42,12 @@ def yolo_to_pascal(yolo: YoloBoxes, size: ImageSize) -> PascalBoxes:
     cx, cy, w, h = yolo.unbind(-1)
     size_w, size_h = size
     b = [
-        (cx - 0.5 * w) * size_w,
+        (cx - w / 2) * size_w,
         (cy - 0.5 * h) * size_h,
         (cx + 0.5 * w) * size_w,
         (cy + 0.5 * h) * size_h,
     ]
-    return PascalBoxes(torch.stack(b, dim=-1))
+    return PascalBoxes(torch.stack(b, dim=-1).round().long())
 
 
 def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:

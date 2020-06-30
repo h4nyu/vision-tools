@@ -9,7 +9,7 @@ from object_detection.entities import PyramidIdx
 class Anchors:
     def __init__(
         self,
-        size: int=4,
+        size: int = 4,
         stride: int = 1,
         ratios: t.List[float] = [0.5, 1, 2],
         scales: t.List[float] = [1.0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)],
