@@ -382,6 +382,7 @@ class LabelLoss:
 class Trainer:
     def __init__(
         self,
+        model:EfficientDet,
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
@@ -392,7 +393,7 @@ class Trainer:
     ) -> None:
         self.device = torch.device(device)
         self.model_loader = model_loader
-        self.model = model_loader.model.to(self.device)
+        self.model = model
         self.preprocess = PreProcess(self.device)
         self.postprocess = PostProcess()
         self.optimizer = optimizer
@@ -472,7 +473,7 @@ class Trainer:
         preds = self.postprocess(outputs, ids, samples)
         self.visualize(preds, gt_boxes_list, samples)
         if self.best_watcher.step(self.meters["test_loss"].get_value()):
-            self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
+            self.model_loader.save(self.model, {"loss": self.meters["test_loss"].get_value()})
 
 
 class PreProcess:

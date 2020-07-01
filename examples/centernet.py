@@ -26,10 +26,11 @@ test_dataset = ObjectDataset(
     (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=8
 )
 model = CenterNet(channels=64, out_idx=5)
-model_loader = ModelLoader("/store/centernet", model=model)
+model_loader = ModelLoader("/store/centernet")
 criterion = Criterion(sizemap_weight=1.0, sigma=0.3)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 trainer = Trainer(
+    model,
     DataLoader(
         train_dataset, collate_fn=collate_fn, batch_size=8, num_workers=4, shuffle=True
     ),

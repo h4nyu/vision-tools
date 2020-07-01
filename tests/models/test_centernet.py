@@ -19,26 +19,6 @@ from object_detection.data.object import ObjectDataset
 from torch.utils.data import DataLoader
 
 
-def test_trainer(mocker: Any) -> None:
-    train_dataset = ObjectDataset(
-        (256, 128), object_size_range=(32, 64), num_samples=128
-    )
-    test_dataset = ObjectDataset((256, 128), object_size_range=(32, 64), num_samples=8)
-    model = CenterNet()
-    model_loader = mocker.Mock()
-    model_loader.model = model
-    optimizer = torch.optim.Adam(model.parameters())
-    trainer = Trainer(
-        DataLoader(train_dataset, collate_fn=collate_fn, batch_size=8),
-        DataLoader(test_dataset, collate_fn=collate_fn, batch_size=8),
-        model_loader,
-        optimizer,
-        Visualize("/store", "test"),
-        "cuda",
-    )
-    trainer.train(2)
-
-
 def test_hm_loss() -> None:
     heatmaps = torch.tensor([[0.1, 0.5, 0.1], [0.5, 1, 0.5], [0.1, 0.5, 0.1],])
     fn = HMLoss(beta=4)
