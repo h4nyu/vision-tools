@@ -7,6 +7,7 @@ from object_detection.models.centernet import (
     Trainer,
     Criterion,
 )
+from object_detection.models.backbones import ResNetBackbone
 from object_detection.model_loader import ModelLoader
 from object_detection.data.object import ObjectDataset
 from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
@@ -25,17 +26,19 @@ train_dataset = ObjectDataset(
 test_dataset = ObjectDataset(
     (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=8
 )
-model = CenterNet(channels=64, out_idx=5)
+channels = 128
+backbone = ResNetBackbone("resnet34", out_channels=channels)
+model = CenterNet(channels=channels, backbone=backbone, out_idx=4)
 model_loader = ModelLoader("/store/centernet")
-criterion = Criterion(sizemap_weight=1.0, sigma=0.5)
+criterion = Criterion(sizemap_weight=1.0, sigma=0.3)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 trainer = Trainer(
     model,
     DataLoader(
-        train_dataset, collate_fn=collate_fn, batch_size=8, num_workers=4, shuffle=True
+        train_dataset, collate_fn=collate_fn, batch_size=8, num_workers=8, shuffle=True
     ),
     DataLoader(
-        test_dataset, collate_fn=collate_fn, batch_size=8, num_workers=4, shuffle=True
+        test_dataset, collate_fn=collate_fn, batch_size=8, num_workers=8, shuffle=True
     ),
     model_loader,
     optimizer,

@@ -88,12 +88,16 @@ class Up2d(nn.Module):
 
 class CenterNet(nn.Module):
     def __init__(
-        self, channels: int = 32, depth: int = 2, out_idx: PyramidIdx = 4
+        self,
+        channels: int,
+        backbone: nn.Module,
+        depth: int = 2,
+        out_idx: PyramidIdx = 4,
     ) -> None:
         super().__init__()
         self.out_idx = out_idx - 3
         self.channels = channels
-        self.backbone = EfficientNetBackbone(1, out_channels=channels)
+        self.backbone = backbone
         self.fpn = nn.Sequential(BiFPN(channels=channels))
         self.hm_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
@@ -216,7 +220,7 @@ class ToBoxes:
             confidences = hm[kp[:, 0], kp[:, 1]]
             wh = sm[:, kp[:, 0], kp[:, 1]]
             diff_wh = dm[:, kp[:, 0], kp[:, 1]].t()
-            cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh
+            cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh / (2 * original_wh)
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
             sort_idx = confidences.argsort(descending=True)[: self.limit]
             rows.append(
@@ -247,7 +251,6 @@ class MkMaps:
         grid_y, grid_x = tr.meshgrid(  # type:ignore
             tr.arange(h, dtype=torch.float32), tr.arange(w, dtype=torch.float32),
         )
-
         for x0, y0, x1, y1, box_cx, box_cy, box_w, box_h in zip(
             xs0, ys0, xs1, ys1, box_cxs, box_cys, box_ws, box_hs,
         ):
@@ -262,8 +265,8 @@ class MkMaps:
                 mount = mount.unsqueeze(0).unsqueeze(0).to(device) / mount.max()
                 heatmap = torch.max(mount, heatmap)
                 sizemap[:, :, cy, cx] = tr.stack([box_w, box_h])
-                diff_cx = box_cx - cx / float(w)
-                diff_cy = box_cy - cy / float(h)
+                diff_cx = 2 * (box_cx * w - cx)
+                diff_cy = 2 * (box_cy * h - cy)
                 posmap[:, :, cy, cx] = tr.stack([diff_cx, diff_cy])
 
         return Heatmap(heatmap), Sizemap(sizemap), DiffMap(posmap)

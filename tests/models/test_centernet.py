@@ -16,6 +16,7 @@ from object_detection.entities import YoloBoxes, Image, ImageSize
 from object_detection.entities.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
 from object_detection.data.object import ObjectDataset
+from object_detection.models.backbones import ResNetBackbone
 from torch.utils.data import DataLoader
 
 
@@ -37,12 +38,14 @@ def test_hm_loss() -> None:
 
 def test_centernet_foward() -> None:
     inputs = torch.rand((1, 3, 1024, 1024))
-    fn = CenterNet()
+    channels = 32
+    backbone = ResNetBackbone("resnet34", out_channels=channels)
+    fn = CenterNet(channels=channels, backbone=backbone)
     heatmap, sizemap = fn(inputs)
     assert heatmap.shape == (1, 1, 1024 // 2, 1024 // 2)
 
 
-@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
+@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.08, 0.16)])
 def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(thresold=0.1)
@@ -53,7 +56,7 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     assert hm.shape == (1, 1, h, w)
     assert sm.shape == (1, 2, h, w)
     assert (sm[0, :, cy, cx] - torch.tensor([0.1, 0.3])).sum() == 0
-    assert (dm[0, :, cy, cx] - torch.tensor([dx, dy])).sum().abs() < 1e-7
+    assert (dm[0, :, cy, cx] - torch.tensor([dx, dy])).sum().abs() < 1e-6
     out_boxes, _ = next(iter(to_boxes((hm, sm, dm))))
     assert out_boxes[0, 0] == in_boxes[0, 0]
     assert out_boxes[0, 1] == in_boxes[0, 1]

@@ -61,10 +61,13 @@ class EfficientNetBackbone(nn.Module):
         )
 
 
+ResModelName = Literal["resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]
+
+
 class ResNetBackbone(nn.Module):
     def __init__(self, name: str, out_channels: int) -> None:
         super().__init__()
-        self.backbone = torchvision.models.resnet18(pretrained=True)
+        self.backbone = getattr(torchvision.models, name)(pretrained=True)
         if name == "resnet34" or name == "resnet18":
             num_channels = 512
         else:
