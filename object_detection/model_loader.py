@@ -15,7 +15,7 @@ class ModelLoader:
         self.model = model
         self.out_dir.mkdir(exist_ok=True, parents=True)
 
-    def check_point_exits(self) -> bool:
+    def check_point_exists(self) -> bool:
         return self.checkpoint_file.exists()
 
     def load(self) -> Tuple[nn.Module, Dict]:

@@ -385,7 +385,7 @@ class Trainer:
 
         self.model_loader = model_loader
         self.model = model_loader.model.to(self.device)
-        if model_loader.check_point_exits:
+        if model_loader.check_point_exists():
             self.model, meta = model_loader.load()
             self.best_watcher.step(meta["loss"])
 
