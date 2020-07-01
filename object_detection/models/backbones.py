@@ -65,7 +65,7 @@ ResModelName = Literal["resnet18", "resnet34", "resnet50", "resnet101", "resnet1
 
 
 class ResNetBackbone(nn.Module):
-    def __init__(self, name: str, out_channels: int) -> None:
+    def __init__(self, name: ResModelName, out_channels: int) -> None:
         super().__init__()
         self.backbone = getattr(torchvision.models, name)(pretrained=True)
         if name == "resnet34" or name == "resnet18":
