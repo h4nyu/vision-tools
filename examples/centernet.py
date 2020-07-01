@@ -31,15 +31,11 @@ backbone = ResNetBackbone("resnet34", out_channels=channels)
 model = CenterNet(channels=channels, backbone=backbone, out_idx=4)
 model_loader = ModelLoader("/store/centernet")
 criterion = Criterion(sizemap_weight=1.0, sigma=0.3)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 trainer = Trainer(
     model,
-    DataLoader(
-        train_dataset, collate_fn=collate_fn, batch_size=8, num_workers=8, shuffle=True
-    ),
-    DataLoader(
-        test_dataset, collate_fn=collate_fn, batch_size=8, num_workers=8, shuffle=True
-    ),
+    DataLoader(train_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True),
+    DataLoader(test_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True),
     model_loader,
     optimizer,
     Visualize("/store/centernet", "test", limit=2),
