@@ -26,7 +26,7 @@ class ModelLoader:
         )
         return model, data
 
-    def save(self, model:nn.Module,metrics: Dict[str, float] = {}) -> None:
+    def save(self, model: nn.Module, metrics: Dict[str, float] = {}) -> None:
         with open(self.checkpoint_file, "w") as f:
             json.dump(metrics, f)
         logger.info(f"save model to {self.out_dir}")

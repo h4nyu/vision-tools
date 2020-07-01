@@ -244,6 +244,9 @@ class MkMaps:
 
         box_cxs, box_cys, box_ws, box_hs = boxes.unbind(-1)
         xs0, ys0, xs1, ys1 = yolo_to_pascal(boxes, (w, h)).unbind(-1)
+        grid_y, grid_x = tr.meshgrid(  # type:ignore
+            tr.arange(h, dtype=torch.float32), tr.arange(w, dtype=torch.float32),
+        )
 
         for x0, y0, x1, y1, box_cx, box_cy, box_w, box_h in zip(
             xs0, ys0, xs1, ys1, box_cxs, box_cys, box_ws, box_hs,
@@ -251,22 +254,13 @@ class MkMaps:
             bw = x1 - x0
             bh = y1 - y0
             if (bw > 0) and (bh > 0):
-                mount_cx = bw / 2.0
-                mount_cy = bh / 2.0
-                grid_y, grid_x = tr.meshgrid(  # type:ignore
-                    tr.arange(bh, dtype=torch.float32),
-                    tr.arange(bw, dtype=torch.float32),
-                )
+                cx = (x0 + bw / 2.0).long()
+                cy = (y0 + bh / 2.0).long()
                 mount = tr.exp(
-                    -((grid_x - mount_cx) ** 2 + (grid_y - mount_cy) ** 2)
-                    / (2 * self.sigma ** 2)
+                    -((grid_x - cx) ** 2 + (grid_y - cy) ** 2) / (2 * self.sigma ** 2)
                 )
-                mount = mount.unsqueeze(0).unsqueeze(0).to(device)
-                region = heatmap[:, :, y0:y1, x0:x1]  # type:ignore
-                mount = torch.max(mount, region)
-                heatmap[:, :, y0:y1, x0:x1] = mount / mount.max()
-                cx = (x0 + mount_cx).long()
-                cy = (y0 + mount_cy).long()
+                mount = mount.unsqueeze(0).unsqueeze(0).to(device) / mount.max()
+                heatmap = torch.max(mount, heatmap)
                 sizemap[:, :, cy, cx] = tr.stack([box_w, box_h])
                 diff_cx = box_cx - cx / float(w)
                 diff_cy = box_cy - cy / float(h)
@@ -328,7 +322,12 @@ class PostProcess:
 
 class Visualize:
     def __init__(
-        self, out_dir: str, prefix: str, limit: int = 1, use_alpha: bool = True, figsize: Tuple[int, int]=(10, 10)
+        self,
+        out_dir: str,
+        prefix: str,
+        limit: int = 1,
+        use_alpha: bool = True,
+        figsize: Tuple[int, int] = (10, 10),
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
@@ -350,14 +349,18 @@ class Visualize:
         for i, ((_, sb, sc), tb, hm, img, gt_hm) in enumerate(
             zip(src, tgt, heatmap, image_batch, gt_hms)
         ):
-            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize)
+            plot = DetectionPlot(
+                h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize
+            )
             plot.with_image(img, alpha=0.5)
             plot.with_image(hm[0].log(), alpha=0.5)
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
-            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize)
+            plot = DetectionPlot(
+                h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize
+            )
             plot.with_image(img, alpha=0.5)
             plot.with_image((gt_hm[0] + 1e-4).log(), alpha=0.5)
             plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
@@ -457,4 +460,6 @@ class Trainer:
 
         self.visualize(outputs, preds, targets, samples, gt_hms)
         if self.best_watcher.step(self.meters["test_loss"].get_value()):
-            self.model_loader.save(self.model,{"loss": self.meters["test_loss"].get_value()})
+            self.model_loader.save(
+                self.model, {"loss": self.meters["test_loss"].get_value()}
+            )

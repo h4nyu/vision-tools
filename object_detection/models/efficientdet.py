@@ -382,7 +382,7 @@ class LabelLoss:
 class Trainer:
     def __init__(
         self,
-        model:EfficientDet,
+        model: EfficientDet,
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
@@ -473,7 +473,9 @@ class Trainer:
         preds = self.postprocess(outputs, ids, samples)
         self.visualize(preds, gt_boxes_list, samples)
         if self.best_watcher.step(self.meters["test_loss"].get_value()):
-            self.model_loader.save(self.model, {"loss": self.meters["test_loss"].get_value()})
+            self.model_loader.save(
+                self.model, {"loss": self.meters["test_loss"].get_value()}
+            )
 
 
 class PreProcess:
