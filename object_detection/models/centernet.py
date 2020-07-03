@@ -248,7 +248,7 @@ class MkMaps:
 
         box_cxs, box_cys, _, _ = boxes.unbind(-1)
         grid_y, grid_x = tr.meshgrid(  # type:ignore
-            tr.arange(h, dtype=torch.float32), tr.arange(w, dtype=torch.float32),
+            tr.arange(h, dtype=torch.int64), tr.arange(w, dtype=torch.int64),
         )
 
         wh = torch.tensor([w, h]).to(device)
@@ -261,7 +261,6 @@ class MkMaps:
             -((grid_xy - grid_cxcy) ** 2).sum(dim=1, keepdim=True)
             / (2 * self.sigma ** 2)
         )
-        mounts = mounts / F.adaptive_max_pool2d(mounts, output_size=(1, 1))
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         sizemap[:, :, cy, cx] = boxes[:, 2:].t()
         diffmap[:, :, cy, cx] = (boxes[:, :2] - cxcy.float() / wh).t()

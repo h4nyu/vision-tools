@@ -50,7 +50,7 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(thresold=0.1)
     mkmaps = MkMaps(sigma=0.3)
-    hm, sm, dm = mkmaps([in_boxes], (h, h), (h * 10, w * 10))
+    hm, sm, dm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
     assert (sm.nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
     assert hm.shape == (1, 1, h, w)
@@ -65,5 +65,23 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     plot = DetectionPlot(w=w, h=h)
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(in_boxes, color="blue")
-    plot.with_yolo_boxes(out_boxes)
+    plot.with_yolo_boxes(out_boxes, color="red")
     plot.save(f"/store/test-soft-heatmap.png")
+
+
+def test_mkmap_count() -> None:
+    h = 64
+    w = h * 2
+    in_boxes = YoloBoxes(
+        torch.tensor([[0.201, 0.402, 0.1, 0.3], [0.302, 0.402, 0.1, 0.3],])
+    )
+    to_boxes = ToBoxes(thresold=0.1)
+    mkmaps = MkMaps(sigma=0.5)
+    hm, sm, dm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
+    out_boxes, _ = next(iter(to_boxes((hm, sm, dm))))
+    assert hm.eq(1).nonzero().shape == (2, 4)  # type:ignore
+    plot = DetectionPlot(w=w, h=h)
+    plot.with_image((hm[0, 0] + 1e-4).log())
+    plot.with_yolo_boxes(in_boxes, color="blue")
+    plot.with_yolo_boxes(out_boxes, color="red")
+    plot.save(f"/store/test-heatmap-count.png")
