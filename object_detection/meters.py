@@ -35,7 +35,7 @@ class MeanMeter:
         self.count += count
 
     def get_value(self) -> float:
-        return self.sum / self.count
+        return self.sum / max(self.count, 1)
 
     def reset(self) -> None:
         self.sum = 0.0
