@@ -10,7 +10,7 @@ from object_detection.models.centernet import (
 from object_detection.models.backbones import ResNetBackbone
 from object_detection.model_loader import ModelLoader
 from object_detection.data.object import ObjectDataset
-from object_detection.eval import MeanPrecition
+from object_detection.metrics import MeanPrecition
 from object_detection.meters import BestWatcher
 from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
 
