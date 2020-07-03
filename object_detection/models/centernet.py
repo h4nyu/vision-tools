@@ -463,7 +463,7 @@ class Trainer:
                 images, outputs, boxes
             )
             preds = self.post_process(outputs)
-            for (pred, gt) in zip(preds, boxes):
+            for (pred, gt) in zip(preds[0], boxes):
                 self.meters["score"].update(self.get_score(pred, gt))
 
             self.meters["test_loss"].update(loss.item())
