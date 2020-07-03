@@ -32,14 +32,20 @@ model = CenterNet(channels=channels, backbone=backbone, out_idx=4)
 model_loader = ModelLoader("/store/centernet")
 criterion = Criterion(sizemap_weight=1.0, sigma=0.5)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+visualize = Visualize("/store/centernet", "test", limit=2)
 trainer = Trainer(
-    model,
-    DataLoader(train_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True),
-    DataLoader(test_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True),
-    model_loader,
-    optimizer,
-    Visualize("/store/centernet", "test", limit=2),
-    "cuda",
+    model=model,
+    train_loader=DataLoader(
+        train_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True
+    ),
+    test_loader=DataLoader(
+        test_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True
+    ),
+    model_loader=model_loader,
+    optimizer=optimizer,
+    visualize=visualize,
     criterion=criterion,
+    device="cuda",
+    get_score=lambda *args: 0.0,
 )
 trainer.train(500)

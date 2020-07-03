@@ -4,7 +4,7 @@ import math
 import typing as t
 import torch as tr
 import torch.nn.functional as F
-from typing import List, Tuple, NewType, Union
+from typing import List, Tuple, NewType, Union, Callable
 from torch import nn, Tensor
 from logging import getLogger
 from tqdm import tqdm
@@ -16,6 +16,8 @@ from object_detection.entities import (
     yolo_to_pascal,
     pascal_to_yolo,
     yolo_to_coco,
+    Labels,
+    GetScore,
 )
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
@@ -35,16 +37,20 @@ from pathlib import Path
 logger = getLogger(__name__)
 
 
-def collate_fn(batch: Batch) -> Tuple[ImageBatch, List[YoloBoxes], List[ImageId]]:
+def collate_fn(
+    batch: Batch,
+) -> Tuple[List[ImageId], ImageBatch, List[YoloBoxes], List[Labels]]:
     images: List[t.Any] = []
     id_batch: List[ImageId] = []
     box_batch: List[YoloBoxes] = []
+    label_batch: List[Labels] = []
 
-    for id, img, boxes, _ in batch:
+    for id, img, boxes, labels in batch:
         images.append(img)
         box_batch.append(boxes)
         id_batch.append(id)
-    return ImageBatch(torch.stack(images)), box_batch, id_batch
+        label_batch.append(labels)
+    return id_batch, ImageBatch(torch.stack(images)), box_batch, label_batch
 
 
 class Reg(nn.Module):
@@ -379,6 +385,7 @@ class Trainer:
         model_loader: ModelLoader,
         optimizer: t.Any,
         visualize: Visualize,
+        get_score: GetScore,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -391,6 +398,7 @@ class Trainer:
         self.post_process = PostProcess()
         self.best_watcher = BestWatcher()
         self.model = model.to(self.device)
+        self.get_score = get_score
 
         self.model_loader = model_loader
         if model_loader.check_point_exists():
@@ -409,6 +417,7 @@ class Trainer:
                 "test_hm",
                 "test_sm",
                 "test_dm",
+                "score",
             ]
         }
 
@@ -449,20 +458,21 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.eval()
         loader = self.test_loader
-        for samples, targets, ids in tqdm(loader):
-            samples, targets = self.preprocess((samples, targets))
-            outputs = self.model(samples)
+        for ids, images, boxes, labels in tqdm(loader):
+            images, targets = self.preprocess((images, boxes))
+            outputs = self.model(images)
             loss, hm_loss, sm_loss, dm_loss, gt_hms = self.criterion(
-                samples, outputs, targets
+                images, outputs, boxes
             )
-            preds = self.post_process(outputs, ids, samples)
+            preds = self.post_process(outputs, ids, images)
+            self.get_score(preds, (boxes, labels))
 
             self.meters["test_loss"].update(loss.item())
             self.meters["test_hm"].update(hm_loss.item())
             self.meters["test_sm"].update(sm_loss.item())
             self.meters["test_dm"].update(dm_loss.item())
 
-        self.visualize(outputs, preds, targets, samples, gt_hms)
+        self.visualize(outputs, preds, targets, images, gt_hms)
         if self.best_watcher.step(self.meters["test_loss"].get_value()):
             self.model_loader.save(
                 self.model, {"loss": self.meters["test_loss"].get_value()}
