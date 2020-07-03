@@ -21,10 +21,10 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 train_dataset = ObjectDataset(
-    (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=256
+    (512, 512), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=1024
 )
 test_dataset = ObjectDataset(
-    (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=8
+    (512, 512), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=8
 )
 channels = 128
 backbone = ResNetBackbone("resnet34", out_channels=channels)

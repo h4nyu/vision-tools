@@ -45,7 +45,7 @@ def test_centernet_foward() -> None:
     assert heatmap.shape == (1, 1, 1024 // 2, 1024 // 2)
 
 
-@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.08, 0.16)])
+@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
 def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(thresold=0.1)

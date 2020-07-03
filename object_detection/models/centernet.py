@@ -103,10 +103,10 @@ class CenterNet(nn.Module):
             Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
         )
         self.size_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=2, depth=depth), nn.Sigmoid(),
+            Reg(in_channels=channels, out_channels=2, depth=depth),
         )
         self.diff_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=2, depth=depth), nn.Tanh(),
+            Reg(in_channels=channels, out_channels=2, depth=depth),
         )
 
     def forward(self, x: ImageBatch) -> NetOutput:
@@ -220,7 +220,7 @@ class ToBoxes:
             confidences = hm[kp[:, 0], kp[:, 1]]
             wh = sm[:, kp[:, 0], kp[:, 1]]
             diff_wh = dm[:, kp[:, 0], kp[:, 1]].t()
-            cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh / (2 * original_wh)
+            cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
             sort_idx = confidences.argsort(descending=True)[: self.limit]
             rows.append(
@@ -241,35 +241,31 @@ class MkMaps:
         orig_h, orig_w = original_hw
         heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
         sizemap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
-        posmap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
+        diffmap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
         box_count, _ = boxes.shape
         if box_count == 0:
-            return Heatmap(heatmap), Sizemap(sizemap), DiffMap(posmap)
+            return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap)
 
-        box_cxs, box_cys, box_ws, box_hs = boxes.unbind(-1)
-        xs0, ys0, xs1, ys1 = yolo_to_pascal(boxes, (w, h)).unbind(-1)
+        box_cxs, box_cys, _, _ = boxes.unbind(-1)
         grid_y, grid_x = tr.meshgrid(  # type:ignore
             tr.arange(h, dtype=torch.float32), tr.arange(w, dtype=torch.float32),
         )
-        for x0, y0, x1, y1, box_cx, box_cy, box_w, box_h in zip(
-            xs0, ys0, xs1, ys1, box_cxs, box_cys, box_ws, box_hs,
-        ):
-            bw = x1 - x0
-            bh = y1 - y0
-            if (bw > 0) and (bh > 0):
-                cx = (x0 + bw / 2.0).long()
-                cy = (y0 + bh / 2.0).long()
-                mount = tr.exp(
-                    -((grid_x - cx) ** 2 + (grid_y - cy) ** 2) / (2 * self.sigma ** 2)
-                )
-                mount = mount.unsqueeze(0).unsqueeze(0).to(device) / mount.max()
-                heatmap = torch.max(mount, heatmap)
-                sizemap[:, :, cy, cx] = tr.stack([box_w, box_h])
-                diff_cx = 2 * (box_cx * w - cx)
-                diff_cy = 2 * (box_cy * h - cy)
-                posmap[:, :, cy, cx] = tr.stack([diff_cx, diff_cy])
 
-        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(posmap)
+        wh = torch.tensor([w, h]).to(device)
+        cxcy = (boxes[:, :2] * wh).long()
+        cx = cxcy[:, 0]
+        cy = cxcy[:, 1]
+        grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
+        grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
+        mounts = tr.exp(
+            -((grid_xy - grid_cxcy) ** 2).sum(dim=1, keepdim=True)
+            / (2 * self.sigma ** 2)
+        )
+        mounts = mounts / F.adaptive_max_pool2d(mounts, output_size=(1, 1))
+        heatmap, _ = mounts.max(dim=0, keepdim=True)
+        sizemap[:, :, cy, cx] = boxes[:, 2:].t()
+        diffmap[:, :, cy, cx] = (boxes[:, :2] - cxcy.float() / wh).t()
+        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap)
 
     @torch.no_grad()
     def __call__(
