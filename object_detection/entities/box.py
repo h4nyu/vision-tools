@@ -22,7 +22,7 @@ LabelBoxes = Tuple[CoCoBoxes, Labels]
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
     size_w, size_h = size
-    x0, y0, x1, y1 = coco_to_pascal(coco).unbind(-1)
+    x0, y0, x1, y1 = coco_to_pascal(coco).float().unbind(-1)
     b = [
         (x0 + x1) / 2 / size_w,
         (y0 + y1) / 2 / size_h,
