@@ -314,14 +314,13 @@ class PostProcess:
     def __init__(self) -> None:
         self.to_boxes = ToBoxes(thresold=0.1, limit=300)
 
-    def __call__(
-        self, x: NetOutput, image_ids: List[ImageId], images: ImageBatch
-    ) -> List[Tuple[ImageId, YoloBoxes, Confidences]]:
-        _, _, h, w = images.shape
-        rows = []
-        for image_id, (boxes, confidences) in zip(image_ids, self.to_boxes(x)):
-            rows.append((image_id, boxes, confidences))
-        return rows
+    def __call__(self, netout: NetOutput,) -> Tuple[List[YoloBoxes], List[Confidences]]:
+        box_batch = []
+        confidence_batch = []
+        for boxes, confidences in self.to_boxes(netout):
+            box_batch.append(boxes)
+            confidence_batch.append(confidences)
+        return box_batch, confidence_batch
 
 
 class Visualize:
@@ -344,16 +343,18 @@ class Visualize:
     def __call__(
         self,
         net_out: NetOutput,
-        src: List[Tuple[ImageId, YoloBoxes, Confidences]],
+        src: Tuple[List[YoloBoxes], List[Confidences]],
         tgt: List[YoloBoxes],
         image_batch: ImageBatch,
         gt_hms: Heatmap,
     ) -> None:
         heatmap, _, _ = net_out
-        src = src[: self.limit]
+        box_batch, confidence_batch = src
+        box_batch = box_batch[: self.limit]
+        confidence_batch = confidence_batch[: self.limit]
         _, _, h, w = image_batch.shape
-        for i, ((_, sb, sc), tb, hm, img, gt_hm) in enumerate(
-            zip(src, tgt, heatmap, image_batch, gt_hms)
+        for i, (sb, sc, tb, hm, img, gt_hm) in enumerate(
+            zip(box_batch, confidence_batch, tgt, heatmap, image_batch, gt_hms)
         ):
             plot = DetectionPlot(
                 h=h,
@@ -439,11 +440,11 @@ class Trainer:
     def train_one_epoch(self) -> None:
         self.model.train()
         loader = self.train_loader
-        for samples, targets, ids in tqdm(loader):
-            samples, targets = self.preprocess((samples, targets))
-            outputs = self.model(samples)
+        for ids, images, boxes, labels in tqdm(loader):
+            images, boxes = self.preprocess((images, boxes))
+            outputs = self.model(images)
             loss, hm_loss, sm_loss, dm_loss, _ = self.criterion(
-                samples, outputs, targets
+                images, outputs, boxes
             )
             self.optimizer.zero_grad()
             loss.backward()
@@ -464,7 +465,7 @@ class Trainer:
             loss, hm_loss, sm_loss, dm_loss, gt_hms = self.criterion(
                 images, outputs, boxes
             )
-            preds = self.post_process(outputs, ids, images)
+            preds = self.post_process(outputs)
             self.get_score(preds, (boxes, labels))
 
             self.meters["test_loss"].update(loss.item())
