@@ -23,7 +23,6 @@ from object_detection.entities.image import ImageId
 from .modules import ConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
-from .backbones import EfficientNetBackbone, ResNetBackbone
 from .losses import Reduction
 from object_detection.meters import BestWatcher, MeanMeter
 from object_detection.entities import ImageBatch, PredBoxes, Image, Batch

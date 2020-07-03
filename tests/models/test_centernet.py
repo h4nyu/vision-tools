@@ -16,7 +16,7 @@ from object_detection.entities import YoloBoxes, Image, ImageSize
 from object_detection.entities.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
 from object_detection.data.object import ObjectDataset
-from object_detection.models.backbones import ResNetBackbone
+from object_detection.models.backbones.resnet import ResNetBackbone
 from torch.utils.data import DataLoader
 
 

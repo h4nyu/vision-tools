@@ -2,6 +2,7 @@ import torch
 import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
+from object_detection.entities import FP
 from .bottlenecks import MobileV3, SENextBottleneck2d
 
 
@@ -58,9 +59,6 @@ class Merge2d(nn.Module):
         x = torch.cat(inputs, dim=1)
         x = self.merge(x)
         return x
-
-
-FP = t.Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]  # p3, p4, p5, p6, p7
 
 
 class BiFPN(nn.Module):

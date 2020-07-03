@@ -4,10 +4,11 @@ import torch.nn as nn
 import torchvision
 from torch import Tensor
 from efficientnet_pytorch.model import EfficientNet
-from .bifpn import FP
+from object_detection.entities import FP
+from typing import Any
 from typing_extensions import Literal
 
-SIDEOUT = {  # phi: (stages, channels)
+SIDEOUT: Any = {  # phi: (stages, channels)
     0: ([0, 2, 4, 10, 15], [16, 24, 40, 112, 320]),
     1: ([1, 4, 7, 15, 22], [16, 24, 40, 112, 320]),
     2: ([1, 4, 7, 15, 22], [16, 24, 48, 120, 352]),
@@ -52,40 +53,6 @@ class EfficientNetBackbone(nn.Module):
                 feats.append(x)
 
         p3, p4, p5, p6, p7 = feats
-        return (
-            self.projects[0](p3),
-            self.projects[1](p4),
-            self.projects[2](p5),
-            self.projects[3](p6),
-            self.projects[4](p7),
-        )
-
-
-ResModelName = Literal["resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]
-
-
-class ResNetBackbone(nn.Module):
-    def __init__(self, name: ResModelName, out_channels: int) -> None:
-        super().__init__()
-        self.backbone = getattr(torchvision.models, name)(pretrained=True)
-        if name == "resnet34" or name == "resnet18":
-            num_channels = 512
-        else:
-            num_channels = 2048
-        self.layers = list(self.backbone.children())[:-2]
-        self.projects = nn.ModuleList(
-            [
-                nn.Conv2d(in_channels=i, out_channels=out_channels, kernel_size=1,)
-                for i in [64, 64, 128, 256, 512]
-            ]
-        )
-
-    def forward(self, x: Tensor) -> FP:
-        internal_outputs = []
-        for layer in self.layers:
-            x = layer(x)
-            internal_outputs.append(x)
-        _, p3, _, p4, _, p5, p6, p7 = internal_outputs
         return (
             self.projects[0](p3),
             self.projects[1](p4),
