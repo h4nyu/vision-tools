@@ -17,7 +17,6 @@ from object_detection.entities import (
     pascal_to_yolo,
     yolo_to_coco,
     Labels,
-    GetScore,
 )
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
@@ -386,7 +385,7 @@ class Trainer:
         model_loader: ModelLoader,
         optimizer: t.Any,
         visualize: Visualize,
-        get_score: GetScore,
+        get_score: Callable[[YoloBoxes, YoloBoxes], float],
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -443,9 +442,7 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, sm_loss, dm_loss, _ = self.criterion(
-                images, outputs, boxes
-            )
+            loss, hm_loss, sm_loss, dm_loss, _ = self.criterion(images, outputs, boxes)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -466,7 +463,8 @@ class Trainer:
                 images, outputs, boxes
             )
             preds = self.post_process(outputs)
-            self.get_score(preds, (boxes, labels))
+            for (pred, gt) in zip(preds, boxes):
+                self.meters["score"].update(self.get_score(pred, gt))
 
             self.meters["test_loss"].update(loss.item())
             self.meters["test_hm"].update(hm_loss.item())

@@ -10,6 +10,7 @@ from object_detection.models.centernet import (
 from object_detection.models.backbones import ResNetBackbone
 from object_detection.model_loader import ModelLoader
 from object_detection.data.object import ObjectDataset
+from object_detection.eval import MeanPrecition
 from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
 
 logger = getLogger()
@@ -46,6 +47,6 @@ trainer = Trainer(
     visualize=visualize,
     criterion=criterion,
     device="cuda",
-    get_score=lambda *args: 0.0,
+    get_score=MeanPrecition(),
 )
 trainer.train(500)

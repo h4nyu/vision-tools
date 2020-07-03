@@ -7,8 +7,3 @@ from typing_extensions import Literal
 Sample = Tuple[ImageId, Image, YoloBoxes, Labels]
 Batch = List[Sample]
 PyramidIdx = Literal[3, 4, 5, 6, 7]
-
-GetScore = Callable[
-    [Tuple[List[YoloBoxes], List[Confidences]], Tuple[List[YoloBoxes], List[Labels]]],
-    float,
-]

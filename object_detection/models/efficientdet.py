@@ -246,8 +246,7 @@ class Criterion:
             pos_diffs, size_diffs, classifications, gt_boxes_list, gt_classes_list
         ):
             iou_matrix = box_iou(
-                yolo_to_pascal(anchors, size=(w, h)),
-                yolo_to_pascal(gt_boxes, size=(w, h)),
+                yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
             )
             iou_max, match_indices = torch.max(iou_matrix, dim=1)
             label_losses.append(
