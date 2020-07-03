@@ -326,12 +326,14 @@ class Visualize:
         prefix: str,
         limit: int = 1,
         use_alpha: bool = True,
+        show_probs: bool = True,
         figsize: Tuple[int, int] = (10, 10),
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
         self.use_alpha = use_alpha
+        self.show_probs = show_probs
         self.figsize = figsize
 
     def __call__(
@@ -349,7 +351,11 @@ class Visualize:
             zip(src, tgt, heatmap, image_batch, gt_hms)
         ):
             plot = DetectionPlot(
-                h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize
+                h=h,
+                w=w,
+                use_alpha=self.use_alpha,
+                figsize=self.figsize,
+                show_probs=self.show_probs,
             )
             plot.with_image(img, alpha=0.5)
             plot.with_image(hm[0].log(), alpha=0.5)
