@@ -11,6 +11,7 @@ from object_detection.models.backbones import ResNetBackbone
 from object_detection.model_loader import ModelLoader
 from object_detection.data.object import ObjectDataset
 from object_detection.eval import MeanPrecition
+from object_detection.meters import BestWatcher
 from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
 
 logger = getLogger()
@@ -34,6 +35,7 @@ model_loader = ModelLoader("/store/centernet")
 criterion = Criterion(sizemap_weight=1.0, sigma=0.5)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/centernet", "test", limit=2)
+best_watcher = BestWatcher(mode="max")
 trainer = Trainer(
     model=model,
     train_loader=DataLoader(
@@ -46,6 +48,7 @@ trainer = Trainer(
     optimizer=optimizer,
     visualize=visualize,
     criterion=criterion,
+    best_watcher=best_watcher,
     device="cuda",
     get_score=MeanPrecition(),
 )

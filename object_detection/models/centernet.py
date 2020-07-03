@@ -386,6 +386,7 @@ class Trainer:
         optimizer: t.Any,
         visualize: Visualize,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
+        best_watcher: BestWatcher,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -396,14 +397,14 @@ class Trainer:
         self.criterion = criterion
         self.preprocess = PreProcess(self.device)
         self.post_process = PostProcess()
-        self.best_watcher = BestWatcher()
+        self.best_watcher = best_watcher
         self.model = model.to(self.device)
         self.get_score = get_score
 
         self.model_loader = model_loader
         if model_loader.check_point_exists():
             self.model, meta = model_loader.load(self.model)
-            self.best_watcher.step(meta["loss"])
+            self.best_watcher.step(meta["score"])
 
         self.visualize = visualize
         self.meters = {
@@ -472,7 +473,7 @@ class Trainer:
             self.meters["test_dm"].update(dm_loss.item())
 
         self.visualize(outputs, preds, boxes, images, gt_hms)
-        if self.best_watcher.step(self.meters["test_loss"].get_value()):
+        if self.best_watcher.step(self.meters["score"].get_value()):
             self.model_loader.save(
-                self.model, {"loss": self.meters["test_loss"].get_value()}
+                self.model, {"score": self.meters["score"].get_value()}
             )
