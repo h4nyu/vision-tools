@@ -30,7 +30,7 @@ test_dataset = ObjectDataset(
 )
 channels = 256
 backbone = ResNetBackbone("resnet50", out_channels=channels)
-model = CenterNet(channels=channels, backbone=backbone, out_idx=5, depth=1)
+model = CenterNet(channels=channels, backbone=backbone, out_idx=4, depth=1)
 model_loader = ModelLoader("/store/centernet")
 criterion = Criterion(sizemap_weight=1.0, sigma=0.3)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)

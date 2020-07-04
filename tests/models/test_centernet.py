@@ -73,7 +73,7 @@ def test_mkmap_count() -> None:
     h = 64
     w = h * 2
     in_boxes = YoloBoxes(
-        torch.tensor([[0.201, 0.402, 0.1, 0.3], [0.302, 0.402, 0.1, 0.3],])
+        torch.tensor([[0.201, 0.603, 0.2, 0.3], [0.302, 0.402, 0.1, 0.3],])
     )
     to_boxes = ToBoxes(thresold=0.1)
     mkmaps = MkMaps(sigma=0.5)
