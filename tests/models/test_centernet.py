@@ -48,7 +48,7 @@ def test_centernet_foward() -> None:
 @pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
 def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
-    to_boxes = ToBoxes(thresold=0.1)
+    to_boxes = ToBoxes(threshold=0.1)
     mkmaps = MkMaps(sigma=0.3)
     hm, sm, dm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
@@ -76,7 +76,7 @@ def test_mkmap_count(boxes: Any) -> None:
     h = 128
     w = h * 2
     in_boxes = YoloBoxes(torch.tensor(boxes))
-    to_boxes = ToBoxes(thresold=0.1)
+    to_boxes = ToBoxes()
     mkmaps = MkMaps(sigma=0.5)
     hm, sm, dm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     out_boxes, _ = next(iter(to_boxes((hm, sm, dm))))

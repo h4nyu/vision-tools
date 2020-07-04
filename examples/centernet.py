@@ -6,6 +6,7 @@ from object_detection.models.centernet import (
     Visualize,
     Trainer,
     Criterion,
+    ToBoxes,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.model_loader import ModelLoader
@@ -39,6 +40,7 @@ criterion = Criterion(sizemap_weight=1.0, sigma=0.3)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/centernet", "test", limit=2)
 best_watcher = BestWatcher(mode="max")
+to_boxes = ToBoxes(threshold=0.5, limit=60)
 trainer = Trainer(
     model=model,
     train_loader=DataLoader(
@@ -54,5 +56,6 @@ trainer = Trainer(
     best_watcher=best_watcher,
     device="cuda",
     get_score=MeanPrecition(),
+    to_boxes=to_boxes,
 )
 trainer.train(500)

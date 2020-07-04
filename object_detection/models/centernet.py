@@ -204,15 +204,15 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
 
 
 class ToBoxes:
-    def __init__(self, thresold: float, limit: int = 100) -> None:
+    def __init__(self, threshold: float=0.1, limit: int = 100) -> None:
         self.limit = limit
-        self.thresold = thresold
+        self.threshold = threshold
 
     def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
         heatmap, sizemap, diffmap = inputs
         device = heatmap.device
         kpmap = (F.max_pool2d(heatmap, 3, stride=1, padding=1) == heatmap) & (
-            heatmap > self.thresold
+            heatmap > self.threshold
         )
         batch_size, _, height, width = heatmap.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
@@ -311,8 +311,8 @@ class PreProcess:
 
 
 class PostProcess:
-    def __init__(self) -> None:
-        self.to_boxes = ToBoxes(thresold=0.1, limit=300)
+    def __init__(self, to_boxes:ToBoxes=ToBoxes()) -> None:
+        self.to_boxes = to_boxes
 
     def __call__(self, netout: NetOutput,) -> Tuple[List[YoloBoxes], List[Confidences]]:
         box_batch = []
@@ -388,6 +388,7 @@ class Trainer:
         visualize: Visualize,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
         best_watcher: BestWatcher,
+        to_boxes: ToBoxes,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -397,7 +398,7 @@ class Trainer:
         self.test_loader = test_loader
         self.criterion = criterion
         self.preprocess = PreProcess(self.device)
-        self.post_process = PostProcess()
+        self.post_process = PostProcess(to_boxes=to_boxes)
         self.best_watcher = best_watcher
         self.model = model.to(self.device)
         self.get_score = get_score
