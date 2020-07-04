@@ -49,7 +49,6 @@ class BestWatcher:
         min_delta: float = 0.0,
         ema: bool = False,
         alpha: float = 1.0,
-        prev_metrics: float = math.nan,
     ) -> None:
         self.mode = mode
         self.min_delta = min_delta
@@ -61,7 +60,7 @@ class BestWatcher:
         else:
             self.op = operator.gt
             self.best = -math.inf
-        self.prev_metrics = prev_metrics
+        self.prev_metrics = math.nan
 
     def step(self, metrics: float) -> bool:
         if self.ema and not math.isnan(self.prev_metrics):
