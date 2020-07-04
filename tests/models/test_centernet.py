@@ -70,14 +70,14 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
 
 
 @pytest.mark.parametrize(
-    "boxes", [([[0.4, 0.4, 0.1, 0.2], [0.1, 0.2, 0.1, 0.2],]), ([]),]
+    "boxes", [([[0.4, 0.4, 0.3, 0.3], [0.1, 0.2, 0.1, 0.2],]), ([]),]
 )
 def test_mkmap_count(boxes: Any) -> None:
     h = 128
     w = h * 2
     in_boxes = YoloBoxes(torch.tensor(boxes))
     to_boxes = ToBoxes()
-    mkmaps = MkMaps(sigma=0.5)
+    mkmaps = MkMaps(sigma=2.0)
     hm, sm, dm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     out_boxes, _ = next(iter(to_boxes((hm, sm, dm))))
     assert hm.eq(1).nonzero().shape == (len(in_boxes), 4)  # type:ignore
@@ -85,4 +85,4 @@ def test_mkmap_count(boxes: Any) -> None:
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(in_boxes, color="blue")
     plot.with_yolo_boxes(out_boxes, color="red")
-    plot.save(f"/store/test-heatmap-count.png")
+    plot.save(f"/store/test-heatmap-count-{len(in_boxes)}.png")

@@ -256,13 +256,13 @@ class MkMaps:
         )
 
         wh = torch.tensor([w, h]).to(device)
-        cxcy = (boxes[:, 2:] * wh).long()
+        cxcy = (boxes[:, :2] * wh).long()
         cx = cxcy[:, 0]
         cy = cxcy[:, 1]
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
         sigma_grid = (
-            2 * (boxes[:, :2] ** 2).sum(dim=1).view(box_count, 1, 1, 1) * self.sigma
+            2 * (boxes[:, 2:] ** 2).sum(dim=1).view(box_count, 1, 1, 1) * self.sigma
         )
         mounts = tr.exp(
             -((grid_xy - grid_cxcy) ** 2).sum(dim=1, keepdim=True) / (sigma_grid)
