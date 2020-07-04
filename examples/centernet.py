@@ -23,16 +23,16 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 train_dataset = ObjectDataset(
-    (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=1024
+    (512, 512), object_count_range=(1, 50), object_size_range=(32, 128), num_samples=1024
 )
 test_dataset = ObjectDataset(
-    (256, 256), object_count_range=(1, 20), object_size_range=(32, 64), num_samples=8
+    (512, 512), object_count_range=(1, 50), object_size_range=(32, 128), num_samples=256
 )
-channels = 128
+channels = 256
 backbone = ResNetBackbone("resnet50", out_channels=channels)
-model = CenterNet(channels=channels, backbone=backbone, out_idx=5)
+model = CenterNet(channels=channels, backbone=backbone, out_idx=5, depth=1)
 model_loader = ModelLoader("/store/centernet")
-criterion = Criterion(sizemap_weight=1.0, sigma=0.4)
+criterion = Criterion(sizemap_weight=1.0, sigma=0.3)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/centernet", "test", limit=2)
 best_watcher = BestWatcher(mode="max")

@@ -102,7 +102,11 @@ class CenterNet(nn.Module):
         self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(BiFPN(channels=channels))
+        self.fpn = nn.Sequential(
+            *[
+                BiFPN(channels=channels) for _ in range(depth)
+            ]
+        )
         self.hm_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
         )

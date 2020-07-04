@@ -21,6 +21,8 @@ LabelBoxes = Tuple[CoCoBoxes, Labels]
 
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
+    if len(coco) == 0:
+        return YoloBoxes(coco)
     size_w, size_h = size
     x0, y0, x1, y1 = coco_to_pascal(coco).float().unbind(-1)
     b = [
@@ -33,12 +35,16 @@ def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
 
 
 def coco_to_pascal(coco: CoCoBoxes) -> PascalBoxes:
+    if len(coco) == 0:
+        return PascalBoxes(coco)
     x0, y0, w, h = coco.unbind(-1)
     b = [x0, y0, x0 + w, y0 + h]
     return PascalBoxes(torch.stack(b, dim=-1))
 
 
 def yolo_to_pascal(yolo: YoloBoxes, wh: ImageSize) -> PascalBoxes:
+    if len(yolo) == 0:
+        return PascalBoxes(yolo)
     cx, cy, w, h = yolo.unbind(-1)
     size_w, size_h = wh
     b = [
@@ -51,12 +57,16 @@ def yolo_to_pascal(yolo: YoloBoxes, wh: ImageSize) -> PascalBoxes:
 
 
 def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:
+    if len(yolo) == 0:
+        return CoCoBoxes(yolo)
     x0, y0, x1, y1 = yolo_to_pascal(yolo, size).unbind(-1)
     b = torch.stack([x0, y0, x1 - x0, y1 - y0], dim=-1).long()
     return CoCoBoxes(b)
 
 
 def pascal_to_yolo(pascal: PascalBoxes, size: ImageSize) -> YoloBoxes:
+    if len(pascal) == 0:
+        return YoloBoxes(pascal)
     x0, y0, x1, y1 = pascal.float().unbind(-1)
     size_w, size_h = size
     b = [
@@ -69,6 +79,8 @@ def pascal_to_yolo(pascal: PascalBoxes, size: ImageSize) -> YoloBoxes:
 
 
 def pascal_to_coco(pascal: PascalBoxes) -> CoCoBoxes:
+    if len(pascal) == 0:
+        return CoCoBoxes(pascal)
     x0, y0, x1, y1 = pascal.unbind(-1)
     b = [
         x0,
