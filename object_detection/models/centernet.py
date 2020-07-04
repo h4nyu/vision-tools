@@ -102,11 +102,7 @@ class CenterNet(nn.Module):
         self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(
-            *[
-                BiFPN(channels=channels) for _ in range(depth)
-            ]
-        )
+        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
         self.hm_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
         )
@@ -250,7 +246,7 @@ class MkMaps:
         heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
         sizemap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
         diffmap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
-        box_count, _ = boxes.shape
+        box_count = len(boxes)
         if box_count == 0:
             return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap)
 
@@ -265,10 +261,11 @@ class MkMaps:
         cy = cxcy[:, 1]
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
-        sigma_grid = 2 * (boxes[:, :2] ** 2).sum(dim=1).view(box_count, 1, 1, 1) * self.sigma
+        sigma_grid = (
+            2 * (boxes[:, :2] ** 2).sum(dim=1).view(box_count, 1, 1, 1) * self.sigma
+        )
         mounts = tr.exp(
-            -((grid_xy - grid_cxcy) ** 2).sum(dim=1, keepdim=True)
-            / (sigma_grid)
+            -((grid_xy - grid_cxcy) ** 2).sum(dim=1, keepdim=True) / (sigma_grid)
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         sizemap[:, :, cy, cx] = boxes[:, 2:].t()

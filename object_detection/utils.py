@@ -109,7 +109,7 @@ class DetectionPlot:
         """
         boxes: coco format
         """
-        b, _ = boxes.shape
+        b = len(boxes)
         _probs = probs if probs is not None else torch.ones((b,))
         _boxes = boxes.clone()
         for box, p in zip(_boxes, _probs):

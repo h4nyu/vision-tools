@@ -23,7 +23,10 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 train_dataset = ObjectDataset(
-    (512, 512), object_count_range=(1, 50), object_size_range=(32, 128), num_samples=1024
+    (512, 512),
+    object_count_range=(1, 50),
+    object_size_range=(32, 128),
+    num_samples=1024,
 )
 test_dataset = ObjectDataset(
     (512, 512), object_count_range=(1, 50), object_size_range=(32, 128), num_samples=256
