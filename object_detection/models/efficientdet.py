@@ -7,12 +7,11 @@ import torchvision
 
 from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import Labels, YoloBoxes, PascalBoxes, yolo_to_pascal
-from .bottlenecks import SENextBottleneck2d
 from object_detection.entities import Batch, ImageId, Confidences
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import BestWatcher, MeanMeter
 from object_detection.utils import DetectionPlot
-from typing import Any, List, Tuple, NewType
+from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops import nms
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
@@ -21,7 +20,9 @@ from itertools import product as product
 from logging import getLogger
 from pathlib import Path
 from typing_extensions import Literal
+from tqdm import tqdm
 
+from .bottlenecks import SENextBottleneck2d
 from .backbones import EfficientNetBackbone
 from .bifpn import BiFPN, FP
 from .losses import FocalLoss
@@ -32,25 +33,35 @@ logger = getLogger(__name__)
 
 class Visualize:
     def __init__(
-        self, out_dir: str, prefix: str, limit: int = 1, use_alpha: bool = True
+        self,
+        out_dir: str,
+        prefix: str,
+        limit: int = 1,
+        use_alpha: bool = True,
+        show_probs: bool = True,
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
         self.use_alpha = use_alpha
+        self.show_probs = show_probs
 
     def __call__(
         self,
-        src: List[Tuple[ImageId, YoloBoxes, Confidences]],
+        src: Tuple[List[YoloBoxes], List[Confidences]],
         tgt: List[YoloBoxes],
         image_batch: ImageBatch,
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
-        src = src[: self.limit]
         tgt = tgt[: self.limit]
+        src_box_batch, src_confidence_batch = src
         _, _, h, w = image_batch.shape
-        for i, ((_, sb, sc), tb, img) in enumerate(zip(src, tgt, image_batch)):
-            plot = DetectionPlot(h=h, w=w, use_alpha=self.use_alpha)
+        for i, (img, sb, sc, tb) in enumerate(
+            zip(image_batch, src_box_batch, src_confidence_batch, tgt)
+        ):
+            plot = DetectionPlot(
+                h=h, w=w, use_alpha=self.use_alpha, show_probs=self.show_probs
+            )
             plot.with_image(img, alpha=0.5)
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
@@ -173,16 +184,14 @@ class EfficientDet(nn.Module):
     def __init__(
         self,
         num_classes: int,
-        backbone: EfficientNetBackbone,
+        backbone: nn.Module,
         channels: int = 32,
         threshold: float = 0.01,
     ) -> None:
         super().__init__()
         self.anchors = Anchors(size=4)
         self.backbone = backbone
-        self.clip_boxes = ClipBoxes()
         self.neck = BiFPN(channels=channels)
-        self.threshold = threshold
         self.pos_reg = RegressionModel(
             in_channels=channels,
             hidden_channels=channels,
@@ -198,7 +207,8 @@ class EfficientDet(nn.Module):
         )
 
     def forward(self, images: ImageBatch) -> NetOutput:
-        features = self.backbone(images)[1:]
+        features = self.backbone(images)
+        features = self.neck(features)
         anchors = torch.cat([self.anchors(i) for i in features], dim=0)
         pos_diffs = torch.cat([self.pos_reg(i) for i in features], dim=1)
         size_diffs = torch.cat([self.size_reg(i) for i in features], dim=1)
@@ -378,105 +388,6 @@ class LabelLoss:
         return loss
 
 
-class Trainer:
-    def __init__(
-        self,
-        model: EfficientDet,
-        train_loader: DataLoader,
-        test_loader: DataLoader,
-        model_loader: ModelLoader,
-        visualize: Visualize,
-        optimizer: t.Any,
-        device: str = "cpu",
-        criterion: Criterion = Criterion(),
-    ) -> None:
-        self.device = torch.device(device)
-        self.model_loader = model_loader
-        self.model = model
-        self.preprocess = PreProcess(self.device)
-        self.postprocess = PostProcess()
-        self.optimizer = optimizer
-        self.train_loader = train_loader
-        self.test_loader = test_loader
-        self.criterion = criterion
-        self.best_watcher = BestWatcher()
-        self.visualize = visualize
-        self.meters = {
-            key: MeanMeter()
-            for key in [
-                "train_loss",
-                "train_pos",
-                "train_size",
-                "train_label",
-                #  "test_loss",
-                #  "test_box",
-                #  "test_label",
-            ]
-        }
-
-    def log(self) -> None:
-        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
-        logger.info(value)
-
-    def reset_meters(self) -> None:
-        for v in self.meters.values():
-            v.reset()
-
-    def train(self, num_epochs: int) -> None:
-        for epoch in range(num_epochs):
-            self.train_one_epoch()
-            #  self.eval_one_epoch()
-            self.log()
-            self.reset_meters()
-
-    def train_one_epoch(self) -> None:
-        self.model.train()
-        loader = self.train_loader
-        for samples, gt_boxes_list, gt_labes_list, ids in loader:
-            samples, gt_boxes_list, gt_labels_list = self.preprocess(
-                (samples, gt_boxes_list, gt_labes_list)
-            )
-            outputs = self.model(samples)
-            loss, pos_loss, size_loss, label_loss = self.criterion(
-                samples, outputs, gt_boxes_list, gt_labes_list
-            )
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-            self.meters["train_loss"].update(loss.item())
-            self.meters["train_pos"].update(pos_loss.item())
-            self.meters["train_size"].update(size_loss.item())
-            self.meters["train_label"].update(label_loss.item())
-        preds = self.postprocess(outputs, ids, samples)
-        self.visualize(preds, gt_boxes_list, samples)
-        #  if self.best_watcher.step(self.meters["train_loss"].get_value()):
-        #      self.model_loader.save({"loss": self.meters["test_loss"].get_value()})
-
-    @torch.no_grad()
-    def eval_one_epoch(self) -> None:
-        self.model.train()
-        loader = self.train_loader
-        for samples, gt_boxes_list, gt_labes_list, ids in loader:
-            samples, gt_boxes_list, gt_labels_list = self.preprocess(
-                (samples, gt_boxes_list, gt_labes_list)
-            )
-            outputs = self.model(samples)
-            loss, pos_loss, size_loss, label_loss = self.criterion(
-                samples, outputs, gt_boxes_list, gt_labes_list
-            )
-            self.meters["test_loss"].update(loss.item())
-            self.meters["test_pos"].update(pos_loss.item())
-            self.meters["test_size"].update(size_loss.item())
-            self.meters["test_label"].update(label_loss.item())
-        preds = self.postprocess(outputs, ids, samples)
-        self.visualize(preds, gt_boxes_list, samples)
-        if self.best_watcher.step(self.meters["test_loss"].get_value()):
-            self.model_loader.save(
-                self.model, {"loss": self.meters["test_loss"].get_value()}
-            )
-
-
 class PreProcess:
     def __init__(self, device: t.Any) -> None:
         super().__init__()
@@ -493,28 +404,153 @@ class PreProcess:
         )
 
 
-class PostProcess:
-    def __init__(self, box_limit: int = 100) -> None:
-        self.box_limit = box_limit
+class ToBoxes:
+    def __init__(
+        self,
+        confidence_threshold: float = 0.5,
+        nms_threshold: float = 0.5,
+        limit: int = 100,
+    ) -> None:
+        self.confidence_threshold = confidence_threshold
+        self.nms_threshold = nms_threshold
+        self.limit = limit
 
     def __call__(
-        self, net_output: NetOutput, image_ids: List[ImageId], images: ImageBatch,
-    ) -> List[Tuple[ImageId, YoloBoxes, Confidences]]:
-        _, _, h, w = images.shape
+        self, net_output: NetOutput
+    ) -> t.Tuple[List[YoloBoxes], List[Confidences]]:
         anchors, pos_diffs, size_diffs, labels_batch = net_output
-        rows = []
-        for image_id, pos_diff, size_diff, confidences in zip(
-            image_ids, pos_diffs, size_diffs, labels_batch
+        box_batch = []
+        confidence_batch = []
+        for pos_diff, size_diff, confidences in zip(
+            pos_diffs, size_diffs, labels_batch
         ):
             box_pos = anchors[:, 2:] * pos_diff + anchors[:, :2]
             box_size = anchors[:, 2:] * size_diff.exp()
             boxes = torch.cat([box_pos, box_size], dim=1)
-            confidences, _ = confidences.max(dim=1)
-            sort_idx = nms(
-                yolo_to_pascal(YoloBoxes(boxes), (w, h)), confidences, iou_threshold=0.5
-            )
-            sort_idx = sort_idx[: self.box_limit]
+            confidences, c_index = confidences.max(dim=1)
+
+            filter_idx = confidences > self.confidence_threshold
+            confidences = confidences[filter_idx]
+            boxes = boxes[filter_idx]
+
+            sort_idx = confidences.argsort(descending=True)[: self.limit]
             boxes = boxes[sort_idx]
             confidences = confidences[sort_idx]
-            rows.append((image_id, YoloBoxes(boxes), Confidences(confidences)))
-        return rows
+
+            sort_idx = nms(
+                yolo_to_pascal(YoloBoxes(boxes), (1, 1)),
+                confidences,
+                iou_threshold=self.nms_threshold,
+            )
+            boxes = boxes[sort_idx]
+            confidences = confidences[sort_idx]
+
+            box_batch.append(YoloBoxes(boxes))
+            confidence_batch.append(Confidences(confidences))
+        return box_batch, confidence_batch
+
+
+class Trainer:
+    def __init__(
+        self,
+        model: EfficientDet,
+        train_loader: DataLoader,
+        test_loader: DataLoader,
+        model_loader: ModelLoader,
+        best_watcher: BestWatcher,
+        visualize: Visualize,
+        optimizer: t.Any,
+        get_score: Callable[[YoloBoxes, YoloBoxes], float],
+        to_boxes: ToBoxes,
+        device: str = "cpu",
+        criterion: Criterion = Criterion(),
+    ) -> None:
+        self.device = torch.device(device)
+        self.model_loader = model_loader
+        self.model = model.to(self.device)
+        self.preprocess = PreProcess(self.device)
+        self.to_boxes = to_boxes
+        self.optimizer = optimizer
+        self.train_loader = train_loader
+        self.test_loader = test_loader
+        self.criterion = criterion
+        self.best_watcher = best_watcher
+        self.visualize = visualize
+        self.get_score = get_score
+        self.meters = {
+            key: MeanMeter()
+            for key in [
+                "train_loss",
+                "train_pos",
+                "train_size",
+                "train_label",
+                "test_loss",
+                "test_pos",
+                "test_size",
+                "test_label",
+                "score",
+            ]
+        }
+
+    def log(self) -> None:
+        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
+        logger.info(value)
+
+    def reset_meters(self) -> None:
+        for v in self.meters.values():
+            v.reset()
+
+    def train(self, num_epochs: int) -> None:
+        for epoch in range(num_epochs):
+            self.train_one_epoch()
+            self.eval_one_epoch()
+            self.log()
+            self.reset_meters()
+
+    def train_one_epoch(self) -> None:
+        self.model.train()
+        loader = self.train_loader
+        for samples, gt_boxes_list, gt_labes_list, ids in tqdm(loader):
+            samples, gt_boxes_list, gt_labels_list = self.preprocess(
+                (samples, gt_boxes_list, gt_labes_list)
+            )
+            outputs = self.model(samples)
+            loss, pos_loss, size_loss, label_loss = self.criterion(
+                samples, outputs, gt_boxes_list, gt_labes_list
+            )
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            self.meters["train_loss"].update(loss.item())
+            self.meters["train_pos"].update(pos_loss.item())
+            self.meters["train_size"].update(size_loss.item())
+            self.meters["train_label"].update(label_loss.item())
+        preds = self.to_boxes(outputs)
+        self.visualize(preds, gt_boxes_list, samples)
+
+    @torch.no_grad()
+    def eval_one_epoch(self) -> None:
+        self.model.train()
+        loader = self.train_loader
+        for samples, box_batch, gt_labes_list, ids in tqdm(loader):
+            samples, box_batch, gt_labels_list = self.preprocess(
+                (samples, box_batch, gt_labes_list)
+            )
+            outputs = self.model(samples)
+            loss, pos_loss, size_loss, label_loss = self.criterion(
+                samples, outputs, box_batch, gt_labes_list
+            )
+            self.meters["test_loss"].update(loss.item())
+            self.meters["test_pos"].update(pos_loss.item())
+            self.meters["test_size"].update(size_loss.item())
+            self.meters["test_label"].update(label_loss.item())
+            preds = self.to_boxes(outputs)
+            for (pred, gt) in zip(preds[0], box_batch):
+                self.meters["score"].update(self.get_score(pred, gt))
+
+        self.visualize(preds, box_batch, samples)
+        if self.best_watcher.step(self.meters["score"].get_value()):
+            self.model_loader.save(
+                self.model, {"score": self.meters["score"].get_value()}
+            )

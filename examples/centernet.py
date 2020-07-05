@@ -25,23 +25,28 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 ### config ###
-sigma=2.0
-batch_size=8
-out_idx: PyramidIdx=3
-threshold=0.1
-
+sigma = 2.0
+batch_size = 8
+out_idx: PyramidIdx = 3
+threshold = 0.1
+channels = 256
+input_size = 256
+object_count_range = (1, 30)
+object_size_range = (32, 64)
 ### config ###
 
 train_dataset = ObjectDataset(
-    (256, 256),
-    object_count_range=(1, 30),
-    object_size_range=(32, 64),
+    (input_size, input_size),
+    object_count_range=object_size_range,
+    object_size_range=object_size_range,
     num_samples=1024,
 )
 test_dataset = ObjectDataset(
-    (256, 256), object_count_range=(1, 30), object_size_range=(32, 64), num_samples=256
+    (input_size, input_size),
+    object_count_range=object_size_range,
+    object_size_range=object_size_range,
+    num_samples=256,
 )
-channels = 256
 backbone = ResNetBackbone("resnet50", out_channels=channels)
 model = CenterNet(channels=channels, backbone=backbone, out_idx=out_idx, depth=1)
 model_loader = ModelLoader("/store/centernet")
@@ -50,6 +55,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/centernet", "test", limit=2)
 best_watcher = BestWatcher(mode="max")
 to_boxes = ToBoxes(threshold=threshold, limit=60)
+get_score = MeanPrecition()
 trainer = Trainer(
     model=model,
     train_loader=DataLoader(
@@ -64,7 +70,7 @@ trainer = Trainer(
     criterion=criterion,
     best_watcher=best_watcher,
     device="cuda",
-    get_score=MeanPrecition(),
+    get_score=get_score,
     to_boxes=to_boxes,
 )
 trainer.train(500)
