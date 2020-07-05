@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
+from object_detection.entities import PyramidIdx
 from object_detection.models.centernet import (
     collate_fn,
     CenterNet,
@@ -23,31 +24,39 @@ handler_format = Formatter("%(asctime)s|%(name)s|%(message)s")
 stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
+### config ###
+sigma=2.0
+batch_size=8
+out_idx: PyramidIdx=3
+threshold=0.1
+
+### config ###
+
 train_dataset = ObjectDataset(
-    (512, 512),
-    object_count_range=(1, 50),
-    object_size_range=(32, 128),
+    (256, 256),
+    object_count_range=(1, 30),
+    object_size_range=(32, 64),
     num_samples=1024,
 )
 test_dataset = ObjectDataset(
-    (512, 512), object_count_range=(1, 50), object_size_range=(32, 128), num_samples=256
+    (256, 256), object_count_range=(1, 30), object_size_range=(32, 64), num_samples=256
 )
 channels = 256
 backbone = ResNetBackbone("resnet50", out_channels=channels)
-model = CenterNet(channels=channels, backbone=backbone, out_idx=4, depth=1)
+model = CenterNet(channels=channels, backbone=backbone, out_idx=out_idx, depth=1)
 model_loader = ModelLoader("/store/centernet")
-criterion = Criterion(sizemap_weight=1.0, sigma=0.3)
+criterion = Criterion(sizemap_weight=1.0, sigma=sigma)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/centernet", "test", limit=2)
 best_watcher = BestWatcher(mode="max")
-to_boxes = ToBoxes(threshold=0.5, limit=60)
+to_boxes = ToBoxes(threshold=threshold, limit=60)
 trainer = Trainer(
     model=model,
     train_loader=DataLoader(
-        train_dataset, collate_fn=collate_fn, batch_size=4, shuffle=True
+        train_dataset, collate_fn=collate_fn, batch_size=batch_size, shuffle=True
     ),
     test_loader=DataLoader(
-        test_dataset, collate_fn=collate_fn, batch_size=4, shuffle=True
+        test_dataset, collate_fn=collate_fn, batch_size=batch_size, shuffle=True
     ),
     model_loader=model_loader,
     optimizer=optimizer,

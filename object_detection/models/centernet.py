@@ -261,9 +261,7 @@ class MkMaps:
         cy = cxcy[:, 1]
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
-        sigma_grid = (
-            2 * (boxes[:, 2:] ** 2).sum(dim=1).view(box_count, 1, 1, 1) * self.sigma
-        )
+        sigma_grid = boxes[:, 2:].min(dim=1)[0].clamp(min=1e-4).view(box_count, 1, 1, 1) * self.sigma
         mounts = tr.exp(
             -((grid_xy - grid_cxcy) ** 2).sum(dim=1, keepdim=True) / (sigma_grid)
         )
@@ -363,8 +361,8 @@ class Visualize:
                 figsize=self.figsize,
                 show_probs=self.show_probs,
             )
-            plot.with_image(img, alpha=0.5)
-            plot.with_image(hm[0].log(), alpha=0.5)
+            plot.with_image(img, alpha=0.7)
+            plot.with_image(hm[0].log(), alpha=0.3)
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
@@ -372,8 +370,8 @@ class Visualize:
             plot = DetectionPlot(
                 h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize
             )
-            plot.with_image(img, alpha=0.5)
-            plot.with_image((gt_hm[0] + 1e-4).log(), alpha=0.5)
+            plot.with_image(img, alpha=0.7)
+            plot.with_image((gt_hm[0] + 1e-4).log(), alpha=0.3)
             plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
 
 
