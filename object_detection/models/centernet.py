@@ -204,7 +204,7 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
 
 
 class ToBoxes:
-    def __init__(self, threshold: float=0.1, limit: int = 100) -> None:
+    def __init__(self, threshold: float = 0.1, limit: int = 100) -> None:
         self.limit = limit
         self.threshold = threshold
 
@@ -311,7 +311,7 @@ class PreProcess:
 
 
 class PostProcess:
-    def __init__(self, to_boxes:ToBoxes=ToBoxes()) -> None:
+    def __init__(self, to_boxes: ToBoxes = ToBoxes()) -> None:
         self.to_boxes = to_boxes
 
     def __call__(self, netout: NetOutput,) -> Tuple[List[YoloBoxes], List[Confidences]]:
