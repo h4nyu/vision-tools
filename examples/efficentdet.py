@@ -25,6 +25,7 @@ logger.addHandler(stream_handler)
 ### config ###
 confidence_threshold = 0.5
 nms_threshold = 0.3
+batch_size = 8
 channels = 128
 
 input_size = 256
@@ -58,8 +59,12 @@ to_boxes = ToBoxes(
 )
 trainer = Trainer(
     model,
-    DataLoader(train_dataset, collate_fn=collate_fn, batch_size=4, shuffle=True,),
-    DataLoader(test_dataset, collate_fn=collate_fn, batch_size=2, shuffle=True),
+    DataLoader(
+        train_dataset, collate_fn=collate_fn, batch_size=batch_size, shuffle=True,
+    ),
+    DataLoader(
+        test_dataset, collate_fn=collate_fn, batch_size=batch_size * 2, shuffle=True
+    ),
     model_loader=model_loader,
     optimizer=optimizer,
     visualize=visualize,
