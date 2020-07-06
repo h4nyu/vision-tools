@@ -5,12 +5,11 @@ from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
 from typing_extensions import TypedDict
 from typing import Tuple, List
-from object_detection.entities import YoloBoxes, Labels
+from object_detection.entities import YoloBoxBatch, ConfidenceBatch, YoloBoxes, Labels
 
 
-Pair = Tuple[YoloBoxes, Labels]
-Target = TypedDict("Target", {"labels": Tensor, "boxes": Tensor})
-Targets = t.List[Target]
+Preds = Tuple[YoloBoxBatch, ConfidenceBatch]
+Targets = t.List[Tuple[List[YoloBoxes], List[Labels]]]
 MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
 
 
@@ -23,8 +22,8 @@ class HungarianMatcher:
         self.cost_giou = cost_giou
 
     @torch.no_grad()
-    def __call__(self, preds: Pair, targets: Pair) -> MatchIndecies:
-        ...
+    def __call__(self, preds: Preds, targets: Targets) -> None:
+        pred_box_batch, pred_cfd_batch = preds
         #  pred_boxes, pred_logits = preds
 
         #  batch_size, num_queries = pred_logits.shape[:2]
