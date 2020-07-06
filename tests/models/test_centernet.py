@@ -74,10 +74,10 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
 )
 def test_mkmap_count(boxes: Any) -> None:
     h = 128
-    w = h * 2
+    w = h
     in_boxes = YoloBoxes(torch.tensor(boxes))
     to_boxes = ToBoxes()
-    mkmaps = MkMaps(sigma=2.0)
+    mkmaps = MkMaps(sigma=5.0)
     hm, sm, dm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     out_boxes, _ = next(iter(to_boxes((hm, sm, dm))))
     assert hm.eq(1).nonzero().shape == (len(in_boxes), 4)  # type:ignore
