@@ -70,7 +70,8 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
 
 
 @pytest.mark.parametrize(
-    "boxes", [([[0.4, 0.4, 0.3, 0.3], [0.1, 0.2, 0.1, 0.2],]), ([]),]
+    "boxes",
+    [([[0.6, 0.6, 0.05, 0.3], [0.4, 0.4, 0.3, 0.3], [0.1, 0.2, 0.1, 0.2],]), ([]),],
 )
 def test_mkmap_count(boxes: Any) -> None:
     h = 128

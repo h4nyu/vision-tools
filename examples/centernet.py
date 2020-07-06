@@ -25,7 +25,7 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 ### config ###
-sigma = 2.0
+sigma = 1.0
 batch_size = 8
 out_idx: PyramidIdx = 3
 threshold = 0.1

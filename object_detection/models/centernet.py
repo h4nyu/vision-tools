@@ -206,18 +206,20 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
 
 
 class ToBoxes:
-    def __init__(self, threshold: float = 0.1, kernel_size:int=5, limit: int = 100) -> None:
+    def __init__(
+        self, threshold: float = 0.1, kernel_size: int = 5, limit: int = 100
+    ) -> None:
         self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
-        self.max_pool = partial(F.max_pool2d, kernel_size=kernel_size, padding=kernel_size//2, stride=1)
+        self.max_pool = partial(
+            F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
+        )
 
     def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
         heatmap, sizemap, diffmap = inputs
         device = heatmap.device
-        kpmap = (self.max_pool(heatmap) == heatmap) & (
-            heatmap > self.threshold
-        )
+        kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
         batch_size, _, height, width = heatmap.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
@@ -265,9 +267,15 @@ class MkMaps:
         cy = cxcy[:, 1]
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
-        weight = boxes[:, 2:].clamp(min=1e-4).view(box_count, 2, 1, 1)
+        square_boxes = boxes[:, 2:] ** 2
+        weight = (
+            (square_boxes / (square_boxes).max(dim=1, keepdim=True)[0])
+            .clamp(min=1e-4)
+            .view(box_count, 2, 1, 1)
+        )
         mounts = tr.exp(
-            -(((grid_xy - grid_cxcy) ** 2) / weight).sum(dim=1, keepdim=True) / (2 * self.sigma ** 2)
+            -(((grid_xy - grid_cxcy) ** 2) / weight).sum(dim=1, keepdim=True)
+            / (2 * self.sigma ** 2)
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         sizemap[:, :, cy, cx] = boxes[:, 2:].t()
