@@ -31,19 +31,19 @@ out_idx: PyramidIdx = 3
 threshold = 0.1
 channels = 256
 input_size = 256
-object_count_range = (1, 20)
+object_count_range = (1, 10)
 object_size_range = (32, 64)
 ### config ###
 
 train_dataset = ObjectDataset(
     (input_size, input_size),
-    object_count_range=object_size_range,
+    object_count_range=object_count_range,
     object_size_range=object_size_range,
     num_samples=1024,
 )
 test_dataset = ObjectDataset(
     (input_size, input_size),
-    object_count_range=object_size_range,
+    object_count_range=object_count_range,
     object_size_range=object_size_range,
     num_samples=256,
 )

@@ -28,20 +28,20 @@ nms_threshold = 0.3
 channels = 128
 
 input_size = 256
-object_count_range = (1, 30)
+object_count_range = (1, 10)
 object_size_range = (32, 64)
 ### config ###
 
 
 train_dataset = ObjectDataset(
     (input_size, input_size),
-    object_count_range=object_size_range,
+    object_count_range=object_count_range,
     object_size_range=object_size_range,
     num_samples=1024,
 )
 test_dataset = ObjectDataset(
     (input_size, input_size),
-    object_count_range=object_size_range,
+    object_count_range=object_count_range,
     object_size_range=object_size_range,
     num_samples=256,
 )
