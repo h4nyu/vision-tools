@@ -7,7 +7,7 @@ import torchvision
 
 from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import Labels, YoloBoxes, PascalBoxes, yolo_to_pascal
-from object_detection.entities import Batch, ImageId, Confidences
+from object_detection.entities import Batch, ImageId, Confidences, PyramidIdx
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import BestWatcher, MeanMeter
 from object_detection.utils import DetectionPlot
@@ -187,8 +187,10 @@ class EfficientDet(nn.Module):
         backbone: nn.Module,
         channels: int = 32,
         threshold: float = 0.01,
+        out_ids: List[PyramidIdx] =[4, 5, 6]
     ) -> None:
         super().__init__()
+        self.out_ids = np.array(out_ids) - 3
         self.anchors = Anchors(size=4)
         self.backbone = backbone
         self.neck = BiFPN(channels=channels)
@@ -209,10 +211,10 @@ class EfficientDet(nn.Module):
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
         features = self.neck(features)
-        anchors = torch.cat([self.anchors(i) for i in features], dim=0)
-        pos_diffs = torch.cat([self.pos_reg(i) for i in features], dim=1)
-        size_diffs = torch.cat([self.size_reg(i) for i in features], dim=1)
-        labels = torch.cat([self.classification(i) for i in features], dim=1)
+        anchors = torch.cat([self.anchors(features[i]) for i in self.out_ids], dim=0)
+        pos_diffs = torch.cat([self.pos_reg(features[i]) for i in self.out_ids], dim=1)
+        size_diffs = torch.cat([self.size_reg(features[i]) for i in self.out_ids], dim=1)
+        labels = torch.cat([self.classification(features[i]) for i in self.out_ids], dim=1)
         return (
             YoloBoxes(anchors),
             PosDiffs(pos_diffs),
