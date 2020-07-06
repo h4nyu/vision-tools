@@ -23,7 +23,6 @@ from typing_extensions import Literal
 from tqdm import tqdm
 
 from .bottlenecks import SENextBottleneck2d
-from .backbones import EfficientNetBackbone
 from .bifpn import BiFPN, FP
 from .losses import FocalLoss
 from .anchors import Anchors

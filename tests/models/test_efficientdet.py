@@ -14,7 +14,7 @@ from object_detection.models.efficientdet import (
     PosDiff,
 )
 from object_detection.models.anchors import Anchors
-from object_detection.models.backbones import EfficientNetBackbone
+from object_detection.models.backbones.effnet import EfficientNetBackbone
 
 
 def test_clip_boxes() -> None:

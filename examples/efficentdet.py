@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from object_detection.models.backbones import EfficientNetBackbone
+from object_detection.models.backbones.effnet import EfficientNetBackbone
 from object_detection.models.efficientdet import (
     collate_fn,
     EfficientDet,
