@@ -146,9 +146,10 @@ class HMLoss(nn.Module):
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
         pos_mask = gt.eq(1).float()
         neg_mask = gt.lt(1).float()
-        neg_weight = (1 - gt) ** beta
         pos_loss = -((1 - pred) ** alpha) * torch.log(pred) * pos_mask
         pos_loss = pos_loss.sum()
+
+        neg_weight = (1 - gt) ** beta
         neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
         neg_loss = neg_loss.sum()
         loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
@@ -204,14 +205,15 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
 
 
 class ToBoxes:
-    def __init__(self, threshold: float = 0.1, limit: int = 100) -> None:
+    def __init__(self, threshold: float = 0.1, kernel_size:int=3, limit: int = 100) -> None:
         self.limit = limit
         self.threshold = threshold
+        self.kernel_size = kernel_size
 
     def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
         heatmap, sizemap, diffmap = inputs
         device = heatmap.device
-        kpmap = (F.max_pool2d(heatmap, 3, stride=1, padding=1) == heatmap) & (
+        kpmap = (F.max_pool2d(heatmap, self.kernel_size, stride=1, padding=1) == heatmap) & (
             heatmap > self.threshold
         )
         batch_size, _, height, width = heatmap.shape
