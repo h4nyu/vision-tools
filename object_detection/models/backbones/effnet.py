@@ -6,6 +6,7 @@ from object_detection.entities import FP
 from efficientnet_pytorch.model import EfficientNet
 from typing_extensions import Literal
 from typing import Any
+
 SIDEOUT: Any = {  # phi: (stages, channels)
     0: ([0, 2, 4, 10, 15], [16, 24, 40, 112, 320]),
     1: ([1, 4, 7, 15, 22], [16, 24, 40, 112, 320]),
@@ -58,4 +59,3 @@ class EfficientNetBackbone(nn.Module):
             self.projects[3](p6),
             self.projects[4](p7),
         )
-

@@ -186,7 +186,7 @@ class EfficientDet(nn.Module):
         backbone: nn.Module,
         channels: int = 32,
         threshold: float = 0.01,
-        out_ids: List[PyramidIdx] =[4, 5, 6]
+        out_ids: List[PyramidIdx] = [4, 5, 6],
     ) -> None:
         super().__init__()
         self.out_ids = np.array(out_ids) - 3
@@ -212,8 +212,12 @@ class EfficientDet(nn.Module):
         features = self.neck(features)
         anchors = torch.cat([self.anchors(features[i]) for i in self.out_ids], dim=0)
         pos_diffs = torch.cat([self.pos_reg(features[i]) for i in self.out_ids], dim=1)
-        size_diffs = torch.cat([self.size_reg(features[i]) for i in self.out_ids], dim=1)
-        labels = torch.cat([self.classification(features[i]) for i in self.out_ids], dim=1)
+        size_diffs = torch.cat(
+            [self.size_reg(features[i]) for i in self.out_ids], dim=1
+        )
+        labels = torch.cat(
+            [self.classification(features[i]) for i in self.out_ids], dim=1
+        )
         return (
             YoloBoxes(anchors),
             PosDiffs(pos_diffs),

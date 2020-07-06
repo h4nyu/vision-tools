@@ -269,11 +269,7 @@ class MkMaps:
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
         square_boxes = boxes[:, 2:] ** 2
-        weight = (
-            (square_boxes / (square_boxes).max(dim=1, keepdim=True)[0])
-            .clamp(min=1e-4)
-            .view(box_count, 2, 1, 1)
-        )
+        weight = square_boxes.clamp(min=1e-4).view(box_count, 2, 1, 1)
         mounts = tr.exp(
             -(((grid_xy - grid_cxcy) ** 2) / weight).sum(dim=1, keepdim=True)
             / (2 * self.sigma ** 2)
