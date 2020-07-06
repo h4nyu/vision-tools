@@ -216,6 +216,7 @@ class ToBoxes:
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
         )
 
+    @torch.no_grad()
     def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
         heatmap, sizemap, diffmap = inputs
         device = heatmap.device
@@ -350,6 +351,7 @@ class Visualize:
         self.show_probs = show_probs
         self.figsize = figsize
 
+    @torch.no_grad()
     def __call__(
         self,
         net_out: NetOutput,
