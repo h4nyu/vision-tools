@@ -4,6 +4,7 @@ import math
 import typing as t
 import torch as tr
 import torch.nn.functional as F
+from functools import partial
 from typing import List, Tuple, NewType, Union, Callable
 from torch import nn, Tensor
 from logging import getLogger
@@ -209,11 +210,12 @@ class ToBoxes:
         self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
+        self.max_pool = partial(F.max_pool2d, kernel_size=kernel_size, padding=kernel_size%2, stride=1)
 
     def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
         heatmap, sizemap, diffmap = inputs
         device = heatmap.device
-        kpmap = (F.max_pool2d(heatmap, self.kernel_size, stride=1, padding=1) == heatmap) & (
+        kpmap = (self.max_pool(heatmap) == heatmap) & (
             heatmap > self.threshold
         )
         batch_size, _, height, width = heatmap.shape
