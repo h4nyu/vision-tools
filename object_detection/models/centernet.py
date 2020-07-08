@@ -100,6 +100,17 @@ DiffMap = NewType("DiffMap", Tensor)  # [B, 2, H, W]
 Counts = NewType("Counts", Tensor)  # [B]
 NetOutput = Tuple[Heatmap, Sizemap, DiffMap, Counts]
 
+class GetPeaks:
+    def __init__(self, threshold:float=0.1, kernel_size:int=3) -> None:
+        self.threshold = threshold
+        self.max_pool = partial(
+            F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
+        )
+
+    def __call__(self, x:Heatmap) -> Tuple[Tensor, Counts]:
+        kp = (self.max_pool(x) == x) & (x > self.threshold)
+        b = len(kp)
+        return kp, kp.view((b, -1)).sum(dim=1).float()
 
 class CenterNet(nn.Module):
     def __init__(
@@ -124,18 +135,19 @@ class CenterNet(nn.Module):
             Reg(in_channels=channels, out_channels=2, depth=depth),
         )
 
-        self.count_reg = nn.Sequential(
-            CountReg(in_channels=channels, out_channels=1, depth=depth),
-        )
+        #  self.count_reg = nn.Sequential(
+        #      CountReg(in_channels=channels, out_channels=1, depth=depth),
+        #  )
+        self.count_reg = GetPeaks()
 
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = self.hm_reg(fp[self.out_idx])
+        heatmap = Heatmap(self.hm_reg(fp[self.out_idx]))
         sizemap = self.size_reg(fp[self.out_idx])
         diffmap = self.diff_reg(fp[self.out_idx])
-        counts = self.count_reg(fp[-1])
-        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
+        _, counts = self.count_reg(heatmap)
+        return heatmap, Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
 
 
 class HMLoss(nn.Module):
@@ -187,7 +199,7 @@ class Criterion:
         self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
         self.diff_weight = diff_weight
-        self.count_weight= count_weight
+        self.count_weight = count_weight
         self.mkmaps = MkMaps(sigma)
 
     def __call__(
@@ -225,10 +237,13 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
     return h.astype(np.float32)
 
 
-
 class ToBoxes:
     def __init__(
-        self, threshold: float = 0.1, kernel_size: int = 5, limit: int = 100, count_offset:int=1,
+        self,
+        threshold: float = 0.1,
+        kernel_size: int = 5,
+        limit: int = 100,
+        count_offset: int = 1,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
@@ -484,7 +499,9 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, sm_loss, dm_loss, c_loss,_ = self.criterion(images, outputs, boxes)
+            loss, hm_loss, sm_loss, dm_loss, c_loss, _ = self.criterion(
+                images, outputs, boxes
+            )
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
