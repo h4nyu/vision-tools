@@ -225,6 +225,7 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
     return h.astype(np.float32)
 
 
+
 class ToBoxes:
     def __init__(
         self, threshold: float = 0.1, kernel_size: int = 5, limit: int = 100
