@@ -70,25 +70,35 @@ class Reg(nn.Module):
         return x
 
 
+class CountReg(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, depth: int) -> None:
+        super().__init__()
+        channels = in_channels
+        self.dense = nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=in_channels, kernel_size=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=channels, out_channels=in_channels, kernel_size=1),
+            nn.ReLU(inplace=True),
+        )
+
+        self.out = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
+        )
+        self.pool = nn.AdaptiveMaxPool2d(1)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.pool(x)
+        x = self.dense(x)
+        x = self.out(x)
+        x = x.view(-1)
+        return x
+
+
 Heatmap = t.NewType("Heatmap", Tensor)  # [B, 1, H, W]
 Sizemap = t.NewType("Sizemap", Tensor)  # [B, 2, H, W]
 DiffMap = NewType("DiffMap", Tensor)  # [B, 2, H, W]
-NetOutput = Tuple[Heatmap, Sizemap, DiffMap]
-
-
-class Up2d(nn.Module):
-    up: t.Union[nn.Upsample, nn.ConvTranspose2d]
-
-    def __init__(self, channels: int, bilinear: bool = False,) -> None:
-        super().__init__()
-        if bilinear:
-            self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
-        else:
-            self.up = nn.ConvTranspose2d(channels, channels, kernel_size=2, stride=2)
-
-    def forward(self, x):  # type: ignore
-        x = self.up(x)
-        return x
+Counts = NewType("Counts", Tensor)  # [B]
+NetOutput = Tuple[Heatmap, Sizemap, DiffMap, Counts]
 
 
 class CenterNet(nn.Module):
@@ -114,13 +124,18 @@ class CenterNet(nn.Module):
             Reg(in_channels=channels, out_channels=2, depth=depth),
         )
 
+        self.count_reg = nn.Sequential(
+            CountReg(in_channels=channels, out_channels=1, depth=depth),
+        )
+
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
         heatmap = self.hm_reg(fp[self.out_idx])
         sizemap = self.size_reg(fp[self.out_idx])
         diffmap = self.diff_reg(fp[self.out_idx])
-        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap)
+        counts = self.count_reg(fp[-1])
+        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
 
 
 class HMLoss(nn.Module):
@@ -163,6 +178,7 @@ class Criterion:
         heatmap_weight: float = 1.0,
         sizemap_weight: float = 1.0,
         diff_weight: float = 1.0,
+        count_weight: float = 1.0,
         sigma: float = 0.3,
     ) -> None:
         super().__init__()
@@ -171,25 +187,29 @@ class Criterion:
         self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
         self.diff_weight = diff_weight
+        self.count_weight= count_weight
         self.mkmaps = MkMaps(sigma)
 
     def __call__(
         self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Heatmap]:
-        s_hm, s_sm, s_dm = netout
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Heatmap]:
+        s_hm, s_sm, s_dm, s_c = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
-        t_hm, t_sm, t_dm = self.mkmaps(gt_boxes, (h, w), (orig_h, orig_w))
+        t_hm, t_sm, t_dm, t_c = self.mkmaps(gt_boxes, (h, w), (orig_h, orig_w))
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
         sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
         dm_loss = self.reg_loss(s_dm, t_dm) * self.diff_weight
-        loss = hm_loss + sm_loss + dm_loss
-        return (loss, hm_loss, sm_loss, dm_loss, t_hm)
+        c_loss = self.reg_loss(s_c, t_c) * self.count_weight
+        loss = hm_loss + sm_loss + dm_loss + c_loss
+        return (loss, hm_loss, sm_loss, dm_loss, c_loss, t_hm)
 
 
 class RegLoss:
     def __call__(
-        self, output: Union[Sizemap, DiffMap], target: Union[Sizemap, DiffMap],
+        self,
+        output: Union[Sizemap, DiffMap, Counts],
+        target: Union[Sizemap, DiffMap, Counts],
     ) -> Tensor:
         mask = (target > 0).view(target.shape)
         num = mask.sum()
@@ -218,14 +238,14 @@ class ToBoxes:
 
     @torch.no_grad()
     def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
-        heatmap, sizemap, diffmap = inputs
+        heatmap, sizemap, diffmap, counts = inputs
         device = heatmap.device
         kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
         batch_size, _, height, width = heatmap.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
-        for hm, km, sm, dm in zip(
-            heatmap.squeeze(1), kpmap.squeeze(1), sizemap, diffmap
+        for hm, km, sm, dm, count in zip(
+            heatmap.squeeze(1), kpmap.squeeze(1), sizemap, diffmap, counts
         ):
             kp = km.nonzero()
             confidences = hm[kp[:, 0], kp[:, 1]]
@@ -233,7 +253,9 @@ class ToBoxes:
             diff_wh = dm[:, kp[:, 0], kp[:, 1]].t()
             cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
-            sort_idx = confidences.argsort(descending=True)[: self.limit]
+            sort_idx = confidences.argsort(descending=True)[
+                : int(count.round().clamp(max=self.limit))
+            ]
             rows.append(
                 (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
             )
@@ -254,8 +276,9 @@ class MkMaps:
         sizemap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
         diffmap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
         box_count = len(boxes)
+        counts = torch.tensor([box_count]).to(device)
         if box_count == 0:
-            return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap)
+            return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
 
         box_cxs, box_cys, _, _ = boxes.unbind(-1)
         grid_y, grid_x = tr.meshgrid(  # type:ignore
@@ -277,7 +300,7 @@ class MkMaps:
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         sizemap[:, :, cy, cx] = boxes[:, 2:].t()
         diffmap[:, :, cy, cx] = (boxes[:, :2] - cxcy.float() / wh).t()
-        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap)
+        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
 
     @torch.no_grad()
     def __call__(
@@ -289,16 +312,19 @@ class MkMaps:
         hms: List[Tensor] = []
         sms: List[Tensor] = []
         pms: List[Tensor] = []
+        counts: List[Tensor] = []
         for boxes in box_batch:
-            hm, sm, pm = self._mkmaps(boxes, hw, original_hw)
+            hm, sm, pm, c = self._mkmaps(boxes, hw, original_hw)
             hms.append(hm)
             sms.append(sm)
             pms.append(pm)
+            counts.append(c)
 
         return (
             Heatmap(tr.cat(hms, dim=0)),
             Sizemap(tr.cat(sms, dim=0)),
             DiffMap(tr.cat(pms, dim=0)),
+            Counts(tr.cat(counts, dim=0)),
         )
 
 
@@ -356,13 +382,13 @@ class Visualize:
         image_batch: ImageBatch,
         gt_hms: Heatmap,
     ) -> None:
-        heatmap, _, _ = net_out
+        heatmap, _, _, counts = net_out
         box_batch, confidence_batch = src
         box_batch = box_batch[: self.limit]
         confidence_batch = confidence_batch[: self.limit]
         _, _, h, w = image_batch.shape
-        for i, (sb, sc, tb, hm, img, gt_hm) in enumerate(
-            zip(box_batch, confidence_batch, tgt, heatmap, image_batch, gt_hms)
+        for i, (sb, sc, tb, hm, img, gt_hm, count) in enumerate(
+            zip(box_batch, confidence_batch, tgt, heatmap, image_batch, gt_hms, counts)
         ):
             plot = DetectionPlot(
                 h=h,
@@ -371,6 +397,7 @@ class Visualize:
                 figsize=self.figsize,
                 show_probs=self.show_probs,
             )
+            plot.set_title(f"count: {count:.4f}")
             plot.with_image(img, alpha=0.7)
             plot.with_image(hm[0].log(), alpha=0.3)
             plot.with_yolo_boxes(tb, color="blue")
@@ -424,10 +451,12 @@ class Trainer:
                 "train_sm",
                 "train_hm",
                 "train_dm",
+                "train_c",
                 "test_loss",
                 "test_hm",
                 "test_sm",
                 "test_dm",
+                "test_c",
                 "score",
             ]
         }
@@ -453,7 +482,7 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, sm_loss, dm_loss, _ = self.criterion(images, outputs, boxes)
+            loss, hm_loss, sm_loss, dm_loss, c_loss,_ = self.criterion(images, outputs, boxes)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -462,6 +491,7 @@ class Trainer:
             self.meters["train_hm"].update(hm_loss.item())
             self.meters["train_sm"].update(sm_loss.item())
             self.meters["train_dm"].update(dm_loss.item())
+            self.meters["train_c"].update(c_loss.item())
 
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
@@ -470,7 +500,7 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, sm_loss, dm_loss, gt_hms = self.criterion(
+            loss, hm_loss, sm_loss, dm_loss, c_loss, gt_hms = self.criterion(
                 images, outputs, boxes
             )
             preds = self.post_process(outputs)
@@ -481,6 +511,7 @@ class Trainer:
             self.meters["test_hm"].update(hm_loss.item())
             self.meters["test_sm"].update(sm_loss.item())
             self.meters["test_dm"].update(dm_loss.item())
+            self.meters["test_c"].update(c_loss.item())
 
         self.visualize(outputs, preds, boxes, images, gt_hms)
         if self.best_watcher.step(self.meters["score"].get_value()):

@@ -62,7 +62,7 @@ trainer = Trainer(
         train_dataset, collate_fn=collate_fn, batch_size=batch_size, shuffle=True
     ),
     test_loader=DataLoader(
-        test_dataset, collate_fn=collate_fn, batch_size=batch_size, shuffle=True
+        test_dataset, collate_fn=collate_fn, batch_size=batch_size * 2, shuffle=True
     ),
     model_loader=model_loader,
     optimizer=optimizer,

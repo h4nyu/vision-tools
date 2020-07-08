@@ -13,11 +13,15 @@ PascalBoxes = NewType(
     "PascalBoxes", Tensor
 )  # [B, Pos] Pos:[x0, y0, x1, y1] original torch.int32
 
+
 Labels = NewType("Labels", Tensor)
 Confidences = NewType("Confidences", Tensor)
 
 PredBoxes = Tuple[CoCoBoxes, Confidences]
 LabelBoxes = Tuple[CoCoBoxes, Labels]
+
+YoloBoxBatch = NewType("YoloBoxBatch", Tensor)  # [B, N, 4]
+ConfidenceBatch = NewType("ConfidenceBatch", Tensor)  # [B, N] 0.0 ~ 1.0
 
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
