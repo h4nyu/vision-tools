@@ -31,6 +31,7 @@ out_idx: PyramidIdx = 3
 threshold = 0.1
 channels = 256
 input_size = 256
+count_weight = 0.1
 object_count_range = (1, 20)
 object_size_range = (32, 64)
 ### config ###
@@ -50,7 +51,7 @@ test_dataset = ObjectDataset(
 backbone = ResNetBackbone("resnet50", out_channels=channels)
 model = CenterNet(channels=channels, backbone=backbone, out_idx=out_idx, depth=1)
 model_loader = ModelLoader("/store/centernet")
-criterion = Criterion(sizemap_weight=1.0, sigma=sigma)
+criterion = Criterion(sizemap_weight=1.0, count_weight=0.1, sigma=sigma)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/centernet", "test", limit=2)
 best_watcher = BestWatcher(mode="max")
