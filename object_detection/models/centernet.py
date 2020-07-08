@@ -254,7 +254,7 @@ class ToBoxes:
             cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
             sort_idx = confidences.argsort(descending=True)[
-                : int(count.long().clamp(max=self.limit))
+                : int(count.round().clamp(max=self.limit))
             ]
             rows.append(
                 (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
