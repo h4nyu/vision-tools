@@ -228,11 +228,12 @@ def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
 
 class ToBoxes:
     def __init__(
-        self, threshold: float = 0.1, kernel_size: int = 5, limit: int = 100
+        self, threshold: float = 0.1, kernel_size: int = 5, limit: int = 100, count_offset:int=1,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
+        self.count_offset = count_offset
         self.max_pool = partial(
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
         )
@@ -255,7 +256,7 @@ class ToBoxes:
             cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
             sort_idx = confidences.argsort(descending=True)[
-                : int(count.round().clamp(max=self.limit))
+                : int((count.round() + self.count_offset).clamp(max=self.limit))
             ]
             rows.append(
                 (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
