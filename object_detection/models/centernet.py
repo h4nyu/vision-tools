@@ -178,6 +178,7 @@ class Criterion:
         heatmap_weight: float = 1.0,
         sizemap_weight: float = 1.0,
         diff_weight: float = 1.0,
+        count_weight: float = 1.0,
         sigma: float = 0.3,
     ) -> None:
         super().__init__()
@@ -186,11 +187,12 @@ class Criterion:
         self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
         self.diff_weight = diff_weight
+        self.count_weight= count_weight
         self.mkmaps = MkMaps(sigma)
 
     def __call__(
         self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Heatmap]:
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Heatmap]:
         s_hm, s_sm, s_dm, s_c = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
@@ -198,9 +200,9 @@ class Criterion:
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
         sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
         dm_loss = self.reg_loss(s_dm, t_dm) * self.diff_weight
-        count_loss = self.reg_loss(s_c, t_c) * self.heatmap_weight
-        loss = hm_loss + sm_loss + dm_loss + count_loss
-        return (loss, hm_loss, sm_loss, dm_loss, t_hm)
+        c_loss = self.reg_loss(s_c, t_c) * self.count_weight
+        loss = hm_loss + sm_loss + dm_loss + c_loss
+        return (loss, hm_loss, sm_loss, dm_loss, c_loss, t_hm)
 
 
 class RegLoss:
@@ -449,10 +451,12 @@ class Trainer:
                 "train_sm",
                 "train_hm",
                 "train_dm",
+                "train_c",
                 "test_loss",
                 "test_hm",
                 "test_sm",
                 "test_dm",
+                "test_c",
                 "score",
             ]
         }
@@ -478,7 +482,7 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, sm_loss, dm_loss, _ = self.criterion(images, outputs, boxes)
+            loss, hm_loss, sm_loss, dm_loss, c_loss,_ = self.criterion(images, outputs, boxes)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -487,6 +491,7 @@ class Trainer:
             self.meters["train_hm"].update(hm_loss.item())
             self.meters["train_sm"].update(sm_loss.item())
             self.meters["train_dm"].update(dm_loss.item())
+            self.meters["train_c"].update(c_loss.item())
 
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
@@ -495,7 +500,7 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, sm_loss, dm_loss, gt_hms = self.criterion(
+            loss, hm_loss, sm_loss, dm_loss, c_loss, gt_hms = self.criterion(
                 images, outputs, boxes
             )
             preds = self.post_process(outputs)
@@ -506,6 +511,7 @@ class Trainer:
             self.meters["test_hm"].update(hm_loss.item())
             self.meters["test_sm"].update(sm_loss.item())
             self.meters["test_dm"].update(dm_loss.item())
+            self.meters["test_c"].update(c_loss.item())
 
         self.visualize(outputs, preds, boxes, images, gt_hms)
         if self.best_watcher.step(self.meters["score"].get_value()):
