@@ -15,6 +15,7 @@ def test_hungarian_matcher() -> None:
         torch.tensor([[[0.1, 0.9], [0.9, 0.1], [0.5, 0.5],]])
     )
 
+
 #      targets: Targets = [
 #          {
 #              "labels": torch.tensor([1, 0]).long(),

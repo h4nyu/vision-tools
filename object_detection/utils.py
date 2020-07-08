@@ -50,6 +50,9 @@ class DetectionPlot:
     def save(self, path: t.Union[str, Path]) -> None:
         self.fig.savefig(path)
 
+    def set_title(self, text: str) -> None:
+        self.ax.set_title(text)
+
     def with_image(self, image: Tensor, alpha: Optional[float] = None) -> None:
         if len(image.shape) == 2:
             h, w = image.shape
