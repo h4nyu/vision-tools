@@ -102,6 +102,5 @@ def test_effdet() -> None:
     channels = 32
     backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
     fn = EfficientDet(num_classes=2, backbone=backbone, channels=32,)
-    anchors, boxes, labels = fn(images)
-    assert anchors.shape == boxes.shape[1:]
+    anchors, boxes, _, labels = fn(images)
     assert labels.shape[:2] == boxes.shape[:2]
