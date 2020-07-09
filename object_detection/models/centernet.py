@@ -101,17 +101,19 @@ DiffMap = NewType("DiffMap", Tensor)  # [B, 2, H, W]
 Counts = NewType("Counts", Tensor)  # [B]
 NetOutput = Tuple[Heatmap, Sizemap, DiffMap, Counts]
 
+
 class GetPeaks:
-    def __init__(self, threshold:float=0.1, kernel_size:int=3) -> None:
+    def __init__(self, threshold: float = 0.1, kernel_size: int = 3) -> None:
         self.threshold = threshold
         self.max_pool = partial(
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
         )
 
-    def __call__(self, x:Heatmap) -> Tuple[Tensor, Counts]:
+    def __call__(self, x: Heatmap) -> Tuple[Tensor, Counts]:
         kp = (self.max_pool(x) == x) & (x > self.threshold)
         b = len(kp)
         return kp, kp.view((b, -1)).sum(dim=1).float()
+
 
 class CenterNet(nn.Module):
     def __init__(
@@ -280,14 +282,17 @@ class ToBoxes:
 
 
 class MkMaps:
-    def __init__(self, sigma: float = 0.5, mode:Literal["length", "aspect", "constant"]="length") -> None:
+    def __init__(
+        self,
+        sigma: float = 0.5,
+        mode: Literal["length", "aspect", "constant"] = "length",
+    ) -> None:
         self.sigma = sigma
         self.mode = mode
         #  if mode == "length":
         #      self.get_weights = lambda x: x[:, 2:].min(axis=1, keepdim=True)[0].clamp(min=1e-4).view(len(x), 2, 1, 1)
         #  else:
         #      self.get_weights = lambda x: (x[:, 2:] ** 2).clamp(min=1e-4).view(len(x), 2, 1, 1)
-
 
     def _mkmaps(
         self, boxes: YoloBoxes, hw: t.Tuple[int, int], original_hw: Tuple[int, int]
@@ -316,9 +321,14 @@ class MkMaps:
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
         #  weight = self.get_weights(boxes) # type: ignore
         if self.mode == "aspect":
-            weight = (boxes[:, 2:]**2).clamp(min=1e-4).view(box_count, 2, 1, 1)
+            weight = (boxes[:, 2:] ** 2).clamp(min=1e-4).view(box_count, 2, 1, 1)
         else:
-            weight = (boxes[:, 2:]**2).min(dim=1, keepdim=True)[0].clamp(min=1e-4).view(box_count, 1, 1, 1)
+            weight = (
+                (boxes[:, 2:] ** 2)
+                .min(dim=1, keepdim=True)[0]
+                .clamp(min=1e-4)
+                .view(box_count, 1, 1, 1)
+            )
 
         mounts = tr.exp(
             -(((grid_xy - grid_cxcy) ** 2) / weight).sum(dim=1, keepdim=True)
