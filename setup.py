@@ -19,5 +19,5 @@ setup(
         "typing_extensions",
         "tqdm",
     ],
-    extras_require={"dev": ["mypy", "pytest", "black", "pytest-mock"]},
+    extras_require={"dev": ["mypy", "pytest", "black", "pytest-mock", "pytest-cov"]},
 )
