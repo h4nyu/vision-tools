@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from functools import partial
 from typing import List, Tuple, NewType, Union, Callable
 from torch import nn, Tensor
+from typing_extensions import Literal
 from logging import getLogger
 from tqdm import tqdm
 from object_detection.entities import (
@@ -135,10 +136,9 @@ class CenterNet(nn.Module):
             Reg(in_channels=channels, out_channels=2, depth=depth),
         )
 
-        #  self.count_reg = nn.Sequential(
-        #      CountReg(in_channels=channels, out_channels=1, depth=depth),
-        #  )
-        self.count_reg = GetPeaks()
+        self.count_reg = nn.Sequential(
+            CountReg(in_channels=channels, out_channels=1, depth=depth),
+        )
 
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
@@ -146,7 +146,7 @@ class CenterNet(nn.Module):
         heatmap = Heatmap(self.hm_reg(fp[self.out_idx]))
         sizemap = self.size_reg(fp[self.out_idx])
         diffmap = self.diff_reg(fp[self.out_idx])
-        _, counts = self.count_reg(heatmap)
+        counts = self.count_reg(fp[-1])
         return heatmap, Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
 
 
@@ -271,7 +271,7 @@ class ToBoxes:
             cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh
             boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
             sort_idx = confidences.argsort(descending=True)[
-                : int((count.round() + self.count_offset).clamp(max=self.limit))
+                : int((count.float().round() + self.count_offset).clamp(max=self.limit))
             ]
             rows.append(
                 (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
@@ -280,8 +280,14 @@ class ToBoxes:
 
 
 class MkMaps:
-    def __init__(self, sigma: float = 0.5,) -> None:
+    def __init__(self, sigma: float = 0.5, mode:Literal["length", "aspect", "constant"]="length") -> None:
         self.sigma = sigma
+        self.mode = mode
+        #  if mode == "length":
+        #      self.get_weights = lambda x: x[:, 2:].min(axis=1, keepdim=True)[0].clamp(min=1e-4).view(len(x), 2, 1, 1)
+        #  else:
+        #      self.get_weights = lambda x: (x[:, 2:] ** 2).clamp(min=1e-4).view(len(x), 2, 1, 1)
+
 
     def _mkmaps(
         self, boxes: YoloBoxes, hw: t.Tuple[int, int], original_hw: Tuple[int, int]
@@ -308,8 +314,12 @@ class MkMaps:
         cy = cxcy[:, 1]
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
-        square_boxes = boxes[:, 2:] ** 2
-        weight = square_boxes.clamp(min=1e-4).view(box_count, 2, 1, 1)
+        #  weight = self.get_weights(boxes) # type: ignore
+        if self.mode == "aspect":
+            weight = (boxes[:, 2:]**2).clamp(min=1e-4).view(box_count, 2, 1, 1)
+        else:
+            weight = (boxes[:, 2:]**2).min(dim=1, keepdim=True)[0].clamp(min=1e-4).view(box_count, 1, 1, 1)
+
         mounts = tr.exp(
             -(((grid_xy - grid_cxcy) ** 2) / weight).sum(dim=1, keepdim=True)
             / (2 * self.sigma ** 2)
