@@ -6,28 +6,28 @@ jobs:
     steps:
       - checkout
       - run:
-        name: Install Docker Compose
-        command: |
-          curl -L https://github.com/docker/compose/releases/download/1.24.0/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
-          chmod +x ~/docker-compose
-          sudo mv ~/docker-compose /usr/local/bin/docker-compose
-          docker-compose -v
+          name: Install Docker Compose
+          command: |
+            curl -L https://github.com/docker/compose/releases/download/1.24.0/docker-compose-`uname -s`-`uname -m` > ~/docker-compose
+            chmod +x ~/docker-compose
+            sudo mv ~/docker-compose /usr/local/bin/docker-compose
+            docker-compose -v
       - run:
-        name: Build Images
-        command: |
-          docker-compose build --parallel
+          name: Build Images
+          command: |
+            docker-compose build --parallel
       - run:
-        name: Tpye check App
-        command: |
-          docker-compose run --rm app mypy .
+          name: Tpye check App
+          command: |
+            docker-compose run --rm app mypy .
       - run:
-        name: Lint App
-        command: |
-          docker-compose run --rm app black .
+          name: Lint App
+          command: |
+            docker-compose run --rm app black .
       - run:
-        name: Test App
-        command: |
-          docker-compose run --rm app pytest
+          name: Test App
+          command: |
+            docker-compose run --rm app pytest
 
 workflows:
   main:
