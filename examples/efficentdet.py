@@ -25,10 +25,10 @@ logger.addHandler(stream_handler)
 ### config ###
 confidence_threshold = 0.5
 nms_threshold = 0.3
-batch_size = 8
+batch_size = 4
 channels = 128
 
-input_size = 256
+input_size = 512
 object_count_range = (1, 20)
 object_size_range = (32, 64)
 ### config ###
