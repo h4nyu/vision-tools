@@ -1,0 +1,29 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - checkout
+      - run:
+          name: Install Package
+          command: |
+            pip install -e .[dev]
+      - run:
+          name: Tpye check App
+          command: |
+            mypy .
+      - run:
+          name: Lint App
+          command: |
+            black .
+      - run:
+          name: Test App
+          command: |
+            pytest -v --cov
+
+workflows:
+  main:
+    jobs:
+      - build-and-test
