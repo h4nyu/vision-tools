@@ -49,7 +49,9 @@ test_dataset = ObjectDataset(
 )
 backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
 anchors = Anchors(size=2)
-model = EfficientDet(num_classes=1, channels=channels, backbone=backbone, anchors=anchors)
+model = EfficientDet(
+    num_classes=1, channels=channels, backbone=backbone, anchors=anchors
+)
 model_loader = ModelLoader("/store/efficientdet")
 criterion = Criterion()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
