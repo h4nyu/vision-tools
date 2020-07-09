@@ -16,4 +16,4 @@ def test_yolo_to_pascal() -> None:
     h = 200
     yolo = YoloBoxes(torch.tensor([[0.4, 0.5, 0.2, 0.6],]))
     pascal = yolo_to_pascal(yolo, (w, h))
-    assert (pascal - torch.tensor([[30, 40, 50, 160]])).sum() == 0
+    assert (pascal - torch.tensor([[30, 40, 50, 160]])).abs().sum() < 1e-5

@@ -47,10 +47,10 @@ def test_classification_model() -> None:
 @pytest.mark.parametrize(
     "preds,expected",
     [
-        ([[0.0, 0.0], [0.0, 0.0], [1.0, 0.0],], 1e-4),
-        ([[0.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 1e-4),
-        ([[1.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 1e1),
-        ([[1.0, 1.0], [1.0, 1.0], [1.0, 0.0],], 2e1),
+        ([[0.0, 0.0], [0.0, 0.0], [1.0, 0.0],], 1e-3),
+        ([[0.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 1.4e1),
+        ([[1.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 2.20e1),
+        ([[1.0, 1.0], [1.0, 1.0], [1.0, 0.0],], 2.8e1),
     ],
 )
 def test_label_loss(preds: Any, expected: float) -> None:
@@ -58,13 +58,14 @@ def test_label_loss(preds: Any, expected: float) -> None:
     match_indices = torch.tensor([0, 1, 0,])
     pred_classes = torch.tensor(preds)
     gt_classes = torch.tensor([0, 1])
-    fn = LabelLoss()
+    fn = LabelLoss(iou_thresholds=(0.45, 0.55))
     res = fn(
         iou_max=iou_max,
         match_indices=match_indices,
         pred_classes=pred_classes,
         gt_classes=gt_classes,
     )
+    print(res)
     assert res < expected
 
 
