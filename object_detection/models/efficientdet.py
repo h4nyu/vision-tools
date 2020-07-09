@@ -261,6 +261,8 @@ class Criterion:
         for pos_diff, size_diff, pred_labels, gt_boxes, gt_lables in zip(
             pos_diffs, size_diffs, classifications, gt_boxes_list, gt_classes_list
         ):
+            if len(gt_boxes) == 0:
+                continue
             iou_matrix = box_iou(
                 yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
             )
