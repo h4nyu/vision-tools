@@ -8,6 +8,7 @@ from object_detection.models.efficientdet import (
     Criterion,
     Visualize,
     ToBoxes,
+    Anchors,
 )
 from object_detection.model_loader import ModelLoader
 from object_detection.data.object import ObjectDataset
@@ -24,7 +25,7 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 ### config ###
 confidence_threshold = 0.5
-nms_threshold = 0.3
+nms_threshold = 0.6
 batch_size = 4
 channels = 128
 
@@ -47,7 +48,8 @@ test_dataset = ObjectDataset(
     num_samples=256,
 )
 backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
-model = EfficientDet(num_classes=1, channels=channels, backbone=backbone)
+anchors = Anchors(size=2)
+model = EfficientDet(num_classes=1, channels=channels, backbone=backbone, anchors=anchors)
 model_loader = ModelLoader("/store/efficientdet")
 criterion = Criterion()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
