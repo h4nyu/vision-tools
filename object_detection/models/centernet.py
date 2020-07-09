@@ -289,10 +289,6 @@ class MkMaps:
     ) -> None:
         self.sigma = sigma
         self.mode = mode
-        #  if mode == "length":
-        #      self.get_weights = lambda x: x[:, 2:].min(axis=1, keepdim=True)[0].clamp(min=1e-4).view(len(x), 2, 1, 1)
-        #  else:
-        #      self.get_weights = lambda x: (x[:, 2:] ** 2).clamp(min=1e-4).view(len(x), 2, 1, 1)
 
     def _mkmaps(
         self, boxes: YoloBoxes, hw: t.Tuple[int, int], original_hw: Tuple[int, int]
