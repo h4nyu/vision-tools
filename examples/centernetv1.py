@@ -54,7 +54,13 @@ test_dataset = ObjectDataset(
     num_samples=256,
 )
 backbone = ResNetBackbone("resnet50", out_channels=channels)
-model = CenterNetV1(channels=channels, backbone=backbone, out_idx=out_idx, depth=1, anchors=Anchors(size=4, scales=[1.0], ratios=[1.0]))
+model = CenterNetV1(
+    channels=channels,
+    backbone=backbone,
+    out_idx=out_idx,
+    depth=1,
+    anchors=Anchors(size=4, scales=[1.0], ratios=[1.0]),
+)
 model_loader = ModelLoader(out_dir)
 criterion = Criterion(
     box_weight=box_weight,

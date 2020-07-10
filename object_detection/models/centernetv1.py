@@ -26,6 +26,7 @@ from tqdm import tqdm
 from .efficientdet import Anchors, RegressionModel
 from .bifpn import BiFPN
 from torchvision.ops.boxes import box_iou
+from torchvision.ops import nms
 from object_detection.model_loader import ModelLoader
 from object_detection.entities import (
     PyramidIdx,
@@ -156,11 +157,13 @@ class ToBoxes:
         kernel_size: int = 5,
         limit: int = 100,
         count_offset: int = 1,
+        nms_threshold: float = 0.8,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
         self.count_offset = count_offset
+        self.nms_threshold = nms_threshold
         self.max_pool = partial(
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
         )
@@ -183,7 +186,11 @@ class ToBoxes:
             box_diff = box_diff[indecies]
             anchor = anchors[indecies]
             boxes = anchor + box_diff
-            sort_idx = confidences.argsort(descending=True)[: self.limit]
+            sort_idx = nms(
+                yolo_to_pascal(YoloBoxes(boxes), (1, 1)),
+                confidences,
+                iou_threshold=self.nms_threshold,
+            )[: self.limit]
             box_batch.append(YoloBoxes(boxes[sort_idx]))
             conf_batch.append(Confidences(confidences[sort_idx]))
         return box_batch, conf_batch
