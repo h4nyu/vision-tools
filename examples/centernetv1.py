@@ -28,7 +28,7 @@ logger.addHandler(stream_handler)
 ### config ###
 sigma = 1.0
 lr = 1e-4
-batch_size = 16
+batch_size = 18
 out_idx: PyramidIdx = 4
 threshold = 0.1
 channels = 256
