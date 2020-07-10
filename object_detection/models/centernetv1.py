@@ -62,7 +62,7 @@ def collate_fn(
 
 
 class Anchors:
-    def __init__(self, size: int = 4) -> None:
+    def __init__(self, size: int = 2) -> None:
         self.size = size
 
     def __call__(self, ref_images: Tensor) -> Any:
@@ -237,7 +237,7 @@ class ToBoxes:
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.5, only_kp: bool = False) -> None:
+    def __init__(self, iou_threshold: float = 0.5) -> None:
         self.iou_threshold = iou_threshold
 
     def __call__(

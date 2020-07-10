@@ -38,7 +38,8 @@ box_weight = 1.0
 object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
-iou_threshold = 0.2
+iou_threshold = 0.01
+anchor_size = 2
 ### config ###
 
 train_dataset = ObjectDataset(
@@ -54,7 +55,13 @@ test_dataset = ObjectDataset(
     num_samples=256,
 )
 backbone = ResNetBackbone("resnet50", out_channels=channels)
-model = CenterNetV1(channels=channels, backbone=backbone, out_idx=out_idx, depth=1,)
+model = CenterNetV1(
+    channels=channels,
+    backbone=backbone,
+    out_idx=out_idx,
+    depth=1,
+    anchors=Anchors(size=anchor_size),
+)
 model_loader = ModelLoader(out_dir)
 criterion = Criterion(
     box_weight=box_weight,
