@@ -102,19 +102,6 @@ Counts = NewType("Counts", Tensor)  # [B]
 NetOutput = Tuple[Heatmaps, Sizemap, DiffMap, Counts]
 
 
-class GetPeaks:
-    def __init__(self, threshold: float = 0.1, kernel_size: int = 3) -> None:
-        self.threshold = threshold
-        self.max_pool = partial(
-            F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
-        )
-
-    def __call__(self, x: Heatmaps) -> Tuple[Tensor, Counts]:
-        kp = (self.max_pool(x) == x) & (x > self.threshold)
-        b = len(kp)
-        return kp, kp.view((b, -1)).sum(dim=1).float()
-
-
 class CenterNet(nn.Module):
     def __init__(
         self,

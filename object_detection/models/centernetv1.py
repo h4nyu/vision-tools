@@ -11,7 +11,6 @@ from object_detection.utils import DetectionPlot
 from .centernet import (
     CenterNet,
     Reg,
-    GetPeaks,
     Sizemap,
     DiffMap,
     HMLoss,
@@ -41,6 +40,7 @@ logger = getLogger(__name__)
 
 BoxDiffs = NewType("BoxDiffs", Tensor)  # [B, num_anchors, 4]
 BoxDiff = NewType("BoxDiff", Tensor)  # [num_anchors, 4]
+Heatmap = NewType("Heatmap", Tensor)  # [1, H, W]
 NetOutput = Tuple[YoloBoxes, BoxDiffs, Heatmaps]
 
 
@@ -58,6 +58,18 @@ def collate_fn(
         id_batch.append(id)
         label_batch.append(labels)
     return ImageBatch(torch.stack(images)), box_batch, label_batch, id_batch
+
+
+class GetPeaks:
+    def __init__(self, threshold: float = 0.1, kernel_size: int = 3) -> None:
+        self.threshold = threshold
+        self.max_pool = partial(
+            F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
+        )
+
+    def __call__(self, x: Heatmap) -> Tensor:
+        kp = (self.max_pool(x) == x) & (x > self.threshold)
+        return kp.nonzero()[:, -2:]
 
 
 class Visualize:
@@ -199,19 +211,31 @@ class ToBoxes:
 class BoxLoss:
     def __init__(self, iou_threshold: float = 0.5) -> None:
         self.iou_threshold = iou_threshold
+        self.get_peaks = GetPeaks()
 
     def __call__(
         self,
-        iou_max: Tensor,
-        match_indices: Tensor,
         anchors: YoloBoxes,
         box_diff: BoxDiff,
         gt_boxes: YoloBoxes,
+        heatmap: Heatmap,
     ) -> Tensor:
         device = box_diff.device
-        high = self.iou_threshold
+        _, h, w = heatmap.shape
+
+        kp = self.get_peaks(heatmap)
+        cxcy = kp[:, [1, 0]]
+        indecies = cxcy[:, 0] + cxcy[:, 1] * w
+        anchors = YoloBoxes(anchors[indecies])
+        box_diff = BoxDiff(box_diff[indecies])
+
+        iou_matrix = box_iou(
+            yolo_to_pascal(anchors, wh=(1, 1)), yolo_to_pascal(gt_boxes, wh=(1, 1)),
+        )
+        iou_max, match_indices = torch.max(iou_matrix, dim=1)
         positive_indices = iou_max > self.iou_threshold
         num_pos = positive_indices.sum()
+
         if num_pos == 0:
             return torch.tensor(0.0).to(device)
         matched_gt_boxes = gt_boxes[match_indices][positive_indices]
@@ -315,17 +339,12 @@ class Criterion:
         for box_diff, heatmap, gt_boxes in zip(box_diffs, s_hms, gt_boxes_list):
             if len(gt_boxes) == 0:
                 continue
-            iou_matrix = box_iou(
-                yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
-            )
-            iou_max, match_indices = torch.max(iou_matrix, dim=1)
             box_losses.append(
                 self.box_loss(
-                    iou_max=iou_max,
                     anchors=anchors,
-                    match_indices=match_indices,
                     gt_boxes=gt_boxes,
                     box_diff=BoxDiff(box_diff),
+                    heatmap=Heatmap(heatmap),
                 )
             )
         box_loss = torch.stack(box_losses).mean() * self.box_weight
