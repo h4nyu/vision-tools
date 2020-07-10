@@ -544,7 +544,7 @@ class Trainer:
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
         self.model.train()
-        loader = self.train_loader
+        loader = self.test_loader
         for samples, box_batch, gt_labes_list, ids in tqdm(loader):
             samples, box_batch, gt_labels_list = self.preprocess(
                 (samples, box_batch, gt_labes_list)
