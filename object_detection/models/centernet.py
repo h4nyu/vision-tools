@@ -95,11 +95,11 @@ class CountReg(nn.Module):
         return x
 
 
-Heatmap = t.NewType("Heatmap", Tensor)  # [B, 1, H, W]
+Heatmaps = t.NewType("Heatmaps", Tensor)  # [B, 1, H, W]
 Sizemap = t.NewType("Sizemap", Tensor)  # [B, 2, H, W]
 DiffMap = NewType("DiffMap", Tensor)  # [B, 2, H, W]
 Counts = NewType("Counts", Tensor)  # [B]
-NetOutput = Tuple[Heatmap, Sizemap, DiffMap, Counts]
+NetOutput = Tuple[Heatmaps, Sizemap, DiffMap, Counts]
 
 
 class GetPeaks:
@@ -109,7 +109,7 @@ class GetPeaks:
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
         )
 
-    def __call__(self, x: Heatmap) -> Tuple[Tensor, Counts]:
+    def __call__(self, x: Heatmaps) -> Tuple[Tensor, Counts]:
         kp = (self.max_pool(x) == x) & (x > self.threshold)
         b = len(kp)
         return kp, kp.view((b, -1)).sum(dim=1).float()
@@ -145,7 +145,7 @@ class CenterNet(nn.Module):
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = Heatmap(self.hm_reg(fp[self.out_idx]))
+        heatmap = Heatmaps(self.hm_reg(fp[self.out_idx]))
         sizemap = self.size_reg(fp[self.out_idx])
         diffmap = self.diff_reg(fp[self.out_idx])
         counts = self.count_reg(fp[-1])
@@ -206,7 +206,7 @@ class Criterion:
 
     def __call__(
         self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Heatmap]:
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Heatmaps]:
         s_hm, s_sm, s_dm, s_c = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
@@ -302,7 +302,7 @@ class MkMaps:
         box_count = len(boxes)
         counts = torch.tensor([box_count]).to(device)
         if box_count == 0:
-            return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
+            return Heatmaps(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
 
         box_cxs, box_cys, _, _ = boxes.unbind(-1)
         grid_y, grid_x = tr.meshgrid(  # type:ignore
@@ -333,7 +333,7 @@ class MkMaps:
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         sizemap[:, :, cy, cx] = boxes[:, 2:].t()
         diffmap[:, :, cy, cx] = (boxes[:, :2] - cxcy.float() / wh).t()
-        return Heatmap(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
+        return Heatmaps(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
 
     @torch.no_grad()
     def __call__(
@@ -354,7 +354,7 @@ class MkMaps:
             counts.append(c)
 
         return (
-            Heatmap(tr.cat(hms, dim=0)),
+            Heatmaps(tr.cat(hms, dim=0)),
             Sizemap(tr.cat(sms, dim=0)),
             DiffMap(tr.cat(pms, dim=0)),
             Counts(tr.cat(counts, dim=0)),
@@ -413,7 +413,7 @@ class Visualize:
         src: Tuple[List[YoloBoxes], List[Confidences]],
         tgt: List[YoloBoxes],
         image_batch: ImageBatch,
-        gt_hms: Heatmap,
+        gt_hms: Heatmaps,
     ) -> None:
         heatmap, _, _, counts = net_out
         box_batch, confidence_batch = src
