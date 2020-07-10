@@ -38,7 +38,7 @@ box_weight = 1.0
 object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
-iou_threshold = 0.3
+iou_threshold = 0.2
 ### config ###
 
 train_dataset = ObjectDataset(

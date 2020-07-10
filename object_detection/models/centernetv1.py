@@ -209,9 +209,10 @@ class ToBoxes:
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.5) -> None:
+    def __init__(self, iou_threshold: float = 0.5, only_kp:bool=False) -> None:
         self.iou_threshold = iou_threshold
         self.get_peaks = GetPeaks()
+        self.only_kp = only_kp
 
     def __call__(
         self,
@@ -221,13 +222,14 @@ class BoxLoss:
         heatmap: Heatmap,
     ) -> Tensor:
         device = box_diff.device
-        _, h, w = heatmap.shape
 
-        kp = self.get_peaks(heatmap)
-        cxcy = kp[:, [1, 0]]
-        indecies = cxcy[:, 0] + cxcy[:, 1] * w
-        anchors = YoloBoxes(anchors[indecies])
-        box_diff = BoxDiff(box_diff[indecies])
+        if self.only_kp:
+            _, h, w = heatmap.shape
+            kp = self.get_peaks(heatmap)
+            cxcy = kp[:, [1, 0]]
+            indecies = cxcy[:, 0] + cxcy[:, 1] * w
+            anchors = YoloBoxes(anchors[indecies])
+            box_diff = BoxDiff(box_diff[indecies])
 
         iou_matrix = box_iou(
             yolo_to_pascal(anchors, wh=(1, 1)), yolo_to_pascal(gt_boxes, wh=(1, 1)),
