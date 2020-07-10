@@ -28,10 +28,10 @@ logger.addHandler(stream_handler)
 ### config ###
 sigma = 1.0
 lr = 1e-3
-batch_size = 12
-out_idx: PyramidIdx = 5
+batch_size = 16
+out_idx: PyramidIdx = 4
 threshold = 0.1
-channels = 256
+channels = 128
 input_size = 256
 heatmap_weight = 1.0
 box_weight = 1.0
