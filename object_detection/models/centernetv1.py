@@ -121,7 +121,7 @@ class CenterNetV1(nn.Module):
         backbone: nn.Module,
         depth: int = 2,
         out_idx: PyramidIdx = 4,
-        anchors: Anchors = Anchors(size=2, scales=[1.0], ratios=[1.0]),
+        anchors: Anchors = Anchors(size=4, scales=[1.0], ratios=[1.0]),
     ) -> None:
         super().__init__()
         self.out_idx = out_idx - 3
