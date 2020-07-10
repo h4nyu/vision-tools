@@ -1,7 +1,7 @@
 import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
-from .modules import Hswish, ConvBR2d, CSE2d
+from .modules import Hswish, ConvBR2d, CSE2d, Mish
 from typing_extensions import Literal
 
 
