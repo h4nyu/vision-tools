@@ -22,7 +22,7 @@ from object_detection.entities import (
 )
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
-from .modules import ConvBR2d
+from .modules import ConvBR2d, Mish
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import Reduction
@@ -31,7 +31,6 @@ from object_detection.entities import ImageBatch, PredBoxes, Image, Batch
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
 from object_detection.model_loader import ModelLoader
-from .mish import Mish
 
 from pathlib import Path
 
@@ -78,9 +77,9 @@ class CountReg(nn.Module):
         channels = in_channels
         self.dense = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=in_channels, kernel_size=1),
-            nn.Mish(inplace=True),
+            Mish(),
             nn.Conv2d(in_channels=channels, out_channels=in_channels, kernel_size=1),
-            nn.Mish(inplace=True),
+            Mish(),
         )
 
         self.out = nn.Sequential(
