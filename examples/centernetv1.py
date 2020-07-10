@@ -26,6 +26,7 @@ logger.addHandler(stream_handler)
 
 ### config ###
 sigma = 1.0
+lr = 1e-3
 batch_size = 16
 out_idx: PyramidIdx = 4
 threshold = 0.1
@@ -60,7 +61,7 @@ criterion = Criterion(
     sigma=sigma,
     iou_threshold=iou_threshold,
 )
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 visualize = Visualize(out_dir, "test", limit=2)
 best_watcher = BestWatcher(mode="max")
 to_boxes = ToBoxes(threshold=threshold, limit=60)

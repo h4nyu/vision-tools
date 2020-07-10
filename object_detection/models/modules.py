@@ -1,6 +1,7 @@
 import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
+from .mish import Mish
 
 
 class Swish(nn.Module):
@@ -35,7 +36,7 @@ class CSE2d(nn.Module):
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(in_channels, in_channels // reduction, 1),
-            nn.ReLU(inplace=True),
+            Mish(),
             nn.Conv2d(in_channels // reduction, in_channels, 1),
             Hsigmoid(inplace=True),
         )
@@ -56,7 +57,7 @@ class ConvBR2d(nn.Module):
         dilation: int = 1,
         groups: int = 1,
         bias: bool = False,
-        activation: t.Optional[nn.Module] = Hswish(inplace=True),
+        activation: t.Optional[nn.Module] = Mish(),
     ):
         super().__init__()
         self.conv = nn.Conv2d(
