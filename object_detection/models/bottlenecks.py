@@ -118,7 +118,7 @@ class SENextBottleneck2d(nn.Module):
                 ),
             )
         self.cse = CSE2d(out_channels, reduction)
-        self.activation = Hswish(inplace=True)
+        self.activation = Mish()
 
     def forward(self, x: Tensor) -> Tensor:
         s = self.conv(x)
