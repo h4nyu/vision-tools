@@ -8,9 +8,9 @@ from typing_extensions import Literal
 from pathlib import Path
 from object_detection.meters import BestWatcher, MeanMeter
 from object_detection.utils import DetectionPlot
+from .bottlenecks import SENextBottleneck2d
 from .centernet import (
     CenterNet,
-    Reg,
     Sizemap,
     DiffMap,
     HMLoss,
@@ -22,26 +22,27 @@ from .centernet import (
 )
 from logging import getLogger
 from tqdm import tqdm
-from .efficientdet import Anchors, RegressionModel
+from .efficientdet import RegressionModel
 from .bifpn import BiFPN
 from torchvision.ops.boxes import box_iou
 from torchvision.ops import nms
 from object_detection.model_loader import ModelLoader
 from object_detection.entities import (
+    BoxMap,
+    BoxMaps,
     PyramidIdx,
     ImageBatch,
     YoloBoxes,
     Confidences,
     yolo_to_pascal,
+    boxmap_to_boxes,
 )
 
 logger = getLogger(__name__)
 
 
-BoxDiffs = NewType("BoxDiffs", Tensor)  # [B, num_anchors, 4]
-BoxDiff = NewType("BoxDiff", Tensor)  # [num_anchors, 4]
 Heatmap = NewType("Heatmap", Tensor)  # [1, H, W]
-NetOutput = Tuple[YoloBoxes, BoxDiffs, Heatmaps]
+NetOutput = Tuple[BoxMap, BoxMaps, Heatmaps]
 
 
 def collate_fn(
@@ -58,6 +59,23 @@ def collate_fn(
         id_batch.append(id)
         label_batch.append(labels)
     return ImageBatch(torch.stack(images)), box_batch, label_batch, id_batch
+
+
+class Anchors:
+    def __init__(self, size: int = 4) -> None:
+        self.size = size
+
+    def __call__(self, ref_images: Tensor) -> Any:
+        h, w = ref_images.shape[-2:]
+        device = ref_images.device
+        grid_y, grid_x = torch.meshgrid(  # type:ignore
+            torch.arange(h, dtype=torch.float32) / h,
+            torch.arange(w, dtype=torch.float32) / w,
+        )
+        box_h = torch.ones((h, w)) * (self.size / h)
+        box_w = torch.ones((h, w)) * (self.size / w)
+        anchors = torch.stack([grid_x, grid_y, box_w, box_h])
+        return anchors.to(device)
 
 
 class GetPeaks:
@@ -127,6 +145,24 @@ class Visualize:
             plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
 
 
+class Reg(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, depth: int) -> None:
+        super().__init__()
+        channels = in_channels
+        self.conv = nn.Sequential(
+            *[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)]
+        )
+
+        self.out = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.conv(x)
+        x = self.out(x)
+        return x
+
+
 class CenterNetV1(nn.Module):
     def __init__(
         self,
@@ -134,7 +170,7 @@ class CenterNetV1(nn.Module):
         backbone: nn.Module,
         depth: int = 2,
         out_idx: PyramidIdx = 4,
-        anchors: Anchors = Anchors(size=4, scales=[1.0], ratios=[1.0]),
+        anchors: Anchors = Anchors(),
     ) -> None:
         super().__init__()
         self.out_idx = out_idx - 3
@@ -145,21 +181,15 @@ class CenterNetV1(nn.Module):
             Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
         )
         self.anchors = anchors
-
-        self.box_reg = RegressionModel(
-            in_channels=channels,
-            hidden_channels=channels,
-            num_anchors=self.anchors.num_anchors,
-            out_size=4,
-        )
+        self.box_reg = Reg(in_channels=channels, out_channels=4, depth=depth,)
 
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
         heatmaps = self.hm_reg(fp[self.out_idx])
         anchors = self.anchors(heatmaps)
-        box_diffs = self.box_reg(fp[self.out_idx])
-        return anchors, BoxDiffs(box_diffs), Heatmaps(heatmaps)
+        diffmaps = self.box_reg(fp[self.out_idx])
+        return anchors, BoxMaps(diffmaps), Heatmaps(heatmaps)
 
 
 class ToBoxes:
@@ -182,7 +212,7 @@ class ToBoxes:
 
     @torch.no_grad()
     def __call__(self, inputs: NetOutput) -> Tuple[List[YoloBoxes], List[Confidences]]:
-        anchors, box_diffs, heatmap = inputs
+        anchormap, box_diffs, heatmap = inputs
         device = heatmap.device
         kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
         batch_size, _, height, width = heatmap.shape
@@ -193,10 +223,8 @@ class ToBoxes:
         for hm, km, box_diff in zip(heatmap.squeeze(1), kpmap.squeeze(1), box_diffs):
             kp = km.nonzero()
             confidences = hm[kp[:, 0], kp[:, 1]]
-            cxcy = kp[:, [1, 0]]
-            indecies = cxcy[:, 0] + cxcy[:, 1] * width
-            box_diff = box_diff[indecies]
-            anchor = anchors[indecies]
+            anchor = anchormap[:, kp[:, 0], kp[:, 1]].t()
+            box_diff = box_diff[:, kp[:, 0], kp[:, 1]].t()
             boxes = anchor + box_diff
             sort_idx = nms(
                 yolo_to_pascal(YoloBoxes(boxes), (1, 1)),
@@ -209,35 +237,21 @@ class ToBoxes:
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.5, only_kp:bool=False) -> None:
+    def __init__(self, iou_threshold: float = 0.5, only_kp: bool = False) -> None:
         self.iou_threshold = iou_threshold
-        self.get_peaks = GetPeaks()
-        self.only_kp = only_kp
 
     def __call__(
-        self,
-        anchors: YoloBoxes,
-        box_diff: BoxDiff,
-        gt_boxes: YoloBoxes,
-        heatmap: Heatmap,
+        self, anchormap: BoxMap, diffmap: BoxMap, gt_boxes: YoloBoxes, heatmap: Heatmap,
     ) -> Tensor:
-        device = box_diff.device
-
-        if self.only_kp:
-            _, h, w = heatmap.shape
-            kp = self.get_peaks(heatmap)
-            cxcy = kp[:, [1, 0]]
-            indecies = cxcy[:, 0] + cxcy[:, 1] * w
-            anchors = YoloBoxes(anchors[indecies])
-            box_diff = BoxDiff(box_diff[indecies])
-
+        device = diffmap.device
+        box_diff = boxmap_to_boxes(diffmap)
+        anchors = boxmap_to_boxes(anchormap)
         iou_matrix = box_iou(
             yolo_to_pascal(anchors, wh=(1, 1)), yolo_to_pascal(gt_boxes, wh=(1, 1)),
         )
         iou_max, match_indices = torch.max(iou_matrix, dim=1)
         positive_indices = iou_max > self.iou_threshold
         num_pos = positive_indices.sum()
-
         if num_pos == 0:
             return torch.tensor(0.0).to(device)
         matched_gt_boxes = gt_boxes[match_indices][positive_indices]
@@ -328,8 +342,8 @@ class Criterion:
     def __call__(
         self, images: ImageBatch, net_output: NetOutput, gt_boxes_list: List[YoloBoxes],
     ) -> Tuple[Tensor, Tensor, Tensor, Heatmaps]:
-        anchors, box_diffs, s_hms = net_output
-        device = box_diffs.device
+        anchormap, diffmaps, s_hms = net_output
+        device = diffmaps.device
         box_losses: List[Tensor] = []
         hm_losses: List[Tensor] = []
         _, _, orig_h, orig_w = images.shape
@@ -338,14 +352,14 @@ class Criterion:
         t_hms = self.mkmaps(gt_boxes_list, (h, w), (orig_h, orig_w))
         hm_loss = self.hm_loss(s_hms, t_hms) * self.heatmap_weight
 
-        for box_diff, heatmap, gt_boxes in zip(box_diffs, s_hms, gt_boxes_list):
+        for diffmap, heatmap, gt_boxes in zip(diffmaps, s_hms, gt_boxes_list):
             if len(gt_boxes) == 0:
                 continue
             box_losses.append(
                 self.box_loss(
-                    anchors=anchors,
+                    anchormap=anchormap,
                     gt_boxes=gt_boxes,
-                    box_diff=BoxDiff(box_diff),
+                    diffmap=BoxMap(diffmap),
                     heatmap=Heatmap(heatmap),
                 )
             )

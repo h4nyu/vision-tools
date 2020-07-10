@@ -12,6 +12,8 @@ YoloBoxes = NewType(
 PascalBoxes = NewType(
     "PascalBoxes", Tensor
 )  # [B, Pos] Pos:[x0, y0, x1, y1] original torch.int32
+BoxMaps = NewType("BoxMaps", Tensor)  # [B, 4, H, W]
+BoxMap = NewType("BoxMap", Tensor)  # [4, H, W]
 
 
 Labels = NewType("Labels", Tensor)
@@ -22,6 +24,10 @@ LabelBoxes = Tuple[CoCoBoxes, Labels]
 
 YoloBoxBatch = NewType("YoloBoxBatch", Tensor)  # [B, N, 4]
 ConfidenceBatch = NewType("ConfidenceBatch", Tensor)  # [B, N] 0.0 ~ 1.0
+
+
+def boxmap_to_boxes(am: BoxMap) -> YoloBoxes:
+    return YoloBoxes(am.permute(2, 1, 0).reshape(-1, 4))
 
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:

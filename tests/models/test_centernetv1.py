@@ -1,35 +1,40 @@
 import torch
 import pytest
 from typing import Any
-from object_detection.entities import YoloBoxes
+from object_detection.entities import YoloBoxes, BoxMaps, boxmap_to_boxes
 from object_detection.models.centernetv1 import (
     MkMaps,
     Heatmaps,
     Sizemap,
-    DiffMap,
     ToBoxes,
     CenterNetV1,
     Anchors,
     ToBoxes,
-    BoxDiffs,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.utils import DetectionPlot
+
+
+def test_anchors() -> None:
+    fn = Anchors(size=2)
+    hm = torch.zeros((1, 1, 8, 8))
+    anchors = fn(hm)
+    boxes = boxmap_to_boxes(anchors)
+    assert len(boxes) == 8 * 8
+
+    plot = DetectionPlot(w=8, h=8)
+    plot.with_yolo_boxes(YoloBoxes(boxes[[0, 4, 28, 27]]), color="blue")
+    plot.save(f"store/test-anchorv1.png")
 
 
 def test_ctdtv1() -> None:
     inputs = torch.rand((1, 3, 512, 512))
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
-    fn = CenterNetV1(
-        channels=channels,
-        backbone=backbone,
-        out_idx=6,
-        anchors=Anchors(scales=[1.0], ratios=[1.0]),
-    )
+    fn = CenterNetV1(channels=channels, backbone=backbone, out_idx=6,)
     anchors, box_diffs, heatmaps = fn(inputs)
     assert heatmaps.shape == (1, 1, 512 // 16, 512 // 16)
-    assert anchors.shape == (1024, 4)
+    assert anchors.shape == (4, 512 // 16, 512 // 16)
     assert anchors.shape == box_diffs.shape[1:]
 
 
@@ -41,13 +46,13 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     hm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
     assert hm.shape == (1, 1, h, w)
-    mk_anchors = Anchors(ratios=[1.0], scales=[1.0])
-    anchors = mk_anchors(hm)
-    diff_boxes = BoxDiffs(torch.zeros((1, *anchors.shape)))
-    diff = in_boxes[0] - anchors[cy * w + cx]
-    diff_boxes[0, cy * w + cx] = diff
+    mk_anchors = Anchors()
+    anchormap = mk_anchors(hm)
+    diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
+    diff = in_boxes[0] - anchormap[:, cy, cx]
+    diffmaps[0, :, cy, cx] = diff
 
-    out_box_batch, out_conf_batch = to_boxes((anchors, diff_boxes, hm))
+    out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
     out_boxes = out_box_batch[0]
     assert out_boxes[0, 0] == in_boxes[0, 0]
     assert out_boxes[0, 1] == in_boxes[0, 1]
