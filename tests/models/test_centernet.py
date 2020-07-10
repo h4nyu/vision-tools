@@ -66,7 +66,7 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(in_boxes, color="blue")
     plot.with_yolo_boxes(out_boxes, color="red")
-    plot.save(f"/store/test-soft-heatmap.png")
+    plot.save(f"store/test-soft-heatmap.png")
 
 
 @pytest.mark.parametrize(
@@ -101,4 +101,4 @@ def test_mkmap_count(mode: Any, boxes: Any) -> None:
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(in_boxes, color="blue")
     plot.with_yolo_boxes(out_boxes, color="red")
-    plot.save(f"/store/test-heatmap-count-{mode}-{len(in_boxes)}.png")
+    plot.save(f"store/test-heatmap-count-{mode}-{len(in_boxes)}.png")
