@@ -29,7 +29,7 @@ def test_ctdtv1() -> None:
     )
     anchors, box_diffs, heatmaps = fn(inputs)
     assert heatmaps.shape == (1, 1, 512 // 16, 512 // 16)
-    assert anchors.shape == (4096, 4)
+    assert anchors.shape == (1024, 4)
     assert anchors.shape == box_diffs.shape[1:]
 
 
