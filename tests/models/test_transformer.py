@@ -32,15 +32,13 @@ def test_embed() -> None:
     num_classes = 2
     fn = nn.Linear(hidden_dim, num_classes + 1)
     hs = torch.rand((hidden_dim, num_features, batch_size))
-    #  print(f"{hs.shape=}")
-    #  res = fn(hs)
 
 
 def test_transformer() -> None:
     batch_size = 2
     height = 34
     width = 34
-    num_queries = 100
+    num_queries = 10
     hidden_dim = 256
 
     src = torch.rand((batch_size, hidden_dim, height, width))
