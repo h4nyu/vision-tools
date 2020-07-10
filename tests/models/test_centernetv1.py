@@ -18,7 +18,7 @@ from object_detection.utils import DetectionPlot
 
 
 def test_ctdtv1() -> None:
-    inputs = torch.rand((1, 3, 1024, 1024))
+    inputs = torch.rand((1, 3, 512, 512))
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
     fn = CenterNetV1(
@@ -28,7 +28,7 @@ def test_ctdtv1() -> None:
         anchors=Anchors(scales=[1.0], ratios=[1.0]),
     )
     anchors, box_diffs, heatmaps = fn(inputs)
-    assert heatmaps.shape == (1, 1, 1024 // 16, 1024 // 16)
+    assert heatmaps.shape == (1, 1, 512 // 16, 512 // 16)
     assert anchors.shape == (4096, 4)
     assert anchors.shape == box_diffs.shape[1:]
 
