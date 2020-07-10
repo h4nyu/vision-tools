@@ -21,6 +21,7 @@ jobs:
       - run:
           name: Test App
           command: |
+            mkdir store
             pytest -v --cov
 
 workflows:

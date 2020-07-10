@@ -461,7 +461,7 @@ class ToBoxes:
 class Trainer:
     def __init__(
         self,
-        model: EfficientDet,
+        model: nn.Module,
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
@@ -499,6 +499,10 @@ class Trainer:
                 "score",
             ]
         }
+
+        if model_loader.check_point_exists():
+            self.model, meta = model_loader.load(self.model)
+            self.best_watcher.step(meta["score"])
 
     def log(self) -> None:
         value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
@@ -540,7 +544,7 @@ class Trainer:
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
         self.model.train()
-        loader = self.train_loader
+        loader = self.test_loader
         for samples, box_batch, gt_labes_list, ids in tqdm(loader):
             samples, box_batch, gt_labels_list = self.preprocess(
                 (samples, box_batch, gt_labes_list)

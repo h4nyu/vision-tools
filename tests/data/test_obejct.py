@@ -11,7 +11,7 @@ def test_polyimage() -> None:
     img, boxes = poly()
     plot.with_image(img)
     plot.with_yolo_boxes(boxes, color="red")
-    plot.save("/store/test-poly-0.png")
+    plot.save("store/test-poly-0.png")
 
 
 def test_objectdataset() -> None:
@@ -23,4 +23,4 @@ def test_objectdataset() -> None:
         plot = DetectionPlot()
         plot.with_image(img)
         plot.with_yolo_boxes(boxes, color="red")
-        plot.save(f"/store/test-poly-{i}.png")
+        plot.save(f"store/test-poly-{i}.png")
