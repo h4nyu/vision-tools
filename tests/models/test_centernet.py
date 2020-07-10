@@ -37,12 +37,12 @@ def test_hm_loss() -> None:
 
 
 def test_centernet_foward() -> None:
-    inputs = torch.rand((1, 3, 1024, 1024))
+    inputs = torch.rand((1, 3, 512, 512))
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
     fn = CenterNet(channels=channels, backbone=backbone, out_idx=3)
     heatmap, sizemap, _, _ = fn(inputs)
-    assert heatmap.shape == (1, 1, 1024 // 2, 1024 // 2)
+    assert heatmap.shape == (1, 1, 512 // 2, 512 // 2)
 
 
 @pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
