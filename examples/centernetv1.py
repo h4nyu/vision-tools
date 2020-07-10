@@ -28,8 +28,8 @@ logger.addHandler(stream_handler)
 ### config ###
 sigma = 1.0
 lr = 1e-3
-batch_size = 18
-out_idx: PyramidIdx = 4
+batch_size = 12
+out_idx: PyramidIdx = 5
 threshold = 0.1
 channels = 256
 input_size = 256
@@ -39,7 +39,8 @@ object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
 iou_threshold = 0.01
-anchor_size = 2
+anchor_size = 1
+depth = 2
 ### config ###
 
 train_dataset = ObjectDataset(
@@ -59,7 +60,7 @@ model = CenterNetV1(
     channels=channels,
     backbone=backbone,
     out_idx=out_idx,
-    depth=1,
+    depth=depth,
     anchors=Anchors(size=anchor_size),
 )
 model_loader = ModelLoader(out_dir)
