@@ -22,7 +22,7 @@ jobs:
           name: Test App
           command: |
             mkdir store
-            pytest -v --cov
+            pytest -v --cov=object-detection
 
 workflows:
   main:
