@@ -200,12 +200,14 @@ class ToBoxes:
         limit: int = 100,
         count_offset: int = 1,
         nms_threshold: float = 0.8,
+        use_peak:bool = False,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
         self.count_offset = count_offset
         self.nms_threshold = nms_threshold
+        self.use_peak = use_peak
         self.max_pool = partial(
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
         )
@@ -214,7 +216,10 @@ class ToBoxes:
     def __call__(self, inputs: NetOutput) -> Tuple[List[YoloBoxes], List[Confidences]]:
         anchormap, box_diffs, heatmap = inputs
         device = heatmap.device
-        kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
+        if self.use_peak:
+            kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
+        else:
+            kpmap = (heatmap > self.threshold)
         batch_size, _, height, width = heatmap.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: List[Tuple[YoloBoxes, Confidences]] = []

@@ -26,19 +26,19 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 ### config ###
-sigma = 4.0
-lr = 1e-3
-batch_size = 12
-out_idx: PyramidIdx = 3
-threshold = 0.1
+sigma = 1.0
+lr = 1e-4
+batch_size = 16
+out_idx: PyramidIdx = 4
+threshold = 0.2
 channels = 128
 input_size = 256
-heatmap_weight = 10.0
-box_weight = 1.0
+heatmap_weight = 1.0
+box_weight = 50.0
 object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
-iou_threshold = 0.01
+iou_threshold = 0.0
 anchor_size = 1
 ### config ###
 
