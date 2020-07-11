@@ -10,7 +10,6 @@ from object_detection.meters import BestWatcher, MeanMeter
 from object_detection.utils import DetectionPlot
 from .bottlenecks import SENextBottleneck2d
 from .centernet import (
-    CenterNet,
     Sizemap,
     DiffMap,
     HMLoss,
@@ -156,27 +155,40 @@ class CenterNetV1(nn.Module):
         self,
         channels: int,
         backbone: nn.Module,
-        depth: int = 2,
         out_idx: PyramidIdx = 4,
+        fpn_depth: int = 1,
+        box_depth: int = 1,
+        hm_depth: int = 1,
         anchors: Anchors = Anchors(),
     ) -> None:
         super().__init__()
         self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
+        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(fpn_depth)])
         self.hm_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
+            *[BiFPN(channels=channels) for _ in range(hm_depth)]
+        )
+        self.hm_out = nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=1, kernel_size=1),
+            nn.Sigmoid(),
         )
         self.anchors = anchors
-        self.box_reg = Reg(in_channels=channels, out_channels=4, depth=depth,)
+        self.box_reg = nn.Sequential(
+            *[BiFPN(channels=channels) for _ in range(box_depth)]
+        )
+        self.box_out = nn.Sequential(
+            nn.Conv2d(in_channels=channels, out_channels=4, kernel_size=1),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmaps = self.hm_reg(fp[self.out_idx])
+        h_fp = self.hm_reg(fp)[self.out_idx]
+        heatmaps = self.hm_out(h_fp)
         anchors = self.anchors(heatmaps)
-        diffmaps = self.box_reg(fp[self.out_idx])
+        diffmaps = self.box_out(self.box_reg(fp)[self.out_idx])
         return anchors, BoxMaps(diffmaps), Heatmaps(heatmaps)
 
 
