@@ -40,7 +40,6 @@ object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
 iou_threshold = 0.01
 anchor_size = 1
-depth = 2
 ### config ###
 
 train_dataset = ObjectDataset(
@@ -60,7 +59,6 @@ model = CenterNetV1(
     channels=channels,
     backbone=backbone,
     out_idx=out_idx,
-    depth=depth,
     anchors=Anchors(size=anchor_size),
 )
 model_loader = ModelLoader(out_dir)
