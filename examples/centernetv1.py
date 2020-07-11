@@ -30,7 +30,7 @@ sigma = 1.0
 lr = 1e-4
 batch_size = 16
 out_idx: PyramidIdx = 4
-threshold = 0.2
+threshold = 0.4
 channels = 128
 input_size = 256
 heatmap_weight = 1.0
@@ -39,6 +39,7 @@ object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
 iou_threshold = 0.0
+nms_threshold = 0.5
 anchor_size = 1
 ### config ###
 
@@ -71,7 +72,7 @@ criterion = Criterion(
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 visualize = Visualize(out_dir, "test", limit=2)
 best_watcher = BestWatcher(mode="max")
-to_boxes = ToBoxes(threshold=threshold, limit=60)
+to_boxes = ToBoxes(threshold=threshold, limit=60, nms_threshold=nms_threshold)
 get_score = MeanPrecition()
 trainer = Trainer(
     model=model,
