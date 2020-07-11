@@ -26,14 +26,14 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 ### config ###
-sigma = 1.0
+sigma = 4.0
 lr = 1e-3
 batch_size = 12
-out_idx: PyramidIdx = 4
+out_idx: PyramidIdx = 3
 threshold = 0.1
 channels = 128
 input_size = 256
-heatmap_weight = 1.0
+heatmap_weight = 10.0
 box_weight = 1.0
 object_count_range = (1, 20)
 object_size_range = (32, 64)

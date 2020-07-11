@@ -433,7 +433,7 @@ class Trainer:
         for samples, gt_boxes_list, ids, _ in tqdm(loader):
             samples, gt_boxes_list = self.preprocess((samples, gt_boxes_list))
             outputs = self.model(samples)
-            loss, box_loss, hm_loss, _ = self.criterion(samples, outputs, gt_boxes_list)
+            loss, hm_loss, box_loss,  gt_hms = self.criterion(images, outputs, box_batch)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -450,7 +450,7 @@ class Trainer:
         for images, box_batch, ids, _ in tqdm(loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
-            loss, box_loss, hm_loss, gt_hms = self.criterion(images, outputs, box_batch)
+            loss, hm_loss, box_loss,  gt_hms = self.criterion(images, outputs, box_batch)
             self.meters["test_loss"].update(loss.item())
             self.meters["test_box"].update(box_loss.item())
             self.meters["test_hm"].update(hm_loss.item())
