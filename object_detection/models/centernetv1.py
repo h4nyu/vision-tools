@@ -430,9 +430,9 @@ class Trainer:
     def train_one_epoch(self) -> None:
         self.model.train()
         loader = self.train_loader
-        for samples, gt_boxes_list, ids, _ in tqdm(loader):
-            samples, gt_boxes_list = self.preprocess((samples, gt_boxes_list))
-            outputs = self.model(samples)
+        for images, box_batch, ids, _ in tqdm(loader):
+            images, box_batch = self.preprocess((images, box_batch))
+            outputs = self.model(images)
             loss, hm_loss, box_loss,  gt_hms = self.criterion(images, outputs, box_batch)
             self.optimizer.zero_grad()
             loss.backward()
