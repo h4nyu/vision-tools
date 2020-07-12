@@ -28,16 +28,17 @@ logger.addHandler(stream_handler)
 ### config ###
 sigma = 1.0
 lr = 1e-4
-batch_size = 28
+batch_size = 16
 out_idx: PyramidIdx = 4
 threshold = 0.4
-channels = 128
+channels = 64
 input_size = 256
 heatmap_weight = 1.0
-box_weight = 50.0
+box_weight = 100.0
 object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
+box_depth = 2
 iou_threshold = 0.0
 nms_threshold = 0.5
 anchor_size = 1
@@ -60,6 +61,7 @@ model = CenterNetV1(
     channels=channels,
     backbone=backbone,
     out_idx=out_idx,
+    box_depth=box_depth,
     anchors=Anchors(size=anchor_size),
 )
 model_loader = ModelLoader(out_dir)
