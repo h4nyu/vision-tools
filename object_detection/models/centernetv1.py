@@ -167,8 +167,7 @@ class CenterNetV1(nn.Module):
         self.backbone = backbone
         self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(fpn_depth)])
         self.hm_reg = nn.Sequential(
-            #  Reg(in_channels=channels, out_channels=channels, depth=hm_depth)
-            *[BiFPN(channels=channels) for _ in range(hm_depth)]
+            Reg(in_channels=channels, out_channels=channels, depth=hm_depth)
         )
         self.hm_out = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=1, kernel_size=1),
@@ -176,8 +175,7 @@ class CenterNetV1(nn.Module):
         )
         self.anchors = anchors
         self.box_reg = nn.Sequential(
-            #  Reg(in_channels=channels, out_channels=channels, depth=box_depth)
-            *[BiFPN(channels=channels) for _ in range(box_depth)]
+            Reg(in_channels=channels, out_channels=channels, depth=box_depth)
         )
         self.box_out = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=4, kernel_size=1),
@@ -187,10 +185,10 @@ class CenterNetV1(nn.Module):
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        h_fp = self.hm_reg(fp)[self.out_idx]
+        h_fp = self.hm_reg(fp[self.out_idx])
         heatmaps = self.hm_out(h_fp)
         anchors = self.anchors(heatmaps)
-        diffmaps = self.box_out(self.box_reg(fp)[self.out_idx])
+        diffmaps = self.box_out(self.box_reg(fp[self.out_idx]))
         return anchors, BoxMaps(diffmaps), Heatmaps(heatmaps)
 
 
