@@ -167,8 +167,7 @@ class CenterNetV1(nn.Module):
         self.backbone = backbone
         self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(fpn_depth)])
         self.hm_reg = nn.Sequential(
-            #  Reg(in_channels=channels, out_channels=channels, depth=hm_depth)
-            *[BiFPN(channels=channels) for _ in range(hm_depth)]
+            Reg(in_channels=channels, out_channels=channels, depth=hm_depth)
         )
         self.hm_out = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=1, kernel_size=1),
@@ -176,8 +175,7 @@ class CenterNetV1(nn.Module):
         )
         self.anchors = anchors
         self.box_reg = nn.Sequential(
-            #  Reg(in_channels=channels, out_channels=channels, depth=box_depth)
-            *[BiFPN(channels=channels) for _ in range(box_depth)]
+            Reg(in_channels=channels, out_channels=channels, depth=box_depth)
         )
         self.box_out = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=4, kernel_size=1),
@@ -187,10 +185,10 @@ class CenterNetV1(nn.Module):
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        h_fp = self.hm_reg(fp)[self.out_idx]
+        h_fp = self.hm_reg(fp[self.out_idx])
         heatmaps = self.hm_out(h_fp)
         anchors = self.anchors(heatmaps)
-        diffmaps = self.box_out(self.box_reg(fp)[self.out_idx])
+        diffmaps = self.box_out(self.box_reg(fp[self.out_idx]))
         return anchors, BoxMaps(diffmaps), Heatmaps(heatmaps)
 
 
@@ -202,7 +200,7 @@ class ToBoxes:
         limit: int = 100,
         count_offset: int = 1,
         nms_threshold: float = 0.8,
-        use_peak:bool = False,
+        use_peak: bool = False,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
@@ -221,7 +219,7 @@ class ToBoxes:
         if self.use_peak:
             kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
         else:
-            kpmap = (heatmap > self.threshold)
+            kpmap = heatmap > self.threshold
         batch_size, _, height, width = heatmap.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: List[Tuple[YoloBoxes, Confidences]] = []
@@ -440,7 +438,7 @@ class Trainer:
         for images, box_batch, ids, _ in tqdm(loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
-            loss, hm_loss, box_loss,  gt_hms = self.criterion(images, outputs, box_batch)
+            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -457,7 +455,7 @@ class Trainer:
         for images, box_batch, ids, _ in tqdm(loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
-            loss, hm_loss, box_loss,  gt_hms = self.criterion(images, outputs, box_batch)
+            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
             self.meters["test_loss"].update(loss.item())
             self.meters["test_box"].update(box_loss.item())
             self.meters["test_hm"].update(hm_loss.item())
