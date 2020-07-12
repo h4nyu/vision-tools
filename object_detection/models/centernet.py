@@ -5,7 +5,7 @@ import typing as t
 import torch as tr
 import torch.nn.functional as F
 from functools import partial
-from typing import List, Tuple, NewType, Union, Callable
+from typing import List, Tuple, NewType, Union, Callable, Any
 from torch import nn, Tensor
 from typing_extensions import Literal
 from logging import getLogger

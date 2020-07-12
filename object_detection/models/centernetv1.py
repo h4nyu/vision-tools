@@ -35,7 +35,10 @@ from object_detection.entities import (
     Confidences,
     yolo_to_pascal,
     boxmap_to_boxes,
+    yolo_hflip,
 )
+from ensemble_boxes import weighted_boxes_fusion
+
 
 logger = getLogger(__name__)
 
@@ -200,7 +203,7 @@ class ToBoxes:
         limit: int = 100,
         count_offset: int = 1,
         nms_threshold: float = 0.8,
-        use_peak:bool = False,
+        use_peak: bool = False,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
@@ -219,7 +222,7 @@ class ToBoxes:
         if self.use_peak:
             kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
         else:
-            kpmap = (heatmap > self.threshold)
+            kpmap = heatmap > self.threshold
         batch_size, _, height, width = heatmap.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: List[Tuple[YoloBoxes, Confidences]] = []
@@ -427,7 +430,7 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            self.train_one_epoch()
+            #  self.train_one_epoch()
             self.eval_one_epoch()
             self.log()
             self.reset_meters()
@@ -438,7 +441,7 @@ class Trainer:
         for images, box_batch, ids, _ in tqdm(loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
-            loss, hm_loss, box_loss,  gt_hms = self.criterion(images, outputs, box_batch)
+            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -451,15 +454,20 @@ class Trainer:
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
         self.model.train()
+        hflip_tta = HFlipTTA(self.to_boxes)
+        merge = MergePreds()
         loader = self.test_loader
         for images, box_batch, ids, _ in tqdm(loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
-            loss, hm_loss, box_loss,  gt_hms = self.criterion(images, outputs, box_batch)
+            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
             self.meters["test_loss"].update(loss.item())
             self.meters["test_box"].update(box_loss.item())
             self.meters["test_hm"].update(hm_loss.item())
-            preds = self.to_boxes(outputs)
+            preds = merge(self.to_boxes(outputs), hflip_tta(self.model, images))
+
+            print(preds)
+
             for (pred, gt) in zip(preds[0], box_batch):
                 self.meters["score"].update(self.get_score(pred, gt))
 
@@ -468,3 +476,36 @@ class Trainer:
             self.model_loader.save(
                 self.model, {"score": self.meters["score"].get_value()}
             )
+
+
+class MergePreds:
+    def __call__(
+        self, *args: Tuple[List[YoloBoxes], List[Confidences]]
+    ) -> List[List[YoloBoxes], List[Confidences]]:
+        if len(args) == 0:
+            return [[]], [[]]
+        length = len(args[0][0])
+        box_batch:List[List[YoloBoxes]] = []
+        conf_batch:List[Confidences] = []
+        for i in range(length):
+            boxes = YoloBoxes(torch.cat([pred[0] for pred in args], dim=0))
+            confs = Confidences(torch.cat([pred[1] for pred in args], dim=0))
+            #  box_batch.append(boxes)
+            #  conf_batch.append(confs)
+        return box_batch, conf_batch
+
+
+class HFlipTTA:
+    def __init__(self, to_boxes: ToBoxes,) -> None:
+        self.img_transform = partial(torch.flip, dims=(2,))
+        self.to_boxes = to_boxes
+        self.box_transform = yolo_hflip
+
+    def __call__(
+        self, model: nn.Module, images: ImageBatch
+    ) -> Tuple[List[YoloBoxes], List[Confidences]]:
+        images = ImageBatch(self.img_transform(images))
+        outputs = model(images)
+        box_batch, conf_batch = self.to_boxes(outputs)
+        box_batch = [self.box_transform(boxes) for boxes in box_batch]
+        return box_batch, conf_batch

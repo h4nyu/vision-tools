@@ -1,7 +1,7 @@
 import torch
 import pytest
 from typing import Any
-from object_detection.entities import YoloBoxes, BoxMaps, boxmap_to_boxes
+from object_detection.entities import YoloBoxes, BoxMaps, boxmap_to_boxes, ImageBatch
 from object_detection.models.centernetv1 import (
     MkMaps,
     Heatmaps,
@@ -10,9 +10,11 @@ from object_detection.models.centernetv1 import (
     CenterNetV1,
     Anchors,
     ToBoxes,
+    HFlipTTA,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.utils import DetectionPlot
+from torch import nn
 
 
 def test_anchors() -> None:
@@ -63,3 +65,17 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     plot.with_yolo_boxes(in_boxes, color="blue")
     plot.with_yolo_boxes(out_boxes, color="red")
     plot.save(f"store/test-heatmapv1.png")
+
+
+def test_hfliptta() -> None:
+    to_boxes = ToBoxes(threshold=0.1)
+    fn = HFlipTTA(to_boxes)
+    images = ImageBatch(torch.zeros((1, 3, 64, 64)))
+    images[:, :, 0, 0] = torch.ones((1, 3))
+
+    channels = 32
+    backbone = ResNetBackbone("resnet34", out_channels=channels)
+    model = CenterNetV1(channels=channels, backbone=backbone, out_idx=6,)
+    fn(
+        model, images,
+    )

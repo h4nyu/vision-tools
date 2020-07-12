@@ -99,3 +99,25 @@ def pascal_to_coco(pascal: PascalBoxes) -> CoCoBoxes:
         (y1 - y0),
     ]
     return CoCoBoxes(torch.stack(b, dim=-1))
+
+
+def yolo_hflip(yolo: YoloBoxes) -> YoloBoxes:
+    cx, cy, w, h = yolo.unbind(-1)
+    b = [
+        1.0 - cx,
+        cy,
+        w,
+        h,
+    ]
+    return YoloBoxes(torch.stack(b, dim=-1))
+
+
+def yolo_vflip(yolo: YoloBoxes) -> YoloBoxes:
+    cx, cy, w, h = yolo.unbind(-1)
+    b = [
+        cx,
+        1.0 - cy,
+        w,
+        h,
+    ]
+    return YoloBoxes(torch.stack(b, dim=-1))
