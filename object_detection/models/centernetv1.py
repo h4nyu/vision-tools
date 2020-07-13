@@ -200,10 +200,7 @@ class CenterNetV1(nn.Module):
 
 class ToBoxes:
     def __init__(
-        self,
-        threshold: float = 0.1,
-        kernel_size: int = 5,
-        use_peak: bool = False,
+        self, threshold: float = 0.1, kernel_size: int = 5, use_peak: bool = False,
     ) -> None:
         self.threshold = threshold
         self.kernel_size = kernel_size
@@ -322,10 +319,7 @@ class MkMaps:
 
 class Criterion:
     def __init__(
-        self,
-        box_weight: float = 4.0,
-        heatmap_weight: float = 1.0,
-        sigma: float = 1.0,
+        self, box_weight: float = 4.0, heatmap_weight: float = 1.0, sigma: float = 1.0,
     ) -> None:
         self.box_weight = box_weight
         self.heatmap_weight = heatmap_weight
@@ -485,8 +479,8 @@ class Trainer:
         for v in self.meters.values():
             v.reset()
 
-    def train(self, num_epochs: int) -> None:
-        for epoch in range(num_epochs):
+    def __call__(self, epochs: int) -> None:
+        for epoch in range(epochs):
             self.train_one_epoch()
             self.eval_one_epoch()
             self.log()
@@ -509,7 +503,7 @@ class Trainer:
 
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
-        self.model.train()
+        self.model.eval()
         hflip_tta = HFlipTTA(self.to_boxes)
         vflip_tta = VFlipTTA(self.to_boxes)
         loader = self.test_loader
@@ -533,4 +527,39 @@ class Trainer:
         if self.best_watcher.step(self.meters["score"].get_value()):
             self.model_loader.save(
                 self.model, {"score": self.meters["score"].get_value()}
+            )
+
+
+class Predicter:
+    def __init__(
+        self,
+        model: nn.Module,
+        loader: DataLoader,
+        model_loader: ModelLoader,
+        to_boxes: ToBoxes,
+        box_merge: BoxMerge,
+        device: str = "cpu",
+    ) -> None:
+        self.device = torch.device(device)
+        self.model_loader = model_loader
+        self.model = model.to(self.device)
+        self.preprocess = PreProcess(self.device)
+        self.to_boxes = to_boxes
+        self.loader = loader
+        self.box_merge = box_merge
+        if model_loader.check_point_exists():
+            self.model, _ = model_loader.load(self.model)
+
+    @torch.no_grad()
+    def __call__(self) -> None:
+        self.model
+        hflip_tta = HFlipTTA(self.to_boxes)
+        vflip_tta = VFlipTTA(self.to_boxes)
+        for images, box_batch, ids, _ in tqdm(self.loader):
+            images, box_batch = self.preprocess((images, box_batch))
+            outputs = self.model(images)
+            preds = self.box_merge(
+                self.to_boxes(outputs),
+                hflip_tta(self.model, images),
+                vflip_tta(self.model, images),
             )
