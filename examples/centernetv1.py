@@ -27,11 +27,11 @@ stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
 
 ### config ###
-sigma = 1.0
+sigma = 5.0
 lr = 1e-4
 batch_size = 16
 out_idx: PyramidIdx = 4
-channels = 64
+channels = 256
 input_size = 256
 heatmap_weight = 1.0
 box_weight = 50.0
@@ -39,8 +39,8 @@ object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
 box_depth = 2
-iou_threshold = 0.2
-skip_box_threshold = 0.1
+iou_threshold = 0.4
+to_boxes_threshold = 0.4
 anchor_size = 1
 ### config ###
 
@@ -73,8 +73,8 @@ criterion = Criterion(
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 visualize = Visualize(out_dir, "test", limit=2)
 best_watcher = BestWatcher(mode="max")
-to_boxes = ToBoxes(threshold=iou_threshold)
-box_merge = BoxMerge(iou_threshold=iou_threshold, skip_box_threshold=skip_box_threshold)
+to_boxes = ToBoxes(threshold=to_boxes_threshold)
+box_merge = BoxMerge(iou_threshold=iou_threshold)
 get_score = MeanPrecition()
 trainer = Trainer(
     model=model,

@@ -181,7 +181,8 @@ class CenterNetV1(nn.Module):
         )
         self.anchors = anchors
         self.box_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=channels, depth=box_depth)
+            Reg(in_channels=channels, out_channels=channels, depth=box_depth),
+            nn.Sigmoid(),
         )
         self.box_out = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=4, kernel_size=1),
@@ -203,12 +204,10 @@ class ToBoxes:
         self,
         threshold: float = 0.1,
         kernel_size: int = 5,
-        count_offset: int = 1,
-        use_peak: bool = False,
+        use_peak: bool = True,
     ) -> None:
         self.threshold = threshold
         self.kernel_size = kernel_size
-        self.count_offset = count_offset
         self.use_peak = use_peak
         self.max_pool = partial(
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
@@ -277,7 +276,6 @@ class MkMaps:
         orig_h, orig_w = original_hw
         heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
         box_count = len(boxes)
-        counts = torch.tensor([box_count]).to(device)
         if box_count == 0:
             return Heatmaps(heatmap)
 
