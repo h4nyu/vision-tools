@@ -204,7 +204,7 @@ class ToBoxes:
         self,
         threshold: float = 0.1,
         kernel_size: int = 5,
-        use_peak: bool = True,
+        use_peak: bool = False,
     ) -> None:
         self.threshold = threshold
         self.kernel_size = kernel_size
