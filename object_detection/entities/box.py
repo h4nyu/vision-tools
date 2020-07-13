@@ -55,15 +55,16 @@ def coco_to_pascal(coco: CoCoBoxes) -> PascalBoxes:
 def yolo_to_pascal(yolo: YoloBoxes, wh: ImageSize) -> PascalBoxes:
     if len(yolo) == 0:
         return PascalBoxes(yolo)
+    image_w, image_h = wh
     cx, cy, w, h = yolo.unbind(-1)
     size_w, size_h = wh
     b = [
-        (cx - w / 2) * size_w,
-        (cy - 0.5 * h) * size_h,
-        (cx + 0.5 * w) * size_w,
-        (cy + 0.5 * h) * size_h,
+        ((cx - w / 2) * size_w).clamp(min=0, max=image_w),
+        ((cy - 0.5 * h) * size_h).clamp(min=0, max=image_h),
+        ((cx + 0.5 * w) * size_w).clamp(min=0, max=image_w),
+        ((cy + 0.5 * h) * size_h).clamp(min=0, max=image_h),
     ]
-    return PascalBoxes(torch.stack(b, dim=-1))
+    return PascalBoxes(torch.stack(b, dim=-1).clamp(min=0.0))
 
 
 def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:

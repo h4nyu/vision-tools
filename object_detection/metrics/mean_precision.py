@@ -11,8 +11,8 @@ def precition(iou_matrix: Tensor, threshold: float) -> float:
     candidates, candidate_ids = (iou_matrix).max(1)
     n_pr, n_gt = iou_matrix.shape
     match_ids = candidate_ids[candidates > threshold]
-    fp = n_pr - len(match_ids)
     (tp,) = torch.unique(match_ids).shape  # type: ignore
+    fp = n_pr - tp
     fn = n_gt - tp
     return tp / (fp + tp + fn)
 

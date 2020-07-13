@@ -76,6 +76,4 @@ def test_hfliptta() -> None:
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
     model = CenterNetV1(channels=channels, backbone=backbone, out_idx=6,)
-    fn(
-        model, images,
-    )
+    fn(model, images)

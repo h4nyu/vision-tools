@@ -34,8 +34,11 @@ from object_detection.entities import (
     YoloBoxes,
     Confidences,
     yolo_to_pascal,
+    pascal_to_yolo,
     boxmap_to_boxes,
     yolo_hflip,
+    yolo_vflip,
+    PascalBoxes,
 )
 from ensemble_boxes import weighted_boxes_fusion
 
@@ -430,8 +433,8 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         for epoch in range(num_epochs):
-            #  self.train_one_epoch()
             self.eval_one_epoch()
+            self.train_one_epoch()
             self.log()
             self.reset_meters()
 
@@ -455,6 +458,7 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.train()
         hflip_tta = HFlipTTA(self.to_boxes)
+        vflip_tta = VFlipTTA(self.to_boxes)
         merge = MergePreds()
         loader = self.test_loader
         for images, box_batch, ids, _ in tqdm(loader):
@@ -464,9 +468,11 @@ class Trainer:
             self.meters["test_loss"].update(loss.item())
             self.meters["test_box"].update(box_loss.item())
             self.meters["test_hm"].update(hm_loss.item())
-            preds = merge(self.to_boxes(outputs), hflip_tta(self.model, images))
-
-            print(preds)
+            preds = merge(
+                self.to_boxes(outputs),
+                hflip_tta(self.model, images),
+                vflip_tta(self.model, images),
+            )
 
             for (pred, gt) in zip(preds[0], box_batch):
                 self.meters["score"].update(self.get_score(pred, gt))
@@ -481,25 +487,49 @@ class Trainer:
 class MergePreds:
     def __call__(
         self, *args: Tuple[List[YoloBoxes], List[Confidences]]
-    ) -> List[List[YoloBoxes], List[Confidences]]:
+    ) -> Tuple[List[YoloBoxes], List[Confidences]]:
         if len(args) == 0:
-            return [[]], [[]]
+            return [], []
         length = len(args[0][0])
-        box_batch:List[List[YoloBoxes]] = []
-        conf_batch:List[Confidences] = []
+        device = args[0][0][0].device
+        pbox_batch: List[PascalBoxes] = []
+        box_batch: List[YoloBoxes] = []
+        conf_batch: List[Confidences] = []
         for i in range(length):
-            boxes = YoloBoxes(torch.cat([pred[0] for pred in args], dim=0))
-            confs = Confidences(torch.cat([pred[1] for pred in args], dim=0))
-            #  box_batch.append(boxes)
-            #  conf_batch.append(confs)
+            pboxes, confs, _ = weighted_boxes_fusion(
+                [yolo_to_pascal(x[0][i], (1, 1)) for x in args],
+                [x[1][i] for x in args],
+                [torch.zeros(x[1][i].shape) for x in args],
+            )
+            box_batch.append(
+                pascal_to_yolo(PascalBoxes(torch.from_numpy(pboxes).to(device)), (1, 1))
+            )
+            conf_batch.append(Confidences(torch.from_numpy(confs).to(device)))
+
         return box_batch, conf_batch
 
 
 class HFlipTTA:
     def __init__(self, to_boxes: ToBoxes,) -> None:
-        self.img_transform = partial(torch.flip, dims=(2,))
+        self.img_transform = partial(torch.flip, dims=(3,))
         self.to_boxes = to_boxes
         self.box_transform = yolo_hflip
+
+    def __call__(
+        self, model: nn.Module, images: ImageBatch
+    ) -> Tuple[List[YoloBoxes], List[Confidences]]:
+        images = ImageBatch(self.img_transform(images))
+        outputs = model(images)
+        box_batch, conf_batch = self.to_boxes(outputs)
+        box_batch = [self.box_transform(boxes) for boxes in box_batch]
+        return box_batch, conf_batch
+
+
+class VFlipTTA:
+    def __init__(self, to_boxes: ToBoxes,) -> None:
+        self.img_transform = partial(torch.flip, dims=(2,))
+        self.to_boxes = to_boxes
+        self.box_transform = yolo_vflip
 
     def __call__(
         self, model: nn.Module, images: ImageBatch
