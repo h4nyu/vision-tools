@@ -366,10 +366,10 @@ class Criterion:
 
 class BoxMerge:
     def __init__(
-        self, iou_threshold: float = 0.5, skip_box_threshold: float = 0.1
+        self, iou_threshold: float = 0.5, confidence_threshold: float = 0.3,
     ) -> None:
         self.iou_threshold = iou_threshold
-        self.skip_box_threshold = skip_box_threshold
+        self.confidence_threshold = confidence_threshold
 
     @torch.no_grad()
     def __call__(
@@ -388,8 +388,10 @@ class BoxMerge:
                 [x[1][i] for x in args],
                 [torch.zeros(x[1][i].shape) for x in args],
                 iou_thr=self.iou_threshold,
-                skip_box_thr=self.skip_box_threshold,
             )
+            indices = confs > self.confidence_threshold
+            pboxes = pboxes[indices]
+            confs = confs[indices]
             box_batch.append(
                 pascal_to_yolo(PascalBoxes(torch.from_numpy(pboxes).to(device)), (1, 1))
             )
@@ -505,7 +507,6 @@ class Trainer:
             self.meters["train_loss"].update(loss.item())
             self.meters["train_box"].update(box_loss.item())
             self.meters["train_hm"].update(hm_loss.item())
-        preds = self.to_boxes(outputs)
 
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
