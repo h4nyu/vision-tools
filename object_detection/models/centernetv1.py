@@ -409,6 +409,22 @@ class HFlipTTA:
         return box_batch, conf_batch
 
 
+class VHFlipTTA:
+    def __init__(self, to_boxes: ToBoxes,) -> None:
+        self.img_transform = partial(torch.flip, dims=(2, 3))
+        self.to_boxes = to_boxes
+        self.box_transform = lambda x: yolo_vflip(yolo_hflip(x))
+
+    def __call__(
+        self, model: nn.Module, images: ImageBatch
+    ) -> Tuple[List[YoloBoxes], List[Confidences]]:
+        images = ImageBatch(self.img_transform(images))
+        outputs = model(images)
+        box_batch, conf_batch = self.to_boxes(outputs)
+        box_batch = [self.box_transform(boxes) for boxes in box_batch]  # type:ignore
+        return box_batch, conf_batch
+
+
 class VFlipTTA:
     def __init__(self, to_boxes: ToBoxes,) -> None:
         self.img_transform = partial(torch.flip, dims=(2,))
@@ -547,19 +563,29 @@ class Predicter:
         self.to_boxes = to_boxes
         self.loader = loader
         self.box_merge = box_merge
+
+        self.hflip_tta = HFlipTTA(to_boxes)
+        self.vflip_tta = VFlipTTA(to_boxes)
+        self.vhflip_tta = VHFlipTTA(to_boxes)
         if model_loader.check_point_exists():
             self.model, _ = model_loader.load(self.model)
 
     @torch.no_grad()
-    def __call__(self) -> None:
-        self.model
-        hflip_tta = HFlipTTA(self.to_boxes)
-        vflip_tta = VFlipTTA(self.to_boxes)
+    def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
+        self.model.eval()
+        boxes_list = []
+        confs_list = []
+        id_list = []
         for images, box_batch, ids, _ in tqdm(self.loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
             preds = self.box_merge(
                 self.to_boxes(outputs),
-                hflip_tta(self.model, images),
-                vflip_tta(self.model, images),
+                self.hflip_tta(self.model, images),
+                self.vflip_tta(self.model, images),
+                self.vhflip_tta(self.model, images),
             )
+            boxes_list += preds[0]
+            confs_list += preds[1]
+            id_list += ids
+        return boxes_list, confs_list, id_list
