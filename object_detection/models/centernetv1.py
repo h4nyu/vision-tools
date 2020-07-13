@@ -203,11 +203,9 @@ class ToBoxes:
         self,
         threshold: float = 0.1,
         kernel_size: int = 5,
-        limit: int = 100,
         count_offset: int = 1,
         use_peak: bool = False,
     ) -> None:
-        self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
         self.count_offset = count_offset
@@ -259,7 +257,7 @@ class BoxLoss:
         matched_anchors = anchors[positive_indices]
         pred_diff = box_diff[positive_indices]
         gt_diff = matched_gt_boxes - matched_anchors
-        return F.l1_loss(pred_diff, gt_diff, reduction="mean")
+        return F.smooth_l1_loss(pred_diff, gt_diff, reduction="mean")
 
 
 class MkMaps:

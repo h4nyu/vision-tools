@@ -73,7 +73,7 @@ criterion = Criterion(
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 visualize = Visualize(out_dir, "test", limit=2)
 best_watcher = BestWatcher(mode="max")
-to_boxes = ToBoxes(threshold=iou_threshold, limit=60)
+to_boxes = ToBoxes(threshold=iou_threshold)
 box_merge = BoxMerge(iou_threshold=iou_threshold, skip_box_threshold=skip_box_threshold)
 get_score = MeanPrecition()
 trainer = Trainer(
