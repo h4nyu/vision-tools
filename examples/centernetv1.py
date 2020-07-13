@@ -9,6 +9,7 @@ from object_detection.models.centernetv1 import (
     Criterion,
     ToBoxes,
     Anchors,
+    BoxMerge,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.model_loader import ModelLoader
@@ -30,17 +31,16 @@ sigma = 1.0
 lr = 1e-4
 batch_size = 16
 out_idx: PyramidIdx = 4
-threshold = 0.4
 channels = 64
 input_size = 256
 heatmap_weight = 1.0
-box_weight = 100.0
+box_weight = 50.0
 object_count_range = (1, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
 box_depth = 2
-iou_threshold = 0.0
-nms_threshold = 0.5
+iou_threshold = 0.2
+skip_box_threshold = 0.1
 anchor_size = 1
 ### config ###
 
@@ -69,12 +69,12 @@ criterion = Criterion(
     box_weight=box_weight,
     heatmap_weight=heatmap_weight,
     sigma=sigma,
-    iou_threshold=iou_threshold,
 )
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 visualize = Visualize(out_dir, "test", limit=2)
 best_watcher = BestWatcher(mode="max")
-to_boxes = ToBoxes(threshold=threshold, limit=60, nms_threshold=nms_threshold)
+to_boxes = ToBoxes(threshold=iou_threshold, limit=60)
+box_merge = BoxMerge(iou_threshold=iou_threshold, skip_box_threshold=skip_box_threshold)
 get_score = MeanPrecition()
 trainer = Trainer(
     model=model,
@@ -91,6 +91,7 @@ trainer = Trainer(
     best_watcher=best_watcher,
     device="cuda",
     get_score=get_score,
+    box_merge=box_merge,
     to_boxes=to_boxes,
 )
 trainer.train(500)

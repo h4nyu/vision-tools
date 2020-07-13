@@ -205,14 +205,12 @@ class ToBoxes:
         kernel_size: int = 5,
         limit: int = 100,
         count_offset: int = 1,
-        nms_threshold: float = 0.8,
         use_peak: bool = False,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
         self.count_offset = count_offset
-        self.nms_threshold = nms_threshold
         self.use_peak = use_peak
         self.max_pool = partial(
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
@@ -237,20 +235,12 @@ class ToBoxes:
             anchor = anchormap[:, kp[:, 0], kp[:, 1]].t()
             box_diff = box_diff[:, kp[:, 0], kp[:, 1]].t()
             boxes = anchor + box_diff
-            sort_idx = nms(
-                yolo_to_pascal(YoloBoxes(boxes), (1, 1)),
-                confidences,
-                iou_threshold=self.nms_threshold,
-            )[: self.limit]
-            box_batch.append(YoloBoxes(boxes[sort_idx]))
-            conf_batch.append(Confidences(confidences[sort_idx]))
+            box_batch.append(YoloBoxes(boxes))
+            conf_batch.append(Confidences(confidences))
         return box_batch, conf_batch
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.5) -> None:
-        self.iou_threshold = iou_threshold
-
     def __call__(
         self, anchormap: BoxMap, diffmap: BoxMap, gt_boxes: YoloBoxes, heatmap: Heatmap,
     ) -> Tensor:
@@ -261,7 +251,7 @@ class BoxLoss:
             yolo_to_pascal(anchors, wh=(1, 1)), yolo_to_pascal(gt_boxes, wh=(1, 1)),
         )
         iou_max, match_indices = torch.max(iou_matrix, dim=1)
-        positive_indices = iou_max > self.iou_threshold
+        positive_indices = iou_max > 0
         num_pos = positive_indices.sum()
         if num_pos == 0:
             return torch.tensor(0.0).to(device)
@@ -341,13 +331,12 @@ class Criterion:
         box_weight: float = 4.0,
         heatmap_weight: float = 1.0,
         sigma: float = 1.0,
-        iou_threshold: float = 0.1,
     ) -> None:
         self.box_weight = box_weight
         self.heatmap_weight = heatmap_weight
 
         self.hm_loss = HMLoss()
-        self.box_loss = BoxLoss(iou_threshold=iou_threshold)
+        self.box_loss = BoxLoss()
         self.mkmaps = MkMaps(sigma)
 
     def __call__(
@@ -379,112 +368,14 @@ class Criterion:
         return loss, hm_loss, box_loss, Heatmaps(t_hms)
 
 
-class Trainer:
+class BoxMerge:
     def __init__(
-        self,
-        model: nn.Module,
-        train_loader: DataLoader,
-        test_loader: DataLoader,
-        model_loader: ModelLoader,
-        best_watcher: BestWatcher,
-        visualize: Visualize,
-        optimizer: Any,
-        get_score: Callable[[YoloBoxes, YoloBoxes], float],
-        to_boxes: ToBoxes,
-        device: str = "cpu",
-        criterion: Criterion = Criterion(),
+        self, iou_threshold: float = 0.5, skip_box_threshold: float = 0.1
     ) -> None:
-        self.device = torch.device(device)
-        self.model_loader = model_loader
-        self.model = model.to(self.device)
-        self.preprocess = PreProcess(self.device)
-        self.to_boxes = to_boxes
-        self.optimizer = optimizer
-        self.train_loader = train_loader
-        self.test_loader = test_loader
-        self.criterion = criterion
-        self.best_watcher = best_watcher
-        self.visualize = visualize
-        self.get_score = get_score
-        self.meters = {
-            key: MeanMeter()
-            for key in [
-                "train_loss",
-                "train_box",
-                "train_hm",
-                "test_loss",
-                "test_box",
-                "test_hm",
-                "score",
-            ]
-        }
-
-        if model_loader.check_point_exists():
-            self.model, meta = model_loader.load(self.model)
-            self.best_watcher.step(meta["score"])
-
-    def log(self) -> None:
-        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
-        logger.info(value)
-
-    def reset_meters(self) -> None:
-        for v in self.meters.values():
-            v.reset()
-
-    def train(self, num_epochs: int) -> None:
-        for epoch in range(num_epochs):
-            self.eval_one_epoch()
-            self.train_one_epoch()
-            self.log()
-            self.reset_meters()
-
-    def train_one_epoch(self) -> None:
-        self.model.train()
-        loader = self.train_loader
-        for images, box_batch, ids, _ in tqdm(loader):
-            images, box_batch = self.preprocess((images, box_batch))
-            outputs = self.model(images)
-            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-            self.meters["train_loss"].update(loss.item())
-            self.meters["train_box"].update(box_loss.item())
-            self.meters["train_hm"].update(hm_loss.item())
-        preds = self.to_boxes(outputs)
+        self.iou_threshold = iou_threshold
+        self.skip_box_threshold = skip_box_threshold
 
     @torch.no_grad()
-    def eval_one_epoch(self) -> None:
-        self.model.train()
-        hflip_tta = HFlipTTA(self.to_boxes)
-        vflip_tta = VFlipTTA(self.to_boxes)
-        merge = MergePreds()
-        loader = self.test_loader
-        for images, box_batch, ids, _ in tqdm(loader):
-            images, box_batch = self.preprocess((images, box_batch))
-            outputs = self.model(images)
-            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
-            self.meters["test_loss"].update(loss.item())
-            self.meters["test_box"].update(box_loss.item())
-            self.meters["test_hm"].update(hm_loss.item())
-            preds = merge(
-                self.to_boxes(outputs),
-                hflip_tta(self.model, images),
-                vflip_tta(self.model, images),
-            )
-
-            for (pred, gt) in zip(preds[0], box_batch):
-                self.meters["score"].update(self.get_score(pred, gt))
-
-        self.visualize(outputs, preds, box_batch, images, gt_hms)
-        if self.best_watcher.step(self.meters["score"].get_value()):
-            self.model_loader.save(
-                self.model, {"score": self.meters["score"].get_value()}
-            )
-
-
-class MergePreds:
     def __call__(
         self, *args: Tuple[List[YoloBoxes], List[Confidences]]
     ) -> Tuple[List[YoloBoxes], List[Confidences]]:
@@ -500,6 +391,8 @@ class MergePreds:
                 [yolo_to_pascal(x[0][i], (1, 1)) for x in args],
                 [x[1][i] for x in args],
                 [torch.zeros(x[1][i].shape) for x in args],
+                iou_thr=self.iou_threshold,
+                skip_box_thr=self.skip_box_threshold,
             )
             box_batch.append(
                 pascal_to_yolo(PascalBoxes(torch.from_numpy(pboxes).to(device)), (1, 1))
@@ -539,3 +432,109 @@ class VFlipTTA:
         box_batch, conf_batch = self.to_boxes(outputs)
         box_batch = [self.box_transform(boxes) for boxes in box_batch]
         return box_batch, conf_batch
+
+
+class Trainer:
+    def __init__(
+        self,
+        model: nn.Module,
+        train_loader: DataLoader,
+        test_loader: DataLoader,
+        model_loader: ModelLoader,
+        best_watcher: BestWatcher,
+        visualize: Visualize,
+        optimizer: Any,
+        get_score: Callable[[YoloBoxes, YoloBoxes], float],
+        to_boxes: ToBoxes,
+        box_merge: BoxMerge,
+        device: str = "cpu",
+        criterion: Criterion = Criterion(),
+    ) -> None:
+        self.device = torch.device(device)
+        self.model_loader = model_loader
+        self.model = model.to(self.device)
+        self.preprocess = PreProcess(self.device)
+        self.to_boxes = to_boxes
+        self.optimizer = optimizer
+        self.train_loader = train_loader
+        self.test_loader = test_loader
+        self.criterion = criterion
+        self.best_watcher = best_watcher
+        self.visualize = visualize
+        self.get_score = get_score
+        self.box_merge = box_merge
+        self.meters = {
+            key: MeanMeter()
+            for key in [
+                "train_loss",
+                "train_box",
+                "train_hm",
+                "test_loss",
+                "test_box",
+                "test_hm",
+                "score",
+            ]
+        }
+
+        if model_loader.check_point_exists():
+            self.model, meta = model_loader.load(self.model)
+            self.best_watcher.step(meta["score"])
+
+    def log(self) -> None:
+        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
+        logger.info(value)
+
+    def reset_meters(self) -> None:
+        for v in self.meters.values():
+            v.reset()
+
+    def train(self, num_epochs: int) -> None:
+        for epoch in range(num_epochs):
+            self.train_one_epoch()
+            self.eval_one_epoch()
+            self.log()
+            self.reset_meters()
+
+    def train_one_epoch(self) -> None:
+        self.model.train()
+        loader = self.train_loader
+        for images, box_batch, ids, _ in tqdm(loader):
+            images, box_batch = self.preprocess((images, box_batch))
+            outputs = self.model(images)
+            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            self.meters["train_loss"].update(loss.item())
+            self.meters["train_box"].update(box_loss.item())
+            self.meters["train_hm"].update(hm_loss.item())
+        preds = self.to_boxes(outputs)
+
+    @torch.no_grad()
+    def eval_one_epoch(self) -> None:
+        self.model.train()
+        hflip_tta = HFlipTTA(self.to_boxes)
+        vflip_tta = VFlipTTA(self.to_boxes)
+        loader = self.test_loader
+        for images, box_batch, ids, _ in tqdm(loader):
+            images, box_batch = self.preprocess((images, box_batch))
+            outputs = self.model(images)
+            loss, hm_loss, box_loss, gt_hms = self.criterion(images, outputs, box_batch)
+            self.meters["test_loss"].update(loss.item())
+            self.meters["test_box"].update(box_loss.item())
+            self.meters["test_hm"].update(hm_loss.item())
+            preds = self.box_merge(
+                self.to_boxes(outputs),
+                hflip_tta(self.model, images),
+                vflip_tta(self.model, images),
+            )
+
+            for (pred, gt) in zip(preds[0], box_batch):
+                self.meters["score"].update(self.get_score(pred, gt))
+
+        self.visualize(outputs, preds, box_batch, images, gt_hms)
+        if self.best_watcher.step(self.meters["score"].get_value()):
+            self.model_loader.save(
+                self.model, {"score": self.meters["score"].get_value()}
+            )
