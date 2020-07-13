@@ -182,7 +182,6 @@ class CenterNetV1(nn.Module):
         self.anchors = anchors
         self.box_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=channels, depth=box_depth),
-            nn.Sigmoid(),
         )
         self.box_out = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=4, kernel_size=1),
@@ -256,7 +255,7 @@ class BoxLoss:
         matched_anchors = anchors[positive_indices]
         pred_diff = box_diff[positive_indices]
         gt_diff = matched_gt_boxes - matched_anchors
-        return F.smooth_l1_loss(pred_diff, gt_diff, reduction="mean")
+        return F.l1_loss(pred_diff, gt_diff, reduction="mean")
 
 
 class MkMaps:
