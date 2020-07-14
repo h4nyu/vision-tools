@@ -508,6 +508,9 @@ class Trainer:
             self.eval_one_epoch()
             self.log()
             self.reset_meters()
+            self.model_loader.save_if_needed(
+                self.model, self.meters[self.model_loader.key].get_value()
+            )
 
     def train_one_epoch(self) -> None:
         self.model.train()
@@ -519,7 +522,6 @@ class Trainer:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-
             self.meters["train_loss"].update(loss.item())
             self.meters["train_box"].update(box_loss.item())
             self.meters["train_hm"].update(hm_loss.item())
@@ -547,9 +549,6 @@ class Trainer:
                 self.meters["score"].update(self.get_score(pred, gt))
 
         self.visualize(outputs, preds, box_batch, images, gt_hms)
-        self.model_loader.save_if_needed(
-            self.model, self.meters[self.model_loader.key].get_value()
-        )
 
 
 class Predictor:
