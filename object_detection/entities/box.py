@@ -71,7 +71,7 @@ def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:
     if len(yolo) == 0:
         return CoCoBoxes(yolo)
     x0, y0, x1, y1 = yolo_to_pascal(yolo, size).unbind(-1)
-    b = torch.stack([x0, y0, x1 - x0, y1 - y0], dim=-1).long()
+    b = torch.stack([x0, y0, x1 - x0, y1 - y0], dim=-1)
     return CoCoBoxes(b)
 
 
