@@ -52,7 +52,7 @@ class ModelLoader:
         self.best_watcher = best_watcher
 
     def check_point_exists(self) -> bool:
-        return self.checkpoint_file.exists()
+        return self.checkpoint_file.exists() and self.model_path.exists()
 
     def load_if_needed(self, model: nn.Module) -> nn.Module:
         if self.check_point_exists():
