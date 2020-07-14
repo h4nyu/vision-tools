@@ -1,4 +1,4 @@
-from object_detection.models.centernetv1 import Predicter, prediction_collate_fn
+from object_detection.models.centernetv1 import Predictor, prediction_collate_fn
 from object_detection.data.object import PredictionDataset
 from torch.utils.data import DataLoader
 from . import config as cfg
@@ -18,7 +18,7 @@ data_loader = DataLoader(
     shuffle=True,
 )
 
-predictor = Predicter(
+predictor = Predictor(
     model=train.model,
     loader=data_loader,
     model_loader=train.model_loader,

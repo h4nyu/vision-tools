@@ -552,7 +552,7 @@ class Trainer:
         )
 
 
-class Predicter:
+class Predictor:
     def __init__(
         self,
         model: nn.Module,
