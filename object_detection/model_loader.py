@@ -46,7 +46,7 @@ class ModelLoader:
     def __init__(self, out_dir: str, key: str, best_watcher: BestWatcher) -> None:
         self.out_dir = Path(out_dir)
         self.key = key
-        self.checkpoint_file = self.out_dir / "checkpoint.json"
+        self.checkpoint_file = self.out_dir / f"{self.key}.json"
         self.out_dir.mkdir(exist_ok=True, parents=True)
         self.model_path = self.out_dir / f"{self.key}.pth"
         self.best_watcher = best_watcher
@@ -66,8 +66,7 @@ class ModelLoader:
         model.load_state_dict(
             torch.load(self.model_path)  # type: ignore
         )
-        if self.key in data:
-            self.best_watcher.step(data[self.key])
+        self.best_watcher.step(data)
         return model
 
     def save_if_needed(self, model: nn.Module, metric: float) -> None:
@@ -76,6 +75,6 @@ class ModelLoader:
 
     def _save(self, model: nn.Module, metric: float) -> None:
         with open(self.checkpoint_file, "w") as f:
-            json.dump({self.key: metric}, f)
+            json.dump(metric, f)
         torch.save(model.state_dict(), self.model_path)  # type: ignore
         logger.info(f"save model to {self.model_path}")
