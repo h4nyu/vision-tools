@@ -11,7 +11,7 @@ from object_detection.models.efficientdet import (
     Anchors,
 )
 from object_detection.model_loader import ModelLoader, BestWatcher
-from object_detection.data.object import ObjectDataset
+from object_detection.data.object import TrainDataset
 from object_detection.metrics import MeanPrecition
 
 ### config ###
@@ -26,13 +26,13 @@ object_size_range = (32, 64)
 ### config ###
 
 
-train_dataset = ObjectDataset(
+train_dataset = TrainDataset(
     (input_size, input_size),
     object_count_range=object_count_range,
     object_size_range=object_size_range,
     num_samples=1024,
 )
-test_dataset = ObjectDataset(
+test_dataset = TrainDataset(
     (input_size, input_size),
     object_count_range=object_count_range,
     object_size_range=object_size_range,

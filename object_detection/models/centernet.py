@@ -27,7 +27,7 @@ from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import Reduction
 from object_detection.meters import MeanMeter
-from object_detection.entities import ImageBatch, PredBoxes, Image, Batch
+from object_detection.entities import ImageBatch, PredBoxes, Image, TrainSample
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
 from object_detection.model_loader import ModelLoader
@@ -38,7 +38,7 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: Batch,
+    batch: List[TrainSample],
 ) -> Tuple[List[ImageId], ImageBatch, List[YoloBoxes], List[Labels]]:
     images: List[t.Any] = []
     id_batch: List[ImageId] = []

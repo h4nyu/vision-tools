@@ -2,7 +2,7 @@ import typing as t
 import torch
 from torch.utils.data import Dataset
 from object_detection.entities import (
-    Sample,
+    TrainSample,
     Image,
     ImageSize,
     YoloBoxes,
@@ -17,7 +17,7 @@ class RandomDataset(Dataset):
         self.image_size = image_size
         self.num_samples = num_samples
 
-    def __getitem__(self, idx: int) -> Sample:
+    def __getitem__(self, idx: int) -> TrainSample:
         image = torch.rand((3, *self.image_size), dtype=torch.float32)
         boxes = torch.rand((random.randint(1, 9), 4), dtype=torch.float32).clamp(0, 1.0)
         labels = torch.zeros((len(boxes),))

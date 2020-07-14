@@ -12,18 +12,18 @@ from object_detection.models.centernetv1 import (
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.model_loader import ModelLoader, BestWatcher
-from object_detection.data.object import ObjectDataset
+from object_detection.data.object import TrainDataset
 from object_detection.metrics import MeanPrecition
 from . import config as cfg
 
 
-train_dataset = ObjectDataset(
+train_dataset = TrainDataset(
     cfg.input_size,
     object_count_range=cfg.object_count_range,
     object_size_range=cfg.object_size_range,
     num_samples=1024,
 )
-test_dataset = ObjectDataset(
+test_dataset = TrainDataset(
     cfg.input_size,
     object_count_range=cfg.object_count_range,
     object_size_range=cfg.object_size_range,

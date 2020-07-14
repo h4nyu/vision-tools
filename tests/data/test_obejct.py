@@ -1,5 +1,5 @@
 import cv2
-from object_detection.data.object import PolyImage, ObjectDataset
+from object_detection.data.object import PolyImage, TrainDataset
 from object_detection.utils import DetectionPlot
 
 
@@ -15,7 +15,7 @@ def test_polyimage() -> None:
 
 
 def test_objectdataset() -> None:
-    dataset = ObjectDataset(
+    dataset = TrainDataset(
         image_size=(300, 400), object_count_range=(1, 10), object_size_range=(64, 128),
     )
     for i in range(10):

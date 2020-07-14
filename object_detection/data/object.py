@@ -7,12 +7,13 @@ from torch.utils.data import Dataset
 from object_detection.entities.image import RGB, Image
 from object_detection.entities.box import PascalBoxes, YoloBoxes, pascal_to_yolo
 from object_detection.entities import (
-    Sample,
+    TrainSample,
     Image,
     ImageSize,
     YoloBoxes,
     ImageId,
     Labels,
+    PredictionSample,
 )
 import random
 
@@ -50,7 +51,7 @@ class PolyImage:
         return Image(img.float()), boxes
 
 
-class ObjectDataset(Dataset):
+class TrainDataset(Dataset):
     def __init__(
         self,
         image_size: ImageSize,
@@ -63,7 +64,7 @@ class ObjectDataset(Dataset):
         self.object_count_range = object_count_range
         self.object_size_range = object_size_range
 
-    def __getitem__(self, idx: int) -> Sample:
+    def __getitem__(self, idx: int) -> TrainSample:
         poly = PolyImage(width=self.image_size[0], height=self.image_size[1],)
         count = np.random.randint(
             low=self.object_count_range[0], high=self.object_count_range[1]
@@ -82,6 +83,41 @@ class ObjectDataset(Dataset):
             Image(image),
             YoloBoxes(boxes.float()),
             Labels(labels),
+        )
+
+    def __len__(self) -> int:
+        return self.num_samples
+
+
+class PredictionDataset(Dataset):
+    def __init__(
+        self,
+        image_size: ImageSize,
+        object_size_range: Tuple[int, int],
+        object_count_range: Tuple[int, int] = (1, 10),
+        num_samples: int = 100,
+    ) -> None:
+        self.image_size = image_size
+        self.num_samples = num_samples
+        self.object_count_range = object_count_range
+        self.object_size_range = object_size_range
+
+    def __getitem__(self, idx: int) -> PredictionSample:
+        poly = PolyImage(width=self.image_size[0], height=self.image_size[1],)
+        count = np.random.randint(
+            low=self.object_count_range[0], high=self.object_count_range[1]
+        )
+        sizes = np.random.randint(
+            low=self.object_size_range[0],
+            high=self.object_size_range[1],
+            size=(count,),
+        )
+        for s in sizes:
+            poly.add(s)
+        image, _ = poly()
+        return (
+            ImageId(""),
+            Image(image),
         )
 
     def __len__(self) -> int:

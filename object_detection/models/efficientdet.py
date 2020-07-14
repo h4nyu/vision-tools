@@ -5,9 +5,17 @@ import torch.nn.functional as F
 import math
 import torchvision
 
-from object_detection.entities.image import ImageBatch
-from object_detection.entities.box import Labels, YoloBoxes, PascalBoxes, yolo_to_pascal
-from object_detection.entities import Batch, ImageId, Confidences, PyramidIdx
+from object_detection.entities import (
+    ImageId,
+    Confidences,
+    PyramidIdx,
+    TrainSample,
+    Labels,
+    YoloBoxes,
+    PascalBoxes,
+    yolo_to_pascal,
+    ImageBatch,
+)
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
@@ -68,7 +76,7 @@ class Visualize:
 
 
 def collate_fn(
-    batch: Batch,
+    batch: List[TrainSample],
 ) -> Tuple[ImageBatch, List[YoloBoxes], List[Labels], List[ImageId]]:
     images: List[t.Any] = []
     id_batch: List[ImageId] = []

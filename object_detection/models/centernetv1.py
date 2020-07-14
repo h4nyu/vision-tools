@@ -15,7 +15,6 @@ from .centernet import (
     HMLoss,
     PreProcess,
     Labels,
-    Batch,
     ImageId,
     Heatmaps,
 )
@@ -39,6 +38,8 @@ from object_detection.entities import (
     yolo_hflip,
     yolo_vflip,
     PascalBoxes,
+    TrainSample,
+    PredictionSample,
 )
 from ensemble_boxes import weighted_boxes_fusion
 
@@ -51,7 +52,7 @@ NetOutput = Tuple[BoxMap, BoxMaps, Heatmaps]
 
 
 def collate_fn(
-    batch: Batch,
+    batch: List[TrainSample],
 ) -> Tuple[ImageBatch, List[YoloBoxes], List[Labels], List[ImageId]]:
     images: List[Any] = []
     id_batch: List[ImageId] = []
@@ -64,6 +65,17 @@ def collate_fn(
         id_batch.append(id)
         label_batch.append(labels)
     return ImageBatch(torch.stack(images)), box_batch, label_batch, id_batch
+
+
+def prediction_collate_fn(
+    batch: List[PredictionSample],
+) -> Tuple[ImageBatch, List[ImageId]]:
+    images: List[Any] = []
+    id_batch: List[ImageId] = []
+    for id, img in batch:
+        images.append(img)
+        id_batch.append(id)
+    return ImageBatch(torch.stack(images)), id_batch
 
 
 class Anchors:
@@ -569,8 +581,8 @@ class Predicter:
         boxes_list = []
         confs_list = []
         id_list = []
-        for images, box_batch, ids, _ in tqdm(self.loader):
-            images, box_batch = self.preprocess((images, box_batch))
+        for images, ids in tqdm(self.loader):
+            images = images.to(self.device)
             outputs = self.model(images)
             preds = self.box_merge(
                 self.to_boxes(outputs),
