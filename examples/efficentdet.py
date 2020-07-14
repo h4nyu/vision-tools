@@ -10,10 +10,9 @@ from object_detection.models.efficientdet import (
     ToBoxes,
     Anchors,
 )
-from object_detection.model_loader import ModelLoader
+from object_detection.model_loader import ModelLoader, BestWatcher
 from object_detection.data.object import ObjectDataset
 from object_detection.metrics import MeanPrecition
-from object_detection.meters import BestWatcher
 from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
 
 logger = getLogger()
@@ -52,10 +51,11 @@ anchors = Anchors(size=2)
 model = EfficientDet(
     num_classes=1, channels=channels, backbone=backbone, anchors=anchors
 )
-model_loader = ModelLoader("/store/efficientdet")
+model_loader = ModelLoader(
+    out_dir="/store/efficientdet", key="test_loss", best_watcher=BestWatcher(mode="max")
+)
 criterion = Criterion()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-best_watcher = BestWatcher(mode="max")
 visualize = Visualize("/store/efficientdet", "test", limit=2)
 get_score = MeanPrecition()
 to_boxes = ToBoxes(
@@ -73,9 +73,8 @@ trainer = Trainer(
     optimizer=optimizer,
     visualize=visualize,
     criterion=criterion,
-    best_watcher=best_watcher,
     get_score=get_score,
     device="cuda",
     to_boxes=to_boxes,
 )
-trainer.train(1000)
+trainer(1000)

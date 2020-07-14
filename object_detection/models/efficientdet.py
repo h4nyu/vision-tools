@@ -9,7 +9,7 @@ from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import Labels, YoloBoxes, PascalBoxes, yolo_to_pascal
 from object_detection.entities import Batch, ImageId, Confidences, PyramidIdx
 from object_detection.model_loader import ModelLoader
-from object_detection.meters import BestWatcher, MeanMeter
+from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
 from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops import nms
@@ -465,7 +465,6 @@ class Trainer:
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
-        best_watcher: BestWatcher,
         visualize: Visualize,
         optimizer: t.Any,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
@@ -482,7 +481,6 @@ class Trainer:
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.criterion = criterion
-        self.best_watcher = best_watcher
         self.visualize = visualize
         self.get_score = get_score
         self.meters = {
@@ -500,10 +498,6 @@ class Trainer:
             ]
         }
 
-        if model_loader.check_point_exists():
-            self.model, meta = model_loader.load(self.model)
-            self.best_watcher.step(meta["score"])
-
     def log(self) -> None:
         value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
         logger.info(value)
@@ -512,8 +506,9 @@ class Trainer:
         for v in self.meters.values():
             v.reset()
 
-    def train(self, num_epochs: int) -> None:
-        for epoch in range(num_epochs):
+    def __call__(self, epochs: int) -> None:
+        self.model = self.model_loader.load_if_needed(self.model)
+        for epoch in range(epochs):
             self.train_one_epoch()
             self.eval_one_epoch()
             self.log()
@@ -562,7 +557,4 @@ class Trainer:
                 self.meters["score"].update(self.get_score(pred, gt))
 
         self.visualize(preds, box_batch, samples)
-        if self.best_watcher.step(self.meters["score"].get_value()):
-            self.model_loader.save(
-                self.model, {"score": self.meters["score"].get_value()}
-            )
+        self.model_loader.save_if_needed(self.model, self.meters["score"].get_value())

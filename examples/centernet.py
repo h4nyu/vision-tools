@@ -10,10 +10,9 @@ from object_detection.models.centernet import (
     ToBoxes,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
-from object_detection.model_loader import ModelLoader
+from object_detection.model_loader import ModelLoader, BestWatcher
 from object_detection.data.object import ObjectDataset
 from object_detection.metrics import MeanPrecition
-from object_detection.meters import BestWatcher
 from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
 
 logger = getLogger()
@@ -51,13 +50,14 @@ test_dataset = ObjectDataset(
 )
 backbone = ResNetBackbone("resnet50", out_channels=channels)
 model = CenterNet(channels=channels, backbone=backbone, out_idx=out_idx, depth=1)
-model_loader = ModelLoader("/store/centernet")
+model_loader = ModelLoader(
+    out_dir="/store/centernet", key="test_loss", best_watcher=BestWatcher(mode="min"),
+)
 criterion = Criterion(
     sizemap_weight=sizemap_weight, count_weight=count_weight, sigma=sigma
 )
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 visualize = Visualize("/store/centernet", "test", limit=2)
-best_watcher = BestWatcher(mode="max")
 to_boxes = ToBoxes(threshold=threshold, limit=60)
 get_score = MeanPrecition()
 trainer = Trainer(
@@ -72,9 +72,8 @@ trainer = Trainer(
     optimizer=optimizer,
     visualize=visualize,
     criterion=criterion,
-    best_watcher=best_watcher,
     device="cuda",
     get_score=get_score,
     to_boxes=to_boxes,
 )
-trainer.train(500)
+trainer(500)

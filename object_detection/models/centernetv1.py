@@ -6,7 +6,7 @@ from typing import Tuple, List, NewType, Callable, Any
 from torch.utils.data import DataLoader
 from typing_extensions import Literal
 from pathlib import Path
-from object_detection.meters import BestWatcher, MeanMeter
+from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
 from .bottlenecks import SENextBottleneck2d
 from .centernet import (
@@ -448,7 +448,6 @@ class Trainer:
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
-        best_watcher: BestWatcher,
         visualize: Visualize,
         optimizer: Any,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
@@ -466,7 +465,6 @@ class Trainer:
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.criterion = criterion
-        self.best_watcher = best_watcher
         self.visualize = visualize
         self.get_score = get_score
         self.box_merge = box_merge
@@ -483,10 +481,6 @@ class Trainer:
             ]
         }
 
-        if model_loader.check_point_exists():
-            self.model, meta = model_loader.load(self.model)
-            self.best_watcher.step(meta["score"])
-
     def log(self) -> None:
         value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
         logger.info(value)
@@ -496,6 +490,7 @@ class Trainer:
             v.reset()
 
     def __call__(self, epochs: int) -> None:
+        self.model = self.model_loader.load_if_needed(self.model)
         for epoch in range(epochs):
             self.train_one_epoch()
             self.eval_one_epoch()
@@ -540,10 +535,7 @@ class Trainer:
                 self.meters["score"].update(self.get_score(pred, gt))
 
         self.visualize(outputs, preds, box_batch, images, gt_hms)
-        if self.best_watcher.step(self.meters["score"].get_value()):
-            self.model_loader.save(
-                self.model, {"score": self.meters["score"].get_value()}
-            )
+        self.model_loader.save_if_needed(self.model, self.meters["score"].get_value())
 
 
 class Predicter:
@@ -567,8 +559,7 @@ class Predicter:
         self.hflip_tta = HFlipTTA(to_boxes)
         self.vflip_tta = VFlipTTA(to_boxes)
         self.vhflip_tta = VHFlipTTA(to_boxes)
-        if model_loader.check_point_exists():
-            self.model, _ = model_loader.load(self.model)
+        self.model = model_loader.load_if_needed(self.model)
 
     @torch.no_grad()
     def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:

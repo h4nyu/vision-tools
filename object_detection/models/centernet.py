@@ -26,7 +26,7 @@ from .modules import ConvBR2d, Mish
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import Reduction
-from object_detection.meters import BestWatcher, MeanMeter
+from object_detection.meters import MeanMeter
 from object_detection.entities import ImageBatch, PredBoxes, Image, Batch
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
@@ -442,7 +442,6 @@ class Trainer:
         optimizer: t.Any,
         visualize: Visualize,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
-        best_watcher: BestWatcher,
         to_boxes: ToBoxes,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
@@ -454,15 +453,10 @@ class Trainer:
         self.criterion = criterion
         self.preprocess = PreProcess(self.device)
         self.post_process = PostProcess(to_boxes=to_boxes)
-        self.best_watcher = best_watcher
         self.model = model.to(self.device)
         self.get_score = get_score
 
         self.model_loader = model_loader
-        if model_loader.check_point_exists():
-            self.model, meta = model_loader.load(self.model)
-            self.best_watcher.step(meta["score"])
-
         self.visualize = visualize
         self.meters = {
             key: MeanMeter()
@@ -489,8 +483,9 @@ class Trainer:
         for v in self.meters.values():
             v.reset()
 
-    def train(self, num_epochs: int) -> None:
-        for epoch in range(num_epochs):
+    def __call__(self, epochs: int) -> None:
+        self.model = self.model_loader.load_if_needed(self.model)
+        for _ in range(epochs):
             self.train_one_epoch()
             self.eval_one_epoch()
             self.log()
@@ -536,7 +531,6 @@ class Trainer:
             self.meters["test_c"].update(c_loss.item())
 
         self.visualize(outputs, preds, boxes, images, gt_hms)
-        if self.best_watcher.step(self.meters["score"].get_value()):
-            self.model_loader.save(
-                self.model, {"score": self.meters["score"].get_value()}
-            )
+        self.model_loader.save_if_needed(
+            self.model, self.meters[self.model_loader.key].get_value(),
+        )
