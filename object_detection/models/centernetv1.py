@@ -535,7 +535,9 @@ class Trainer:
                 self.meters["score"].update(self.get_score(pred, gt))
 
         self.visualize(outputs, preds, box_batch, images, gt_hms)
-        self.model_loader.save_if_needed(self.model, self.meters[self.model_loader.key].get_value())
+        self.model_loader.save_if_needed(
+            self.model, self.meters[self.model_loader.key].get_value()
+        )
 
 
 class Predicter:
@@ -559,10 +561,10 @@ class Predicter:
         self.hflip_tta = HFlipTTA(to_boxes)
         self.vflip_tta = VFlipTTA(to_boxes)
         self.vhflip_tta = VHFlipTTA(to_boxes)
-        self.model = model_loader.load_if_needed(self.model)
 
     @torch.no_grad()
     def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
+        self.model = model_loader.load_if_needed(self.model)
         self.model.eval()
         boxes_list = []
         confs_list = []

@@ -72,7 +72,6 @@ class ModelLoader:
 
     def save_if_needed(self, model: nn.Module, metric: float) -> None:
         if self.best_watcher.step(metric):
-            print(metric)
             self._save(model, metric)
 
     def _save(self, model: nn.Module, metric: float) -> None:

@@ -13,15 +13,6 @@ from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.model_loader import ModelLoader, BestWatcher
 from object_detection.data.object import ObjectDataset
 from object_detection.metrics import MeanPrecition
-from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
-
-logger = getLogger()
-logger.setLevel(INFO)
-stream_handler = StreamHandler()
-stream_handler.setLevel(INFO)
-handler_format = Formatter("%(asctime)s|%(name)s|%(message)s")
-stream_handler.setFormatter(handler_format)
-logger.addHandler(stream_handler)
 
 ### config ###
 sigma = 4.0
