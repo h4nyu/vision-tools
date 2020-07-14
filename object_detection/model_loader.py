@@ -60,7 +60,7 @@ class ModelLoader:
         return model
 
     def _load(self, model: nn.Module) -> nn.Module:
-        logger.info(f"load model from {self.out_dir}")
+        logger.info(f"load model from {self.model_path}")
         with open(self.checkpoint_file, "r") as f:
             data = json.load(f)
         model.load_state_dict(
