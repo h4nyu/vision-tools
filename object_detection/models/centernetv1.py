@@ -564,7 +564,7 @@ class Predicter:
 
     @torch.no_grad()
     def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
-        self.model = model_loader.load_if_needed(self.model)
+        self.model = self.model_loader.load_if_needed(self.model)
         self.model.eval()
         boxes_list = []
         confs_list = []
