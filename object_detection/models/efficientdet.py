@@ -557,4 +557,4 @@ class Trainer:
                 self.meters["score"].update(self.get_score(pred, gt))
 
         self.visualize(preds, box_batch, samples)
-        self.model_loader.save_if_needed(self.model, self.meters["score"].get_value())
+        self.model_loader.save_if_needed(self.model, self.meters[self.model_loader.key].get_value())

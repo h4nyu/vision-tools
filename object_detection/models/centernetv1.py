@@ -535,7 +535,7 @@ class Trainer:
                 self.meters["score"].update(self.get_score(pred, gt))
 
         self.visualize(outputs, preds, box_batch, images, gt_hms)
-        self.model_loader.save_if_needed(self.model, self.meters["score"].get_value())
+        self.model_loader.save_if_needed(self.model, self.meters[self.model_loader.key].get_value())
 
 
 class Predicter:
