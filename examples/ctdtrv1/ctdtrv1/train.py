@@ -8,7 +8,6 @@ from object_detection.models.centernetv1 import (
     Criterion,
     ToBoxes,
     Anchors,
-    BoxMerge,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.model_loader import ModelLoader, BestWatcher
@@ -53,7 +52,6 @@ model_loader = ModelLoader(
     out_dir=cfg.out_dir, key="test_loss", best_watcher=BestWatcher(mode="min")
 )
 to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold)
-box_merge = BoxMerge(iou_threshold=cfg.iou_threshold)
 get_score = MeanPrecition()
 trainer = Trainer(
     model=model,
@@ -65,6 +63,5 @@ trainer = Trainer(
     criterion=criterion,
     device="cuda",
     get_score=get_score,
-    box_merge=box_merge,
     to_boxes=to_boxes,
 )
