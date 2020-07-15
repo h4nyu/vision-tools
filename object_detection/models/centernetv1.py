@@ -506,11 +506,11 @@ class Trainer:
         for epoch in range(epochs):
             self.train_one_epoch()
             self.eval_one_epoch()
-            self.log()
-            self.reset_meters()
             self.model_loader.save_if_needed(
                 self.model, self.meters[self.model_loader.key].get_value()
             )
+            self.log()
+            self.reset_meters()
 
     def train_one_epoch(self) -> None:
         self.model.train()
