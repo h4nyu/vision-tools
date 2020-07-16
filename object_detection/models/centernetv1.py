@@ -549,6 +549,7 @@ class Predictor:
         loader: DataLoader,
         model_loader: ModelLoader,
         to_boxes: ToBoxes,
+        box_merge: BoxMerge,
         device: str = "cpu",
     ) -> None:
         self.device = torch.device(device)
@@ -557,6 +558,9 @@ class Predictor:
         self.preprocess = PreProcess(self.device)
         self.to_boxes = to_boxes
         self.loader = loader
+        self.box_merge = box_merge
+        self.hflip_tta = HFlipTTA(to_boxes)
+        self.vflip_tta = VFlipTTA(to_boxes)
 
     @torch.no_grad()
     def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
@@ -568,7 +572,11 @@ class Predictor:
         for images, ids in tqdm(self.loader):
             images = images.to(self.device)
             outputs = self.model(images)
-            preds = self.to_boxes(outputs)
+            preds = self.box_merge(
+                self.to_boxes(outputs)
+                self.hflip_tta(self.model, images),
+                self.vflip_tta(self.model, images),
+            )
             boxes_list += preds[0]
             confs_list += preds[1]
             id_list += ids
