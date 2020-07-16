@@ -464,6 +464,7 @@ class Trainer:
         optimizer: Any,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
         to_boxes: ToBoxes,
+        box_merge: BoxMerge,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -478,6 +479,7 @@ class Trainer:
         self.criterion = criterion
         self.visualize = visualize
         self.get_score = get_score
+        self.box_merge = box_merge
         self.meters = {
             key: MeanMeter()
             for key in [
@@ -535,7 +537,7 @@ class Trainer:
             self.meters["test_loss"].update(loss.item())
             self.meters["test_box"].update(box_loss.item())
             self.meters["test_hm"].update(hm_loss.item())
-            preds = self.to_boxes(outputs)
+            preds = self.box_merge(self.to_boxes(outputs))
             for (pred, gt) in zip(preds[0], box_batch):
                 self.meters["score"].update(self.get_score(pred, gt))
 
