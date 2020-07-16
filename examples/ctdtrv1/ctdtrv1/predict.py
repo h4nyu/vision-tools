@@ -1,8 +1,6 @@
 from object_detection.models.centernetv1 import Predictor, prediction_collate_fn
 from object_detection.data.object import PredictionDataset
-from object_detection.models.centernetv1 import (
-    BoxMerge
-)
+from object_detection.models.centernetv1 import BoxMerge
 from torch.utils.data import DataLoader
 from . import config as cfg
 from . import train
