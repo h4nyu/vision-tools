@@ -573,7 +573,7 @@ class Predictor:
             images = images.to(self.device)
             outputs = self.model(images)
             preds = self.box_merge(
-                self.to_boxes(outputs)
+                self.to_boxes(outputs),
                 self.hflip_tta(self.model, images),
                 self.vflip_tta(self.model, images),
             )
