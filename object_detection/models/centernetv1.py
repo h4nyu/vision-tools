@@ -549,7 +549,6 @@ class Predictor:
         loader: DataLoader,
         model_loader: ModelLoader,
         to_boxes: ToBoxes,
-        box_merge: BoxMerge,
         device: str = "cpu",
     ) -> None:
         self.device = torch.device(device)
