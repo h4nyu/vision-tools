@@ -389,9 +389,9 @@ class BoxMerge:
         conf_batch: List[Confidences] = []
         for i in range(length):
             pboxes, confs, _ = weighted_boxes_fusion(
-                [yolo_to_pascal(x[0][i], (1, 1)) for x in args],
-                [x[1][i] for x in args],
-                [torch.zeros(x[1][i].shape) for x in args],
+                boxes_list=[yolo_to_pascal(x[0][i], (1, 1)) for x in args],
+                scores_list=[x[1][i] for x in args],
+                labels_list=[torch.zeros(x[1][i].shape) for x in args],
                 iou_thr=self.iou_threshold,
             )
             indices = confs > self.confidence_threshold
