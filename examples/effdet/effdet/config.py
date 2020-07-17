@@ -9,6 +9,9 @@ channels = 128
 input_size = (256, 256)
 object_count_range = (1, 20)
 object_size_range = (32, 64)
-iou_threshold = 0.55
+iou_threshold = 0.6
 out_dir = "/store/efficientdet"
 metric: Tuple[str, WatchMode] = ("score", "max")
+
+anchor_ratios = [0.33, 1, 3]
+anchor_size = 2

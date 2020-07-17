@@ -527,8 +527,6 @@ class Trainer:
             self.meters["train_pos"].update(pos_loss.item())
             self.meters["train_size"].update(size_loss.item())
             self.meters["train_label"].update(label_loss.item())
-        preds = self.to_boxes(outputs)
-        self.visualize(preds, gt_boxes_list, samples)
 
     @torch.no_grad()
     def eval_one_epoch(self) -> None:

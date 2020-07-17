@@ -12,10 +12,14 @@ from ensemble_boxes import weighted_boxes_fusion
 
 class BoxMerge:
     def __init__(
-        self, iou_threshold: float = 0.55, confidence_threshold: float = 0.0,
+        self,
+        iou_threshold: float = 0.55,
+        confidence_threshold: float = 0.0,
+        limit: int = 100,
     ) -> None:
         self.iou_threshold = iou_threshold
         self.confidence_threshold = confidence_threshold
+        self.limit = limit
 
     @torch.no_grad()
     def __call__(
