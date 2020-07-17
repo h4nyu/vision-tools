@@ -286,7 +286,7 @@ class Criterion:
 
 
 class SizeLoss:
-    def __init__(self, iou_threshold: float = 0.3) -> None:
+    def __init__(self, iou_threshold: float = 0.4) -> None:
         self.iou_threshold = iou_threshold
 
     def __call__(
@@ -311,7 +311,7 @@ class SizeLoss:
 
 
 class PosLoss:
-    def __init__(self, iou_threshold: float = 0.3) -> None:
+    def __init__(self, iou_threshold: float = 0.4) -> None:
         self.iou_threshold = iou_threshold
 
     def __call__(
