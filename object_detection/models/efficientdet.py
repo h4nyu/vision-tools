@@ -20,7 +20,6 @@ from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
 from typing import Any, List, Tuple, NewType, Callable
-from torchvision.ops import nms
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
 from torch import nn, Tensor
@@ -29,6 +28,7 @@ from logging import getLogger
 from pathlib import Path
 from typing_extensions import Literal
 from tqdm import tqdm
+from .box_merge import BoxMerge
 
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
@@ -424,11 +424,9 @@ class ToBoxes:
     def __init__(
         self,
         confidence_threshold: float = 0.5,
-        nms_threshold: float = 0.5,
         limit: int = 100,
     ) -> None:
         self.confidence_threshold = confidence_threshold
-        self.nms_threshold = nms_threshold
         self.limit = limit
 
     def __call__(
@@ -448,19 +446,9 @@ class ToBoxes:
             filter_idx = confidences > self.confidence_threshold
             confidences = confidences[filter_idx]
             boxes = boxes[filter_idx]
-
             sort_idx = confidences.argsort(descending=True)[: self.limit]
             boxes = boxes[sort_idx]
             confidences = confidences[sort_idx]
-
-            sort_idx = nms(
-                yolo_to_pascal(YoloBoxes(boxes), (1, 1)),
-                confidences,
-                iou_threshold=self.nms_threshold,
-            )
-            boxes = boxes[sort_idx]
-            confidences = confidences[sort_idx]
-
             box_batch.append(YoloBoxes(boxes))
             confidence_batch.append(Confidences(confidences))
         return box_batch, confidence_batch
@@ -477,6 +465,7 @@ class Trainer:
         optimizer: t.Any,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
         to_boxes: ToBoxes,
+        box_merge: BoxMerge,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -491,6 +480,7 @@ class Trainer:
         self.criterion = criterion
         self.visualize = visualize
         self.get_score = get_score
+        self.box_merge = box_merge
         self.meters = {
             key: MeanMeter()
             for key in [
@@ -560,7 +550,7 @@ class Trainer:
             self.meters["test_pos"].update(pos_loss.item())
             self.meters["test_size"].update(size_loss.item())
             self.meters["test_label"].update(label_loss.item())
-            preds = self.to_boxes(outputs)
+            preds = self.box_merge(self.to_boxes(outputs))
             for (pred, gt) in zip(preds[0], box_batch):
                 self.meters["score"].update(self.get_score(pred, gt))
 

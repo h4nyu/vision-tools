@@ -10,6 +10,7 @@ from object_detection.models.efficientdet import (
     ToBoxes,
     Anchors,
 )
+from object_detection.models.box_merge import BoxMerge
 from object_detection.model_loader import ModelLoader, BestWatcher
 from object_detection.data.object import TrainDataset
 from object_detection.metrics import MeanPrecition
@@ -23,6 +24,7 @@ channels = 128
 input_size = 512
 object_count_range = (0, 20)
 object_size_range = (32, 64)
+iou_threshold = 0.55
 ### config ###
 
 
@@ -46,6 +48,7 @@ model = EfficientDet(
 model_loader = ModelLoader(
     out_dir="/store/efficientdet", key="test_loss", best_watcher=BestWatcher(mode="max")
 )
+box_merge = BoxMerge(iou_threshold=iou_threshold)
 criterion = Criterion()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 visualize = Visualize("/store/efficientdet", "test", limit=2)
@@ -68,5 +71,6 @@ trainer = Trainer(
     get_score=get_score,
     device="cuda",
     to_boxes=to_boxes,
+    box_merge=box_merge,
 )
 trainer(1000)
