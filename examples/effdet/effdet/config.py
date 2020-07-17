@@ -5,6 +5,7 @@ from object_detection.model_loader import WatchMode
 confidence_threshold = 0.5
 batch_size = 16
 channels = 128
+lr=1e-4
 
 input_size = (256, 256)
 object_count_range = (1, 20)

@@ -42,7 +42,7 @@ def train(epochs: int) -> None:
     )
     box_merge = BoxMerge(iou_threshold=config.iou_threshold)
     criterion = Criterion()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     visualize = Visualize("/store/efficientdet", "test", limit=2)
     get_score = MeanPrecition()
     to_boxes = ToBoxes(confidence_threshold=config.confidence_threshold,)
