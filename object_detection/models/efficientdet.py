@@ -311,7 +311,7 @@ class SizeLoss:
 
 
 class PosLoss:
-    def __init__(self, iou_threshold: float = 0.5) -> None:
+    def __init__(self, iou_threshold: float = 0.3) -> None:
         self.iou_threshold = iou_threshold
 
     def __call__(
