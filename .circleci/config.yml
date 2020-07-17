@@ -15,6 +15,7 @@ jobs:
           command: |
             mypy .
             mypy examples/ctdtrv1
+            mypy examples/effdet
 
 
       - run:

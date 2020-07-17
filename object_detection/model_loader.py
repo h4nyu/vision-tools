@@ -11,10 +11,13 @@ import json
 logger = getLogger(__name__)
 
 
+WatchMode = Literal["min", "max"]
+
+
 class BestWatcher:
     def __init__(
         self,
-        mode: Literal["min", "max"] = "min",
+        mode: WatchMode = "min",
         min_delta: float = 0.0,
         ema: bool = False,
         alpha: float = 1.0,

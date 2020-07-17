@@ -421,11 +421,7 @@ class PreProcess:
 
 
 class ToBoxes:
-    def __init__(
-        self,
-        confidence_threshold: float = 0.5,
-        limit: int = 100,
-    ) -> None:
+    def __init__(self, confidence_threshold: float = 0.5, limit: int = 100,) -> None:
         self.confidence_threshold = confidence_threshold
         self.limit = limit
 
