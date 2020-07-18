@@ -10,6 +10,7 @@ from object_detection.entities import (
     Confidences,
     PyramidIdx,
     TrainSample,
+    PredictionSample,
     Labels,
     YoloBoxes,
     PascalBoxes,
@@ -34,8 +35,36 @@ from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import FocalLoss
 from .anchors import Anchors
+from .tta import VFlipTTA, HFlipTTA
 
 logger = getLogger(__name__)
+
+
+def collate_fn(
+    batch: List[TrainSample],
+) -> Tuple[ImageBatch, List[YoloBoxes], List[Labels], List[ImageId]]:
+    images: List[t.Any] = []
+    id_batch: List[ImageId] = []
+    box_batch: List[YoloBoxes] = []
+    label_batch: List[Labels] = []
+
+    for id, img, boxes, labels in batch:
+        images.append(img)
+        box_batch.append(boxes)
+        id_batch.append(id)
+        label_batch.append(labels)
+    return ImageBatch(torch.stack(images)), box_batch, label_batch, id_batch
+
+
+def prediction_collate_fn(
+    batch: List[PredictionSample],
+) -> Tuple[ImageBatch, List[ImageId]]:
+    images: List[Any] = []
+    id_batch: List[ImageId] = []
+    for id, img in batch:
+        images.append(img)
+        id_batch.append(id)
+    return ImageBatch(torch.stack(images)), id_batch
 
 
 class Visualize:
@@ -73,22 +102,6 @@ class Visualize:
             plot.with_yolo_boxes(tb, color="blue")
             plot.with_yolo_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
-
-
-def collate_fn(
-    batch: List[TrainSample],
-) -> Tuple[ImageBatch, List[YoloBoxes], List[Labels], List[ImageId]]:
-    images: List[t.Any] = []
-    id_batch: List[ImageId] = []
-    box_batch: List[YoloBoxes] = []
-    label_batch: List[Labels] = []
-
-    for id, img, boxes, labels in batch:
-        images.append(img)
-        box_batch.append(boxes)
-        id_batch.append(id)
-        label_batch.append(labels)
-    return ImageBatch(torch.stack(images)), box_batch, label_batch, id_batch
 
 
 class ClassificationModel(nn.Module):
@@ -212,82 +225,6 @@ class EfficientDet(nn.Module):
         )
 
 
-class Criterion:
-    def __init__(
-        self,
-        num_classes: int = 1,
-        pos_weight: float = 4.0,
-        size_weight: float = 1.0,
-        label_weight: float = 1.0,
-        pos_loss: PosLoss,
-        size_loss: PosLoss,
-        label_loss: LabelLoss,
-    ) -> None:
-        self.num_classes = num_classes
-        self.pos_weight = pos_weight
-        self.size_weight = size_weight
-        self.label_weight = label_weight
-        self.label_loss = label_loss()
-        self.pos_loss = pos_loss()
-        self.size_loss = size_loss()
-
-    def __call__(
-        self,
-        images: ImageBatch,
-        net_output: NetOutput,
-        gt_boxes_list: List[YoloBoxes],
-        gt_classes_list: List[Labels],
-    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        anchors, pos_diffs, size_diffs, classifications = net_output
-        device = classifications.device
-        batch_size = classifications.shape[0]
-        pos_losses: List[Tensor] = []
-        size_losses: List[Tensor] = []
-        label_losses: List[Tensor] = []
-        _, _, h, w = images.shape
-
-        for pos_diff, size_diff, pred_labels, gt_boxes, gt_lables in zip(
-            pos_diffs, size_diffs, classifications, gt_boxes_list, gt_classes_list
-        ):
-            if len(gt_boxes) == 0:
-                continue
-            iou_matrix = box_iou(
-                yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
-            )
-            iou_max, match_indices = torch.max(iou_matrix, dim=1)
-            label_losses.append(
-                self.label_loss(
-                    iou_max=iou_max,
-                    match_indices=match_indices,
-                    pred_classes=pred_labels,
-                    gt_classes=gt_lables,
-                )
-            )
-            pos_losses.append(
-                self.pos_loss(
-                    iou_max=iou_max,
-                    match_indices=match_indices,
-                    anchors=anchors,
-                    pos_diff=PosDiff(pos_diff),
-                    gt_boxes=gt_boxes,
-                )
-            )
-            size_losses.append(
-                self.size_loss(
-                    iou_max=iou_max,
-                    match_indices=match_indices,
-                    anchors=anchors,
-                    size_diff=SizeDiff(size_diff),
-                    gt_boxes=gt_boxes,
-                )
-            )
-        all_pos_loss = torch.stack(pos_losses).mean() * self.pos_weight
-        all_size_loss = torch.stack(size_losses).mean() * self.size_weight
-        all_label_loss = torch.stack(label_losses).mean() * self.label_weight
-        loss = all_pos_loss + all_size_loss + all_label_loss
-        return loss, all_pos_loss, all_size_loss, all_label_loss
-
-
 class SizeLoss:
     def __init__(self, iou_threshold: float = 0.4) -> None:
         self.iou_threshold = iou_threshold
@@ -382,6 +319,82 @@ class LabelLoss:
         neg_loss = (neg_loss).sum()
         loss = (pos_loss + neg_loss) / positive_indices.sum().clamp(min=1.0)
         return loss
+
+
+class Criterion:
+    def __init__(
+        self,
+        num_classes: int = 1,
+        pos_weight: float = 4.0,
+        size_weight: float = 1.0,
+        label_weight: float = 1.0,
+        pos_loss: PosLoss = PosLoss(),
+        size_loss: SizeLoss = SizeLoss(),
+        label_loss: LabelLoss = LabelLoss(),
+    ) -> None:
+        self.num_classes = num_classes
+        self.pos_weight = pos_weight
+        self.size_weight = size_weight
+        self.label_weight = label_weight
+        self.label_loss = label_loss
+        self.pos_loss = pos_loss
+        self.size_loss = size_loss
+
+    def __call__(
+        self,
+        images: ImageBatch,
+        net_output: NetOutput,
+        gt_boxes_list: List[YoloBoxes],
+        gt_classes_list: List[Labels],
+    ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        anchors, pos_diffs, size_diffs, classifications = net_output
+        device = classifications.device
+        batch_size = classifications.shape[0]
+        pos_losses: List[Tensor] = []
+        size_losses: List[Tensor] = []
+        label_losses: List[Tensor] = []
+        _, _, h, w = images.shape
+
+        for pos_diff, size_diff, pred_labels, gt_boxes, gt_lables in zip(
+            pos_diffs, size_diffs, classifications, gt_boxes_list, gt_classes_list
+        ):
+            if len(gt_boxes) == 0:
+                continue
+            iou_matrix = box_iou(
+                yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
+            )
+            iou_max, match_indices = torch.max(iou_matrix, dim=1)
+            label_losses.append(
+                self.label_loss(
+                    iou_max=iou_max,
+                    match_indices=match_indices,
+                    pred_classes=pred_labels,
+                    gt_classes=gt_lables,
+                )
+            )
+            pos_losses.append(
+                self.pos_loss(
+                    iou_max=iou_max,
+                    match_indices=match_indices,
+                    anchors=anchors,
+                    pos_diff=PosDiff(pos_diff),
+                    gt_boxes=gt_boxes,
+                )
+            )
+            size_losses.append(
+                self.size_loss(
+                    iou_max=iou_max,
+                    match_indices=match_indices,
+                    anchors=anchors,
+                    size_diff=SizeDiff(size_diff),
+                    gt_boxes=gt_boxes,
+                )
+            )
+        all_pos_loss = torch.stack(pos_losses).mean() * self.pos_weight
+        all_size_loss = torch.stack(size_losses).mean() * self.size_weight
+        all_label_loss = torch.stack(label_losses).mean() * self.label_weight
+        loss = all_pos_loss + all_size_loss + all_label_loss
+        return loss, all_pos_loss, all_size_loss, all_label_loss
 
 
 class PreProcess:
@@ -532,6 +545,7 @@ class Trainer:
         self.model_loader.save_if_needed(
             self.model, self.meters[self.model_loader.key].get_value()
         )
+
 
 class Predictor:
     def __init__(

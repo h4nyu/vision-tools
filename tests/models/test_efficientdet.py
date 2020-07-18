@@ -4,7 +4,6 @@ from typing import Any
 from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import YoloBoxes, Labels
 from object_detection.models.efficientdet import (
-    ClipBoxes,
     RegressionModel,
     ClassificationModel,
     EfficientDet,
@@ -15,17 +14,6 @@ from object_detection.models.efficientdet import (
 )
 from object_detection.models.anchors import Anchors
 from object_detection.models.backbones.effnet import EfficientNetBackbone
-
-
-def test_clip_boxes() -> None:
-    images = torch.ones((1, 1, 10, 10))
-    boxes = torch.tensor([[[14, 0, 20, 0]]])
-    fn = ClipBoxes()
-    res = fn(boxes, images)
-
-    assert (
-        res - torch.tensor([[[14, 0, 10, 0]]])
-    ).sum() == 0  # TODO ??? [10, 0, 10, 0]
 
 
 def test_regression_model() -> None:
