@@ -414,9 +414,8 @@ class PreProcess:
 
 
 class ToBoxes:
-    def __init__(self, confidence_threshold: float = 0.5, limit: int = 100,) -> None:
+    def __init__(self, confidence_threshold: float = 0.5) -> None:
         self.confidence_threshold = confidence_threshold
-        self.limit = limit
 
     def __call__(
         self, net_output: NetOutput
@@ -435,7 +434,7 @@ class ToBoxes:
             filter_idx = confidences > self.confidence_threshold
             confidences = confidences[filter_idx]
             boxes = boxes[filter_idx]
-            sort_idx = confidences.argsort(descending=True)[: self.limit]
+            sort_idx = confidences.argsort(descending=True)
             boxes = boxes[sort_idx]
             confidences = confidences[sort_idx]
             box_batch.append(YoloBoxes(boxes))
