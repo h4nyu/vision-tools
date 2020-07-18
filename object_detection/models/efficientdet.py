@@ -219,14 +219,17 @@ class Criterion:
         pos_weight: float = 4.0,
         size_weight: float = 1.0,
         label_weight: float = 1.0,
+        pos_loss: PosLoss,
+        size_loss: PosLoss,
+        label_loss: LabelLoss,
     ) -> None:
         self.num_classes = num_classes
         self.pos_weight = pos_weight
         self.size_weight = size_weight
         self.label_weight = label_weight
-        self.label_loss = LabelLoss()
-        self.pos_loss = PosLoss()
-        self.size_loss = SizeLoss()
+        self.label_loss = label_loss()
+        self.pos_loss = pos_loss()
+        self.size_loss = size_loss()
 
     def __call__(
         self,
@@ -529,3 +532,43 @@ class Trainer:
         self.model_loader.save_if_needed(
             self.model, self.meters[self.model_loader.key].get_value()
         )
+
+class Predictor:
+    def __init__(
+        self,
+        model: nn.Module,
+        loader: DataLoader,
+        model_loader: ModelLoader,
+        to_boxes: ToBoxes,
+        box_merge: BoxMerge,
+        device: str = "cpu",
+    ) -> None:
+        self.device = torch.device(device)
+        self.model_loader = model_loader
+        self.model = model.to(self.device)
+        self.preprocess = PreProcess(self.device)
+        self.to_boxes = to_boxes
+        self.loader = loader
+        self.box_merge = box_merge
+        self.hflip_tta = HFlipTTA(to_boxes)
+        self.vflip_tta = VFlipTTA(to_boxes)
+
+    @torch.no_grad()
+    def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
+        self.model = self.model_loader.load_if_needed(self.model)
+        self.model.eval()
+        boxes_list = []
+        confs_list = []
+        id_list = []
+        for images, ids in tqdm(self.loader):
+            images = images.to(self.device)
+            outputs = self.model(images)
+            preds = self.box_merge(
+                self.to_boxes(outputs),
+                self.hflip_tta(self.model, images),
+                self.vflip_tta(self.model, images),
+            )
+            boxes_list += preds[0]
+            confs_list += preds[1]
+            id_list += ids
+        return boxes_list, confs_list, id_list
