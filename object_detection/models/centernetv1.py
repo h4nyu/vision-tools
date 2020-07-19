@@ -268,11 +268,12 @@ class BoxLoss:
         return F.l1_loss(pred_diff, gt_diff, reduction="mean")
 
 
+MkMapMode = Literal["length", "aspect", "constant", "fill"]
 class MkMaps:
     def __init__(
         self,
         sigma: float = 0.5,
-        mode: Literal["length", "aspect", "constant"] = "length",
+        mode: MkMapMode = "length",
     ) -> None:
         self.sigma = sigma
         self.mode = mode
@@ -288,16 +289,17 @@ class MkMaps:
         if box_count == 0:
             return Heatmaps(heatmap)
 
-        box_cxs, box_cys, _, _ = boxes.unbind(-1)
         grid_y, grid_x = torch.meshgrid(  # type:ignore
             torch.arange(h, dtype=torch.int64), torch.arange(w, dtype=torch.int64),
         )
-        wh = torch.tensor([w, h]).to(device)
-        cxcy = boxes[:, :2] * wh
+        img_wh = torch.tensor([w, h]).to(device)
+        cxcy = boxes[:, :2] * img_wh
+        box_wh = boxes[:, 2:]
         cx = cxcy[:, 0]
         cy = cxcy[:, 1]
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
+
         if self.mode == "aspect":
             weight = (boxes[:, 2:] ** 2).clamp(min=1e-4).view(box_count, 2, 1, 1)
         else:
@@ -308,10 +310,18 @@ class MkMaps:
                 .view(box_count, 1, 1, 1)
             )
 
-        mounts = torch.exp(
-            -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
-            / (2 * self.sigma ** 2)
-        )
+        if self.mode == "fill":
+            img_wh = img_wh.view(1, 2, 1, 1).expand_as(grid_xy)
+            mounts = (
+                (grid_xy.float() / img_wh) - (grid_cxcy.float() / img_wh)
+            ).abs() < box_wh.view(box_count, 2, 1, 1).expand_as(grid_xy) * 0.5 * self.sigma
+            mounts, _ = mounts.min(dim=1, keepdim=True)
+            mounts = mounts.float()
+        else:
+            mounts = torch.exp(
+                -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
+                / (2 * self.sigma ** 2)
+            )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return Heatmaps(heatmap)
 
@@ -332,14 +342,15 @@ class MkMaps:
 
 class Criterion:
     def __init__(
-        self, box_weight: float = 4.0, heatmap_weight: float = 1.0, sigma: float = 1.0,
+        self, box_weight: float = 4.0, heatmap_weight: float = 1.0,
+        mk_maps:MkMaps=MkMaps(),
     ) -> None:
         self.box_weight = box_weight
         self.heatmap_weight = heatmap_weight
 
         self.hm_loss = HMLoss()
         self.box_loss = BoxLoss()
-        self.mkmaps = MkMaps(sigma)
+        self.mkmaps = mk_maps
 
     def __call__(
         self, images: ImageBatch, net_output: NetOutput, gt_boxes_list: List[YoloBoxes],

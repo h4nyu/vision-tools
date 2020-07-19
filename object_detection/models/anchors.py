@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import typing as t
+from typing import Any
 from torch import nn, Tensor
 from object_detection.entities.box import YoloBoxes, PascalBoxes, pascal_to_yolo
 from object_detection.entities import PyramidIdx
@@ -88,3 +89,20 @@ def generate_anchors(
     anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
 
     return anchors
+
+
+class AnchorsV1:
+    def __init__(self, size: int = 1) -> None:
+        self.size = size
+
+    def __call__(self, ref_images: Tensor) -> Any:
+        h, w = ref_images.shape[-2:]
+        device = ref_images.device
+        grid_y, grid_x = torch.meshgrid(  # type:ignore
+            torch.arange(h, dtype=torch.float32) / h,
+            torch.arange(w, dtype=torch.float32) / w,
+        )
+        box_h = torch.ones((h, w)) * (self.size / h)
+        box_w = torch.ones((h, w)) * (self.size / w)
+        anchors = torch.stack([grid_x, grid_y, box_w, box_h])
+        return anchors.to(device)
