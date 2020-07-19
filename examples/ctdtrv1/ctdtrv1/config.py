@@ -1,11 +1,19 @@
+from typing import Tuple
 from object_detection.entities import PyramidIdx
+from object_detection.models.centernetv1 import MkMapMode
+from object_detection.model_loader import WatchMode
 
-sigma = 5.0
+## heatmap
+sigma = 0.5
+mode:MkMapMode="fill"
+
 lr = 1e-4
 batch_size = 16
 out_idx: PyramidIdx = 4
 channels = 256
 input_size = (256, 256)
+metric:Tuple[str, WatchMode] = ("score", "max")
+
 heatmap_weight = 1.0
 box_weight = 50.0
 object_count_range = (1, 20)

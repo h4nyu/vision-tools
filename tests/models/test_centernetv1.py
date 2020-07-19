@@ -51,8 +51,7 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     mk_anchors = Anchors()
     anchormap = mk_anchors(hm)
     diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
-    diff = in_boxes[0] - anchormap[:, cy, cx]
-    diffmaps[0, :, cy, cx] = diff
+    diffmaps = in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
 
     out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
     out_boxes = out_box_batch[0]
@@ -65,6 +64,31 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     plot.with_yolo_boxes(in_boxes, color="blue")
     plot.with_yolo_boxes(out_boxes, color="red")
     plot.save(f"store/test-heatmapv1.png")
+
+
+@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
+def test_mkmaps_fill(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+    in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
+    to_boxes = ToBoxes(threshold=0.1)
+    mkmaps = MkMaps(sigma=0.5, mode="fill")
+    hm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
+    assert hm.shape == (1, 1, h, w)
+    mk_anchors = Anchors()
+    anchormap = mk_anchors(hm)
+    diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
+    diffmaps = in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+
+    out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
+    out_boxes = out_box_batch[0]
+    assert out_boxes[0, 0] == in_boxes[0, 0]
+    assert out_boxes[0, 1] == in_boxes[0, 1]
+    assert out_boxes[0, 2] == in_boxes[0, 2]
+    assert out_boxes[0, 3] == in_boxes[0, 3]
+    plot = DetectionPlot(w=w, h=h)
+    plot.with_image((hm[0, 0] + 1e-4).log())
+    plot.with_yolo_boxes(out_boxes, color="red")
+    plot.with_yolo_boxes(in_boxes, color="blue")
+    plot.save(f"store/test-heatmapv1-fill.png")
 
 
 def test_hfliptta() -> None:
