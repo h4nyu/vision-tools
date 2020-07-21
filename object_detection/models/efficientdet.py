@@ -185,7 +185,7 @@ class EfficientDet(nn.Module):
         channels: int = 32,
         threshold: float = 0.01,
         out_ids: List[PyramidIdx] = [4, 5, 6],
-        anchors: Anchors = Anchors(size=2),
+        anchors: Anchors = Anchors(),
     ) -> None:
         super().__init__()
         self.out_ids = np.array(out_ids) - 3

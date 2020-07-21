@@ -26,8 +26,12 @@ YoloBoxBatch = NewType("YoloBoxBatch", Tensor)  # [B, N, 4]
 ConfidenceBatch = NewType("ConfidenceBatch", Tensor)  # [B, N] 0.0 ~ 1.0
 
 
-def boxmap_to_boxes(am: BoxMap) -> YoloBoxes:
-    return YoloBoxes(am.permute(2, 1, 0).reshape(-1, 4))
+def boxmap_to_boxes(x: BoxMap) -> YoloBoxes:
+    return YoloBoxes(x.permute(2, 1, 0).reshape(-1, 4))
+
+
+def boxmaps_to_boxes(x: BoxMaps) -> YoloBoxes:
+    return YoloBoxes(x.permute(3, 2, 0, 1).reshape(-1, 4))
 
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:

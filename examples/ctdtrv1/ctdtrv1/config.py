@@ -5,14 +5,14 @@ from object_detection.model_loader import WatchMode
 
 ## heatmap
 sigma = 0.5
-mode:MkMapMode="fill"
+mode: MkMapMode = "fill"
 
 lr = 1e-4
 batch_size = 16
 out_idx: PyramidIdx = 4
 channels = 256
 input_size = (256, 256)
-metric:Tuple[str, WatchMode] = ("score", "max")
+metric: Tuple[str, WatchMode] = ("score", "max")
 
 heatmap_weight = 1.0
 box_weight = 50.0

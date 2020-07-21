@@ -1,6 +1,5 @@
-
 from object_detection.models.centernetv1 import (
-    Predictor, 
+    Predictor,
     prediction_collate_fn,
     CenterNetV1,
     ToBoxes,
@@ -14,6 +13,7 @@ from object_detection.models.backbones.effnet import EfficientNetBackbone
 from object_detection.models.box_merge import BoxMerge
 from torch.utils.data import DataLoader
 from . import config as cfg
+
 
 def predict() -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
     dataset = PredictionDataset(

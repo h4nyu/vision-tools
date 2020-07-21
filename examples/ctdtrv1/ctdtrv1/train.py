@@ -18,7 +18,6 @@ from object_detection.metrics import MeanPrecition
 from . import config as cfg
 
 
-
 def train(epochs: int) -> None:
     train_dataset = TrainDataset(
         cfg.input_size,
@@ -54,7 +53,9 @@ def train(epochs: int) -> None:
     visualize = Visualize(cfg.out_dir, "test", limit=2)
 
     model_loader = ModelLoader(
-        out_dir=cfg.out_dir, key=cfg.metric[0], best_watcher=BestWatcher(mode=cfg.metric[1])
+        out_dir=cfg.out_dir,
+        key=cfg.metric[0],
+        best_watcher=BestWatcher(mode=cfg.metric[1]),
     )
     to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold)
     get_score = MeanPrecition()

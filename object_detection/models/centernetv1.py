@@ -269,12 +269,10 @@ class BoxLoss:
 
 
 MkMapMode = Literal["length", "aspect", "constant", "fill"]
+
+
 class MkMaps:
-    def __init__(
-        self,
-        sigma: float = 0.5,
-        mode: MkMapMode = "length",
-    ) -> None:
+    def __init__(self, sigma: float = 0.5, mode: MkMapMode = "length",) -> None:
         self.sigma = sigma
         self.mode = mode
 
@@ -313,8 +311,9 @@ class MkMaps:
         if self.mode == "fill":
             img_wh = img_wh.view(1, 2, 1, 1).expand_as(grid_xy)
             mounts = (
-                (grid_xy.float() / img_wh) - (grid_cxcy.float() / img_wh)
-            ).abs() < box_wh.view(box_count, 2, 1, 1).expand_as(grid_xy) * 0.5 * self.sigma
+                ((grid_xy.float() / img_wh) - (grid_cxcy.float() / img_wh)).abs()
+                < box_wh.view(box_count, 2, 1, 1).expand_as(grid_xy) * 0.5 * self.sigma
+            )
             mounts, _ = mounts.min(dim=1, keepdim=True)
             mounts = mounts.float()
         else:
@@ -342,8 +341,10 @@ class MkMaps:
 
 class Criterion:
     def __init__(
-        self, box_weight: float = 4.0, heatmap_weight: float = 1.0,
-        mk_maps:MkMaps=MkMaps(),
+        self,
+        box_weight: float = 4.0,
+        heatmap_weight: float = 1.0,
+        mk_maps: MkMaps = MkMaps(),
     ) -> None:
         self.box_weight = box_weight
         self.heatmap_weight = heatmap_weight
