@@ -12,7 +12,11 @@ from object_detection.utils import DetectionPlot
 
 
 @pytest.mark.parametrize(
-    "scales, ratios", [([10.0, 20.0, 40.0], [1.0, 3/4, 4/3])],
+    "scales, ratios", [
+        ([10.0, 20.0, 40.0], [1.0, 3/4, 4/3]),
+        ([10.0, 20.0], [1.0, 1.0/2.0, 2.0/1.0]),
+        ([10.0], [1.0, 1.0/2.0, 2.0/1.0]),
+    ],
 )
 def test_anchors(scales: List[float], ratios: List[float]) -> None:
     h = 100

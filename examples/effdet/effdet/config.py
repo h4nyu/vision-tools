@@ -14,5 +14,5 @@ iou_threshold = 0.6
 out_dir = "/store/efficientdet"
 metric: Tuple[str, WatchMode] = ("score", "max")
 
-anchor_ratios = [0.33, 1, 3]
-anchor_size = 2
+anchor_ratios = [3/4, 1, 4/3]
+anchor_scales = [2.0, 4.0]

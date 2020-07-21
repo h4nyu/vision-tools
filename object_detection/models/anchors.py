@@ -10,8 +10,8 @@ from object_detection.entities import YoloBoxes, ImageBatch, boxmaps_to_boxes, B
 class Anchors:
     def __init__(
         self,
-        ratios: t.List[float] = [0.5, 1, 2],
-        scales: t.List[float] = [1.0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)],
+        ratios: t.List[float] = [3/4, 1, 4/3],
+        scales: t.List[float] = [1.0, 1.5, 2],
     ) -> None:
         pairs = torch.tensor(list(itertools.product(scales, ratios)))
         self.num_anchors = len(pairs)
