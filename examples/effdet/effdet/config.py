@@ -2,7 +2,7 @@ from typing import Tuple, List
 from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
-batch_size = 20
+batch_size = 16
 channels = 128
 lr = 1e-3
 
