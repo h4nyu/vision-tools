@@ -7,7 +7,7 @@ channels = 128
 lr = 1e-3
 
 input_size = (256, 256)
-object_count_range = (1, 20)
+object_count_range = (5, 20)
 object_size_range = (32, 64)
 out_dir = "/store/efficientdet"
 metric: Tuple[str, WatchMode] = ("test_loss", "min")
@@ -19,10 +19,10 @@ anchor_size = 4.0
 confidence_threshold = 0.5
 iou_threshold = 0.5
 ## criterion
-label_weight = 1.0
-pos_threshold = 0.5
-size_threshold = 0.5
+label_weight = 2.0
+pos_threshold = 0.4
+size_threshold = 0.4
 label_thresholds = (0.3, 0.4)
 
 # model
-out_ids:List[PyramidIdx] = [4, 5, 6, 7]
+out_ids:List[PyramidIdx] = [4, 5, 6]
