@@ -40,6 +40,7 @@ from object_detection.entities import (
     PascalBoxes,
     TrainSample,
     PredictionSample,
+    yolo_clamp,
 )
 from .box_merge import BoxMerge
 from .tta import HFlipTTA, VFlipTTA
@@ -241,7 +242,7 @@ class ToBoxes:
             anchor = anchormap[:, kp[:, 0], kp[:, 1]].t()
             box_diff = box_diff[:, kp[:, 0], kp[:, 1]].t()
             boxes = anchor + box_diff
-            box_batch.append(YoloBoxes(boxes))
+            box_batch.append(yolo_clamp(YoloBoxes(boxes)))
             conf_batch.append(Confidences(confidences))
         return box_batch, conf_batch
 
@@ -309,10 +310,12 @@ class MkMaps:
             )
 
         if self.mode == "fill":
-            img_wh = img_wh.view(1, 2, 1, 1).expand_as(grid_xy)
+            grid_wh = img_wh.view(1, 2, 1, 1).expand_as(grid_xy)
+            min_wh = (1.0 / img_wh.float()).view(1, 2).expand_as(box_wh)
+            clamped_wh = torch.max(box_wh * 0.5 * self.sigma, min_wh)
             mounts = (
-                ((grid_xy.float() / img_wh) - (grid_cxcy.float() / img_wh)).abs()
-                < box_wh.view(box_count, 2, 1, 1).expand_as(grid_xy) * 0.5 * self.sigma
+                ((grid_xy.float() / grid_wh) - (grid_cxcy.float() / grid_wh)).abs()
+                < clamped_wh.view(box_count, 2, 1, 1).expand_as(grid_xy) 
             )
             mounts, _ = mounts.min(dim=1, keepdim=True)
             mounts = mounts.float()

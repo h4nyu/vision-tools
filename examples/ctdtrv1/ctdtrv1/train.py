@@ -57,7 +57,7 @@ def train(epochs: int) -> None:
         key=cfg.metric[0],
         best_watcher=BestWatcher(mode=cfg.metric[1]),
     )
-    to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold)
+    to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold, use_peak=cfg.use_peak)
     get_score = MeanPrecition()
     box_merge = BoxMerge(iou_threshold=cfg.iou_threshold)
     trainer = Trainer(
