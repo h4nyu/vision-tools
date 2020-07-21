@@ -12,15 +12,15 @@ from object_detection.utils import DetectionPlot
 
 
 @pytest.mark.parametrize(
-    "scales, ratios", [
-        ([10.0, 20.0, 40.0], [1.0, 3/4, 4/3]),
-        ([10.0, 20.0], [1.0, 1.0/2.0, 2.0/1.0]),
-        ([10.0], [1.0, 1.0/2.0, 2.0/1.0]),
+    "fsize ,scales, ratios", [
+        (64, [6.0, 9.0], [1.0, 2/3, 3/2]),
+        (128, [6.0, 9.0], [1.0, 2/3, 3/2]),
+        (256, [6.0, 9.0], [1.0, 2/3, 3/2]),
     ],
 )
-def test_anchors(scales: List[float], ratios: List[float]) -> None:
-    h = 100
-    w = 100
+def test_anchors(fsize:int, scales: List[float], ratios: List[float]) -> None:
+    h = fsize
+    w = fsize
     images = ImageBatch(torch.zeros((1, 3, h, w), dtype=torch.float32))
     fn = Anchors(scales=scales, ratios=ratios)
     res = fn(images)
@@ -29,6 +29,6 @@ def test_anchors(scales: List[float], ratios: List[float]) -> None:
     assert res.shape == (anchor_count, 4)
     offset = num_anchors * h * (w // 2) + num_anchors * h // 2
     ids = [offset + x for x in range(num_anchors)]
-    plot = DetectionPlot(w=w, h=h)
+    plot = DetectionPlot(w=512, h=512)
     plot.with_yolo_boxes(YoloBoxes(res[ids]), color="red")
-    plot.save(f"store/test-anchors-{num_anchors}.png")
+    plot.save(f"store/test-anchors-{fsize}-{'-'.join([str(x) for x in  scales])}-{num_anchors}.png")
