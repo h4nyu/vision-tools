@@ -8,7 +8,6 @@ from object_detection.models.centernetv1 import (
     Criterion,
     ToBoxes,
     Anchors,
-    MkMaps,
 )
 from object_detection.models.box_merge import BoxMerge
 from object_detection.models.backbones.effnet import EfficientNetBackbone
@@ -16,7 +15,6 @@ from object_detection.model_loader import ModelLoader, BestWatcher
 from object_detection.data.object import TrainDataset
 from object_detection.metrics import MeanPrecition
 from . import config as cfg
-
 
 
 def train(epochs: int) -> None:
@@ -40,9 +38,8 @@ def train(epochs: int) -> None:
         box_depth=cfg.box_depth,
         anchors=Anchors(size=cfg.anchor_size),
     )
-    mk_maps = MkMaps(sigma=cfg.sigma, mode=cfg.mode)
     criterion = Criterion(
-        box_weight=cfg.box_weight, heatmap_weight=cfg.heatmap_weight, mk_maps=mk_maps,
+        box_weight=cfg.box_weight, heatmap_weight=cfg.heatmap_weight, mkmaps=cfg.mkmaps,
     )
     train_loader = DataLoader(
         train_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size, shuffle=True
@@ -54,9 +51,11 @@ def train(epochs: int) -> None:
     visualize = Visualize(cfg.out_dir, "test", limit=2)
 
     model_loader = ModelLoader(
-        out_dir=cfg.out_dir, key=cfg.metric[0], best_watcher=BestWatcher(mode=cfg.metric[1])
+        out_dir=cfg.out_dir,
+        key=cfg.metric[0],
+        best_watcher=BestWatcher(mode=cfg.metric[1]),
     )
-    to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold)
+    to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold, use_peak=cfg.use_peak)
     get_score = MeanPrecition()
     box_merge = BoxMerge(iou_threshold=cfg.iou_threshold)
     trainer = Trainer(

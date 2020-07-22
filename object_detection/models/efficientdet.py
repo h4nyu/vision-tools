@@ -16,6 +16,7 @@ from object_detection.entities import (
     PascalBoxes,
     yolo_to_pascal,
     ImageBatch,
+    yolo_clamp,
 )
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
@@ -182,16 +183,16 @@ class EfficientDet(nn.Module):
         self,
         num_classes: int,
         backbone: nn.Module,
-        channels: int = 32,
-        threshold: float = 0.01,
-        out_ids: List[PyramidIdx] = [4, 5, 6],
-        anchors: Anchors = Anchors(size=2),
+        channels: int = 64,
+        out_ids: List[PyramidIdx] = [5, 6, 7],
+        anchors: Anchors = Anchors(),
+        depth: int = 1,
     ) -> None:
         super().__init__()
         self.out_ids = np.array(out_ids) - 3
         self.anchors = anchors
         self.backbone = backbone
-        self.neck = BiFPN(channels=channels)
+        self.neck = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
         self.pos_reg = RegressionModel(
             in_channels=channels,
             hidden_channels=channels,
@@ -242,6 +243,7 @@ class SizeLoss:
         positive_indices = iou_max > self.iou_threshold
         num_pos = positive_indices.sum()
         if num_pos == 0:
+            logger.warning("size: no box matched")
             return torch.tensor(0.0).to(device)
         matched_gt_boxes = gt_boxes[match_indices][positive_indices][:, 2:]
         matched_anchors = anchors[positive_indices][:, 2:]
@@ -267,6 +269,7 @@ class PosLoss:
         positive_indices = iou_max > self.iou_threshold
         num_pos = positive_indices.sum()
         if num_pos == 0:
+            logger.warning("position: no box matched")
             return torch.tensor(0.0).to(device)
         matched_gt_boxes = gt_boxes[match_indices][positive_indices][:, :2]
         matched_anchor_pos = anchors[positive_indices][:, :2]
@@ -300,9 +303,11 @@ class LabelLoss:
         matched_gt_classes = gt_classes[match_indices]
         targets = torch.ones(pred_classes.shape).to(device) * -1.0
         targets[positive_indices, matched_gt_classes[positive_indices].long()] = 1
-
         targets[negative_indices, :] = 0
         pred_classes = torch.clamp(pred_classes, min=1e-4, max=1 - 1e-4)
+        pos_count = positive_indices.sum()
+        if pos_count == 0:
+            logger.warning("label: no box matched")
         pos_loss = (
             -self.alpha
             * ((1 - pred_classes) ** self.gamma)
@@ -317,7 +322,7 @@ class LabelLoss:
             * targets.eq(0.0)
         )
         neg_loss = (neg_loss).sum()
-        loss = (pos_loss + neg_loss) / positive_indices.sum().clamp(min=1.0)
+        loss = (pos_loss + neg_loss) / pos_count.clamp(min=1.0)
         return loss
 
 
@@ -325,7 +330,7 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        pos_weight: float = 4.0,
+        pos_weight: float = 1.0,
         size_weight: float = 1.0,
         label_weight: float = 1.0,
         pos_loss: PosLoss = PosLoss(),
@@ -430,14 +435,14 @@ class ToBoxes:
             box_size = anchors[:, 2:] * size_diff.exp()
             boxes = torch.cat([box_pos, box_size], dim=1)
             confidences, c_index = confidences.max(dim=1)
-
             filter_idx = confidences > self.confidence_threshold
             confidences = confidences[filter_idx]
             boxes = boxes[filter_idx]
             sort_idx = confidences.argsort(descending=True)
-            boxes = boxes[sort_idx]
+            boxes = YoloBoxes(boxes[sort_idx])
+            boxes = yolo_clamp(boxes)
             confidences = confidences[sort_idx]
-            box_batch.append(YoloBoxes(boxes))
+            box_batch.append(boxes)
             confidence_batch.append(Confidences(confidences))
         return box_batch, confidence_batch
 

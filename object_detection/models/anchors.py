@@ -1,108 +1,61 @@
 import torch
 import numpy as np
 import typing as t
-from typing import Any
+import itertools
+from typing import Any, Dict, Tuple
 from torch import nn, Tensor
-from object_detection.entities.box import YoloBoxes, PascalBoxes, pascal_to_yolo
-from object_detection.entities import PyramidIdx
+from object_detection.entities import (
+    YoloBoxes,
+    ImageBatch,
+    boxmaps_to_boxes,
+    BoxMaps,
+    yolo_clamp,
+)
 
 
 class Anchors:
     def __init__(
         self,
-        size: int = 4,
-        stride: int = 1,
-        ratios: t.List[float] = [0.5, 1, 2],
-        scales: t.List[float] = [1.0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)],
+        size: float = 1.0,
+        ratios: t.List[float] = [3 / 4, 1, 4 / 3],
+        scales: t.List[float] = [1.0, 1.5, 2],
+        use_cache: bool = True,
     ) -> None:
-        self.size = size
-        self.stride = stride
-        self.ratios = ratios
-        self.scales = scales
-        self.num_anchors = len(ratios) * len(scales)
+        self.use_cache = use_cache
+        pairs = torch.tensor(list(itertools.product(scales, ratios)))
+        self.num_anchors = len(pairs)
+        self.ratios = torch.stack([pairs[:, 1], 1 / pairs[:, 1]]).t()
+        self.scales = (
+            pairs[:, 0].view(self.num_anchors, 1).expand((self.num_anchors, 2))
+        ) * size
+        self.cache: Dict[Tuple[int, int], YoloBoxes] = {}
 
-    def __call__(self, image: Tensor) -> YoloBoxes:
-        """
-        image: [B, C, H, W]
-        return: [B, num_anchors, 4]
-        """
-        _, _, h, w = image.shape
-        image_shape = np.array((h, w))
-        anchors = generate_anchors(
-            base_size=self.size, ratios=self.ratios, scales=self.scales
-        )
-        all_anchors = shift(image_shape, self.stride, anchors).astype(np.float32)
-        return pascal_to_yolo(
-            PascalBoxes(torch.from_numpy(all_anchors).to(image.device)), (w, h)
-        )
+    @torch.no_grad()
+    def __call__(self, images: ImageBatch) -> YoloBoxes:
+        h, w = images.shape[2:]
+        device = images.device
+        if self.use_cache:
+            if (h, w) in self.cache:
+                return self.cache[(h, w)]
 
-
-def shift(shape: t.Any, stride: int, anchors: t.Any) -> t.Any:
-    shift_x = (np.arange(0, shape[1]) + 0.5) * stride
-    shift_y = (np.arange(0, shape[0]) + 0.5) * stride
-
-    shift_x, shift_y = np.meshgrid(shift_x, shift_y)
-
-    shifts = np.vstack(
-        (shift_x.ravel(), shift_y.ravel(), shift_x.ravel(), shift_y.ravel())
-    ).transpose()
-
-    # add A anchors (1, A, 4) to
-    # cell K shifts (K, 1, 4) to get
-    # shift anchors (K, A, 4)
-    # reshape to (K*A, 4) shifted anchors
-    A = anchors.shape[0]
-    K = shifts.shape[0]
-    all_anchors = anchors.reshape((1, A, 4)) + shifts.reshape((1, K, 4)).transpose(
-        (1, 0, 2)
-    )
-    all_anchors = all_anchors.reshape((K * A, 4))
-
-    return all_anchors
-
-
-def generate_anchors(
-    base_size: int, ratios: t.List[float], scales: t.List[float],
-) -> t.Any:
-    """
-    Generate anchor (reference) windows by enumerating aspect ratios X
-    scales w.r.t. a reference window.
-    """
-
-    num_anchors = len(ratios) * len(scales)
-
-    # initialize output anchors
-    anchors = np.zeros((num_anchors, 4))
-
-    # scale base_size
-    anchors[:, 2:] = base_size * np.tile(scales, (2, len(ratios))).T
-
-    # compute areas of anchors
-    areas = anchors[:, 2] * anchors[:, 3]
-
-    # correct for ratios
-    anchors[:, 2] = np.sqrt(areas / np.repeat(ratios, len(scales)))
-    anchors[:, 3] = anchors[:, 2] * np.repeat(ratios, len(scales))
-
-    # transform from (x_ctr, y_ctr, w, h) -> (x1, y1, x2, y2)
-    anchors[:, 0::2] -= np.tile(anchors[:, 2] * 0.5, (2, 1)).T
-    anchors[:, 1::2] -= np.tile(anchors[:, 3] * 0.5, (2, 1)).T
-
-    return anchors
-
-
-class AnchorsV1:
-    def __init__(self, size: int = 1) -> None:
-        self.size = size
-
-    def __call__(self, ref_images: Tensor) -> Any:
-        h, w = ref_images.shape[-2:]
-        device = ref_images.device
         grid_y, grid_x = torch.meshgrid(  # type:ignore
             torch.arange(h, dtype=torch.float32) / h,
             torch.arange(w, dtype=torch.float32) / w,
         )
-        box_h = torch.ones((h, w)) * (self.size / h)
-        box_w = torch.ones((h, w)) * (self.size / w)
-        anchors = torch.stack([grid_x, grid_y, box_w, box_h])
-        return anchors.to(device)
+        box_wh = torch.tensor([1 / w, 1 / h])
+        box_wh = self.ratios * self.scales * box_wh
+        box_wh = (
+            box_wh.to(device)
+            .view(self.num_anchors, 2, 1, 1)
+            .expand((self.num_anchors, 2, h, w))
+        )
+        grid_xy = (
+            torch.stack([grid_x, grid_y]).to(device).expand(self.num_anchors, 2, h, w)
+        )
+        boxmaps = BoxMaps(torch.cat([grid_xy, box_wh], dim=1))
+        boxes = boxmaps_to_boxes(boxmaps)
+        boxes = yolo_clamp(boxes)
+
+        if self.use_cache:
+            self.cache[(h, w)] = boxes
+        return boxes

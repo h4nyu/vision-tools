@@ -26,8 +26,12 @@ YoloBoxBatch = NewType("YoloBoxBatch", Tensor)  # [B, N, 4]
 ConfidenceBatch = NewType("ConfidenceBatch", Tensor)  # [B, N] 0.0 ~ 1.0
 
 
-def boxmap_to_boxes(am: BoxMap) -> YoloBoxes:
-    return YoloBoxes(am.permute(2, 1, 0).reshape(-1, 4))
+def boxmap_to_boxes(x: BoxMap) -> YoloBoxes:
+    return YoloBoxes(x.permute(2, 1, 0).reshape(-1, 4))
+
+
+def boxmaps_to_boxes(x: BoxMaps) -> YoloBoxes:
+    return YoloBoxes(x.permute(3, 2, 0, 1).reshape(-1, 4))
 
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
@@ -59,12 +63,12 @@ def yolo_to_pascal(yolo: YoloBoxes, wh: ImageSize) -> PascalBoxes:
     cx, cy, w, h = yolo.unbind(-1)
     size_w, size_h = wh
     b = [
-        ((cx - w / 2) * size_w).clamp(min=0, max=image_w),
-        ((cy - 0.5 * h) * size_h).clamp(min=0, max=image_h),
-        ((cx + 0.5 * w) * size_w).clamp(min=0, max=image_w),
-        ((cy + 0.5 * h) * size_h).clamp(min=0, max=image_h),
+        ((cx - 0.5 * w) * size_w),
+        ((cy - 0.5 * h) * size_h),
+        ((cx + 0.5 * w) * size_w),
+        ((cy + 0.5 * h) * size_h),
     ]
-    return PascalBoxes(torch.stack(b, dim=-1).clamp(min=0.0))
+    return PascalBoxes(torch.stack(b, dim=-1))
 
 
 def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:
@@ -122,3 +126,9 @@ def yolo_vflip(yolo: YoloBoxes) -> YoloBoxes:
         h,
     ]
     return YoloBoxes(torch.stack(b, dim=-1))
+
+
+def yolo_clamp(yolo: YoloBoxes) -> YoloBoxes:
+    return pascal_to_yolo(
+        PascalBoxes(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)), (1, 1)
+    )

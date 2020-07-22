@@ -9,6 +9,9 @@ from object_detection.models.efficientdet import (
     Visualize,
     ToBoxes,
     Anchors,
+    PosLoss,
+    SizeLoss,
+    LabelLoss,
 )
 from object_detection.models.box_merge import BoxMerge
 from object_detection.model_loader import ModelLoader, BestWatcher
@@ -31,21 +34,34 @@ def train(epochs: int) -> None:
         num_samples=256,
     )
     backbone = EfficientNetBackbone(1, out_channels=config.channels, pretrained=True)
-    anchors = Anchors(size=config.anchor_size, ratios=config.anchor_ratios)
+    anchors = Anchors(
+        scales=config.anchor_scales,
+        ratios=config.anchor_ratios,
+        size=config.anchor_size,
+    )
     model = EfficientDet(
-        num_classes=1, channels=config.channels, backbone=backbone, anchors=anchors
+        out_ids=config.out_ids,
+        num_classes=1,
+        channels=config.channels,
+        backbone=backbone,
+        anchors=anchors,
     )
     model_loader = ModelLoader(
         out_dir=config.out_dir,
         key=config.metric[0],
         best_watcher=BestWatcher(mode=config.metric[1]),
     )
-    box_merge = BoxMerge(iou_threshold=config.iou_threshold)
-    criterion = Criterion()
+    criterion = Criterion(
+        label_weight=config.label_weight,
+        pos_loss=PosLoss(config.pos_threshold),
+        size_loss=SizeLoss(config.size_threshold),
+        label_loss=LabelLoss(config.label_thresholds),
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    visualize = Visualize("/store/efficientdet", "test", limit=2)
+    visualize = Visualize("/store/efficientdet", "test", limit=5)
     get_score = MeanPrecition()
     to_boxes = ToBoxes(confidence_threshold=config.confidence_threshold,)
+    box_merge = BoxMerge(iou_threshold=config.iou_threshold)
     trainer = Trainer(
         model,
         DataLoader(

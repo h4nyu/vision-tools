@@ -40,6 +40,7 @@ from object_detection.entities import (
     PascalBoxes,
     TrainSample,
     PredictionSample,
+    yolo_clamp,
 )
 from .box_merge import BoxMerge
 from .tta import HFlipTTA, VFlipTTA
@@ -241,7 +242,7 @@ class ToBoxes:
             anchor = anchormap[:, kp[:, 0], kp[:, 1]].t()
             box_diff = box_diff[:, kp[:, 0], kp[:, 1]].t()
             boxes = anchor + box_diff
-            box_batch.append(YoloBoxes(boxes))
+            box_batch.append(yolo_clamp(YoloBoxes(boxes)))
             conf_batch.append(Confidences(confidences))
         return box_batch, conf_batch
 
@@ -268,13 +269,103 @@ class BoxLoss:
         return F.l1_loss(pred_diff, gt_diff, reduction="mean")
 
 
-MkMapMode = Literal["length", "aspect", "constant", "fill"]
-class MkMaps:
-    def __init__(
+MkMapsFn = Callable[[List[YoloBoxes], Tuple[int, int], Tuple[int, int],], Heatmaps]
+
+
+class MkMapsBase:
+    def _mkmaps(
+        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+    ) -> Heatmaps:
+        ...
+
+    @torch.no_grad()
+    def __call__(
         self,
-        sigma: float = 0.5,
-        mode: MkMapMode = "length",
-    ) -> None:
+        box_batch: List[YoloBoxes],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
+    ) -> Heatmaps:
+        hms: List[Tensor] = []
+        for boxes in box_batch:
+            hm = self._mkmaps(boxes, hw, original_hw)
+            hms.append(hm)
+        return Heatmaps(torch.cat(hms, dim=0))
+
+
+class MkCrossMaps(MkMapsBase):
+    def __init__(self, alpha: float = 0.5):
+        self.alpha = alpha
+
+    def _mkmaps(
+        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+    ) -> Heatmaps:
+        device = boxes.device
+        h, w = hw
+        orig_h, orig_w = original_hw
+        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
+        box_count = len(boxes)
+        if box_count == 0:
+            return Heatmaps(heatmap)
+        step_w = 1.0 / w
+        step_h = 1.0 / h
+        grid_y, grid_x = torch.meshgrid(  # type:ignore
+            torch.arange(start=0.0, end=1.0, step=step_h, dtype=torch.float32).to(
+                device
+            ),
+            torch.arange(start=0.0, end=1.0, step=step_w, dtype=torch.float32).to(
+                device
+            ),
+        )
+        #  img_wh = torch.tensor([w, h]).to(device)
+        grid_cxcy = (boxes[:, :2]).view(box_count, 2, 1, 1).expand((box_count, 2, h, w))
+        grid_wh = (boxes[:, 2:]).view(box_count, 2, 1, 1).expand((box_count, 2, h, w))
+        grid_xy = torch.stack([grid_x, grid_y]).expand((box_count, 2, h, w))
+        grid_xycxcywh = torch.cat([grid_cxcy, grid_xy, grid_wh], dim=1)
+        mounts = (
+            (grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w
+        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h))
+        mounts |= (
+            (
+                grid_xycxcywh[:, 2, ::]
+                - grid_xycxcywh[:, 4, ::] * self.alpha / 2
+                - grid_xycxcywh[:, 0, ::]
+            ).abs()
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h / 2))
+        mounts |= (
+            (
+                grid_xycxcywh[:, 2, ::]
+                + grid_xycxcywh[:, 4, ::] * self.alpha / 2
+                - grid_xycxcywh[:, 0, ::]
+            ).abs()
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h / 2))
+        mounts |= (
+            (
+                grid_xycxcywh[:, 3, ::]
+                - grid_xycxcywh[:, 5, ::] * self.alpha / 2
+                - grid_xycxcywh[:, 1, ::]
+            ).abs()
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w / 2))
+        mounts |= (
+            (
+                grid_xycxcywh[:, 3, ::]
+                + grid_xycxcywh[:, 5, ::] * self.alpha / 2
+                - grid_xycxcywh[:, 1, ::]
+            ).abs()
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w / 2))
+        mounts = mounts.view(box_count, 1, h, w).float()
+        heatmap, _ = mounts.max(dim=0, keepdim=True)
+        return Heatmaps(heatmap)
+
+
+GaussianMapMode = Literal["length", "aspect", "constant"]
+
+
+class MkGaussianMaps(MkMapsBase):
+    def __init__(self, sigma: float = 0.5, mode: GaussianMapMode = "length",) -> None:
         self.sigma = sigma
         self.mode = mode
 
@@ -299,7 +390,6 @@ class MkMaps:
         cy = cxcy[:, 1]
         grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
-
         if self.mode == "aspect":
             weight = (boxes[:, 2:] ** 2).clamp(min=1e-4).view(box_count, 2, 1, 1)
         else:
@@ -309,48 +399,64 @@ class MkMaps:
                 .clamp(min=1e-4)
                 .view(box_count, 1, 1, 1)
             )
-
-        if self.mode == "fill":
-            img_wh = img_wh.view(1, 2, 1, 1).expand_as(grid_xy)
-            mounts = (
-                (grid_xy.float() / img_wh) - (grid_cxcy.float() / img_wh)
-            ).abs() < box_wh.view(box_count, 2, 1, 1).expand_as(grid_xy) * 0.5 * self.sigma
-            mounts, _ = mounts.min(dim=1, keepdim=True)
-            mounts = mounts.float()
-        else:
-            mounts = torch.exp(
-                -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
-                / (2 * self.sigma ** 2)
-            )
+        mounts = torch.exp(
+            -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
+            / (2 * self.sigma ** 2)
+        )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return Heatmaps(heatmap)
 
-    @torch.no_grad()
-    def __call__(
-        self,
-        box_batch: List[YoloBoxes],
-        hw: Tuple[int, int],
-        original_hw: Tuple[int, int],
-    ) -> Heatmaps:
-        hms: List[Tensor] = []
-        for boxes in box_batch:
-            hm = self._mkmaps(boxes, hw, original_hw)
-            hms.append(hm)
 
-        return Heatmaps(torch.cat(hms, dim=0))
+class MkFillMaps(MkMapsBase):
+    def __init__(self, sigma: float = 0.5) -> None:
+        self.sigma = sigma
+
+    def _mkmaps(
+        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+    ) -> Heatmaps:
+        device = boxes.device
+        h, w = hw
+        orig_h, orig_w = original_hw
+        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
+        box_count = len(boxes)
+        if box_count == 0:
+            return Heatmaps(heatmap)
+
+        grid_y, grid_x = torch.meshgrid(  # type:ignore
+            torch.arange(h, dtype=torch.int64), torch.arange(w, dtype=torch.int64),
+        )
+        img_wh = torch.tensor([w, h]).to(device)
+        cxcy = boxes[:, :2] * img_wh
+        box_wh = boxes[:, 2:]
+        cx = cxcy[:, 0]
+        cy = cxcy[:, 1]
+        grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
+        grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
+        grid_wh = img_wh.view(1, 2, 1, 1).expand_as(grid_xy)
+        min_wh = (1.0 / img_wh.float()).view(1, 2).expand_as(box_wh)
+        clamped_wh = torch.max(box_wh * 0.5 * self.sigma, min_wh)
+        mounts = (
+            (grid_xy.float() / grid_wh) - (grid_cxcy.float() / grid_wh)
+        ).abs() < clamped_wh.view(box_count, 2, 1, 1).expand_as(grid_xy)
+        mounts, _ = mounts.min(dim=1, keepdim=True)
+        mounts = mounts.float()
+        heatmap, _ = mounts.max(dim=0, keepdim=True)
+        return Heatmaps(heatmap)
 
 
 class Criterion:
     def __init__(
-        self, box_weight: float = 4.0, heatmap_weight: float = 1.0,
-        mk_maps:MkMaps=MkMaps(),
+        self,
+        box_weight: float = 4.0,
+        heatmap_weight: float = 1.0,
+        mkmaps: MkMapsFn = MkGaussianMaps(),
     ) -> None:
         self.box_weight = box_weight
         self.heatmap_weight = heatmap_weight
 
         self.hm_loss = HMLoss()
         self.box_loss = BoxLoss()
-        self.mkmaps = mk_maps
+        self.mkmaps = mkmaps
 
     def __call__(
         self, images: ImageBatch, net_output: NetOutput, gt_boxes_list: List[YoloBoxes],
