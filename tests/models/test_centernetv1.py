@@ -1,9 +1,9 @@
 import torch
 import pytest
+import torch.nn.functional as F
 from typing import Any
 from object_detection.entities import YoloBoxes, BoxMaps, boxmap_to_boxes, ImageBatch
 from object_detection.models.centernetv1 import (
-    MkMaps,
     Heatmaps,
     Sizemap,
     ToBoxes,
@@ -11,6 +11,9 @@ from object_detection.models.centernetv1 import (
     Anchors,
     ToBoxes,
     HFlipTTA,
+    MkCrossMaps,
+    MkGaussianMaps,
+    MkFillMaps,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.utils import DetectionPlot
@@ -44,7 +47,7 @@ def test_ctdtv1() -> None:
 def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(threshold=0.1)
-    mkmaps = MkMaps(sigma=2.0)
+    mkmaps = MkGaussianMaps(sigma=2.0)
     hm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
     assert hm.shape == (1, 1, h, w)
@@ -67,10 +70,10 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
 
 
 @pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
-def test_mkmaps_fill(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+def test_mkfillmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(threshold=0.1)
-    mkmaps = MkMaps(sigma=0.5, mode="fill")
+    mkmaps = MkFillMaps(sigma=0.5)
     hm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     assert hm.shape == (1, 1, h, w)
     mk_anchors = Anchors()
@@ -89,6 +92,29 @@ def test_mkmaps_fill(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> 
     plot.with_yolo_boxes(out_boxes, color="red")
     plot.with_yolo_boxes(in_boxes, color="blue")
     plot.save(f"store/test-heatmapv1-fill.png")
+
+
+@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(80, 80, 32, 16, 0.001, 0.002)])
+def test_mkcrossmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+    in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
+    to_boxes = ToBoxes(threshold=0.1)
+    mkmaps = MkCrossMaps()
+    hm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
+    assert hm.shape == (1, 1, h, w)
+    mk_anchors = Anchors()
+    anchormap = mk_anchors(hm)
+    diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
+    diffmaps = in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+
+    out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
+    out_boxes = out_box_batch[0]
+    for box in out_boxes:
+        assert F.l1_loss(box, in_boxes[0]) < 1e-8
+    plot = DetectionPlot(w=w, h=h)
+    plot.with_image((hm[0, 0] + 1e-4).log())
+    plot.with_yolo_boxes(out_boxes, color="red")
+    plot.with_yolo_boxes(in_boxes, color="blue")
+    plot.save(f"store/test-crossmap.png")
 
 
 def test_hfliptta() -> None:

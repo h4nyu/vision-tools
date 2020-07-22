@@ -4,14 +4,20 @@ import typing as t
 import itertools
 from typing import Any, Dict, Tuple
 from torch import nn, Tensor
-from object_detection.entities import YoloBoxes, ImageBatch, boxmaps_to_boxes, BoxMaps,yolo_clamp
+from object_detection.entities import (
+    YoloBoxes,
+    ImageBatch,
+    boxmaps_to_boxes,
+    BoxMaps,
+    yolo_clamp,
+)
 
 
 class Anchors:
     def __init__(
         self,
-        size:float=1.0,
-        ratios: t.List[float] = [3/4, 1, 4/3],
+        size: float = 1.0,
+        ratios: t.List[float] = [3 / 4, 1, 4 / 3],
         scales: t.List[float] = [1.0, 1.5, 2],
         use_cache: bool = True,
     ) -> None:
@@ -21,9 +27,8 @@ class Anchors:
         self.ratios = torch.stack([pairs[:, 1], 1 / pairs[:, 1]]).t()
         self.scales = (
             pairs[:, 0].view(self.num_anchors, 1).expand((self.num_anchors, 2))
-        )*size
-        self.cache:Dict[Tuple[int, int], YoloBoxes] = {}
-
+        ) * size
+        self.cache: Dict[Tuple[int, int], YoloBoxes] = {}
 
     @torch.no_grad()
     def __call__(self, images: ImageBatch) -> YoloBoxes:

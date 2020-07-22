@@ -127,8 +127,8 @@ def yolo_vflip(yolo: YoloBoxes) -> YoloBoxes:
     ]
     return YoloBoxes(torch.stack(b, dim=-1))
 
+
 def yolo_clamp(yolo: YoloBoxes) -> YoloBoxes:
     return pascal_to_yolo(
-        PascalBoxes(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)),
-        (1, 1)
+        PascalBoxes(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)), (1, 1)
     )

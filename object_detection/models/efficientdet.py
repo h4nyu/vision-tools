@@ -186,15 +186,13 @@ class EfficientDet(nn.Module):
         channels: int = 64,
         out_ids: List[PyramidIdx] = [5, 6, 7],
         anchors: Anchors = Anchors(),
-        depth:int = 1,
+        depth: int = 1,
     ) -> None:
         super().__init__()
         self.out_ids = np.array(out_ids) - 3
         self.anchors = anchors
         self.backbone = backbone
-        self.neck = nn.Sequential(
-            *[BiFPN(channels=channels) for _ in range(depth)]
-        )
+        self.neck = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
         self.pos_reg = RegressionModel(
             in_channels=channels,
             hidden_channels=channels,

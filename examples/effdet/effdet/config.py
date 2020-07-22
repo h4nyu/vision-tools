@@ -25,4 +25,4 @@ size_threshold = 0.4
 label_thresholds = (0.3, 0.4)
 
 # model
-out_ids:List[PyramidIdx] = [4, 5, 6]
+out_ids: List[PyramidIdx] = [4, 5, 6]

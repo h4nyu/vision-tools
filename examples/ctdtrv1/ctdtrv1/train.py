@@ -8,7 +8,6 @@ from object_detection.models.centernetv1 import (
     Criterion,
     ToBoxes,
     Anchors,
-    MkMaps,
 )
 from object_detection.models.box_merge import BoxMerge
 from object_detection.models.backbones.effnet import EfficientNetBackbone
@@ -39,9 +38,8 @@ def train(epochs: int) -> None:
         box_depth=cfg.box_depth,
         anchors=Anchors(size=cfg.anchor_size),
     )
-    mk_maps = MkMaps(sigma=cfg.sigma, mode=cfg.mode)
     criterion = Criterion(
-        box_weight=cfg.box_weight, heatmap_weight=cfg.heatmap_weight, mk_maps=mk_maps,
+        box_weight=cfg.box_weight, heatmap_weight=cfg.heatmap_weight, mkmaps=cfg.mkmaps,
     )
     train_loader = DataLoader(
         train_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size, shuffle=True
