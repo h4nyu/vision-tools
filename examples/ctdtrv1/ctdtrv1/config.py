@@ -11,7 +11,7 @@ input_size = (256, 256)
 metric: Tuple[str, WatchMode] = ("test_loss", "min")
 
 heatmap_weight = 1.0
-box_weight = 100.0
+box_weight = 1.0
 object_count_range = (5, 20)
 object_size_range = (32, 64)
 out_dir = "/store/centernetv1"
