@@ -330,32 +330,32 @@ class MkCrossMaps(MkMapsBase):
                 - grid_xycxcywh[:, 4, ::] * self.alpha / 2
                 - grid_xycxcywh[:, 0, ::]
             ).abs()
-            < step_w
-        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h))
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h / 2))
         mounts |= (
             (
                 grid_xycxcywh[:, 2, ::]
                 + grid_xycxcywh[:, 4, ::] * self.alpha / 2
                 - grid_xycxcywh[:, 0, ::]
             ).abs()
-            < step_w
-        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h))
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h / 2))
         mounts |= (
             (
                 grid_xycxcywh[:, 3, ::]
                 - grid_xycxcywh[:, 5, ::] * self.alpha / 2
                 - grid_xycxcywh[:, 1, ::]
             ).abs()
-            < step_w
-        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w))
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w / 2))
         mounts |= (
             (
                 grid_xycxcywh[:, 3, ::]
                 + grid_xycxcywh[:, 5, ::] * self.alpha / 2
                 - grid_xycxcywh[:, 1, ::]
             ).abs()
-            < step_w
-        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w))
+            < step_w / 2
+        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w / 2))
         mounts = mounts.view(box_count, 1, h, w).float()
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return Heatmaps(heatmap)
