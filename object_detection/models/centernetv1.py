@@ -255,7 +255,7 @@ class NearnestAssign:
         gt_ctr = gt[:, :2]
         matrix = ((pred_ctr - gt_ctr) ** 2).sum(dim=-1).sqrt()
         min_dist, matched_idx = matrix.min(dim=1)
-        max_lenght = gt[:, 2:].max(dim=1)[0][matched_idx]
+        max_lenght = (gt[:, 2:] / 2).max(dim=1)[0][matched_idx]
         filter_idx = min_dist < max_lenght
         return matched_idx, filter_idx
 

@@ -152,11 +152,9 @@ def test_nearest_assign() -> None:
 
     fn = NearnestAssign()
     matched_idx, positive_idx = fn(x, y)
-    print(matched_idx)
-
     assert (
         F.l1_loss(matched_idx.float(), torch.tensor([0, 1, 1, 2, 2, 2]).float()) < 1e-9
     )
     assert (
-        F.l1_loss(positive_idx.float(), torch.tensor([1, 1, 1, 1, 0, 0]).float()) < 1e-9
+        F.l1_loss(positive_idx.float(), torch.tensor([1, 1, 0, 1, 0, 0]).float()) < 1e-9
     )
