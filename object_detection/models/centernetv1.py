@@ -251,11 +251,11 @@ class NearnestAssign:
     def __call__(self, pred: YoloBoxes, gt: YoloBoxes) -> Tuple[Tensor, Tensor]:
         pred_count = pred.shape[0]
         gt_count = gt.shape[0]
-        max_lenght = pred[:, 2:].max(dim=1)[0]
         pred_ctr = pred[:, :2].view(pred_count, 1, 2).expand(pred_count, gt_count, 2,)
         gt_ctr = gt[:, :2]
         matrix = ((pred_ctr - gt_ctr) ** 2).sum(dim=-1).sqrt()
         min_dist, matched_idx = matrix.min(dim=1)
+        max_lenght = gt[:, 2:].max(dim=1)[0][matched_idx]
         filter_idx = min_dist < max_lenght
         return matched_idx, filter_idx
 
