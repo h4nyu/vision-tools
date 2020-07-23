@@ -14,6 +14,7 @@ from object_detection.models.centernetv1 import (
     MkCrossMaps,
     MkGaussianMaps,
     MkFillMaps,
+    NearnestAssign,
 )
 from object_detection.models.backbones.resnet import ResNetBackbone
 from object_detection.utils import DetectionPlot
@@ -127,3 +128,35 @@ def test_hfliptta() -> None:
     backbone = ResNetBackbone("resnet34", out_channels=channels)
     model = CenterNetV1(channels=channels, backbone=backbone, out_idx=6,)
     fn(model, images)
+
+
+def test_nearest_assign() -> None:
+    x = YoloBoxes(
+        torch.tensor(
+            [
+                [0.11, 0.12, 0.1, 0.1],
+                [0.21, 0.22, 0.1, 0.1],
+                [0.25, 0.22, 0.1, 0.1],
+                [0.31, 0.32, 0.1, 0.1],
+                [0.41, 0.42, 0.1, 0.1],
+                [0.61, 0.62, 0.1, 0.1],
+            ]
+        )
+    )
+
+    y = YoloBoxes(
+        torch.tensor(
+            [[0.1, 0.1, 0.1, 0.1], [0.2, 0.2, 0.1, 0.1], [0.3, 0.3, 0.1, 0.1],]
+        )
+    )
+
+    fn = NearnestAssign()
+    matched_idx, positive_idx = fn(x, y)
+    print(matched_idx)
+
+    assert (
+        F.l1_loss(matched_idx.float(), torch.tensor([0, 1, 1, 2, 2, 2]).float()) < 1e-9
+    )
+    assert (
+        F.l1_loss(positive_idx.float(), torch.tensor([1, 1, 1, 1, 0, 0]).float()) < 1e-9
+    )

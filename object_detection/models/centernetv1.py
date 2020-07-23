@@ -247,18 +247,33 @@ class ToBoxes:
         return box_batch, conf_batch
 
 
+class NearnestAssign:
+    def __call__(self, pred: YoloBoxes, gt: YoloBoxes) -> Tuple[Tensor, Tensor]:
+        pred_count = pred.shape[0]
+        gt_count = gt.shape[0]
+        max_lenght = pred[:, 2:].max(dim=1)[0]
+        pred_ctr = pred[:, :2].view(pred_count, 1, 2).expand(pred_count, gt_count, 2,)
+        gt_ctr = gt[:, :2]
+        matrix = ((pred_ctr - gt_ctr) ** 2).sum(dim=-1).sqrt()
+        min_dist, matched_idx = matrix.min(dim=1)
+        filter_idx = min_dist < max_lenght
+        return matched_idx, filter_idx
+
+
 class BoxLoss:
+    def __init__(self) -> None:
+        self.assign = NearnestAssign()
+
     def __call__(
         self, anchormap: BoxMap, diffmap: BoxMap, gt_boxes: YoloBoxes, heatmap: Heatmap,
     ) -> Tensor:
         device = diffmap.device
         box_diff = boxmap_to_boxes(diffmap)
         anchors = boxmap_to_boxes(anchormap)
-        iou_matrix = box_iou(
-            yolo_to_pascal(anchors, wh=(1, 1)), yolo_to_pascal(gt_boxes, wh=(1, 1)),
-        )
-        iou_max, match_indices = torch.max(iou_matrix, dim=1)
-        positive_indices = iou_max > 0
+        centers = anchors[:, 2:]
+        gt_centers = gt_boxes[:, 2:]
+
+        match_indices, positive_indices = self.assign(anchors, gt_boxes,)
         num_pos = positive_indices.sum()
         if num_pos == 0:
             return torch.tensor(0.0).to(device)
@@ -400,7 +415,7 @@ class MkGaussianMaps(MkMapsBase):
                 .view(box_count, 1, 1, 1)
             )
         else:
-            weight = torch.ones((box_count, 1,1,1)).to(device)
+            weight = torch.ones((box_count, 1, 1, 1)).to(device)
         mounts = torch.exp(
             -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
             / (2 * self.sigma ** 2)

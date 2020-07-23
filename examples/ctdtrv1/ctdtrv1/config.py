@@ -21,7 +21,4 @@ iou_threshold = 0.4
 to_boxes_threshold = 0.4
 anchor_size = 1
 
-mkmaps = MkGaussianMaps(
-    sigma=0.5,
-    mode="constant",
-)
+mkmaps = MkGaussianMaps(sigma=0.5, mode="constant",)
