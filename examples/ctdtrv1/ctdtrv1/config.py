@@ -1,6 +1,6 @@
 from typing import Tuple
 from object_detection.entities import PyramidIdx
-from object_detection.models.centernetv1 import MkCrossMaps
+from object_detection.models.centernetv1 import MkGaussianMaps
 from object_detection.model_loader import WatchMode
 
 lr = 1e-4
@@ -21,4 +21,7 @@ iou_threshold = 0.4
 to_boxes_threshold = 0.4
 anchor_size = 1
 
-mkmaps = MkCrossMaps()
+mkmaps = MkGaussianMaps(
+    sigma=0.5,
+    mode="constant",
+)

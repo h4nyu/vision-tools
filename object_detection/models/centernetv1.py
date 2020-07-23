@@ -392,13 +392,15 @@ class MkGaussianMaps(MkMapsBase):
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
         if self.mode == "aspect":
             weight = (boxes[:, 2:] ** 2).clamp(min=1e-4).view(box_count, 2, 1, 1)
-        else:
+        elif self.mode == "length":
             weight = (
                 (boxes[:, 2:] ** 2)
                 .min(dim=1, keepdim=True)[0]
                 .clamp(min=1e-4)
                 .view(box_count, 1, 1, 1)
             )
+        else:
+            weight = torch.ones((box_count, 1,1,1)).to(device)
         mounts = torch.exp(
             -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
             / (2 * self.sigma ** 2)
