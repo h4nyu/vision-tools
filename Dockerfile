@@ -1,6 +1,4 @@
-FROM python:3.7-slim
-
-
+FROM arm64v8/python:3.7-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg2 curl ca-certificates gcc libc-dev unzip libgtk2.0-dev && \

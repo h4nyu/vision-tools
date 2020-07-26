@@ -14,10 +14,6 @@ jobs:
           name: Tpye check App
           command: |
             mypy .
-            mypy examples/ctdtrv1
-            mypy examples/effdet
-
-
       - run:
           name: Lint App
           command: |

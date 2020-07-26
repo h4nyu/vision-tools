@@ -15,7 +15,6 @@ setup(
         "torchvision",
         "efficientnet_pytorch",
         "scipy",
-        "opencv-python",
         "typing_extensions",
         "tqdm",
         "ensemble-boxes",
