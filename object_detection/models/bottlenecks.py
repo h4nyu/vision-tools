@@ -2,6 +2,7 @@ import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
 from .modules import Hswish, ConvBR2d, CSE2d, Mish
+from .activations import FReLU
 from typing_extensions import Literal
 
 
@@ -38,7 +39,7 @@ class MobileV3(nn.Module):
                 activation=None,
             ),
             CSE2d(mid_channels, reduction=4),
-            Hswish(),
+            FReLU(mid_channels),
             # pw-linear
             ConvBR2d(
                 mid_channels,
@@ -118,7 +119,7 @@ class SENextBottleneck2d(nn.Module):
                 ),
             )
         self.cse = CSE2d(out_channels, reduction)
-        self.activation = Mish()
+        self.activation = FReLU(out_channels)
 
     def forward(self, x: Tensor) -> Tensor:
         s = self.conv(x)
