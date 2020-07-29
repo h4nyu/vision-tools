@@ -59,10 +59,8 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
 
     out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
     out_boxes = out_box_batch[0]
-    assert out_boxes[0, 0] == in_boxes[0, 0]
-    assert out_boxes[0, 1] == in_boxes[0, 1]
-    assert out_boxes[0, 2] == in_boxes[0, 2]
-    assert out_boxes[0, 3] == in_boxes[0, 3]
+    for box in out_boxes:
+        assert F.l1_loss(box, in_boxes[0]) < 1e-8
     plot = DetectionPlot(w=w, h=h)
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(in_boxes, color="blue")
@@ -84,10 +82,8 @@ def test_mkfillmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> N
 
     out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
     out_boxes = out_box_batch[0]
-    assert out_boxes[0, 0] == in_boxes[0, 0]
-    assert out_boxes[0, 1] == in_boxes[0, 1]
-    assert out_boxes[0, 2] == in_boxes[0, 2]
-    assert out_boxes[0, 3] == in_boxes[0, 3]
+    for box in out_boxes:
+        assert F.l1_loss(box, in_boxes[0]) < 1e-8
     plot = DetectionPlot(w=w, h=h)
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(out_boxes, color="red")
