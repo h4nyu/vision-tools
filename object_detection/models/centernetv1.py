@@ -42,7 +42,6 @@ from object_detection.entities import (
     PredictionSample,
     yolo_clamp,
 )
-from .box_merge import BoxMerge
 from .tta import HFlipTTA, VFlipTTA
 
 
@@ -515,7 +514,6 @@ class Trainer:
         optimizer: Any,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
         to_boxes: ToBoxes,
-        box_merge: BoxMerge,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -530,7 +528,6 @@ class Trainer:
         self.criterion = criterion
         self.visualize = visualize
         self.get_score = get_score
-        self.box_merge = box_merge
         self.meters = {
             key: MeanMeter()
             for key in [
@@ -588,7 +585,7 @@ class Trainer:
             self.meters["test_loss"].update(loss.item())
             self.meters["test_box"].update(box_loss.item())
             self.meters["test_hm"].update(hm_loss.item())
-            preds = self.box_merge(self.to_boxes(outputs))
+            preds = self.to_boxes(outputs)
             for (pred, gt) in zip(preds[0], box_batch):
                 self.meters["score"].update(self.get_score(pred, gt))
 
@@ -602,7 +599,6 @@ class Predictor:
         loader: DataLoader,
         model_loader: ModelLoader,
         to_boxes: ToBoxes,
-        box_merge: BoxMerge,
         device: str = "cpu",
     ) -> None:
         self.device = torch.device(device)
@@ -611,7 +607,6 @@ class Predictor:
         self.preprocess = PreProcess(self.device)
         self.to_boxes = to_boxes
         self.loader = loader
-        self.box_merge = box_merge
         self.hflip_tta = HFlipTTA(to_boxes)
         self.vflip_tta = VFlipTTA(to_boxes)
 
@@ -624,12 +619,7 @@ class Predictor:
         id_list = []
         for images, ids in tqdm(self.loader):
             images = images.to(self.device)
-            outputs = self.model(images)
-            preds = self.box_merge(
-                self.to_boxes(outputs),
-                self.hflip_tta(self.model, images),
-                self.vflip_tta(self.model, images),
-            )
+            preds = self.model(images)
             boxes_list += preds[0]
             confs_list += preds[1]
             id_list += ids

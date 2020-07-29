@@ -30,7 +30,6 @@ from logging import getLogger
 from pathlib import Path
 from typing_extensions import Literal
 from tqdm import tqdm
-from .box_merge import BoxMerge
 
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
@@ -458,7 +457,6 @@ class Trainer:
         optimizer: t.Any,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
         to_boxes: ToBoxes,
-        box_merge: BoxMerge,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
     ) -> None:
@@ -473,7 +471,6 @@ class Trainer:
         self.criterion = criterion
         self.visualize = visualize
         self.get_score = get_score
-        self.box_merge = box_merge
         self.meters = {
             key: MeanMeter()
             for key in [
@@ -541,11 +538,10 @@ class Trainer:
             self.meters["test_pos"].update(pos_loss.item())
             self.meters["test_size"].update(size_loss.item())
             self.meters["test_label"].update(label_loss.item())
-            preds = self.box_merge(self.to_boxes(outputs))
-            for (pred, gt) in zip(preds[0], box_batch):
+            for (pred, gt) in zip(outputs[0], box_batch):
                 self.meters["score"].update(self.get_score(pred, gt))
 
-        self.visualize(preds, box_batch, samples)
+        self.visualize(outputs, box_batch, samples)
         self.model_loader.save_if_needed(
             self.model, self.meters[self.model_loader.key].get_value()
         )
@@ -558,7 +554,6 @@ class Predictor:
         loader: DataLoader,
         model_loader: ModelLoader,
         to_boxes: ToBoxes,
-        box_merge: BoxMerge,
         device: str = "cpu",
     ) -> None:
         self.device = torch.device(device)
@@ -567,9 +562,6 @@ class Predictor:
         self.preprocess = PreProcess(self.device)
         self.to_boxes = to_boxes
         self.loader = loader
-        self.box_merge = box_merge
-        self.hflip_tta = HFlipTTA(to_boxes)
-        self.vflip_tta = VFlipTTA(to_boxes)
 
     @torch.no_grad()
     def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
@@ -580,12 +572,7 @@ class Predictor:
         id_list = []
         for images, ids in tqdm(self.loader):
             images = images.to(self.device)
-            outputs = self.model(images)
-            preds = self.box_merge(
-                self.to_boxes(outputs),
-                self.hflip_tta(self.model, images),
-                self.vflip_tta(self.model, images),
-            )
+            preds = self.model(images)
             boxes_list += preds[0]
             confs_list += preds[1]
             id_list += ids

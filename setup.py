@@ -17,7 +17,6 @@ setup(
         "scipy",
         "typing_extensions",
         "tqdm",
-        "ensemble-boxes",
     ],
     extras_require={"dev": ["mypy", "pytest", "black", "pytest-mock", "pytest-cov"]},
 )
