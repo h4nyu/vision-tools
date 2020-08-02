@@ -50,8 +50,8 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     to_boxes = ToBoxes(threshold=0.1)
     mkmaps = MkMaps(sigma=0.3)
     hm, sm, dm, counts = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
-    assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
-    assert (sm.nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
+    assert (torch.nonzero(hm.eq(1), as_tuple=False)[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
+    assert (torch.nonzero(sm, as_tuple=False)[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
     assert hm.shape == (1, 1, h, w)
     assert sm.shape == (1, 2, h, w)
     assert (sm[0, :, cy, cx] - torch.tensor([0.1, 0.3])).sum() == 0
@@ -95,7 +95,10 @@ def test_mkmap_count(mode: Any, boxes: Any) -> None:
     mkmaps = MkMaps(sigma=5.0, mode=mode)
     hm, sm, dm, counts = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
     out_boxes, _ = next(iter(to_boxes((hm, sm, dm, counts))))
-    assert hm.eq(1).nonzero().shape == (len(in_boxes), 4)  # type:ignore
+    assert torch.nonzero(hm.eq(1), as_tuple=False).shape == (
+        len(in_boxes),
+        4,
+    )  # type:ignore
     plot = DetectionPlot(w=w, h=h)
     plot.with_image((hm[0, 0] + 1e-4).log())
     plot.with_yolo_boxes(in_boxes, color="blue")

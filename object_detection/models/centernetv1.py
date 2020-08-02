@@ -236,7 +236,7 @@ class ToBoxes:
         box_batch = []
         conf_batch = []
         for hm, km, box_diff in zip(heatmap.squeeze(1), kpmap.squeeze(1), box_diffs):
-            kp = km.nonzero()
+            kp = torch.nonzero(km, as_tuple=False)
             confidences = hm[kp[:, 0], kp[:, 1]]
             anchor = anchormap[:, kp[:, 0], kp[:, 1]].t()
             box_diff = box_diff[:, kp[:, 0], kp[:, 1]].t()

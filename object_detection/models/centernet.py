@@ -253,7 +253,7 @@ class ToBoxes:
         for hm, km, sm, dm, count in zip(
             heatmap.squeeze(1), kpmap.squeeze(1), sizemap, diffmap, counts
         ):
-            kp = km.nonzero()
+            kp = torch.nonzero(km, as_tuple=False)
             confidences = hm[kp[:, 0], kp[:, 1]]
             wh = sm[:, kp[:, 0], kp[:, 1]]
             diff_wh = dm[:, kp[:, 0], kp[:, 1]].t()

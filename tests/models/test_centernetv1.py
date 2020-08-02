@@ -50,7 +50,7 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     to_boxes = ToBoxes(threshold=0.1)
     mkmaps = MkGaussianMaps(sigma=2.0)
     hm = mkmaps([in_boxes], (h, w), (h * 10, w * 10))
-    assert (hm.eq(1).nonzero()[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
+    assert (torch.nonzero(hm.eq(1), as_tuple=False)[0, 2:] - torch.tensor([[cy, cx]])).sum() == 0  # type: ignore
     assert hm.shape == (1, 1, h, w)
     mk_anchors = Anchors()
     anchormap = mk_anchors(hm)
