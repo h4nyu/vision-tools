@@ -21,14 +21,6 @@ def round_filters(filters: t.Any, global_params: t.Any) -> t.Any:
     return int(new_filters)
 
 
-def normal_init(
-    module: nn.Module, mean: float = 0, std: float = 1, bias: float = 0,
-) -> None:
-    nn.init.normal_(module.weight, mean, std)
-    if hasattr(module, "bias"):
-        nn.init.constant_(module.bias, bias)
-
-
 def box_iou(boxes1: Tensor, boxes2: Tensor) -> t.Tuple[Tensor, Tensor]:
     area1 = box_area(boxes1)
     area2 = box_area(boxes2)
