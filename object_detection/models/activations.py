@@ -11,7 +11,7 @@ class FReLU(nn.Module):
             kernel_size=kerel_size,
             stride=1,
             padding=kerel_size // 2,
-            groups=in_channels,
+            #  groups=in_channels,
         )
         self.bn = nn.BatchNorm2d(in_channels)
 

@@ -34,7 +34,7 @@ class MobileV3(nn.Module):
                 kernel_size=kernel_size,
                 stride=stride,
                 padding=padding,
-                groups=mid_channels,
+                #  groups=mid_channels,
                 bias=False,
                 activation=None,
             ),
@@ -82,7 +82,7 @@ class SENextBottleneck2d(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                groups=groups,
+                #  groups=groups,
             ),
         )
 

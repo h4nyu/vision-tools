@@ -72,7 +72,7 @@ class ConvBR2d(nn.Module):
             padding=padding,
             dilation=dilation,
             stride=stride,
-            groups=groups,
+            #  groups=groups,
             bias=bias,
         )
         self.norm = nn.BatchNorm2d(out_channels)
