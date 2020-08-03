@@ -488,8 +488,8 @@ class Criterion:
         hm_loss = self.hm_loss(s_hms, t_hms) * self.heatmap_weight
 
         for diffmap, heatmap, gt_boxes in zip(diffmaps, s_hms, gt_boxes_list):
-            if len(gt_boxes) == 0:
-                continue
+            #  if len(gt_boxes) == 0:
+            #      continue
             box_losses.append(
                 self.box_loss(
                     anchormap=anchormap,
