@@ -488,8 +488,8 @@ class Criterion:
         hm_loss = self.hm_loss(s_hms, t_hms) * self.heatmap_weight
 
         for diffmap, heatmap, gt_boxes in zip(diffmaps, s_hms, gt_boxes_list):
-            #  if len(gt_boxes) == 0:
-            #      continue
+            if len(gt_boxes) == 0:
+                continue
             box_losses.append(
                 self.box_loss(
                     anchormap=anchormap,
@@ -498,7 +498,10 @@ class Criterion:
                     heatmap=Heatmap(heatmap),
                 )
             )
-        box_loss = torch.stack(box_losses).mean() * self.box_weight
+        if len(box_losses) == 0:
+            box_loss = torch.tensor(0.0).to(device)
+        else:
+            box_loss = torch.stack(box_losses).mean() * self.box_weight
         loss = hm_loss + box_loss
         return loss, hm_loss, box_loss, Heatmaps(t_hms)
 
