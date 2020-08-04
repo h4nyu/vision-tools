@@ -169,7 +169,7 @@ class HMLoss(nn.Module):
         neg_weight = (1 - gt) ** beta
         neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
         neg_loss = neg_loss.sum()
-        loss = (pos_loss + neg_loss) / (pos_mask.sum() + neg_mask.sum())
+        loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
         return loss
 
 
