@@ -195,6 +195,7 @@ class CenterNetV1(nn.Module):
         self.anchors = anchors
         self.box_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=channels, depth=box_depth),
+            nn.Sigmoid(),
         )
         self.box_out = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=4, kernel_size=1),
