@@ -3,14 +3,14 @@ import pytest
 from typing import Any
 from object_detection.entities.image import ImageBatch
 from object_detection.entities.box import YoloBoxes, Labels
-from object_detection.models.efficientdet import (
+from object_detection.models.effidet import (
     RegressionModel,
     ClassificationModel,
     EfficientDet,
     Criterion,
     LabelLoss,
-    PosLoss,
-    PosDiff,
+    BoxDiff,
+    BoxLoss,
 )
 from object_detection.models.anchors import Anchors
 from object_detection.models.backbones.effnet import EfficientNetBackbone
@@ -42,13 +42,13 @@ def test_classification_model() -> None:
     ],
 )
 def test_label_loss(preds: Any, expected: float) -> None:
-    iou_max = torch.tensor([0.0, 0.4, 0.6,])
+    match_score = torch.tensor([0.0, 0.4, 0.6,])
     match_indices = torch.tensor([0, 1, 0,])
     pred_classes = torch.tensor(preds)
     gt_classes = torch.tensor([0, 1])
     fn = LabelLoss(iou_thresholds=(0.45, 0.55))
     res = fn(
-        iou_max=iou_max,
+        match_score=match_score,
         match_indices=match_indices,
         pred_classes=pred_classes,
         gt_classes=gt_classes,
@@ -60,25 +60,25 @@ def test_label_loss(preds: Any, expected: float) -> None:
 @pytest.mark.parametrize(
     "preds,expected",
     [
-        ([[0.1, 0.1], [0.1, 0.1], [0.0, 0.0],], 1e-4),
-        ([[0.0, 0.0], [0.1, 0.1], [0.0, 0.0],], 1e-4),
-        ([[0.1, 0.1], [0.1, 0.1], [0.5, 0.0],], 1e0),
+        ([[0.1, 0.1, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0],], 1e-4),
+        ([[0.0, 0.0, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0],], 1e-4),
+        ([[0.1, 0.1, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.5, 0.0, 0.0, 0.0],], 1e0),
     ],
 )
-def test_pos_loss(preds: Any, expected: float) -> None:
-    iou_max = torch.tensor([0.0, 0.4, 0.6,])
+def test_box_loss(preds: Any, expected: float) -> None:
+    match_score = torch.tensor([0.0, 0.4, 0.6,])
     match_indices = torch.tensor([0, 1, 0,])
     anchors = torch.tensor(
         [[0.5, 0.5, 0.1, 0.1], [0.5, 0.5, 0.1, 0.1], [0.5, 0.5, 0.1, 0.1],]
     )
-    pos_diff = PosDiff(torch.tensor(preds))
+    box_diff = BoxDiff(torch.tensor(preds))
     gt_boxes = YoloBoxes(torch.tensor([[0.5, 0.5, 0.1, 0.1], [0.8, 0.8, 0.1, 0.1],]))
-    fn = PosLoss()
+    fn = BoxLoss()
     res = fn(
-        iou_max=iou_max,
+        match_score=match_score,
         match_indices=match_indices,
         anchors=anchors,
-        pos_diff=pos_diff,
+        box_diff=box_diff,
         gt_boxes=gt_boxes,
     )
     assert res < expected
@@ -90,5 +90,5 @@ def test_effdet() -> None:
     channels = 32
     backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
     fn = EfficientDet(num_classes=2, backbone=backbone, channels=32,)
-    anchors, boxes, _, labels = fn(images)
+    anchors, boxes, labels = fn(images)
     assert labels.shape[:2] == boxes.shape[:2]

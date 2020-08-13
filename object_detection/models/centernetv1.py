@@ -20,7 +20,6 @@ from .centernet import (
 )
 from logging import getLogger
 from tqdm import tqdm
-from .efficientdet import RegressionModel
 from .bifpn import BiFPN
 from torchvision.ops.boxes import box_iou
 from torchvision.ops import nms
