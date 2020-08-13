@@ -59,18 +59,30 @@ class IoU:
 
 class GIoU:
     def __init__(self) -> None:
-        self.box_iou = IoU()
+        self.iou = IoU()
 
     def __call__(self, src: PascalBoxes, tgt: PascalBoxes) -> Tensor:
-        iou, union = self.box_iou(src, tgt)
+        iou, union = self.iou(src, tgt)
         lt = torch.min(src[:, None, :2], tgt[:, :2])
         rb = torch.max(src[:, None, 2:], tgt[:, 2:])  # [N,M,2]
         wh = (rb - lt).clamp(min=0)  # [N,M,2]
         area = wh[:, :, 0] * wh[:, :, 1]
-        return iou - (area - union) / area
+        return 1 - iou + (area - union) / area
 
 
-class BIoU:
-    def __call__(self, src: PascalBoxes, tgt: PascalBoxes) -> None:
+class DIoU:
+    def __init__(self) -> None:
+        self.iou = IoU()
 
-        print(src)
+    def __call__(self, src: PascalBoxes, tgt: PascalBoxes) -> Tensor:
+        iou, _ = self.iou(src, tgt)
+        s_ctr = (src[:, None, :2] + src[:, None, 2:]) / 2
+        t_ctr = (tgt[:, :2] + tgt[:, 2:]) / 2
+
+        lt = torch.min(src[:, None, :2], tgt[:, :2])
+        rb = torch.max(src[:, None, 2:], tgt[:, 2:])
+
+        diagnol = torch.pow((rb - lt).clamp(min=0), 2).sum(dim=-1)
+        ctr_dist = torch.pow(s_ctr - t_ctr, 2).sum(dim=-1)
+
+        return 1 - iou + ctr_dist / diagnol
