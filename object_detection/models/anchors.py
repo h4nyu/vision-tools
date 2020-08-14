@@ -9,6 +9,7 @@ from object_detection.entities import (
     ImageBatch,
     boxmaps_to_boxes,
     BoxMaps,
+    BoxMap,
     yolo_clamp,
 )
 
@@ -64,9 +65,9 @@ class Anchors:
 class EmptyAnchors:
     def __init__(self, use_cache: bool = True,) -> None:
         self.use_cache = use_cache
-        self.cache: Dict[Tuple[int, int], YoloBoxes] = {}
+        self.cache: Dict[Tuple[int, int], BoxMap] = {}
 
-    def __call__(self, ref_images: Tensor) -> YoloBoxes:
+    def __call__(self, ref_images: Tensor) -> BoxMap:
         h, w = ref_images.shape[-2:]
         if self.use_cache:
             if (h, w) in self.cache:
@@ -78,10 +79,7 @@ class EmptyAnchors:
         )
         box_h = torch.zeros((h, w))
         box_w = torch.zeros((h, w))
-        boxmaps = BoxMaps(
-            torch.stack([grid_x, grid_y, box_w, box_h]).expand(1, 4, h, w).to(device)
-        )
-        boxes = YoloBoxes(boxmaps_to_boxes(boxmaps))
+        boxmap = BoxMap(torch.stack([grid_x, grid_y, box_w, box_h]).to(device))
         if self.use_cache:
-            self.cache[(h, w)] = boxes
-        return boxes
+            self.cache[(h, w)] = boxmap
+        return boxmap

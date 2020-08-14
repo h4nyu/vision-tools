@@ -285,7 +285,6 @@ class BoxLoss:
         box_diff = boxmap_to_boxes(diffmap)
         anchors = boxmap_to_boxes(anchormap)
         centers = anchors[:, 2:]
-        gt_centers = gt_boxes[:, 2:]
 
         match_indices, positive_indices = self.assign(anchors, gt_boxes,)
         num_pos = positive_indices.sum()
