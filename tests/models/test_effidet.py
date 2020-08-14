@@ -66,7 +66,6 @@ def test_label_loss(preds: Any, expected: float) -> None:
     ],
 )
 def test_box_loss(preds: Any, expected: float) -> None:
-    score_matrix = torch.tensor([0.0, 0.4, 0.6,])
     match_score = torch.tensor([0.0, 0.4, 0.6,])
     match_indices = torch.tensor([0, 1, 0,])
     anchors = torch.tensor(
@@ -76,7 +75,6 @@ def test_box_loss(preds: Any, expected: float) -> None:
     gt_boxes = YoloBoxes(torch.tensor([[0.5, 0.5, 0.1, 0.1], [0.8, 0.8, 0.1, 0.1],]))
     fn = BoxLoss()
     res = fn(
-        score_matrix=score_matrix,
         match_score=match_score,
         match_indices=match_indices,
         anchors=anchors,

@@ -16,4 +16,5 @@ metric: Tuple[str, WatchMode] = ("score", "max")
 pretrained = True
 
 anchor_ratios = [0.33, 1, 3]
-anchor_size = 4
+#  anchor_scales = [0.33, 1, 3]
+anchor_size = 2
