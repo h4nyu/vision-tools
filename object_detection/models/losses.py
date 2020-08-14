@@ -1,5 +1,6 @@
 import typing as t
 import numpy as np
+import torch
 import torch.nn.functional as F
 from typing_extensions import Literal
 from torch import Tensor
@@ -11,6 +12,20 @@ import torch.nn as nn
 from typing import Dict, Tuple
 
 Reduction = Literal["none", "mean", "sum"]
+
+
+class HuberLoss:
+    def __init__(self, size_average: bool = True, delta: float = 1.0) -> None:
+        self.delta = delta
+        self.size_average = size_average
+
+    def __call__(self, src: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
+        err = src - tgt
+        abs_err = err.abs()
+        quadratic = torch.clamp(abs_err, max=self.delta)
+        linear = abs_err - quadratic
+        loss = 0.5 * quadratic.pow(2) + self.delta * linear
+        return loss.mean() if self.size_average else loss.sum()
 
 
 class FocalLoss(nn.Module):

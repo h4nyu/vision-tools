@@ -21,7 +21,7 @@ from object_detection.entities import (
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
-from .losses import DIoU
+from .losses import DIoU, HuberLoss
 from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
@@ -33,7 +33,7 @@ from pathlib import Path
 from typing_extensions import Literal
 from tqdm import tqdm
 
-from .bottlenecks import SENextBottleneck2d
+from .bottlenecks import SENextBottleneck2d, MobileV3
 from .bifpn import BiFPN, FP
 from .losses import FocalLoss
 from .anchors import Anchors
@@ -113,18 +113,30 @@ class ClassificationModel(nn.Module):
         num_anchors: int = 9,
         num_classes: int = 80,
         prior: float = 0.01,
-        feature_size: int = 256,
+        hidden_channels: int = 256,
         depth: int = 1,
     ) -> None:
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.in_conv = SENextBottleneck2d(in_channels, feature_size)
+        self.in_conv = MobileV3(
+            in_channels=in_channels,
+            out_channels=hidden_channels,
+            mid_channels=hidden_channels,
+        )
+        mid_channels = hidden_channels // 8
         self.bottlenecks = nn.Sequential(
-            *[SENextBottleneck2d(feature_size, feature_size) for _ in range(depth)]
+            *[
+                MobileV3(
+                    in_channels=hidden_channels,
+                    out_channels=hidden_channels,
+                    mid_channels=mid_channels,
+                )
+                for _ in range(depth)
+            ]
         )
         self.output = nn.Conv2d(
-            feature_size, num_anchors * num_classes, kernel_size=3, padding=1
+            hidden_channels, num_anchors * num_classes, kernel_size=1, padding=0
         )
         self.output_act = nn.Sigmoid()
 
@@ -151,15 +163,24 @@ class RegressionModel(nn.Module):
     ) -> None:
         super().__init__()
         self.out_size = out_size
-        self.in_conv = SENextBottleneck2d(in_channels, hidden_channels)
+        self.in_conv = MobileV3(
+            in_channels=in_channels,
+            out_channels=hidden_channels,
+            mid_channels=hidden_channels,
+        )
+        mid_channels = hidden_channels // 8
         self.bottlenecks = nn.Sequential(
             *[
-                SENextBottleneck2d(hidden_channels, hidden_channels)
+                MobileV3(
+                    in_channels=hidden_channels,
+                    out_channels=hidden_channels,
+                    mid_channels=mid_channels,
+                )
                 for _ in range(depth)
             ]
         )
         self.out = nn.Conv2d(
-            hidden_channels, num_anchors * self.out_size, kernel_size=3, padding=1
+            hidden_channels, num_anchors * self.out_size, kernel_size=1, padding=0
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -219,6 +240,7 @@ class EfficientDet(nn.Module):
 class BoxLoss:
     def __init__(self, iou_threshold: float = 0.6) -> None:
         self.iou_threshold = iou_threshold
+        self.loss = HuberLoss(delta=0.1)
 
     def __call__(
         self,
@@ -238,11 +260,11 @@ class BoxLoss:
         matched_anchors = anchors[positive_indices]
         pred_diff = box_diff[positive_indices]
         gt_diff = matched_gt_boxes - matched_anchors
-        return F.l1_loss(pred_diff, gt_diff, reduction="mean")
+        return self.loss(pred_diff, gt_diff)
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.6, 0.7)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.6, 0.6)) -> None:
         """
         focal_loss
         """
@@ -292,7 +314,7 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        box_weight: float = 1.0,
+        box_weight: float = 50.0,
         label_weight: float = 1.0,
         box_loss: BoxLoss = BoxLoss(),
         label_loss: LabelLoss = LabelLoss(),

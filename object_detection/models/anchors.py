@@ -18,7 +18,7 @@ class Anchors:
         self,
         size: float = 1.0,
         ratios: t.List[float] = [3 / 4, 1, 4 / 3],
-        scales: t.List[float] = [1.0, 1.5, 2],
+        scales: t.List[float] = [1.0, (1 / 2) ** (1 / 2), 2 ** (1 / 2)],
         use_cache: bool = True,
     ) -> None:
         self.use_cache = use_cache
