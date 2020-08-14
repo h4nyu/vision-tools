@@ -9,7 +9,7 @@ use_peak = True
 mode: GaussianMapMode = "aspect"
 to_boxes_threshold = 0.1
 
-lr = 1e-3
+lr = 1e-4
 batch_size = 16
 out_idx: PyramidIdx = 4
 channels = 256

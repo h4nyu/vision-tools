@@ -40,7 +40,7 @@ def train(epochs: int) -> None:
         box_weight=cfg.box_weight,
         heatmap_weight=cfg.heatmap_weight,
         mk_hmmaps=MkGaussianMaps(),
-        mk_boxmaps=MkCenterBoxMaps()
+        mk_boxmaps=MkCenterBoxMaps(),
     )
     train_loader = DataLoader(
         train_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size, shuffle=True

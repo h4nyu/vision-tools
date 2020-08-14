@@ -28,6 +28,7 @@ from .modules import ConvBR2d, Mish
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import Reduction
+from .anchors import EmptyAnchors
 from object_detection.meters import MeanMeter
 from object_detection.entities import ImageBatch, PredBoxes, Image, TrainSample
 from torchvision.ops import nms
@@ -98,7 +99,7 @@ class CountReg(nn.Module):
 
 
 Counts = NewType("Counts", Tensor)  # [B]
-NetOutput = Tuple[Heatmaps, BoxMaps, Counts]  # label, pos, size, count
+NetOutput = Tuple[Heatmaps, BoxMaps, YoloBoxes]  # label, pos, size, count
 
 
 class CenterNet(nn.Module):
@@ -120,18 +121,15 @@ class CenterNet(nn.Module):
         self.box_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=4, depth=depth),
         )
-
-        self.count_reg = nn.Sequential(
-            CountReg(in_channels=channels, out_channels=1, depth=depth),
-        )
+        self.anchors = EmptyAnchors()
 
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
+        anchors = self.anchors(x)
         heatmaps = Heatmaps(self.hm_reg(fp[self.out_idx]))
         boxmaps = self.box_reg(fp[self.out_idx])
-        counts = self.count_reg(fp[-1])
-        return heatmaps, BoxMaps(boxmaps), Counts(counts)
+        return heatmaps, BoxMaps(boxmaps), anchors
 
 
 class HMLoss(nn.Module):
@@ -190,7 +188,7 @@ class Criterion:
     def __call__(
         self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Heatmaps]:
-        s_hm, s_bm, s_c = netout
+        s_hm, s_bm, anchors = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
         t_hm = self.mk_hmmaps(gt_boxes, (h, w), (orig_h, orig_w))
@@ -236,9 +234,7 @@ class ToBoxes:
         batch_size, _, height, width = heatmaps.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
-        for hm, km, bm in zip(
-            heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps
-        ):
+        for hm, km, bm in zip(heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps):
             kp = torch.nonzero(km, as_tuple=False)
             confidences = hm[kp[:, 0], kp[:, 1]]
             boxes = bm[:, kp[:, 0], kp[:, 1]].t()

@@ -59,3 +59,29 @@ class Anchors:
         if self.use_cache:
             self.cache[(h, w)] = boxes
         return boxes
+
+
+class EmptyAnchors:
+    def __init__(self, use_cache: bool = True,) -> None:
+        self.use_cache = use_cache
+        self.cache: Dict[Tuple[int, int], YoloBoxes] = {}
+
+    def __call__(self, ref_images: Tensor) -> YoloBoxes:
+        h, w = ref_images.shape[-2:]
+        if self.use_cache:
+            if (h, w) in self.cache:
+                return self.cache[(h, w)]
+        device = ref_images.device
+        grid_y, grid_x = torch.meshgrid(  # type:ignore
+            torch.arange(h, dtype=torch.float32) / h,
+            torch.arange(w, dtype=torch.float32) / w,
+        )
+        box_h = torch.zeros((h, w))
+        box_w = torch.zeros((h, w))
+        boxmaps = BoxMaps(
+            torch.stack([grid_x, grid_y, box_w, box_h]).expand(1, 4, h, w).to(device)
+        )
+        boxes = YoloBoxes(boxmaps_to_boxes(boxmaps))
+        if self.use_cache:
+            self.cache[(h, w)] = boxes
+        return boxes
