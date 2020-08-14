@@ -11,6 +11,7 @@ from typing_extensions import Literal
 from logging import getLogger
 from tqdm import tqdm
 from object_detection.entities import (
+    BoxMaps,
     YoloBoxes,
     Confidences,
     PascalBoxes,
@@ -22,6 +23,7 @@ from object_detection.entities import (
 )
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
+from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
 from .modules import ConvBR2d, Mish
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
@@ -95,11 +97,8 @@ class CountReg(nn.Module):
         return x
 
 
-Heatmaps = t.NewType("Heatmaps", Tensor)  # [B, 1, H, W]
-Sizemap = t.NewType("Sizemap", Tensor)  # [B, 2, H, W]
-DiffMap = NewType("DiffMap", Tensor)  # [B, 2, H, W]
 Counts = NewType("Counts", Tensor)  # [B]
-NetOutput = Tuple[Heatmaps, Sizemap, DiffMap, Counts]
+NetOutput = Tuple[Heatmaps, BoxMaps, Counts]  # label, pos, size, count
 
 
 class CenterNet(nn.Module):
@@ -118,11 +117,8 @@ class CenterNet(nn.Module):
         self.hm_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
         )
-        self.size_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=2, depth=depth),
-        )
-        self.diff_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=2, depth=depth),
+        self.box_reg = nn.Sequential(
+            Reg(in_channels=channels, out_channels=4, depth=depth),
         )
 
         self.count_reg = nn.Sequential(
@@ -132,11 +128,10 @@ class CenterNet(nn.Module):
     def forward(self, x: ImageBatch) -> NetOutput:
         fp = self.backbone(x)
         fp = self.fpn(fp)
-        heatmap = Heatmaps(self.hm_reg(fp[self.out_idx]))
-        sizemap = self.size_reg(fp[self.out_idx])
-        diffmap = self.diff_reg(fp[self.out_idx])
+        heatmaps = Heatmaps(self.hm_reg(fp[self.out_idx]))
+        boxmaps = self.box_reg(fp[self.out_idx])
         counts = self.count_reg(fp[-1])
-        return heatmap, Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
+        return heatmaps, BoxMaps(boxmaps), Counts(counts)
 
 
 class HMLoss(nn.Module):
@@ -176,42 +171,40 @@ class HMLoss(nn.Module):
 class Criterion:
     def __init__(
         self,
+        mk_hmmaps: MkMapsFn,
+        mk_boxmaps: MkBoxMapsFn,
         heatmap_weight: float = 1.0,
-        sizemap_weight: float = 1.0,
-        diff_weight: float = 1.0,
+        box_weight: float = 1.0,
         count_weight: float = 1.0,
         sigma: float = 0.3,
     ) -> None:
         super().__init__()
         self.hmloss = HMLoss()
         self.reg_loss = RegLoss()
-        self.sizemap_weight = sizemap_weight
         self.heatmap_weight = heatmap_weight
-        self.diff_weight = diff_weight
+        self.box_weight = box_weight
         self.count_weight = count_weight
-        self.mkmaps = MkMaps(sigma)
+        self.mk_hmmaps = mk_hmmaps
+        self.mk_boxmaps = mk_boxmaps
 
     def __call__(
         self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Heatmaps]:
-        s_hm, s_sm, s_dm, s_c = netout
+        s_hm, s_bm, s_c = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
-        t_hm, t_sm, t_dm, t_c = self.mkmaps(gt_boxes, (h, w), (orig_h, orig_w))
+        t_hm = self.mk_hmmaps(gt_boxes, (h, w), (orig_h, orig_w))
+        t_bm = self.mk_boxmaps(gt_boxes, t_hm)
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
-        sm_loss = self.reg_loss(s_sm, t_sm) * self.sizemap_weight
-        dm_loss = self.reg_loss(s_dm, t_dm) * self.diff_weight
-        c_loss = self.reg_loss(s_c, t_c) * self.count_weight
-        loss = hm_loss + sm_loss + dm_loss + c_loss
-        return (loss, hm_loss, sm_loss, dm_loss, c_loss, t_hm)
+        box_loss = self.reg_loss(s_bm, t_bm) * self.box_weight
+        c_loss = torch.tensor(0.0)
+        dm_loss = torch.tensor(0.0)
+        loss = hm_loss + box_loss + c_loss
+        return (loss, hm_loss, box_loss, dm_loss, c_loss, t_hm)
 
 
 class RegLoss:
-    def __call__(
-        self,
-        output: Union[Sizemap, DiffMap, Counts],
-        target: Union[Sizemap, DiffMap, Counts],
-    ) -> Tensor:
+    def __call__(self, output: BoxMaps, target: BoxMaps) -> Tensor:
         mask = (target > 0).view(target.shape)
         num = mask.sum()
         regr_loss = F.l1_loss(output, target, reduction="none") * mask
@@ -219,18 +212,11 @@ class RegLoss:
         return regr_loss
 
 
-def gaussian_2d(shape: t.Any, sigma: float = 1) -> np.ndarray:
-    w, h = shape
-    cx, cy = w / 2, h / 2
-    h[h < np.finfo(h.dtype).eps * h.max()] = 0
-    return h.astype(np.float32)
-
-
 class ToBoxes:
     def __init__(
         self,
         threshold: float = 0.1,
-        kernel_size: int = 5,
+        kernel_size: int = 3,
         limit: int = 100,
         count_offset: int = 1,
     ) -> None:
@@ -244,108 +230,23 @@ class ToBoxes:
 
     @torch.no_grad()
     def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
-        heatmap, sizemap, diffmap, counts = inputs
-        device = heatmap.device
-        kpmap = (self.max_pool(heatmap) == heatmap) & (heatmap > self.threshold)
-        batch_size, _, height, width = heatmap.shape
+        heatmaps, boxmaps, counts = inputs
+        device = heatmaps.device
+        kpmap = (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
+        batch_size, _, height, width = heatmaps.shape
         original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
-        for hm, km, sm, dm, count in zip(
-            heatmap.squeeze(1), kpmap.squeeze(1), sizemap, diffmap, counts
+        for hm, km, bm in zip(
+            heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps
         ):
             kp = torch.nonzero(km, as_tuple=False)
             confidences = hm[kp[:, 0], kp[:, 1]]
-            wh = sm[:, kp[:, 0], kp[:, 1]]
-            diff_wh = dm[:, kp[:, 0], kp[:, 1]].t()
-            cxcy = kp[:, [1, 0]].float() / original_wh + diff_wh
-            boxes = torch.cat([cxcy, wh.permute(1, 0)], dim=1)
-            sort_idx = confidences.argsort(descending=True)[
-                : int((count.float().round() + self.count_offset).clamp(max=self.limit))
-            ]
+            boxes = bm[:, kp[:, 0], kp[:, 1]].t()
+            sort_idx = confidences.argsort(descending=True)[: self.limit]
             rows.append(
                 (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
             )
         return rows
-
-
-class MkMaps:
-    def __init__(
-        self,
-        sigma: float = 0.5,
-        mode: Literal["length", "aspect", "constant"] = "length",
-    ) -> None:
-        self.sigma = sigma
-        self.mode = mode
-
-    def _mkmaps(
-        self, boxes: YoloBoxes, hw: t.Tuple[int, int], original_hw: Tuple[int, int]
-    ) -> NetOutput:
-        device = boxes.device
-        h, w = hw
-        orig_h, orig_w = original_hw
-        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
-        sizemap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
-        diffmap = torch.zeros((1, 2, h, w), dtype=torch.float32).to(device)
-        box_count = len(boxes)
-        counts = torch.tensor([box_count]).to(device)
-        if box_count == 0:
-            return Heatmaps(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
-
-        box_cxs, box_cys, _, _ = boxes.unbind(-1)
-        grid_y, grid_x = tr.meshgrid(  # type:ignore
-            tr.arange(h, dtype=torch.int64), tr.arange(w, dtype=torch.int64),
-        )
-
-        wh = torch.tensor([w, h]).to(device)
-        cxcy = (boxes[:, :2] * wh).long()
-        cx = cxcy[:, 0]
-        cy = cxcy[:, 1]
-        grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
-        grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
-        #  weight = self.get_weights(boxes) # type: ignore
-        if self.mode == "aspect":
-            weight = (boxes[:, 2:] ** 2).clamp(min=1e-4).view(box_count, 2, 1, 1)
-        else:
-            weight = (
-                (boxes[:, 2:] ** 2)
-                .min(dim=1, keepdim=True)[0]
-                .clamp(min=1e-4)
-                .view(box_count, 1, 1, 1)
-            )
-
-        mounts = tr.exp(
-            -(((grid_xy - grid_cxcy) ** 2) / weight).sum(dim=1, keepdim=True)
-            / (2 * self.sigma ** 2)
-        )
-        heatmap, _ = mounts.max(dim=0, keepdim=True)
-        sizemap[:, :, cy, cx] = boxes[:, 2:].t()
-        diffmap[:, :, cy, cx] = (boxes[:, :2] - cxcy.float() / wh).t()
-        return Heatmaps(heatmap), Sizemap(sizemap), DiffMap(diffmap), Counts(counts)
-
-    @torch.no_grad()
-    def __call__(
-        self,
-        box_batch: List[YoloBoxes],
-        hw: Tuple[int, int],
-        original_hw: Tuple[int, int],
-    ) -> NetOutput:
-        hms: List[Tensor] = []
-        sms: List[Tensor] = []
-        pms: List[Tensor] = []
-        counts: List[Tensor] = []
-        for boxes in box_batch:
-            hm, sm, pm, c = self._mkmaps(boxes, hw, original_hw)
-            hms.append(hm)
-            sms.append(sm)
-            pms.append(pm)
-            counts.append(c)
-
-        return (
-            Heatmaps(tr.cat(hms, dim=0)),
-            Sizemap(tr.cat(sms, dim=0)),
-            DiffMap(tr.cat(pms, dim=0)),
-            Counts(tr.cat(counts, dim=0)),
-        )
 
 
 class PreProcess:
@@ -402,7 +303,7 @@ class Visualize:
         image_batch: ImageBatch,
         gt_hms: Heatmaps,
     ) -> None:
-        heatmap, _, _, counts = net_out
+        heatmap, _, counts = net_out
         box_batch, confidence_batch = src
         box_batch = box_batch[: self.limit]
         confidence_batch = confidence_batch[: self.limit]
@@ -439,12 +340,12 @@ class Trainer:
         train_loader: DataLoader,
         test_loader: DataLoader,
         model_loader: ModelLoader,
+        criterion: Criterion,
         optimizer: t.Any,
         visualize: Visualize,
         get_score: Callable[[YoloBoxes, YoloBoxes], float],
         to_boxes: ToBoxes,
         device: str = "cpu",
-        criterion: Criterion = Criterion(),
     ) -> None:
         self.device = torch.device(device)
         self.optimizer = optimizer

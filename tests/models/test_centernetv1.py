@@ -5,7 +5,6 @@ from typing import Any
 from object_detection.entities import YoloBoxes, BoxMaps, boxmap_to_boxes, ImageBatch
 from object_detection.models.centernetv1 import (
     Heatmaps,
-    Sizemap,
     ToBoxes,
     CenterNetV1,
     Anchors,
