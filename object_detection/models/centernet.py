@@ -178,7 +178,7 @@ class Criterion:
 class BoxLoss:
     def __init__(
         self,
-        matcher: Any = CenterMatcher(),
+        matcher: Any = NearnestMatcher(),
         loss: Any = partial(F.l1_loss, reduction="mean"),
         use_diff: bool = True,
     ) -> None:
