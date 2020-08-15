@@ -204,7 +204,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         channels: int = 64,
-        out_ids: List[PyramidIdx] = [4, 5, 6, 7],
+        out_ids: List[PyramidIdx] = [3, 4, 5, 6],
         anchors: Anchors = Anchors(),
         depth: int = 1,
     ) -> None:
@@ -238,7 +238,7 @@ class EfficientDet(nn.Module):
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.6) -> None:
+    def __init__(self, iou_threshold: float = 0.5) -> None:
         self.iou_threshold = iou_threshold
         self.loss = HuberLoss(delta=0.1)
 
@@ -264,7 +264,7 @@ class BoxLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.6, 0.6)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.5, 0.6)) -> None:
         """
         focal_loss
         """
@@ -314,7 +314,7 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        box_weight: float = 50.0,
+        box_weight: float = 100.0,
         label_weight: float = 1.0,
         box_loss: BoxLoss = BoxLoss(),
         label_loss: LabelLoss = LabelLoss(),
@@ -390,10 +390,14 @@ class PreProcess:
 
 class ToBoxes:
     def __init__(
-        self, confidence_threshold: float = 0.5, iou_threshold: float = 0.5
+        self,
+        confidence_threshold: float = 0.5,
+        iou_threshold: float = 0.5,
+        limit: int = 1000,
     ) -> None:
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
+        self.limit = limit
 
     def __call__(
         self, net_output: NetOutput
@@ -405,8 +409,8 @@ class ToBoxes:
             boxes = anchors + box_diff
             confidences, c_index = confidences.max(dim=1)
             filter_idx = confidences > self.confidence_threshold
-            confidences = confidences[filter_idx]
-            boxes = boxes[filter_idx]
+            confidences = confidences[filter_idx][: self.limit]
+            boxes = boxes[filter_idx][: self.limit]
             sort_idx = nms(
                 yolo_to_pascal(boxes, (1, 1)), confidences, self.iou_threshold
             )

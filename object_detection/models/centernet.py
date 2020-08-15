@@ -201,9 +201,15 @@ class Criterion:
 
 
 class BoxLoss:
-    def __init__(self, matcher: Any = CenterMatcher()) -> None:
+    def __init__(
+        self,
+        matcher: Any = CenterMatcher(),
+        loss: Any = partial(F.smooth_l1_loss, reduction="mean"),
+        use_diff: bool = False,
+    ) -> None:
         self.matcher = matcher
-        self.loss = HuberLoss(delta=0.1)
+        self.loss = loss
+        self.use_diff = use_diff
 
     def __call__(
         self, preds: BoxMaps, gt_box_batch: List[YoloBoxes], anchormap: BoxMap
@@ -213,16 +219,20 @@ class BoxLoss:
         box_losses: List[Tensor] = []
         anchors = boxmap_to_boxes(anchormap)
         for diff_map, gt_boxes in zip(preds, gt_box_batch):
-            box_diff = boxmap_to_boxes(diff_map)
+            pred_boxes = boxmap_to_boxes(diff_map)
             match_indices, positive_indices = self.matcher(anchors, gt_boxes, (w, h))
             num_pos = positive_indices.sum()
             if num_pos == 0:
                 continue
             matched_gt_boxes = gt_boxes[match_indices][positive_indices]
-            matched_anchors = anchors[positive_indices]
-            pred_diff = box_diff[positive_indices]
-            gt_diff = matched_gt_boxes - matched_anchors
-            box_losses.append(self.loss(pred_diff, gt_diff))
+            matched_pred_boxes = pred_boxes[positive_indices]
+
+            if self.use_diff:
+                matched_anchors = anchors[positive_indices]
+                gt_diff = matched_gt_boxes - matched_anchors
+                box_losses.append(self.loss(matched_pred_boxes, gt_diff))
+            else:
+                box_losses.append(self.loss(matched_gt_boxes, matched_gt_boxes))
         if len(box_losses) == 0:
             return torch.tensor(0.0).to(device)
         return torch.stack(box_losses).mean()
@@ -233,13 +243,13 @@ class ToBoxes:
         self,
         threshold: float = 0.1,
         kernel_size: int = 3,
-        limit: int = 100,
-        count_offset: int = 1,
+        limit: int = 1000,
+        use_diff: bool = False,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
         self.kernel_size = kernel_size
-        self.count_offset = count_offset
+        self.use_diff = use_diff
         self.max_pool = partial(
             F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
         )
@@ -255,9 +265,12 @@ class ToBoxes:
         for hm, km, bm in zip(heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps):
             kp = torch.nonzero(km, as_tuple=False)
             confidences = hm[kp[:, 0], kp[:, 1]]
-            box_diffs = bm[:, kp[:, 0], kp[:, 1]].t()
-            anchors = anchormap[:, kp[:, 0], kp[:, 1]].t()
-            boxes = anchors + box_diffs
+            if self.use_diff:
+                boxes = (
+                    anchormap[:, kp[:, 0], kp[:, 1]].t() + bm[:, kp[:, 0], kp[:, 1]].t()
+                )
+            else:
+                boxes = bm[:, kp[:, 0], kp[:, 1]].t()
             sort_idx = confidences.argsort(descending=True)[: self.limit]
             rows.append(
                 (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
