@@ -3,7 +3,7 @@ import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
 from object_detection.entities import FP
-from .bottlenecks import MobileV3, SENextBottleneck2d
+from .bottlenecks import SENextBottleneck2d
 
 
 class Down2d(nn.Module):
@@ -11,11 +11,8 @@ class Down2d(nn.Module):
         self, channels: int, bilinear: bool = False, merge: bool = True,
     ) -> None:
         super().__init__()
-        self.down = MobileV3(
-            in_channels=channels,
-            out_channels=channels,
-            mid_channels=channels // 2,
-            stride=2,
+        self.down = SENextBottleneck2d(
+            in_channels=channels, out_channels=channels, stride=2,
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -48,11 +45,8 @@ class Up2d(nn.Module):
 class Merge2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int,) -> None:
         super().__init__()
-        self.merge = MobileV3(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            mid_channels=out_channels // 2,
-            stride=1,
+        self.merge = SENextBottleneck2d(
+            in_channels=in_channels, out_channels=out_channels, stride=1,
         )
 
     def forward(self, *inputs: Tensor) -> Tensor:

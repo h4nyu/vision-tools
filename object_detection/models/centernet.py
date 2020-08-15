@@ -77,31 +77,6 @@ class Reg(nn.Module):
         return x
 
 
-class CountReg(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, depth: int) -> None:
-        super().__init__()
-        channels = in_channels
-        self.dense = nn.Sequential(
-            nn.Conv2d(in_channels=channels, out_channels=in_channels, kernel_size=1),
-            Mish(),
-            nn.Conv2d(in_channels=channels, out_channels=in_channels, kernel_size=1),
-            Mish(),
-        )
-
-        self.out = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
-        )
-        self.pool = nn.AdaptiveMaxPool2d(1)
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = self.pool(x)
-        x = self.dense(x)
-        x = self.out(x)
-        x = x.view(-1)
-        return x
-
-
-Counts = NewType("Counts", Tensor)  # [B]
 NetOutput = Tuple[Heatmaps, BoxMaps, BoxMap]  # label, pos, size, count
 
 

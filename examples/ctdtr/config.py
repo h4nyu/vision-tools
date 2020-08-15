@@ -9,10 +9,10 @@ use_peak = True
 mode: GaussianMapMode = "aspect"
 to_boxes_threshold = 0.3
 
-lr = 1e-4
-batch_size = 16
+lr = 1e-3
+batch_size = 32
 out_idx: PyramidIdx = 4
-channels = 256
+channels = 64
 input_size = (256, 256)
 metric: Tuple[str, WatchMode] = ("score", "max")
 
