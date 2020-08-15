@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import math
 import torchvision
 
+from functools import partial
 from object_detection.entities import (
     ImageId,
     Confidences,
@@ -240,7 +241,8 @@ class EfficientDet(nn.Module):
 class BoxLoss:
     def __init__(self, iou_threshold: float = 0.5) -> None:
         self.iou_threshold = iou_threshold
-        self.loss = HuberLoss(delta=0.1)
+        #  self.loss = HuberLoss(delta=0.1)
+        self.loss = partial(F.l1_loss, reduction="mean")
 
     def __call__(
         self,
@@ -264,7 +266,7 @@ class BoxLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.5, 0.6)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.6, 0.7)) -> None:
         """
         focal_loss
         """
@@ -314,7 +316,7 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        box_weight: float = 100.0,
+        box_weight: float = 1.0,
         label_weight: float = 1.0,
         box_loss: BoxLoss = BoxLoss(),
         label_loss: LabelLoss = LabelLoss(),

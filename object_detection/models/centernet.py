@@ -232,7 +232,7 @@ class BoxLoss:
                 gt_diff = matched_gt_boxes - matched_anchors
                 box_losses.append(self.loss(matched_pred_boxes, gt_diff))
             else:
-                box_losses.append(self.loss(matched_gt_boxes, matched_gt_boxes))
+                box_losses.append(self.loss(matched_pred_boxes, matched_gt_boxes))
         if len(box_losses) == 0:
             return torch.tensor(0.0).to(device)
         return torch.stack(box_losses).mean()
