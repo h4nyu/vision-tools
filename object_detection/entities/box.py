@@ -12,6 +12,10 @@ YoloBoxes = NewType(
 PascalBoxes = NewType(
     "PascalBoxes", Tensor
 )  # [B, Pos] Pos:[x0, y0, x1, y1] original torch.int32
+
+FcosBoxes = NewType(
+    "FcosBoxes", Tensor
+)  # [B, Pos] Pos:[l, t, r, b] original torch.int32
 BoxMaps = NewType("BoxMaps", Tensor)  # [B, 4, H, W]
 BoxMap = NewType("BoxMap", Tensor)  # [4, H, W]
 

@@ -1,2 +1,1 @@
-readable object detection code
-all type annotatated
+some object detection code

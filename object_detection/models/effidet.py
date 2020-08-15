@@ -121,14 +121,12 @@ class ClassificationModel(nn.Module):
         self.num_classes = num_classes
         self.num_anchors = num_anchors
         self.in_conv = SENextBottleneck2d(
-            in_channels=in_channels,
-            out_channels=hidden_channels,
+            in_channels=in_channels, out_channels=hidden_channels,
         )
         self.bottlenecks = nn.Sequential(
             *[
                 SENextBottleneck2d(
-                    in_channels=hidden_channels,
-                    out_channels=hidden_channels,
+                    in_channels=hidden_channels, out_channels=hidden_channels,
                 )
                 for _ in range(depth)
             ]
@@ -162,14 +160,12 @@ class RegressionModel(nn.Module):
         super().__init__()
         self.out_size = out_size
         self.in_conv = SENextBottleneck2d(
-            in_channels=in_channels,
-            out_channels=hidden_channels,
+            in_channels=in_channels, out_channels=hidden_channels,
         )
         self.bottlenecks = nn.Sequential(
             *[
                 SENextBottleneck2d(
-                    in_channels=hidden_channels,
-                    out_channels=hidden_channels,
+                    in_channels=hidden_channels, out_channels=hidden_channels,
                 )
                 for _ in range(depth)
             ]
