@@ -34,7 +34,7 @@ from pathlib import Path
 from typing_extensions import Literal
 from tqdm import tqdm
 
-from .bottlenecks import SENextBottleneck2d, MobileV3
+from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import FocalLoss
 from .anchors import Anchors
@@ -120,18 +120,15 @@ class ClassificationModel(nn.Module):
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.in_conv = MobileV3(
+        self.in_conv = SENextBottleneck2d(
             in_channels=in_channels,
             out_channels=hidden_channels,
-            mid_channels=hidden_channels,
         )
-        mid_channels = hidden_channels // 8
         self.bottlenecks = nn.Sequential(
             *[
-                MobileV3(
+                SENextBottleneck2d(
                     in_channels=hidden_channels,
                     out_channels=hidden_channels,
-                    mid_channels=mid_channels,
                 )
                 for _ in range(depth)
             ]
@@ -164,18 +161,15 @@ class RegressionModel(nn.Module):
     ) -> None:
         super().__init__()
         self.out_size = out_size
-        self.in_conv = MobileV3(
+        self.in_conv = SENextBottleneck2d(
             in_channels=in_channels,
             out_channels=hidden_channels,
-            mid_channels=hidden_channels,
         )
-        mid_channels = hidden_channels // 8
         self.bottlenecks = nn.Sequential(
             *[
-                MobileV3(
+                SENextBottleneck2d(
                     in_channels=hidden_channels,
                     out_channels=hidden_channels,
-                    mid_channels=mid_channels,
                 )
                 for _ in range(depth)
             ]
@@ -266,7 +260,7 @@ class BoxLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.6, 0.7)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.5, 0.6)) -> None:
         """
         focal_loss
         """
@@ -316,7 +310,7 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        box_weight: float = 1.0,
+        box_weight: float = 10.0,
         label_weight: float = 1.0,
         box_loss: BoxLoss = BoxLoss(),
         label_loss: LabelLoss = LabelLoss(),

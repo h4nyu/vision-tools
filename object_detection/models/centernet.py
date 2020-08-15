@@ -179,8 +179,8 @@ class BoxLoss:
     def __init__(
         self,
         matcher: Any = CenterMatcher(),
-        loss: Any = partial(F.smooth_l1_loss, reduction="mean"),
-        use_diff: bool = False,
+        loss: Any = partial(F.l1_loss, reduction="mean"),
+        use_diff: bool = True,
     ) -> None:
         self.matcher = matcher
         self.loss = loss
@@ -219,7 +219,7 @@ class ToBoxes:
         threshold: float = 0.1,
         kernel_size: int = 3,
         limit: int = 1000,
-        use_diff: bool = False,
+        use_diff: bool = True,
     ) -> None:
         self.limit = limit
         self.threshold = threshold
