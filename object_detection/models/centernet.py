@@ -194,6 +194,9 @@ class BoxLoss:
         box_losses: List[Tensor] = []
         anchors = boxmap_to_boxes(anchormap)
         for diff_map, gt_boxes in zip(preds, gt_box_batch):
+            if len(gt_boxes) == 0:
+                continue
+
             pred_boxes = boxmap_to_boxes(diff_map)
             match_indices, positive_indices = self.matcher(anchors, gt_boxes, (w, h))
             num_pos = positive_indices.sum()
