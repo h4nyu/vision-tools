@@ -29,7 +29,7 @@ from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
 from .modules import ConvBR2d, Mish
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
-from .losses import HuberLoss
+from .losses import HuberLoss, DIoULoss
 from .anchors import EmptyAnchors
 from .matcher import NearnestMatcher, CenterMatcher
 from object_detection.meters import MeanMeter
@@ -179,11 +179,10 @@ class BoxLoss:
     def __init__(
         self,
         matcher: Any = NearnestMatcher(),
-        loss: Any = partial(F.l1_loss, reduction="mean"),
         use_diff: bool = True,
     ) -> None:
         self.matcher = matcher
-        self.loss = loss
+        self.loss = DIoULoss(size_average=True)
         self.use_diff = use_diff
 
     def __call__(
@@ -202,15 +201,15 @@ class BoxLoss:
             num_pos = positive_indices.sum()
             if num_pos == 0:
                 continue
-            matched_gt_boxes = gt_boxes[match_indices][positive_indices]
-            matched_pred_boxes = pred_boxes[positive_indices]
-
+            matched_gt_boxes = YoloBoxes(gt_boxes[match_indices][positive_indices])
+            matched_pred_boxes = YoloBoxes(pred_boxes[positive_indices])
             if self.use_diff:
-                matched_anchors = anchors[positive_indices]
-                gt_diff = matched_gt_boxes - matched_anchors
-                box_losses.append(self.loss(matched_pred_boxes, gt_diff))
-            else:
-                box_losses.append(self.loss(matched_pred_boxes, matched_gt_boxes))
+                matched_pred_boxes = YoloBoxes(anchors[positive_indices] + matched_pred_boxes)
+
+            box_losses.append(self.loss(
+                yolo_to_pascal(matched_pred_boxes, (1, 1)),
+                yolo_to_pascal(matched_gt_boxes, (1, 1)),
+                ))
         if len(box_losses) == 0:
             return torch.tensor(0.0).to(device)
         return torch.stack(box_losses).mean()
