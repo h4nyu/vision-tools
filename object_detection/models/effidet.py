@@ -404,7 +404,7 @@ class ToBoxes:
             confidences = confidences[filter_idx][: self.limit]
             boxes = boxes[filter_idx][: self.limit]
             sort_idx = nms(
-                yolo_to_pascal(boxes, (1, 1)), confidences, self.iou_threshold
+                yolo_to_pascal(YoloBoxes(boxes), (1, 1)), confidences, self.iou_threshold
             )
             confidences.argsort(descending=True)
             boxes = YoloBoxes(boxes[sort_idx])
