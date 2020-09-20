@@ -34,12 +34,12 @@ def test_hm_loss() -> None:
     assert res < 0.3
 
 
-def test_centernet_foward() -> None:
+def test_centernet_forward() -> None:
     inputs = torch.rand((1, 3, 512, 512))
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
     fn = CenterNet(channels=channels, backbone=backbone, out_idx=3)
-    heatmap, sizemap, _, _ = fn(inputs)
+    heatmap, sizemap, _ = fn(inputs)
     assert heatmap.shape == (1, 1, 512 // 2, 512 // 2)
 
 

@@ -177,9 +177,7 @@ class Criterion:
 
 class BoxLoss:
     def __init__(
-        self,
-        matcher: Any = NearnestMatcher(),
-        use_diff: bool = True,
+        self, matcher: Any = NearnestMatcher(), use_diff: bool = True,
     ) -> None:
         self.matcher = matcher
         self.loss = DIoULoss(size_average=True)
@@ -204,12 +202,16 @@ class BoxLoss:
             matched_gt_boxes = YoloBoxes(gt_boxes[match_indices][positive_indices])
             matched_pred_boxes = YoloBoxes(pred_boxes[positive_indices])
             if self.use_diff:
-                matched_pred_boxes = YoloBoxes(anchors[positive_indices] + matched_pred_boxes)
+                matched_pred_boxes = YoloBoxes(
+                    anchors[positive_indices] + matched_pred_boxes
+                )
 
-            box_losses.append(self.loss(
-                yolo_to_pascal(matched_pred_boxes, (1, 1)),
-                yolo_to_pascal(matched_gt_boxes, (1, 1)),
-                ))
+            box_losses.append(
+                self.loss(
+                    yolo_to_pascal(matched_pred_boxes, (1, 1)),
+                    yolo_to_pascal(matched_gt_boxes, (1, 1)),
+                )
+            )
         if len(box_losses) == 0:
             return torch.tensor(0.0).to(device)
         return torch.stack(box_losses).mean()

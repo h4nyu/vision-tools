@@ -35,10 +35,10 @@ def test_classification_model() -> None:
 @pytest.mark.parametrize(
     "preds,expected",
     [
-        ([[0.0, 0.0], [0.0, 0.0], [1.0, 0.0],], 1e-3),
-        ([[0.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 1.4e1),
-        ([[1.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 2.20e1),
-        ([[1.0, 1.0], [1.0, 1.0], [1.0, 0.0],], 2.8e1),
+        ([[0.0, 0.0], [0.0, 0.0], [1.0, 0.0],], 5.8),
+        ([[0.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 4.7),
+        ([[1.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 3.5),
+        ([[1.0, 1.0], [1.0, 1.0], [1.0, 0.0],], 3.5),
     ],
 )
 def test_label_loss(preds: Any, expected: float) -> None:
@@ -53,15 +53,14 @@ def test_label_loss(preds: Any, expected: float) -> None:
         pred_classes=pred_classes,
         gt_classes=gt_classes,
     )
-    print(res)
     assert res < expected
 
 
 @pytest.mark.parametrize(
     "preds,expected",
     [
-        ([[0.1, 0.1, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0],], 1e-4),
-        ([[0.0, 0.0, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0],], 1e-4),
+        ([[0.1, 0.1, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0],], 0.06),
+        ([[0.0, 0.0, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0],], 0.04),
         ([[0.1, 0.1, 0.0, 0.0,], [0.1, 0.1, 0.0, 0.0], [0.5, 0.0, 0.0, 0.0],], 1e0),
     ],
 )
@@ -91,4 +90,5 @@ def test_effdet() -> None:
     backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
     fn = EfficientDet(num_classes=2, backbone=backbone, channels=32,)
     anchors, boxes, labels = fn(images)
-    assert labels.shape[:2] == boxes.shape[:2]
+    for x, y in zip(labels, boxes):
+        assert x.shape[:2] == y.shape[:2]

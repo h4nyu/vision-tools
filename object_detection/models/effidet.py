@@ -189,14 +189,14 @@ BoxDiffs = NewType("BoxDiffs", Tensor)
 NetOutput = Tuple[List[YoloBoxes], List[BoxDiffs], List[Tensor]]
 
 
-
-def _init_weight(m:nn.Module) -> None:
+def _init_weight(m: nn.Module) -> None:
     """ Weight initialization as per Tensorflow official implementations.
     """
     if isinstance(m, nn.BatchNorm2d):
         # looks like all bn init the same?
         m.weight.data.fill_(1.0)
         m.bias.data.zero_()
+
 
 class EfficientDet(nn.Module):
     def __init__(
@@ -222,9 +222,8 @@ class EfficientDet(nn.Module):
             channels, num_classes=num_classes, num_anchors=self.anchors.num_anchors
         )
         for n, m in self.named_modules():
-            if 'backbone' not in n:
+            if "backbone" not in n:
                 _init_weight(m)
-
 
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
@@ -240,7 +239,7 @@ class EfficientDet(nn.Module):
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.7) -> None:
+    def __init__(self, iou_threshold: float = 0.8) -> None:
         self.iou_threshold = iou_threshold
         #  self.loss = HuberLoss(delta=0.1)
         self.loss = partial(F.l1_loss, reduction="mean")
@@ -267,7 +266,7 @@ class BoxLoss:
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.6, 0.7)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.7, 0.8)) -> None:
         """
         focal_loss
         """
@@ -344,13 +343,17 @@ class Criterion:
         label_losses: List[Tensor] = []
         _, _, h, w = images.shape
 
-
-        for anchors, box_diffs, pred_labels_level in zip(anchor_levels, box_diff_levels, classification_levels):
-            for gt_boxes, gt_lables, box_diff, pred_labels in zip(gt_boxes_list, gt_classes_list, box_diffs, pred_labels_level):
+        for anchors, box_diffs, pred_labels_level in zip(
+            anchor_levels, box_diff_levels, classification_levels
+        ):
+            for gt_boxes, gt_lables, box_diff, pred_labels in zip(
+                gt_boxes_list, gt_classes_list, box_diffs, pred_labels_level
+            ):
                 if len(gt_boxes) == 0:
                     continue
                 iou_matrix = self.diou(
-                    yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
+                    yolo_to_pascal(anchors, wh=(w, h)),
+                    yolo_to_pascal(gt_boxes, wh=(w, h)),
                 )
                 match_score, match_indices = torch.min(iou_matrix, dim=1)
                 label_losses.append(
@@ -374,7 +377,6 @@ class Criterion:
         all_label_loss = torch.stack(label_losses).mean() * self.label_weight
         loss = all_box_loss + all_label_loss
         return loss, all_box_loss, all_label_loss
-
 
 
 class PreProcess:
@@ -410,9 +412,9 @@ class ToBoxes:
         anchor_levels, box_diff_levels, labels_levels = net_output
         box_batch = []
         confidence_batch = []
-        anchors = torch.cat(anchor_levels, dim=0) # type: ignore
-        box_diffs = torch.cat(box_diff_levels, dim=1) # type:ignore
-        labels_batch = torch.cat(labels_levels, dim=1) # type:ignore
+        anchors = torch.cat(anchor_levels, dim=0)  # type: ignore
+        box_diffs = torch.cat(box_diff_levels, dim=1)  # type:ignore
+        labels_batch = torch.cat(labels_levels, dim=1)  # type:ignore
         for box_diff, confidences in zip(box_diffs, labels_batch):
             boxes = anchors + box_diff
             confidences, c_index = confidences.max(dim=1)
@@ -420,7 +422,9 @@ class ToBoxes:
             confidences = confidences[filter_idx][: self.limit]
             boxes = boxes[filter_idx][: self.limit]
             sort_idx = nms(
-                yolo_to_pascal(YoloBoxes(boxes), (1, 1)), confidences, self.iou_threshold
+                yolo_to_pascal(YoloBoxes(boxes), (1, 1)),
+                confidences,
+                self.iou_threshold,
             )
             confidences.argsort(descending=True)
             boxes = YoloBoxes(boxes[sort_idx])
