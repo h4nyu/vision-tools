@@ -18,5 +18,5 @@ out_dir = "/store/efficientdet"
 metric: Tuple[str, WatchMode] = ("test_label", "min")
 pretrained = True
 
-anchor_ratios = [2 / 3, 3 / 2]
+anchor_ratios = [2 / 3, 1.0, 3 / 2]
 anchor_size = 3

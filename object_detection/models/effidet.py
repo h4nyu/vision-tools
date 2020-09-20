@@ -240,7 +240,7 @@ class EfficientDet(nn.Module):
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.0) -> None:
+    def __init__(self, iou_threshold: float = 0.7) -> None:
         self.iou_threshold = iou_threshold
         #  self.loss = HuberLoss(delta=0.1)
         self.loss = partial(F.l1_loss, reduction="mean")
@@ -345,10 +345,10 @@ class Criterion:
         _, _, h, w = images.shape
 
 
-        for gt_boxes, gt_lables in zip(gt_boxes_list, gt_classes_list):
-            if len(gt_boxes) == 0:
-                continue
-            for anchors, box_diff, pred_labels in zip(anchor_levels, box_diff_levels, classification_levels):
+        for anchors, box_diffs, pred_labels_level in zip(anchor_levels, box_diff_levels, classification_levels):
+            for gt_boxes, gt_lables, box_diff, pred_labels in zip(gt_boxes_list, gt_classes_list, box_diffs, pred_labels_level):
+                if len(gt_boxes) == 0:
+                    continue
                 iou_matrix = self.diou(
                     yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
                 )
@@ -407,9 +407,12 @@ class ToBoxes:
     def __call__(
         self, net_output: NetOutput
     ) -> t.Tuple[List[YoloBoxes], List[Confidences]]:
-        anchors, box_diffs, labels_batch = net_output
+        anchor_levels, box_diff_levels, labels_levels = net_output
         box_batch = []
         confidence_batch = []
+        anchors = torch.cat(anchor_levels, dim=0) # type: ignore
+        box_diffs = torch.cat(box_diff_levels, dim=1) # type:ignore
+        labels_batch = torch.cat(labels_levels, dim=1) # type:ignore
         for box_diff, confidences in zip(box_diffs, labels_batch):
             boxes = anchors + box_diff
             confidences, c_index = confidences.max(dim=1)
