@@ -186,8 +186,17 @@ class RegressionModel(nn.Module):
 BoxDiff = NewType("BoxDiff", Tensor)
 BoxDiffs = NewType("BoxDiffs", Tensor)
 
-NetOutput = Tuple[YoloBoxes, BoxDiffs, Tensor]
+NetOutput = Tuple[List[YoloBoxes], List[BoxDiffs], List[Tensor]]
 
+
+
+def _init_weight(m:nn.Module) -> None:
+    """ Weight initialization as per Tensorflow official implementations.
+    """
+    if isinstance(m, nn.BatchNorm2d):
+        # looks like all bn init the same?
+        m.weight.data.fill_(1.0)
+        m.bias.data.zero_()
 
 class EfficientDet(nn.Module):
     def __init__(
@@ -195,7 +204,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         channels: int = 64,
-        out_ids: List[PyramidIdx] = [3, 4, 5, 6],
+        out_ids: List[PyramidIdx] = [4, 5, 6],
         anchors: Anchors = Anchors(),
         depth: int = 1,
     ) -> None:
@@ -212,24 +221,26 @@ class EfficientDet(nn.Module):
         self.classification = ClassificationModel(
             channels, num_classes=num_classes, num_anchors=self.anchors.num_anchors
         )
+        for n, m in self.named_modules():
+            if 'backbone' not in n:
+                _init_weight(m)
+
 
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
         features = self.neck(features)
-        anchors = torch.cat([self.anchors(features[i]) for i in self.out_ids], dim=0)
-        box_diffs = torch.cat([self.box_reg(features[i]) for i in self.out_ids], dim=1)
-        labels = torch.cat(
-            [self.classification(features[i]) for i in self.out_ids], dim=1
-        )
+        anchor_levels = [self.anchors(features[i]) for i in self.out_ids]
+        box_levels = [self.box_reg(features[i]) for i in self.out_ids]
+        label_levels = [self.classification(features[i]) for i in self.out_ids]
         return (
-            YoloBoxes(anchors),
-            BoxDiffs(box_diffs),
-            Labels(labels),
+            anchor_levels,
+            box_levels,
+            label_levels,
         )
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.7) -> None:
+    def __init__(self, iou_threshold: float = 0.0) -> None:
         self.iou_threshold = iou_threshold
         #  self.loss = HuberLoss(delta=0.1)
         self.loss = partial(F.l1_loss, reduction="mean")
@@ -277,6 +288,7 @@ class LabelLoss:
         positive_indices = match_score <= low
         negative_indices = match_score > high
         matched_gt_classes = gt_classes[match_indices]
+
         targets = torch.ones(pred_classes.shape).to(device) * -1.0
         targets[positive_indices, matched_gt_classes[positive_indices].long()] = 1
         targets[negative_indices, :] = 0
@@ -325,43 +337,44 @@ class Criterion:
         gt_boxes_list: List[YoloBoxes],
         gt_classes_list: List[Labels],
     ) -> Tuple[Tensor, Tensor, Tensor]:
-        anchors, box_diffs, classifications = net_output
-        device = classifications.device
-        batch_size = classifications.shape[0]
+        anchor_levels, box_diff_levels, classification_levels = net_output
+        device = anchor_levels[0].device
+        batch_size = classification_levels[0].shape[0]
         box_losses: List[Tensor] = []
         label_losses: List[Tensor] = []
         _, _, h, w = images.shape
 
-        for box_diff, pred_labels, gt_boxes, gt_lables in zip(
-            box_diffs, classifications, gt_boxes_list, gt_classes_list
-        ):
+
+        for gt_boxes, gt_lables in zip(gt_boxes_list, gt_classes_list):
             if len(gt_boxes) == 0:
                 continue
-            iou_matrix = self.diou(
-                yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
-            )
-            match_score, match_indices = torch.min(iou_matrix, dim=1)
-            label_losses.append(
-                self.label_loss(
-                    match_score=match_score,
-                    match_indices=match_indices,
-                    pred_classes=pred_labels,
-                    gt_classes=gt_lables,
+            for anchors, box_diff, pred_labels in zip(anchor_levels, box_diff_levels, classification_levels):
+                iou_matrix = self.diou(
+                    yolo_to_pascal(anchors, wh=(w, h)), yolo_to_pascal(gt_boxes, wh=(w, h)),
                 )
-            )
-            box_losses.append(
-                self.box_loss(
-                    match_score=match_score,
-                    match_indices=match_indices,
-                    anchors=anchors,
-                    box_diff=BoxDiff(box_diff),
-                    gt_boxes=gt_boxes,
+                match_score, match_indices = torch.min(iou_matrix, dim=1)
+                label_losses.append(
+                    self.label_loss(
+                        match_score=match_score,
+                        match_indices=match_indices,
+                        pred_classes=pred_labels,
+                        gt_classes=gt_lables,
+                    )
                 )
-            )
+                box_losses.append(
+                    self.box_loss(
+                        match_score=match_score,
+                        match_indices=match_indices,
+                        anchors=anchors,
+                        box_diff=BoxDiff(box_diff),
+                        gt_boxes=gt_boxes,
+                    )
+                )
         all_box_loss = torch.stack(box_losses).mean() * self.box_weight
         all_label_loss = torch.stack(label_losses).mean() * self.label_weight
         loss = all_box_loss + all_label_loss
         return loss, all_box_loss, all_label_loss
+
 
 
 class PreProcess:
