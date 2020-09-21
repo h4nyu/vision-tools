@@ -312,7 +312,7 @@ class LabelLoss:
             * targets.eq(0.0)
         )
         neg_loss = (neg_loss).sum()
-        loss = (pos_loss + neg_loss)
+        loss = (pos_loss + neg_loss) / num_pos.clamp(min=1.0)
         return loss
 
 
