@@ -380,18 +380,19 @@ class Criterion:
 
 
 class PreProcess:
-    def __init__(self, device: t.Any) -> None:
+    def __init__(self, device: t.Any, non_blocking:bool=True) -> None:
         super().__init__()
         self.device = device
+        self.non_blocking = non_blocking
 
     def __call__(
         self, batch: t.Tuple[ImageBatch, List[YoloBoxes], List[Labels]]
     ) -> t.Tuple[ImageBatch, List[YoloBoxes], List[Labels]]:
         image_batch, boxes_batch, label_batch = batch
         return (
-            ImageBatch(image_batch.to(self.device)),
-            [YoloBoxes(x.to(self.device)) for x in boxes_batch],
-            [Labels(x.to(self.device)) for x in label_batch],
+            ImageBatch(image_batch.to(self.device, non_blocking=self.non_blocking)),
+            [YoloBoxes(x.to(self.device, non_blocking=self.non_blocking)) for x in boxes_batch],
+            [Labels(x.to(self.device, non_blocking=self.non_blocking)) for x in label_batch],
         )
 
 
