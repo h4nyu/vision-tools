@@ -22,7 +22,7 @@ from object_detection.entities import (
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
-from .losses import DIoU, HuberLoss
+from .losses import DIoU, HuberLoss, DIoULoss
 from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
@@ -239,10 +239,10 @@ class EfficientDet(nn.Module):
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.6) -> None:
+    def __init__(self, iou_threshold: float = 0.4) -> None:
         self.iou_threshold = iou_threshold
-        #  self.loss = HuberLoss(delta=0.1)
-        self.loss = partial(F.l1_loss, reduction="mean")
+        # self.loss = F.l1_loss
+        self.loss = DIoULoss()
 
     def __call__(
         self,
@@ -254,19 +254,22 @@ class BoxLoss:
     ) -> Tensor:
         device = box_diff.device
         high = self.iou_threshold
-        positive_indices = match_score < self.iou_threshold
+        positive_indices = match_score > self.iou_threshold
         num_pos = positive_indices.sum()
         if num_pos == 0:
             return torch.tensor(0.0).float().to(device)
         matched_gt_boxes = gt_boxes[match_indices][positive_indices]
         matched_anchors = anchors[positive_indices]
         pred_diff = box_diff[positive_indices]
-        gt_diff = matched_gt_boxes - matched_anchors
-        return self.loss(pred_diff, gt_diff)
+        loss =  self.loss(
+            yolo_to_pascal(YoloBoxes(matched_anchors + pred_diff), (1, 1)),
+            yolo_to_pascal(matched_gt_boxes, (1, 1)),
+        )
+        return loss
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.6, 0.7)) -> None:
+    def __init__(self, iou_thresholds: Tuple[float, float] = (0.4, 0.5)) -> None:
         """
         focal_loss
         """
@@ -284,8 +287,8 @@ class LabelLoss:
     ) -> Tensor:
         device = pred_classes.device
         low, high = self.iou_thresholds
-        positive_indices = match_score <= low
-        negative_indices = match_score > high
+        positive_indices = match_score > high
+        negative_indices = match_score < low
         matched_gt_classes = gt_classes[match_indices]
 
         targets = torch.ones(pred_classes.shape).to(device) * -1.0
@@ -351,11 +354,11 @@ class Criterion:
             ):
                 if len(gt_boxes) == 0:
                     continue
-                iou_matrix = self.diou(
+                iou_matrix = box_iou(
                     yolo_to_pascal(anchors, wh=(w, h)),
                     yolo_to_pascal(gt_boxes, wh=(w, h)),
                 )
-                match_score, match_indices = torch.min(iou_matrix, dim=1)
+                match_score, match_indices = torch.max(iou_matrix, dim=1)
                 label_losses.append(
                     self.label_loss(
                         match_score=match_score,
@@ -380,7 +383,7 @@ class Criterion:
 
 
 class PreProcess:
-    def __init__(self, device: t.Any, non_blocking:bool=True) -> None:
+    def __init__(self, device: t.Any, non_blocking: bool = True) -> None:
         super().__init__()
         self.device = device
         self.non_blocking = non_blocking
@@ -391,8 +394,14 @@ class PreProcess:
         image_batch, boxes_batch, label_batch = batch
         return (
             ImageBatch(image_batch.to(self.device, non_blocking=self.non_blocking)),
-            [YoloBoxes(x.to(self.device, non_blocking=self.non_blocking)) for x in boxes_batch],
-            [Labels(x.to(self.device, non_blocking=self.non_blocking)) for x in label_batch],
+            [
+                YoloBoxes(x.to(self.device, non_blocking=self.non_blocking))
+                for x in boxes_batch
+            ],
+            [
+                Labels(x.to(self.device, non_blocking=self.non_blocking))
+                for x in label_batch
+            ],
         )
 
 
