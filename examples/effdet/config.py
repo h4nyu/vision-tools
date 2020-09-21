@@ -8,7 +8,7 @@ batch_size = 32
 # model
 channels = 64
 depth = 2
-lr = 1e-3
+lr = 1e-4
 
 input_size = (256, 256)
 object_count_range = (5, 20)

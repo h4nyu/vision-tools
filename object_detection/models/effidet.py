@@ -239,7 +239,7 @@ class EfficientDet(nn.Module):
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.4) -> None:
+    def __init__(self, iou_threshold: float = 0.5) -> None:
         self.iou_threshold = iou_threshold
         # self.loss = F.l1_loss
         self.loss = DIoULoss()
@@ -312,7 +312,7 @@ class LabelLoss:
             * targets.eq(0.0)
         )
         neg_loss = (neg_loss).sum()
-        loss = (pos_loss + neg_loss) / pos_count.clamp(min=1.0)
+        loss = (pos_loss + neg_loss)
         return loss
 
 
@@ -320,8 +320,8 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        box_weight: float = 10.0,
-        label_weight: float = 1.0,
+        box_weight: float = 1.0,
+        label_weight: float = 2.0,
         box_loss: BoxLoss = BoxLoss(),
         label_loss: LabelLoss = LabelLoss(),
     ) -> None:
