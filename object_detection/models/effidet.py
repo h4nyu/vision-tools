@@ -261,9 +261,9 @@ class BoxLoss:
         matched_gt_boxes = gt_boxes[match_indices][positive_indices]
         matched_anchors = anchors[positive_indices]
         pred_diff = box_diff[positive_indices]
-        loss =  self.loss(
+        loss = self.loss(
             yolo_to_pascal(YoloBoxes(matched_anchors + pred_diff), (1, 1)),
-            yolo_to_pascal(matched_gt_boxes, (1, 1)),
+            yolo_to_pascal(YoloBoxes(matched_gt_boxes), (1, 1)),
         )
         return loss
 
@@ -312,7 +312,7 @@ class LabelLoss:
             * targets.eq(0.0)
         )
         neg_loss = (neg_loss).sum()
-        loss = (pos_loss + neg_loss) / num_pos.clamp(min=1.0)
+        loss = (pos_loss + neg_loss) / pos_count.clamp(min=1.0)
         return loss
 
 
