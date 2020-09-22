@@ -3,7 +3,7 @@ from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
 confidence_threshold = 0.5
-batch_size = 40
+batch_size = 16
 
 # model
 channels = 64
@@ -19,4 +19,4 @@ metric: Tuple[str, WatchMode] = ("test_label", "min")
 pretrained = True
 
 anchor_ratios = [2 / 3, 1.0, 3 / 2]
-anchor_size = 2
+anchor_size = 4
