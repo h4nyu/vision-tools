@@ -281,38 +281,51 @@ class LabelLoss:
         self,
         match_score: Tensor,
         match_indices: Tensor,
-        pred_classes: Tensor,
+        logits: Tensor,
         gt_classes: Tensor,
     ) -> Tensor:
-        device = pred_classes.device
+        device = logits.device
         low, high = self.iou_thresholds
         positive_indices = match_score > high
-        negative_indices = match_score < low
         matched_gt_classes = gt_classes[match_indices]
 
-        targets = torch.ones(pred_classes.shape).to(device) * -1.0
+        targets = torch.zeros(logits.shape).to(device, non_blocking=True)
         targets[positive_indices, matched_gt_classes[positive_indices].long()] = 1
-        targets[negative_indices, :] = 0
-        pred_classes = torch.clamp(pred_classes, min=1e-4, max=1 - 1e-4)
-        pos_count = positive_indices.sum()
-        if pos_count == 0:
-            logger.debug("no box matched")
-        pos_loss = (
-            -self.alpha
-            * ((1 - pred_classes) ** self.gamma)
-            * torch.log(pred_classes)
-            * targets.eq(1.0)
+        positive_label_mask = targets == 1.0
+        cross_entropy = F.binary_cross_entropy_with_logits(
+            logits, targets, reduction="none"
         )
-        pos_loss = pos_loss.sum()
-        neg_loss = (
-            -(1 - self.alpha)
-            * ((pred_classes) ** self.gamma)
-            * torch.log(1 - pred_classes)
-            * targets.eq(0.0)
+        neg_logits = -1.0 * logits
+        modulator = torch.exp(
+            self.gamma * targets * neg_logits
+            - self.gamma * torch.log1p(torch.exp(neg_logits))
         )
-        neg_loss = (neg_loss).sum()
-        loss = (pos_loss + neg_loss) / pos_count.clamp(min=1.0)
-        return loss
+        loss = modulator * cross_entropy
+        weighted_loss = torch.where(positive_label_mask, self.alpha * loss, (1.0 - self.alpha) * loss
+        )
+        weighted_loss = weighted_loss.sum() / positive_label_mask.sum().clamp(min=1.0)
+        return weighted_loss
+
+        # pred_classes = torch.clamp(pred_classes, min=1e-4, max=1 - 1e-4)
+        # pos_count = positive_indices.sum()
+        # if pos_count == 0:
+        #     logger.debug("no box matched")
+        # pos_loss = (
+        #     -self.alpha
+        #     * ((1 - pred_classes) ** self.gamma)
+        #     * torch.log(pred_classes)
+        #     * targets.eq(1.0)
+        # )
+        # pos_loss = pos_loss.sum()
+        # neg_loss = (
+        #     -(1 - self.alpha)
+        #     * ((pred_classes) ** self.gamma)
+        #     * torch.log(1 - pred_classes)
+        #     * targets.eq(0.0)
+        # )
+        # neg_loss = (neg_loss).sum()
+        # loss = (pos_loss + neg_loss) / pos_count.clamp(min=1.0)
+        # return loss
 
 
 class Criterion:
@@ -362,7 +375,7 @@ class Criterion:
                     self.label_loss(
                         match_score=match_score,
                         match_indices=match_indices,
-                        pred_classes=pred_labels,
+                        logits=pred_labels,
                         gt_classes=gt_lables,
                     )
                 )

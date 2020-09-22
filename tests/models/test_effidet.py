@@ -35,25 +35,25 @@ def test_classification_model() -> None:
 @pytest.mark.parametrize(
     "preds,expected",
     [
-        ([[0.0, 0.0], [0.0, 0.0], [1.0, 0.0],], 5.8),
-        ([[0.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 4.7),
-        ([[1.0, 0.0], [1.0, 1.0], [1.0, 0.0],], 3.5),
-        ([[1.0, 1.0], [1.0, 1.0], [1.0, 0.0],], 3.5),
-        ([[1.0, 0.0], [0.0, 1.0], [1.0, 0.0],], 3.5),
+        ([[-10.0], [0.0], [10.0],], 0.13),
+        ([[-10.0], [1000.0], [10.0],], 0.13),
+        # ([[10.0], [0.0], [10.0],], 7.7),
+        # ([[-10.0], [0.0], [-10.0],], 7.7),
     ],
 )
 def test_label_loss(preds: Any, expected: float) -> None:
-    match_score = torch.tensor([0.0, 0.4, 0.6,])
-    match_indices = torch.tensor([0, 1, 0,])
+    match_score = torch.tensor([0.0, 0.5, 0.6,])  # [neg, ignore, pos]
+    match_indices = torch.tensor([0, 0, 0,])
     pred_classes = torch.tensor(preds)
-    gt_classes = torch.tensor([0, 1])
+    gt_classes = torch.tensor([0, 0])
     fn = LabelLoss(iou_thresholds=(0.45, 0.55))
     res = fn(
         match_score=match_score,
         match_indices=match_indices,
-        pred_classes=pred_classes,
+        logits=pred_classes,
         gt_classes=gt_classes,
     )
+    print(res)
     assert res < expected
 
 
