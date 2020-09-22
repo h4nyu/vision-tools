@@ -140,7 +140,6 @@ class ClassificationModel(nn.Module):
         x = self.in_conv(x)
         x = self.bottlenecks(x)
         x = self.output(x)
-        x = self.output_act(x)
         # out is B x C x W x H, with C = n_classes + n_anchors
         out = x.permute(0, 2, 3, 1)
         batch_size, width, height, channels = out.shape
