@@ -1,4 +1,10 @@
-from logging import getLogger, StreamHandler, Formatter, INFO, FileHandler
+from logging import (
+    getLogger,
+    StreamHandler,
+    Formatter,
+    INFO,
+    FileHandler,
+)
 
 logger = getLogger()
 logger.setLevel(INFO)

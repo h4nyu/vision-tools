@@ -38,9 +38,15 @@ class Up2d(nn.Module):
         # if bilinear, use the normal convolutions to reduce the number of channels
         self.merge = merge
         if bilinear:
-            self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+            self.up = nn.Upsample(
+                scale_factor=2,
+                mode="bilinear",
+                align_corners=True,
+            )
         else:
-            self.up = nn.ConvTranspose2d(channels, channels, kernel_size=2, stride=2)
+            self.up = nn.ConvTranspose2d(
+                channels, channels, kernel_size=2, stride=2
+            )
 
     def forward(self, x, t):  # type: ignore
         x = self.up(x)
@@ -79,15 +85,31 @@ class BiFPN(nn.Module):
         self.up6 = Up2d(channels)
         self.up7 = Up2d(channels)
 
-        self.mid6 = Merge2d(in_channels=channels * 2, out_channels=channels)
-        self.mid5 = Merge2d(in_channels=channels * 2, out_channels=channels)
-        self.mid4 = Merge2d(in_channels=channels * 2, out_channels=channels)
+        self.mid6 = Merge2d(
+            in_channels=channels * 2, out_channels=channels
+        )
+        self.mid5 = Merge2d(
+            in_channels=channels * 2, out_channels=channels
+        )
+        self.mid4 = Merge2d(
+            in_channels=channels * 2, out_channels=channels
+        )
 
-        self.out3 = Merge2d(in_channels=channels * 2, out_channels=channels)
-        self.out4 = Merge2d(in_channels=channels * 3, out_channels=channels)
-        self.out5 = Merge2d(in_channels=channels * 3, out_channels=channels)
-        self.out6 = Merge2d(in_channels=channels * 3, out_channels=channels)
-        self.out7 = Merge2d(in_channels=channels * 2, out_channels=channels)
+        self.out3 = Merge2d(
+            in_channels=channels * 2, out_channels=channels
+        )
+        self.out4 = Merge2d(
+            in_channels=channels * 3, out_channels=channels
+        )
+        self.out5 = Merge2d(
+            in_channels=channels * 3, out_channels=channels
+        )
+        self.out6 = Merge2d(
+            in_channels=channels * 3, out_channels=channels
+        )
+        self.out7 = Merge2d(
+            in_channels=channels * 2, out_channels=channels
+        )
 
         self.down3 = Down2d(channels)
         self.down4 = Down2d(channels)

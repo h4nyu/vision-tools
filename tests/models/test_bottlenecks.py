@@ -1,5 +1,8 @@
 import torch
-from object_detection.models.bottlenecks import MobileV3, SENextBottleneck2d
+from object_detection.models.bottlenecks import (
+    MobileV3,
+    SENextBottleneck2d,
+)
 
 
 def test_mobilev3() -> None:
@@ -12,7 +15,12 @@ def test_mobilev3() -> None:
     res = m(req)
     assert res.shape == (1, 32, 10, 10)
 
-    m = MobileV3(in_channels=32, out_channels=32, mid_channels=64, stride=2)
+    m = MobileV3(
+        in_channels=32,
+        out_channels=32,
+        mid_channels=64,
+        stride=2,
+    )
     res = m(req)
     assert res.shape == (1, 32, 5, 5)
 

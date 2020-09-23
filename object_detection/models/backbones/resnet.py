@@ -6,7 +6,13 @@ from typing import Dict
 from object_detection.entities import FP, SideChannels
 from typing_extensions import Literal
 
-ModelName = Literal["resnet18", "resnet34", "resnet50", "resnet101", "resnet152"]
+ModelName = Literal[
+    "resnet18",
+    "resnet34",
+    "resnet50",
+    "resnet101",
+    "resnet152",
+]
 
 SIDEOUT: Dict[ModelName, SideChannels] = {
     "resnet18": (64, 64, 128, 256, 512),
@@ -21,7 +27,9 @@ class ResNetBackbone(nn.Module):
     def __init__(self, name: ModelName, out_channels: int) -> None:
         super().__init__()
         self.name = name
-        self.backbone = getattr(torchvision.models, name)(pretrained=True)
+        self.backbone = getattr(torchvision.models, name)(
+            pretrained=True
+        )
         self.layers = list(self.backbone.children())[:-2]
         self.projects = nn.ModuleList(
             [

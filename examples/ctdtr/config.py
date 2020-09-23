@@ -1,6 +1,8 @@
 from typing import Tuple
 from object_detection.entities import PyramidIdx
-from object_detection.models.centernetv1 import GaussianMapMode
+from object_detection.models.centernetv1 import (
+    GaussianMapMode,
+)
 from object_detection.model_loader import WatchMode
 
 ## heatmap

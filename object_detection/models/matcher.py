@@ -5,7 +5,12 @@ from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
 from typing_extensions import TypedDict
 from typing import Tuple, List
-from object_detection.entities import YoloBoxBatch, ConfidenceBatch, YoloBoxes, Labels
+from object_detection.entities import (
+    YoloBoxBatch,
+    ConfidenceBatch,
+    YoloBoxes,
+    Labels,
+)
 
 
 Preds = Tuple[YoloBoxBatch, ConfidenceBatch]
@@ -15,7 +20,10 @@ MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
 
 class NearnestMatcher:
     def __call__(
-        self, pred: YoloBoxes, gt: YoloBoxes, size: Tuple[int, int]
+        self,
+        pred: YoloBoxes,
+        gt: YoloBoxes,
+        size: Tuple[int, int],
     ) -> Tuple[Tensor, Tensor]:
         w, h = size
         eps_dist = ((1 / w) ** 2 + (1 / w) ** 2) ** (1 / 2)
@@ -40,7 +48,10 @@ class NearnestMatcher:
 
 class CenterMatcher:
     def __call__(
-        self, pred: YoloBoxes, gt: YoloBoxes, size: Tuple[int, int]
+        self,
+        pred: YoloBoxes,
+        gt: YoloBoxes,
+        size: Tuple[int, int],
     ) -> Tuple[Tensor, Tensor]:
         w, h = size
         pixcel_dist = ((1 / w) ** 2 + (1 / h) ** 2) ** (1 / 2) / 2

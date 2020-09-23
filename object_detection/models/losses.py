@@ -15,11 +15,15 @@ Reduction = Literal["none", "mean", "sum"]
 
 
 class HuberLoss:
-    def __init__(self, size_average: bool = True, delta: float = 1.0) -> None:
+    def __init__(
+        self, size_average: bool = True, delta: float = 1.0
+    ) -> None:
         self.delta = delta
         self.size_average = size_average
 
-    def __call__(self, src: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
+    def __call__(
+        self, src: torch.Tensor, tgt: torch.Tensor
+    ) -> torch.Tensor:
         err = src - tgt
         abs_err = err.abs()
         quadratic = torch.clamp(abs_err, max=self.delta)
@@ -141,9 +145,9 @@ class DIoULoss:
         lt = torch.min(src[:, :2], tgt[:, :2])
         rb = torch.max(src[:, 2:], tgt[:, 2:])
 
-        ctr_loss = torch.pow(s_ctr - t_ctr, 2).sum(dim=-1) / torch.pow(
-            (rb - lt).clamp(min=0), 2
-        ).sum(dim=-1)
+        ctr_loss = torch.pow(s_ctr - t_ctr, 2).sum(
+            dim=-1
+        ) / torch.pow((rb - lt).clamp(min=0), 2).sum(dim=-1)
         if self.size_average:
             ctr_loss = ctr_loss.mean()
 

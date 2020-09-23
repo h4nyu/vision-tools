@@ -31,14 +31,22 @@ Phi = Literal[
 
 
 class EfficientNetBackbone(nn.Module):
-    def __init__(self, phi: Phi, out_channels: int, pretrained: bool = False):
+    def __init__(
+        self,
+        phi: Phi,
+        out_channels: int,
+        pretrained: bool = False,
+    ):
         super().__init__()
         model_name = f"efficientnet-b{phi}"
         if pretrained:
             self.module = EfficientNet.from_pretrained(model_name)
         else:
             self.module = EfficientNet.from_name(model_name)
-        self._sideout_stages, self.sideout_channels = SIDEOUT[phi]
+        (
+            self._sideout_stages,
+            self.sideout_channels,
+        ) = SIDEOUT[phi]
         self.projects = nn.ModuleList(
             [
                 nn.Conv2d(

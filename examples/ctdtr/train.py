@@ -8,9 +8,17 @@ from object_detection.models.centernet import (
     Criterion,
     ToBoxes,
 )
-from object_detection.models.mkmaps import MkGaussianMaps, MkCenterBoxMaps
-from object_detection.models.backbones.effnet import EfficientNetBackbone
-from object_detection.model_loader import ModelLoader, BestWatcher
+from object_detection.models.mkmaps import (
+    MkGaussianMaps,
+    MkCenterBoxMaps,
+)
+from object_detection.models.backbones.effnet import (
+    EfficientNetBackbone,
+)
+from object_detection.model_loader import (
+    ModelLoader,
+    BestWatcher,
+)
 from examples.data import TrainDataset
 from object_detection.metrics import MeanPrecition
 from examples.ctdtr import config as cfg
@@ -29,7 +37,9 @@ def train(epochs: int) -> None:
         object_size_range=cfg.object_size_range,
         num_samples=256,
     )
-    backbone = EfficientNetBackbone(1, out_channels=cfg.channels, pretrained=True)
+    backbone = EfficientNetBackbone(
+        1, out_channels=cfg.channels, pretrained=True
+    )
     model = CenterNet(
         channels=cfg.channels,
         backbone=backbone,
@@ -43,10 +53,16 @@ def train(epochs: int) -> None:
         mk_boxmaps=MkCenterBoxMaps(),
     )
     train_loader = DataLoader(
-        train_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size, shuffle=True
+        train_dataset,
+        collate_fn=collate_fn,
+        batch_size=cfg.batch_size,
+        shuffle=True,
     )
     test_loader = DataLoader(
-        test_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size * 2, shuffle=True
+        test_dataset,
+        collate_fn=collate_fn,
+        batch_size=cfg.batch_size * 2,
+        shuffle=True,
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
     visualize = Visualize(cfg.out_dir, "test", limit=2)

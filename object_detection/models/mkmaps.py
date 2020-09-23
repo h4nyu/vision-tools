@@ -18,7 +18,10 @@ MkBoxMapsFn = Callable[[List[YoloBoxes], Heatmaps], BoxMaps]
 
 class MkMapsBase:
     def _mkmaps(
-        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+        self,
+        boxes: YoloBoxes,
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         ...
 
@@ -41,32 +44,63 @@ class MkCrossMaps(MkMapsBase):
         self.alpha = alpha
 
     def _mkmaps(
-        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+        self,
+        boxes: YoloBoxes,
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         device = boxes.device
         h, w = hw
         orig_h, orig_w = original_hw
-        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
+        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(
+            device
+        )
         box_count = len(boxes)
         if box_count == 0:
             return Heatmaps(heatmap)
         step_w = 1.0 / w
         step_h = 1.0 / h
         grid_y, grid_x = torch.meshgrid(  # type:ignore
-            torch.arange(start=0.0, end=1.0, step=step_h, dtype=torch.float32).to(
-                device
-            ),
-            torch.arange(start=0.0, end=1.0, step=step_w, dtype=torch.float32).to(
-                device
-            ),
+            torch.arange(
+                start=0.0,
+                end=1.0,
+                step=step_h,
+                dtype=torch.float32,
+            ).to(device),
+            torch.arange(
+                start=0.0,
+                end=1.0,
+                step=step_w,
+                dtype=torch.float32,
+            ).to(device),
         )
-        grid_cxcy = (boxes[:, :2]).view(box_count, 2, 1, 1).expand((box_count, 2, h, w))
-        grid_wh = (boxes[:, 2:]).view(box_count, 2, 1, 1).expand((box_count, 2, h, w))
-        grid_xy = torch.stack([grid_x, grid_y]).expand((box_count, 2, h, w))
-        grid_xycxcywh = torch.cat([grid_cxcy, grid_xy, grid_wh], dim=1)
+        grid_cxcy = (
+            (boxes[:, :2])
+            .view(box_count, 2, 1, 1)
+            .expand((box_count, 2, h, w))
+        )
+        grid_wh = (
+            (boxes[:, 2:])
+            .view(box_count, 2, 1, 1)
+            .expand((box_count, 2, h, w))
+        )
+        grid_xy = torch.stack([grid_x, grid_y]).expand(
+            (box_count, 2, h, w)
+        )
+        grid_xycxcywh = torch.cat(
+            [grid_cxcy, grid_xy, grid_wh], dim=1
+        )
         mounts = (
-            (grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w
-        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h))
+            (grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs()
+            < step_w
+        ) & (
+            (
+                (
+                    grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]
+                ).abs()
+                < step_h
+            )
+        )
         mounts |= (
             (
                 grid_xycxcywh[:, 2, ::]
@@ -74,7 +108,14 @@ class MkCrossMaps(MkMapsBase):
                 - grid_xycxcywh[:, 0, ::]
             ).abs()
             < step_w / 2
-        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h / 2))
+        ) & (
+            (
+                (
+                    grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]
+                ).abs()
+                < step_h / 2
+            )
+        )
         mounts |= (
             (
                 grid_xycxcywh[:, 2, ::]
@@ -82,7 +123,14 @@ class MkCrossMaps(MkMapsBase):
                 - grid_xycxcywh[:, 0, ::]
             ).abs()
             < step_w / 2
-        ) & (((grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]).abs() < step_h / 2))
+        ) & (
+            (
+                (
+                    grid_xycxcywh[:, 3, ::] - grid_xycxcywh[:, 1, ::]
+                ).abs()
+                < step_h / 2
+            )
+        )
         mounts |= (
             (
                 grid_xycxcywh[:, 3, ::]
@@ -90,7 +138,14 @@ class MkCrossMaps(MkMapsBase):
                 - grid_xycxcywh[:, 1, ::]
             ).abs()
             < step_w / 2
-        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w / 2))
+        ) & (
+            (
+                (
+                    grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]
+                ).abs()
+                < step_w / 2
+            )
+        )
         mounts |= (
             (
                 grid_xycxcywh[:, 3, ::]
@@ -98,7 +153,14 @@ class MkCrossMaps(MkMapsBase):
                 - grid_xycxcywh[:, 1, ::]
             ).abs()
             < step_w / 2
-        ) & (((grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]).abs() < step_w / 2))
+        ) & (
+            (
+                (
+                    grid_xycxcywh[:, 2, ::] - grid_xycxcywh[:, 0, ::]
+                ).abs()
+                < step_w / 2
+            )
+        )
         mounts = mounts.view(box_count, 1, h, w).float()
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return Heatmaps(heatmap)
@@ -109,29 +171,52 @@ class MkCornerMaps(MkMapsBase):
         ...
 
     def _mkmaps(
-        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+        self,
+        boxes: YoloBoxes,
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         device = boxes.device
         h, w = hw
         orig_h, orig_w = original_hw
-        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
+        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(
+            device
+        )
         box_count = len(boxes)
         if box_count == 0:
             return Heatmaps(heatmap)
         step_w = 1.0 / w
         step_h = 1.0 / h
         grid_y, grid_x = torch.meshgrid(  # type:ignore
-            torch.arange(start=0.0, end=1.0, step=step_h, dtype=torch.float32).to(
-                device
-            ),
-            torch.arange(start=0.0, end=1.0, step=step_w, dtype=torch.float32).to(
-                device
-            ),
+            torch.arange(
+                start=0.0,
+                end=1.0,
+                step=step_h,
+                dtype=torch.float32,
+            ).to(device),
+            torch.arange(
+                start=0.0,
+                end=1.0,
+                step=step_w,
+                dtype=torch.float32,
+            ).to(device),
         )
-        grid_cxcy = (boxes[:, :2]).view(box_count, 2, 1, 1).expand((box_count, 2, h, w))
-        grid_wh = (boxes[:, 2:]).view(box_count, 2, 1, 1).expand((box_count, 2, h, w))
-        grid_xy = torch.stack([grid_x, grid_y]).expand((box_count, 2, h, w))
-        grid_xycxcywh = torch.cat([grid_cxcy, grid_xy, grid_wh], dim=1)
+        grid_cxcy = (
+            (boxes[:, :2])
+            .view(box_count, 2, 1, 1)
+            .expand((box_count, 2, h, w))
+        )
+        grid_wh = (
+            (boxes[:, 2:])
+            .view(box_count, 2, 1, 1)
+            .expand((box_count, 2, h, w))
+        )
+        grid_xy = torch.stack([grid_x, grid_y]).expand(
+            (box_count, 2, h, w)
+        )
+        grid_xycxcywh = torch.cat(
+            [grid_cxcy, grid_xy, grid_wh], dim=1
+        )
         mounts = (
             (
                 grid_xycxcywh[:, 2, ::]
@@ -220,12 +305,17 @@ class MkGaussianMaps(MkMapsBase):
         self.mode = mode
 
     def _mkmaps(
-        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+        self,
+        boxes: YoloBoxes,
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         device = boxes.device
         h, w = hw
         orig_h, orig_w = original_hw
-        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
+        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(
+            device
+        )
         box_count = len(boxes)
         if box_count == 0:
             return Heatmaps(heatmap)
@@ -239,10 +329,18 @@ class MkGaussianMaps(MkMapsBase):
         box_wh = boxes[:, 2:]
         cx = cxcy[:, 0]
         cy = cxcy[:, 1]
-        grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
+        grid_xy = (
+            torch.stack([grid_x, grid_y])
+            .to(device)
+            .expand((box_count, 2, h, w))
+        )
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
         if self.mode == "aspect":
-            weight = (boxes[:, 2:] ** 2).clamp(min=1e-4).view(box_count, 2, 1, 1)
+            weight = (
+                (boxes[:, 2:] ** 2)
+                .clamp(min=1e-4)
+                .view(box_count, 2, 1, 1)
+            )
         elif self.mode == "length":
             weight = (
                 (boxes[:, 2:] ** 2)
@@ -253,7 +351,9 @@ class MkGaussianMaps(MkMapsBase):
         else:
             weight = torch.ones((box_count, 1, 1, 1)).to(device)
         mounts = torch.exp(
-            -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
+            -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(
+                dim=1, keepdim=True
+            )
             / (2 * self.sigma ** 2)
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
@@ -261,17 +361,24 @@ class MkGaussianMaps(MkMapsBase):
 
 
 class MkFillMaps(MkMapsBase):
-    def __init__(self, sigma: float = 0.5, use_overlap: bool = False) -> None:
+    def __init__(
+        self, sigma: float = 0.5, use_overlap: bool = False
+    ) -> None:
         self.sigma = sigma
         self.use_overlap = use_overlap
 
     def _mkmaps(
-        self, boxes: YoloBoxes, hw: Tuple[int, int], original_hw: Tuple[int, int]
+        self,
+        boxes: YoloBoxes,
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         device = boxes.device
         h, w = hw
         orig_h, orig_w = original_hw
-        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
+        heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(
+            device
+        )
         box_count = len(boxes)
         if box_count == 0:
             return Heatmaps(heatmap)
@@ -285,14 +392,21 @@ class MkFillMaps(MkMapsBase):
         box_wh = boxes[:, 2:]
         cx = cxcy[:, 0]
         cy = cxcy[:, 1]
-        grid_xy = torch.stack([grid_x, grid_y]).to(device).expand((box_count, 2, h, w))
+        grid_xy = (
+            torch.stack([grid_x, grid_y])
+            .to(device)
+            .expand((box_count, 2, h, w))
+        )
         grid_cxcy = cxcy.view(box_count, 2, 1, 1).expand_as(grid_xy)
         grid_wh = img_wh.view(1, 2, 1, 1).expand_as(grid_xy)
         min_wh = (1.0 / img_wh.float()).view(1, 2).expand_as(box_wh)
         clamped_wh = torch.max(box_wh * 0.5 * self.sigma, min_wh)
         mounts = (
-            (grid_xy.float() / grid_wh) - (grid_cxcy.float() / grid_wh)
-        ).abs() < clamped_wh.view(box_count, 2, 1, 1).expand_as(grid_xy)
+            (grid_xy.float() / grid_wh)
+            - (grid_cxcy.float() / grid_wh)
+        ).abs() < clamped_wh.view(box_count, 2, 1, 1).expand_as(
+            grid_xy
+        )
         mounts, _ = mounts.min(dim=1, keepdim=True)
         mounts = mounts.float()
         if self.use_overlap:
@@ -310,10 +424,14 @@ class MkCenterBoxMaps:
     ) -> None:
         ...
 
-    def _mkmaps(self, boxes: YoloBoxes, heatmaps: Heatmaps) -> BoxMaps:
+    def _mkmaps(
+        self, boxes: YoloBoxes, heatmaps: Heatmaps
+    ) -> BoxMaps:
         device = boxes.device
         _, _, h, w = heatmaps.shape
-        boxmaps = torch.zeros((1, 4, h, w), dtype=torch.float32).to(device)
+        boxmaps = torch.zeros((1, 4, h, w), dtype=torch.float32).to(
+            device
+        )
         box_count = len(boxes)
         if box_count == 0:
             return BoxMaps(boxmaps)

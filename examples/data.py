@@ -5,7 +5,11 @@ from typing import Any, Tuple
 from torch import Tensor
 from torch.utils.data import Dataset
 from object_detection.entities.image import RGB, Image
-from object_detection.entities.box import PascalBoxes, YoloBoxes, pascal_to_yolo
+from object_detection.entities.box import (
+    PascalBoxes,
+    YoloBoxes,
+    pascal_to_yolo,
+)
 from object_detection.entities import (
     TrainSample,
     Image,
@@ -28,7 +32,9 @@ class PolyImage:
         self.height = height
         self.width = width
         self.image = image
-        self.boxes = PascalBoxes(torch.empty((0, 4), dtype=torch.int32))
+        self.boxes = PascalBoxes(
+            torch.empty((0, 4), dtype=torch.int32)
+        )
 
     def _get_box(self, pts: Any) -> Tuple[int, int, int, int]:
         xs = pts[:, :, 0]
@@ -42,15 +48,25 @@ class PolyImage:
     def add(self, max_size: int = 128) -> None:
         base_x = np.random.randint(0, self.width - max_size)
         base_y = np.random.randint(0, self.height - max_size)
-        xs = np.random.randint(low=base_x, high=base_x + max_size, size=(1, 3, 1))
-        ys = np.random.randint(low=base_y, high=base_y + max_size, size=(1, 3, 1))
+        xs = np.random.randint(
+            low=base_x,
+            high=base_x + max_size,
+            size=(1, 3, 1),
+        )
+        ys = np.random.randint(
+            low=base_y,
+            high=base_y + max_size,
+            size=(1, 3, 1),
+        )
         pts = np.concatenate((xs, ys), axis=2)
         self.image = cv2.fillPoly(self.image, pts, (0, 0, 0))
         boxes = torch.tensor([self._get_box(pts)], dtype=torch.int32)
         self.boxes = PascalBoxes(torch.cat([self.boxes, boxes]))
 
     def __call__(self) -> Tuple[Image, YoloBoxes]:
-        img = torch.from_numpy(self.image).permute(2, 0, 1) / 255.0  # [H, W]
+        img = (
+            torch.from_numpy(self.image).permute(2, 0, 1) / 255.0
+        )  # [H, W]
         boxes = pascal_to_yolo(self.boxes, (self.width, self.height))
         return Image(img.float()), boxes
 
@@ -74,7 +90,8 @@ class TrainDataset(Dataset):
             height=self.image_size[1],
         )
         count = np.random.randint(
-            low=self.object_count_range[0], high=self.object_count_range[1]
+            low=self.object_count_range[0],
+            high=self.object_count_range[1],
         )
         sizes = np.random.randint(
             low=self.object_size_range[0],
@@ -115,7 +132,8 @@ class PredictionDataset(Dataset):
             height=self.image_size[1],
         )
         count = np.random.randint(
-            low=self.object_count_range[0], high=self.object_count_range[1]
+            low=self.object_count_range[0],
+            high=self.object_count_range[1],
         )
         sizes = np.random.randint(
             low=self.object_size_range[0],

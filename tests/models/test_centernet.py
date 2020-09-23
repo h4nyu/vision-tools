@@ -11,10 +11,17 @@ from object_detection.models.centernet import (
     Visualize,
     collate_fn,
 )
-from object_detection.entities import YoloBoxes, Image, ImageSize, ImageBatch
+from object_detection.entities import (
+    YoloBoxes,
+    Image,
+    ImageSize,
+    ImageBatch,
+)
 from object_detection.entities.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
-from object_detection.models.backbones.resnet import ResNetBackbone
+from object_detection.models.backbones.resnet import (
+    ResNetBackbone,
+)
 from torch.utils.data import DataLoader
 
 

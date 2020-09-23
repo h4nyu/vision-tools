@@ -12,8 +12,13 @@ from object_detection.models.centernetv1 import (
     MkFillMaps,
     MkCornerMaps,
 )
-from object_detection.models.backbones.effnet import EfficientNetBackbone
-from object_detection.model_loader import ModelLoader, BestWatcher
+from object_detection.models.backbones.effnet import (
+    EfficientNetBackbone,
+)
+from object_detection.model_loader import (
+    ModelLoader,
+    BestWatcher,
+)
 from examples.data import TrainDataset
 from object_detection.metrics import MeanPrecition
 from examples.ctdtrv1 import config as cfg
@@ -32,7 +37,9 @@ def train(epochs: int) -> None:
         object_size_range=cfg.object_size_range,
         num_samples=256,
     )
-    backbone = EfficientNetBackbone(1, out_channels=cfg.channels, pretrained=True)
+    backbone = EfficientNetBackbone(
+        1, out_channels=cfg.channels, pretrained=True
+    )
     model = CenterNetV1(
         channels=cfg.channels,
         backbone=backbone,
@@ -47,10 +54,16 @@ def train(epochs: int) -> None:
         mkmaps=mkmaps,
     )
     train_loader = DataLoader(
-        train_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size, shuffle=True
+        train_dataset,
+        collate_fn=collate_fn,
+        batch_size=cfg.batch_size,
+        shuffle=True,
     )
     test_loader = DataLoader(
-        test_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size * 2, shuffle=True
+        test_dataset,
+        collate_fn=collate_fn,
+        batch_size=cfg.batch_size * 2,
+        shuffle=True,
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
     visualize = Visualize(cfg.out_dir, "test", limit=2)
@@ -60,7 +73,10 @@ def train(epochs: int) -> None:
         key=cfg.metric[0],
         best_watcher=BestWatcher(mode=cfg.metric[1]),
     )
-    to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold, use_peak=cfg.use_peak)
+    to_boxes = ToBoxes(
+        threshold=cfg.to_boxes_threshold,
+        use_peak=cfg.use_peak,
+    )
     get_score = MeanPrecition()
     trainer = Trainer(
         model=model,

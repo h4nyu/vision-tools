@@ -40,7 +40,10 @@ class DetectionPlot:
     ) -> None:
         self.w, self.h = (w, h)
         self.fig, self.ax = plt.subplots(figsize=figsize)
-        self.ax.imshow(torch.ones(self.w, self.h, 3), interpolation="nearest")
+        self.ax.imshow(
+            torch.ones(self.w, self.h, 3),
+            interpolation="nearest",
+        )
         self.use_alpha = use_alpha
         self.show_probs = show_probs
 
@@ -53,18 +56,25 @@ class DetectionPlot:
     def set_title(self, text: str) -> None:
         self.ax.set_title(text)
 
-    def with_image(self, image: Tensor, alpha: Optional[float] = None) -> None:
+    def with_image(
+        self, image: Tensor, alpha: Optional[float] = None
+    ) -> None:
         if len(image.shape) == 2:
             h, w = image.shape
             if (h != self.h) and (w != self.w):
                 image = (
                     F.interpolate(
-                        image.unsqueeze(0).unsqueeze(0), size=(self.h, self.w)
+                        image.unsqueeze(0).unsqueeze(0),
+                        size=(self.h, self.w),
                     )
                     .squeeze(0)
                     .squeeze(0)
                 )
-            self.ax.imshow(image.detach().cpu(), interpolation="nearest", alpha=alpha)
+            self.ax.imshow(
+                image.detach().cpu(),
+                interpolation="nearest",
+                alpha=alpha,
+            )
         elif len(image.shape) == 3:
             (
                 _,
@@ -73,10 +83,15 @@ class DetectionPlot:
             ) = image.shape
             if (h != self.h) and (w != self.w):
                 image = F.interpolate(
-                    image.unsqueeze(0), size=(self.h, self.w)
+                    image.unsqueeze(0),
+                    size=(self.h, self.w),
                 ).squeeze(0)
             image = image.permute(1, 2, 0)
-            self.ax.imshow(image.detach().cpu(), interpolation="nearest", alpha=alpha)
+            self.ax.imshow(
+                image.detach().cpu(),
+                interpolation="nearest",
+                alpha=alpha,
+            )
         else:
             shape = image.shape
             raise ValueError(f"invald shape={shape}")
@@ -126,7 +141,13 @@ class DetectionPlot:
             x0 = box[0]
             y0 = box[1]
             if self.show_probs:
-                self.ax.text(x0, y0, f"{p:.2f}", fontsize=fontsize, color=color)
+                self.ax.text(
+                    x0,
+                    y0,
+                    f"{p:.2f}",
+                    fontsize=fontsize,
+                    color=color,
+                )
             rect = mpatches.Rectangle(
                 (x0, y0),
                 width=box[2],

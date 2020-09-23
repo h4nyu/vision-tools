@@ -1,6 +1,8 @@
 import torch
 from torch.utils.data import DataLoader
-from object_detection.models.backbones.effnet import EfficientNetBackbone
+from object_detection.models.backbones.effnet import (
+    EfficientNetBackbone,
+)
 from object_detection.models.effidet import (
     collate_fn,
     EfficientDet,
@@ -10,7 +12,10 @@ from object_detection.models.effidet import (
     ToBoxes,
     Anchors,
 )
-from object_detection.model_loader import ModelLoader, BestWatcher
+from object_detection.model_loader import (
+    ModelLoader,
+    BestWatcher,
+)
 from examples.data import TrainDataset
 from object_detection.metrics import MeanPrecition
 from examples.effdet import config
@@ -29,10 +34,17 @@ def train(epochs: int) -> None:
         object_size_range=config.object_size_range,
         num_samples=256,
     )
-    backbone = EfficientNetBackbone(2, out_channels=config.channels, pretrained=True)
-    anchors = Anchors(size=config.anchor_size, ratios=config.anchor_ratios)
+    backbone = EfficientNetBackbone(
+        2, out_channels=config.channels, pretrained=True
+    )
+    anchors = Anchors(
+        size=config.anchor_size, ratios=config.anchor_ratios
+    )
     model = EfficientDet(
-        num_classes=1, channels=config.channels, backbone=backbone, anchors=anchors
+        num_classes=1,
+        channels=config.channels,
+        backbone=backbone,
+        anchors=anchors,
     )
     model_loader = ModelLoader(
         out_dir=config.out_dir,

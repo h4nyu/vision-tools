@@ -56,7 +56,12 @@ def collate_fn(
         box_batch.append(boxes)
         id_batch.append(id)
         label_batch.append(labels)
-    return ImageBatch(torch.stack(images)), box_batch, label_batch, id_batch
+    return (
+        ImageBatch(torch.stack(images)),
+        box_batch,
+        label_batch,
+        id_batch,
+    )
 
 
 def prediction_collate_fn(
@@ -96,10 +101,18 @@ class Visualize:
         src_box_batch, src_confidence_batch = src
         _, _, h, w = image_batch.shape
         for i, (img, sb, sc, tb) in enumerate(
-            zip(image_batch, src_box_batch, src_confidence_batch, tgt)
+            zip(
+                image_batch,
+                src_box_batch,
+                src_confidence_batch,
+                tgt,
+            )
         ):
             plot = DetectionPlot(
-                h=h, w=w, use_alpha=self.use_alpha, show_probs=self.show_probs
+                h=h,
+                w=w,
+                use_alpha=self.use_alpha,
+                show_probs=self.show_probs,
             )
             plot.with_image(img, alpha=0.5)
             plot.with_yolo_boxes(tb, color="blue")
@@ -134,7 +147,10 @@ class ClassificationModel(nn.Module):
             ]
         )
         self.output = nn.Conv2d(
-            hidden_channels, num_anchors * num_classes, kernel_size=1, padding=0
+            hidden_channels,
+            num_anchors * num_classes,
+            kernel_size=1,
+            padding=0,
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -144,7 +160,13 @@ class ClassificationModel(nn.Module):
         # out is B x C x W x H, with C = n_classes + n_anchors
         out = x.permute(0, 2, 3, 1)
         batch_size, width, height, channels = out.shape
-        out = out.view(batch_size, width, height, self.num_anchors, self.num_classes)
+        out = out.view(
+            batch_size,
+            width,
+            height,
+            self.num_anchors,
+            self.num_classes,
+        )
         return out.contiguous().view(batch_size, -1, self.num_classes)
 
 
@@ -173,7 +195,10 @@ class RegressionModel(nn.Module):
             ]
         )
         self.out = nn.Conv2d(
-            hidden_channels, num_anchors * self.out_size, kernel_size=1, padding=0
+            hidden_channels,
+            num_anchors * self.out_size,
+            kernel_size=1,
+            padding=0,
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -213,14 +238,18 @@ class EfficientDet(nn.Module):
         self.out_ids = np.array(out_ids) - 3
         self.anchors = anchors
         self.backbone = backbone
-        self.neck = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
+        self.neck = nn.Sequential(
+            *[BiFPN(channels=channels) for _ in range(depth)]
+        )
         self.box_reg = RegressionModel(
             in_channels=channels,
             hidden_channels=channels,
             num_anchors=self.anchors.num_anchors,
         )
         self.classification = ClassificationModel(
-            channels, num_classes=num_classes, num_anchors=self.anchors.num_anchors
+            channels,
+            num_classes=num_classes,
+            num_anchors=self.anchors.num_anchors,
         )
         for n, m in self.named_modules():
             if "backbone" not in n:
@@ -229,9 +258,13 @@ class EfficientDet(nn.Module):
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
         features = self.neck(features)
-        anchor_levels = [self.anchors(features[i]) for i in self.out_ids]
+        anchor_levels = [
+            self.anchors(features[i]) for i in self.out_ids
+        ]
         box_levels = [self.box_reg(features[i]) for i in self.out_ids]
-        label_levels = [self.classification(features[i]) for i in self.out_ids]
+        label_levels = [
+            self.classification(features[i]) for i in self.out_ids
+        ]
         return (
             anchor_levels,
             box_levels,
@@ -240,7 +273,7 @@ class EfficientDet(nn.Module):
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.5) -> None:
+    def __init__(self, iou_threshold: float = 0.4) -> None:
         self.iou_threshold = iou_threshold
         # self.loss = F.l1_loss
         self.loss = DIoULoss()
@@ -263,14 +296,20 @@ class BoxLoss:
         matched_anchors = anchors[positive_indices]
         pred_diff = box_diff[positive_indices]
         loss = self.loss(
-            yolo_to_pascal(YoloBoxes(matched_anchors + pred_diff), (1, 1)),
+            yolo_to_pascal(
+                YoloBoxes(matched_anchors + pred_diff),
+                (1, 1),
+            ),
             yolo_to_pascal(YoloBoxes(matched_gt_boxes), (1, 1)),
         )
         return loss
 
 
 class LabelLoss:
-    def __init__(self, iou_thresholds: Tuple[float, float] = (0.4, 0.5)) -> None:
+    def __init__(
+        self,
+        iou_thresholds: Tuple[float, float] = (0.4, 0.4),
+    ) -> None:
         """
         focal_loss
         """
@@ -291,8 +330,13 @@ class LabelLoss:
         positive_indices = match_score > high
         matched_gt_classes = gt_classes[match_indices]
 
-        targets = torch.zeros(logits.shape).to(device, non_blocking=True)
-        targets[positive_indices, matched_gt_classes[positive_indices].long()] = 1
+        targets = torch.zeros(logits.shape).to(
+            device, non_blocking=True
+        )
+        targets[
+            positive_indices,
+            matched_gt_classes[positive_indices].long(),
+        ] = 1
         positive_label_mask = targets == 1.0
         cross_entropy = F.binary_cross_entropy_with_logits(
             logits, targets, reduction="none"
@@ -304,9 +348,14 @@ class LabelLoss:
         )
         loss = modulator * cross_entropy
         weighted_loss = torch.where(
-            positive_label_mask, self.alpha * loss, (1.0 - self.alpha) * loss
+            positive_label_mask,
+            self.alpha * loss,
+            (1.0 - self.alpha) * loss,
         )
-        weighted_loss = weighted_loss.sum() / positive_label_mask.sum().clamp(min=1.0)
+        weighted_loss = (
+            weighted_loss.sum()
+            / positive_label_mask.sum().clamp(min=1.0)
+        )
         return weighted_loss
 
         # pred_classes = torch.clamp(pred_classes, min=1e-4, max=1 - 1e-4)
@@ -352,7 +401,11 @@ class Criterion:
         gt_boxes_list: List[YoloBoxes],
         gt_classes_list: List[Labels],
     ) -> Tuple[Tensor, Tensor, Tensor]:
-        anchor_levels, box_diff_levels, classification_levels = net_output
+        (
+            anchor_levels,
+            box_diff_levels,
+            classification_levels,
+        ) = net_output
         device = anchor_levels[0].device
         batch_size = classification_levels[0].shape[0]
         box_losses: List[Tensor] = []
@@ -360,10 +413,15 @@ class Criterion:
         _, _, h, w = images.shape
 
         for anchors, box_diffs, pred_labels_level in zip(
-            anchor_levels, box_diff_levels, classification_levels
+            anchor_levels,
+            box_diff_levels,
+            classification_levels,
         ):
-            for gt_boxes, gt_lables, box_diff, pred_labels in zip(
-                gt_boxes_list, gt_classes_list, box_diffs, pred_labels_level
+            for (gt_boxes, gt_lables, box_diff, pred_labels,) in zip(
+                gt_boxes_list,
+                gt_classes_list,
+                box_diffs,
+                pred_labels_level,
             ):
                 if len(gt_boxes) == 0:
                     continue
@@ -371,7 +429,9 @@ class Criterion:
                     yolo_to_pascal(anchors, wh=(w, h)),
                     yolo_to_pascal(gt_boxes, wh=(w, h)),
                 )
-                match_score, match_indices = torch.max(iou_matrix, dim=1)
+                match_score, match_indices = torch.max(
+                    iou_matrix, dim=1
+                )
                 label_losses.append(
                     self.label_loss(
                         match_score=match_score,
@@ -389,30 +449,52 @@ class Criterion:
                         gt_boxes=gt_boxes,
                     )
                 )
-        all_box_loss = torch.stack(box_losses).mean() * self.box_weight
-        all_label_loss = torch.stack(label_losses).mean() * self.label_weight
+        all_box_loss = (
+            torch.stack(box_losses).mean() * self.box_weight
+        )
+        all_label_loss = (
+            torch.stack(label_losses).mean() * self.label_weight
+        )
         loss = all_box_loss + all_label_loss
         return loss, all_box_loss, all_label_loss
 
 
 class PreProcess:
-    def __init__(self, device: t.Any, non_blocking: bool = True) -> None:
+    def __init__(
+        self, device: t.Any, non_blocking: bool = True
+    ) -> None:
         super().__init__()
         self.device = device
         self.non_blocking = non_blocking
 
     def __call__(
-        self, batch: t.Tuple[ImageBatch, List[YoloBoxes], List[Labels]]
+        self,
+        batch: t.Tuple[ImageBatch, List[YoloBoxes], List[Labels]],
     ) -> t.Tuple[ImageBatch, List[YoloBoxes], List[Labels]]:
         image_batch, boxes_batch, label_batch = batch
         return (
-            ImageBatch(image_batch.to(self.device, non_blocking=self.non_blocking)),
+            ImageBatch(
+                image_batch.to(
+                    self.device,
+                    non_blocking=self.non_blocking,
+                )
+            ),
             [
-                YoloBoxes(x.to(self.device, non_blocking=self.non_blocking))
+                YoloBoxes(
+                    x.to(
+                        self.device,
+                        non_blocking=self.non_blocking,
+                    )
+                )
                 for x in boxes_batch
             ],
             [
-                Labels(x.to(self.device, non_blocking=self.non_blocking))
+                Labels(
+                    x.to(
+                        self.device,
+                        non_blocking=self.non_blocking,
+                    )
+                )
                 for x in label_batch
             ],
         )
@@ -432,7 +514,11 @@ class ToBoxes:
     def __call__(
         self, net_output: NetOutput
     ) -> t.Tuple[List[YoloBoxes], List[Confidences]]:
-        anchor_levels, box_diff_levels, labels_levels = net_output
+        (
+            anchor_levels,
+            box_diff_levels,
+            labels_levels,
+        ) = net_output
         box_batch = []
         confidence_batch = []
         anchors = torch.cat(anchor_levels, dim=0)  # type: ignore
@@ -497,7 +583,12 @@ class Trainer:
         }
 
     def log(self) -> None:
-        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
+        value = ("|").join(
+            [
+                f"{k}:{v.get_value():.4f}"
+                for k, v in self.meters.items()
+            ]
+        )
         logger.info(value)
 
     def reset_meters(self) -> None:
@@ -515,13 +606,25 @@ class Trainer:
     def train_one_epoch(self) -> None:
         self.model.train()
         loader = self.train_loader
-        for samples, gt_boxes_list, gt_labes_list, ids in tqdm(loader):
-            samples, gt_boxes_list, gt_labels_list = self.preprocess(
+        for (
+            samples,
+            gt_boxes_list,
+            gt_labes_list,
+            ids,
+        ) in tqdm(loader):
+            (
+                samples,
+                gt_boxes_list,
+                gt_labels_list,
+            ) = self.preprocess(
                 (samples, gt_boxes_list, gt_labes_list)
             )
             outputs = self.model(samples)
             loss, box_loss, label_loss = self.criterion(
-                samples, outputs, gt_boxes_list, gt_labes_list
+                samples,
+                outputs,
+                gt_boxes_list,
+                gt_labes_list,
             )
             self.optimizer.zero_grad()
             loss.backward()
@@ -536,9 +639,11 @@ class Trainer:
         self.model.train()
         loader = self.test_loader
         for samples, box_batch, gt_labes_list, ids in tqdm(loader):
-            samples, box_batch, gt_labels_list = self.preprocess(
-                (samples, box_batch, gt_labes_list)
-            )
+            (
+                samples,
+                box_batch,
+                gt_labels_list,
+            ) = self.preprocess((samples, box_batch, gt_labes_list))
             outputs = self.model(samples)
             loss, box_loss, label_loss = self.criterion(
                 samples, outputs, box_batch, gt_labes_list
@@ -553,7 +658,8 @@ class Trainer:
 
         self.visualize(preds, box_batch, samples)
         self.model_loader.save_if_needed(
-            self.model, self.meters[self.model_loader.key].get_value()
+            self.model,
+            self.meters[self.model_loader.key].get_value(),
         )
 
 
@@ -574,7 +680,9 @@ class Predictor:
         self.loader = loader
 
     @torch.no_grad()
-    def __call__(self) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
+    def __call__(
+        self,
+    ) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
         self.model = self.model_loader.load_if_needed(self.model)
         self.model.eval()
         boxes_list = []

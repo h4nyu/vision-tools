@@ -33,26 +33,40 @@ def init_conv_std(module: nn.Module, std: float = 0.01) -> None:
 
 
 class Head(nn.Module):
-    def __init__(self, depth: int, in_channels: int, n_classes: int) -> None:
+    def __init__(
+        self, depth: int, in_channels: int, n_classes: int
+    ) -> None:
         super().__init__()
         cls_modules: typing.List[nn.Module] = []
         box_modules: typing.List[nn.Module] = []
         for _ in range(depth):
             cls_modules.append(
                 nn.Conv2d(
-                    in_channels, in_channels, kernel_size=3, padding=1, bias=False
+                    in_channels,
+                    in_channels,
+                    kernel_size=3,
+                    padding=1,
+                    bias=False,
                 )
             )
             cls_modules.append(nn.GroupNorm(32, in_channels))
             cls_modules.append(nn.ReLU(inplace=True))
             box_modules.append(
                 nn.Conv2d(
-                    in_channels, in_channels, kernel_size=3, padding=1, bias=False
+                    in_channels,
+                    in_channels,
+                    kernel_size=3,
+                    padding=1,
+                    bias=False,
                 )
             )
             box_modules.append(
                 nn.Conv2d(
-                    in_channels, in_channels, kernel_size=3, padding=1, bias=False
+                    in_channels,
+                    in_channels,
+                    kernel_size=3,
+                    padding=1,
+                    bias=False,
                 )
             )
             box_modules.append(nn.GroupNorm(32, in_channels))

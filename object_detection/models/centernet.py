@@ -5,7 +5,14 @@ import typing as t
 import torch as tr
 import torch.nn.functional as F
 from functools import partial
-from typing import List, Tuple, NewType, Union, Callable, Any
+from typing import (
+    List,
+    Tuple,
+    NewType,
+    Union,
+    Callable,
+    Any,
+)
 from torch import nn, Tensor
 from typing_extensions import Literal
 from logging import getLogger
@@ -33,7 +40,12 @@ from .losses import HuberLoss, DIoULoss
 from .anchors import EmptyAnchors
 from .matcher import NearnestMatcher, CenterMatcher
 from object_detection.meters import MeanMeter
-from object_detection.entities import ImageBatch, PredBoxes, Image, TrainSample
+from object_detection.entities import (
+    ImageBatch,
+    PredBoxes,
+    Image,
+    TrainSample,
+)
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
 from object_detection.model_loader import ModelLoader
@@ -56,19 +68,37 @@ def collate_fn(
         box_batch.append(boxes)
         id_batch.append(id)
         label_batch.append(labels)
-    return id_batch, ImageBatch(torch.stack(images)), box_batch, label_batch
+    return (
+        id_batch,
+        ImageBatch(torch.stack(images)),
+        box_batch,
+        label_batch,
+    )
 
 
 class Reg(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, depth: int) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        depth: int,
+    ) -> None:
         super().__init__()
         channels = in_channels
         self.conv = nn.Sequential(
-            *[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)]
+            *[
+                SENextBottleneck2d(in_channels, in_channels)
+                for _ in range(depth)
+            ]
         )
 
         self.out = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
+            nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size=1,
+                padding=0,
+            )
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -77,7 +107,9 @@ class Reg(nn.Module):
         return x
 
 
-NetOutput = Tuple[Heatmaps, BoxMaps, BoxMap]  # label, pos, size, count
+NetOutput = Tuple[
+    Heatmaps, BoxMaps, BoxMap
+]  # label, pos, size, count
 
 
 class CenterNet(nn.Module):
@@ -92,13 +124,23 @@ class CenterNet(nn.Module):
         self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
+        self.fpn = nn.Sequential(
+            *[BiFPN(channels=channels) for _ in range(depth)]
+        )
         self.hm_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=1, depth=depth),
+            Reg(
+                in_channels=channels,
+                out_channels=1,
+                depth=depth,
+            ),
             nn.Sigmoid(),
         )
         self.box_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=4, depth=depth),
+            Reg(
+                in_channels=channels,
+                out_channels=4,
+                depth=depth,
+            ),
         )
         self.anchors = EmptyAnchors()
 
@@ -142,7 +184,9 @@ class HMLoss(nn.Module):
         pos_loss = pos_loss.sum()
 
         neg_weight = (1 - gt) ** beta
-        neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
+        neg_loss = neg_weight * (
+            -(pred ** alpha) * torch.log(1 - pred) * neg_mask
+        )
         neg_loss = neg_loss.sum()
         loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
         return loss
@@ -167,14 +211,19 @@ class Criterion:
         self.mk_hmmaps = mk_hmmaps
 
     def __call__(
-        self, images: ImageBatch, netout: NetOutput, gt_boxes: List[YoloBoxes]
+        self,
+        images: ImageBatch,
+        netout: NetOutput,
+        gt_boxes: List[YoloBoxes],
     ) -> Tuple[Tensor, Tensor, Tensor, Heatmaps]:
         s_hm, s_bm, anchors = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
         t_hm = self.mk_hmmaps(gt_boxes, (h, w), (orig_h, orig_w))
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
-        box_loss = self.boxloss(s_bm, gt_boxes, anchors) * self.box_weight
+        box_loss = (
+            self.boxloss(s_bm, gt_boxes, anchors) * self.box_weight
+        )
         loss = hm_loss + box_loss
         return (loss, hm_loss, box_loss, t_hm)
 
@@ -190,7 +239,10 @@ class BoxLoss:
         self.use_diff = use_diff
 
     def __call__(
-        self, preds: BoxMaps, gt_box_batch: List[YoloBoxes], anchormap: BoxMap
+        self,
+        preds: BoxMaps,
+        gt_box_batch: List[YoloBoxes],
+        anchormap: BoxMap,
     ) -> Tensor:
         device = preds.device
         _, _, h, w = preds.shape
@@ -201,12 +253,18 @@ class BoxLoss:
                 continue
 
             pred_boxes = boxmap_to_boxes(BoxMap(diff_map))
-            match_indices, positive_indices = self.matcher(anchors, gt_boxes, (w, h))
+            match_indices, positive_indices = self.matcher(
+                anchors, gt_boxes, (w, h)
+            )
             num_pos = positive_indices.sum()
             if num_pos == 0:
                 continue
-            matched_gt_boxes = YoloBoxes(gt_boxes[match_indices][positive_indices])
-            matched_pred_boxes = YoloBoxes(pred_boxes[positive_indices])
+            matched_gt_boxes = YoloBoxes(
+                gt_boxes[match_indices][positive_indices]
+            )
+            matched_pred_boxes = YoloBoxes(
+                pred_boxes[positive_indices]
+            )
             if self.use_diff:
                 matched_pred_boxes = YoloBoxes(
                     anchors[positive_indices] + matched_pred_boxes
@@ -236,29 +294,46 @@ class ToBoxes:
         self.kernel_size = kernel_size
         self.use_diff = use_diff
         self.max_pool = partial(
-            F.max_pool2d, kernel_size=kernel_size, padding=kernel_size // 2, stride=1
+            F.max_pool2d,
+            kernel_size=kernel_size,
+            padding=kernel_size // 2,
+            stride=1,
         )
 
     @torch.no_grad()
-    def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
+    def __call__(
+        self, inputs: NetOutput
+    ) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
         heatmaps, boxmaps, anchormap = inputs
         device = heatmaps.device
-        kpmap = (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
+        kpmap = (self.max_pool(heatmaps) == heatmaps) & (
+            heatmaps > self.threshold
+        )
         batch_size, _, height, width = heatmaps.shape
-        original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
+        original_wh = torch.tensor(
+            [width, height], dtype=torch.float32
+        ).to(device)
         rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
-        for hm, km, bm in zip(heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps):
+        for hm, km, bm in zip(
+            heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps
+        ):
             kp = torch.nonzero(km, as_tuple=False)
             confidences = hm[kp[:, 0], kp[:, 1]]
             if self.use_diff:
                 boxes = (
-                    anchormap[:, kp[:, 0], kp[:, 1]].t() + bm[:, kp[:, 0], kp[:, 1]].t()
+                    anchormap[:, kp[:, 0], kp[:, 1]].t()
+                    + bm[:, kp[:, 0], kp[:, 1]].t()
                 )
             else:
                 boxes = bm[:, kp[:, 0], kp[:, 1]].t()
-            sort_idx = confidences.argsort(descending=True)[: self.limit]
+            sort_idx = confidences.argsort(descending=True)[
+                : self.limit
+            ]
             rows.append(
-                (YoloBoxes(boxes[sort_idx]), Confidences(confidences[sort_idx]))
+                (
+                    YoloBoxes(boxes[sort_idx]),
+                    Confidences(confidences[sort_idx]),
+                )
             )
         return rows
 
@@ -326,7 +401,14 @@ class Visualize:
         confidence_batch = confidence_batch[: self.limit]
         _, _, h, w = image_batch.shape
         for i, (sb, sc, tb, hm, img, gt_hm) in enumerate(
-            zip(box_batch, confidence_batch, tgt, heatmap, image_batch, gt_hms)
+            zip(
+                box_batch,
+                confidence_batch,
+                tgt,
+                heatmap,
+                image_batch,
+                gt_hms,
+            )
         ):
             plot = DetectionPlot(
                 h=h,
@@ -342,7 +424,10 @@ class Visualize:
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
             plot = DetectionPlot(
-                h=h, w=w, use_alpha=self.use_alpha, figsize=self.figsize
+                h=h,
+                w=w,
+                use_alpha=self.use_alpha,
+                figsize=self.figsize,
             )
             plot.with_image(img, alpha=0.7)
             plot.with_image((gt_hm[0] + 1e-4).log(), alpha=0.3)
@@ -389,7 +474,12 @@ class Trainer:
         }
 
     def log(self) -> None:
-        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
+        value = ("|").join(
+            [
+                f"{k}:{v.get_value():.4f}"
+                for k, v in self.meters.items()
+            ]
+        )
         logger.info(value)
 
     def reset_meters(self) -> None:
@@ -410,7 +500,9 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, bm_loss, _ = self.criterion(images, outputs, boxes)
+            loss, hm_loss, bm_loss, _ = self.criterion(
+                images, outputs, boxes
+            )
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -426,7 +518,9 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, bm_loss, gt_hms = self.criterion(images, outputs, boxes)
+            loss, hm_loss, bm_loss, gt_hms = self.criterion(
+                images, outputs, boxes
+            )
             preds = self.post_process(outputs)
             for (pred, gt) in zip(preds[0], boxes):
                 self.meters["score"].update(self.get_score(pred, gt))

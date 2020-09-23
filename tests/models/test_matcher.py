@@ -1,5 +1,8 @@
 import torch
-from object_detection.entities import YoloBoxBatch, ConfidenceBatch
+from object_detection.entities import (
+    YoloBoxBatch,
+    ConfidenceBatch,
+)
 from object_detection.models.matcher import HungarianMatcher
 
 
@@ -8,7 +11,13 @@ def test_hungarian_matcher() -> None:
     num_classes = 2
     pred_box_batch = YoloBoxBatch(
         torch.tensor(
-            [[[0.1, 0.1, 0.2, 0.2], [0.2, 0.4, 0.1, 0.1], [0.2, 0.4, 0.1, 0.1]]]
+            [
+                [
+                    [0.1, 0.1, 0.2, 0.2],
+                    [0.2, 0.4, 0.1, 0.1],
+                    [0.2, 0.4, 0.1, 0.1],
+                ]
+            ]
         )
     )
     pred_cfd_batch = ConfidenceBatch(

@@ -15,13 +15,20 @@ def round_filters(filters: t.Any, global_params: t.Any) -> t.Any:
     min_depth = global_params.min_depth
     filters *= multiplier
     min_depth = min_depth or divisor
-    new_filters = max(min_depth, int(filters + divisor / 2) // divisor * divisor)
-    if new_filters < 0.9 * filters:  # prevent rounding by more than 10%
+    new_filters = max(
+        min_depth,
+        int(filters + divisor / 2) // divisor * divisor,
+    )
+    if (
+        new_filters < 0.9 * filters
+    ):  # prevent rounding by more than 10%
         new_filters += divisor
     return int(new_filters)
 
 
-def box_iou(boxes1: Tensor, boxes2: Tensor) -> t.Tuple[Tensor, Tensor]:
+def box_iou(
+    boxes1: Tensor, boxes2: Tensor
+) -> t.Tuple[Tensor, Tensor]:
     area1 = box_area(boxes1)
     area2 = box_area(boxes2)
 
@@ -47,7 +54,12 @@ def box_cxcywh_to_xyxy(x: Tensor) -> Tensor:
     if x.shape[0] == 0:
         return x
     x_c, y_c, w, h = x.unbind(-1)
-    out = [(x_c - 0.5 * w), (y_c - 0.5 * h), (x_c + 0.5 * w), (y_c + 0.5 * h)]
+    out = [
+        (x_c - 0.5 * w),
+        (y_c - 0.5 * h),
+        (x_c + 0.5 * w),
+        (y_c + 0.5 * h),
+    ]
     return torch.stack(out, dim=-1)
 
 
@@ -87,7 +99,11 @@ def generalized_box_iou(boxes1: Tensor, boxes2: Tensor) -> Tensor:
 
 
 class NestedTensor:
-    def __init__(self, tensors: Tensor, mask: t.Optional[Tensor] = None) -> None:
+    def __init__(
+        self,
+        tensors: Tensor,
+        mask: t.Optional[Tensor] = None,
+    ) -> None:
         self.tensors = tensors
         self.mask = mask
 
@@ -99,7 +115,9 @@ class NestedTensor:
             cast_mask = mask.to(device)
         return NestedTensor(cast_tensor, cast_mask)
 
-    def decompose(self) -> t.Tuple[Tensor, t.Optional[Tensor]]:
+    def decompose(
+        self,
+    ) -> t.Tuple[Tensor, t.Optional[Tensor]]:
         return self.tensors, self.mask
 
     def __repr__(self) -> str:

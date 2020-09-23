@@ -45,7 +45,9 @@ class VHFlipTTA:
         images = ImageBatch(self.img_transform(images))
         outputs = model(images)
         box_batch, conf_batch = self.to_boxes(outputs)
-        box_batch = [self.box_transform(boxes) for boxes in box_batch]  # type:ignore
+        box_batch = [
+            self.box_transform(boxes) for boxes in box_batch
+        ]  # type:ignore
         return box_batch, conf_batch
 
 

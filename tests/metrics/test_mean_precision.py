@@ -1,6 +1,11 @@
 import torch
 import numpy as np
-from object_detection.entities import CoCoBoxes, YoloBoxes, coco_to_yolo, Confidences
+from object_detection.entities import (
+    CoCoBoxes,
+    YoloBoxes,
+    coco_to_yolo,
+    Confidences,
+)
 from object_detection.metrics import MeanPrecition
 
 gts = np.array(
@@ -94,8 +99,12 @@ scores = np.array(
 
 
 def test_mean_precision() -> None:
-    pred_boxes = coco_to_yolo(CoCoBoxes(torch.from_numpy(preds)), (1024, 1024))
-    gt_boxes = coco_to_yolo(CoCoBoxes(torch.from_numpy(gts)), (1024, 1024))
+    pred_boxes = coco_to_yolo(
+        CoCoBoxes(torch.from_numpy(preds)), (1024, 1024)
+    )
+    gt_boxes = coco_to_yolo(
+        CoCoBoxes(torch.from_numpy(gts)), (1024, 1024)
+    )
     fn = MeanPrecition()
     res = fn(pred_boxes, gt_boxes)
     assert res < 0.37

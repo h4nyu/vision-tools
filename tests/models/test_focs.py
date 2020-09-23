@@ -1,5 +1,9 @@
 import torch
-from object_detection.models.focs import centerness, FocsBoxes, Head
+from object_detection.models.focs import (
+    centerness,
+    FocsBoxes,
+    Head,
+)
 
 
 def test_centerness() -> None:
@@ -17,10 +21,20 @@ def test_head() -> None:
     p4 = torch.rand(1, 32, size * 2, size * 2)
     logit_maps, center_maps, box_maps = fn([p3, p4])
     assert logit_maps[0].shape == (1, n_classes, size, size)
-    assert logit_maps[1].shape == (1, n_classes, size * 2, size * 2)
+    assert logit_maps[1].shape == (
+        1,
+        n_classes,
+        size * 2,
+        size * 2,
+    )
 
     assert center_maps[0].shape == (1, 1, size, size)
-    assert center_maps[1].shape == (1, 1, size * 2, size * 2)
+    assert center_maps[1].shape == (
+        1,
+        1,
+        size * 2,
+        size * 2,
+    )
 
     assert box_maps[0].shape == (1, 4, size, size)
     assert box_maps[1].shape == (1, 4, size * 2, size * 2)
