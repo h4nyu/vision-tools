@@ -203,7 +203,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         channels: int = 64,
-        out_ids: List[PyramidIdx] = [4, 5, 6],
+        out_ids: List[PyramidIdx] = [3, 4, 5, 6],
         anchors: Anchors = Anchors(),
         depth: int = 1,
     ) -> None:
@@ -308,8 +308,6 @@ class LabelLoss:
 
         # pred_classes = torch.clamp(pred_classes, min=1e-4, max=1 - 1e-4)
         # pos_count = positive_indices.sum()
-        # if pos_count == 0:
-        #     logger.debug("no box matched")
         # pos_loss = (
         #     -self.alpha
         #     * ((1 - pred_classes) ** self.gamma)
@@ -437,9 +435,9 @@ class ToBoxes:
         anchors = torch.cat(anchor_levels, dim=0)  # type: ignore
         box_diffs = torch.cat(box_diff_levels, dim=1)  # type:ignore
         labels_batch = torch.cat(labels_levels, dim=1)  # type:ignore
-        for box_diff, confidences in zip(box_diffs, labels_batch):
+        for box_diff, logits in zip(box_diffs, labels_batch):
             boxes = anchors + box_diff
-            confidences, c_index = confidences.max(dim=1)
+            confidences, c_index = logits.sigmoid().max(dim=1)
             filter_idx = confidences > self.confidence_threshold
             confidences = confidences[filter_idx][: self.limit]
             boxes = boxes[filter_idx][: self.limit]
