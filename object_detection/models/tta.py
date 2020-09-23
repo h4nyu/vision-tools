@@ -12,7 +12,10 @@ from object_detection.entities import (
 
 
 class HFlipTTA:
-    def __init__(self, to_boxes: Callable,) -> None:
+    def __init__(
+        self,
+        to_boxes: Callable,
+    ) -> None:
         self.img_transform = partial(torch.flip, dims=(3,))
         self.to_boxes = to_boxes
         self.box_transform = yolo_hflip
@@ -28,7 +31,10 @@ class HFlipTTA:
 
 
 class VHFlipTTA:
-    def __init__(self, to_boxes: Callable,) -> None:
+    def __init__(
+        self,
+        to_boxes: Callable,
+    ) -> None:
         self.img_transform = partial(torch.flip, dims=(2, 3))
         self.to_boxes = to_boxes
         self.box_transform = lambda x: yolo_vflip(yolo_hflip(x))
@@ -44,7 +50,10 @@ class VHFlipTTA:
 
 
 class VFlipTTA:
-    def __init__(self, to_boxes: Callable,) -> None:
+    def __init__(
+        self,
+        to_boxes: Callable,
+    ) -> None:
         self.img_transform = partial(torch.flip, dims=(2,))
         self.to_boxes = to_boxes
         self.box_transform = yolo_vflip

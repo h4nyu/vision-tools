@@ -265,7 +265,15 @@ class NearnestAssign:
     def __call__(self, pred: YoloBoxes, gt: YoloBoxes) -> Tuple[Tensor, Tensor]:
         pred_count = pred.shape[0]
         gt_count = gt.shape[0]
-        pred_ctr = pred[:, :2].view(pred_count, 1, 2).expand(pred_count, gt_count, 2,)
+        pred_ctr = (
+            pred[:, :2]
+            .view(pred_count, 1, 2)
+            .expand(
+                pred_count,
+                gt_count,
+                2,
+            )
+        )
         gt_ctr = gt[:, :2]
         matrix = ((pred_ctr - gt_ctr) ** 2).sum(dim=-1).sqrt()
         min_dist, matched_idx = matrix.min(dim=1)
@@ -279,14 +287,21 @@ class BoxLoss:
         self.assign = NearnestAssign()
 
     def __call__(
-        self, anchormap: BoxMap, diffmap: BoxMap, gt_boxes: YoloBoxes, heatmap: Heatmap,
+        self,
+        anchormap: BoxMap,
+        diffmap: BoxMap,
+        gt_boxes: YoloBoxes,
+        heatmap: Heatmap,
     ) -> Tensor:
         device = diffmap.device
         box_diff = boxmap_to_boxes(diffmap)
         anchors = boxmap_to_boxes(anchormap)
         centers = anchors[:, 2:]
 
-        match_indices, positive_indices = self.assign(anchors, gt_boxes,)
+        match_indices, positive_indices = self.assign(
+            anchors,
+            gt_boxes,
+        )
         num_pos = positive_indices.sum()
         if num_pos == 0:
             return torch.tensor(0.0).to(device)
@@ -312,7 +327,10 @@ class Criterion:
         self.mkmaps = mkmaps
 
     def __call__(
-        self, images: ImageBatch, net_output: NetOutput, gt_boxes_list: List[YoloBoxes],
+        self,
+        images: ImageBatch,
+        net_output: NetOutput,
+        gt_boxes_list: List[YoloBoxes],
     ) -> Tuple[Tensor, Tensor, Tensor, Heatmaps]:
         anchormap, diffmaps, s_hms = net_output
         device = diffmaps.device

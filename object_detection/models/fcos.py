@@ -31,13 +31,21 @@ class ToBoxes:
         self.n_classes = n_classes
 
     def __call__(
-        self, cls_batch: List[Any], box_batch: List[Any], center_batch: List[Any],
+        self,
+        cls_batch: List[Any],
+        box_batch: List[Any],
+        center_batch: List[Any],
     ) -> List[YoloBoxes]:
         ...
 
 
 class Criterion:
-    def __init__(self, sizes: Any, gamma: float, alpha: float,) -> None:
+    def __init__(
+        self,
+        sizes: Any,
+        gamma: float,
+        alpha: float,
+    ) -> None:
         self.sizes = sizes
         self.gamma = gamma
         self.alpha = alpha

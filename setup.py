@@ -8,7 +8,9 @@ setup(
     author_email="yao.ntno@google.com",
     license="TODO",
     packages=find_packages(),
-    package_data={"object_detection": ["py.typed"],},
+    package_data={
+        "object_detection": ["py.typed"],
+    },
     install_requires=[
         "matplotlib",
         "torch",

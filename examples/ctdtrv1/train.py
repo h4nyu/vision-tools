@@ -42,7 +42,9 @@ def train(epochs: int) -> None:
     )
     mkmaps = MkCornerMaps()
     criterion = Criterion(
-        box_weight=cfg.box_weight, heatmap_weight=cfg.heatmap_weight, mkmaps=mkmaps,
+        box_weight=cfg.box_weight,
+        heatmap_weight=cfg.heatmap_weight,
+        mkmaps=mkmaps,
     )
     train_loader = DataLoader(
         train_dataset, collate_fn=collate_fn, batch_size=cfg.batch_size, shuffle=True

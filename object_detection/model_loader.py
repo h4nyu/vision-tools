@@ -66,9 +66,7 @@ class ModelLoader:
         logger.info(f"load model from {self.model_path}")
         with open(self.checkpoint_file, "r") as f:
             data = json.load(f)
-        model.load_state_dict(
-            torch.load(self.model_path)  # type: ignore
-        )
+        model.load_state_dict(torch.load(self.model_path))  # type: ignore
         self.best_watcher.step(data)
         return model
 

@@ -12,7 +12,15 @@ def test_hungarian_matcher() -> None:
         )
     )
     pred_cfd_batch = ConfidenceBatch(
-        torch.tensor([[[0.1, 0.9], [0.9, 0.1], [0.5, 0.5],]])
+        torch.tensor(
+            [
+                [
+                    [0.1, 0.9],
+                    [0.9, 0.1],
+                    [0.5, 0.5],
+                ]
+            ]
+        )
     )
 
 

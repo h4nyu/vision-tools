@@ -37,7 +37,11 @@ def test_ctdtv1() -> None:
     inputs = torch.rand((1, 3, 512, 512))
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
-    fn = CenterNetV1(channels=channels, backbone=backbone, out_idx=6,)
+    fn = CenterNetV1(
+        channels=channels,
+        backbone=backbone,
+        out_idx=6,
+    )
     anchors, box_diffs, heatmaps = fn(inputs)
     assert heatmaps.shape == (1, 1, 512 // 16, 512 // 16)
     assert anchors.shape == (4, 512 // 16, 512 // 16)
@@ -145,7 +149,11 @@ def test_hfliptta() -> None:
 
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
-    model = CenterNetV1(channels=channels, backbone=backbone, out_idx=6,)
+    model = CenterNetV1(
+        channels=channels,
+        backbone=backbone,
+        out_idx=6,
+    )
     fn(model, images)
 
 
@@ -165,7 +173,11 @@ def test_nearest_assign() -> None:
 
     y = YoloBoxes(
         torch.tensor(
-            [[0.1, 0.1, 0.1, 0.1], [0.2, 0.2, 0.1, 0.1], [0.3, 0.3, 0.1, 0.1],]
+            [
+                [0.1, 0.1, 0.1, 0.1],
+                [0.2, 0.2, 0.1, 0.1],
+                [0.3, 0.3, 0.1, 0.1],
+            ]
         )
     )
 

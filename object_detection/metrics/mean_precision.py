@@ -19,7 +19,8 @@ def precition(iou_matrix: Tensor, threshold: float) -> float:
 
 class MeanPrecition:
     def __init__(
-        self, iou_thresholds: t.List[float] = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75],
+        self,
+        iou_thresholds: t.List[float] = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75],
     ) -> None:
         self.iou_thresholds = iou_thresholds
 
@@ -30,7 +31,8 @@ class MeanPrecition:
             return 0.0
 
         iou_matrix = box_iou(
-            yolo_to_pascal(pred_boxes, (1, 1)), yolo_to_pascal(gt_boxes, (1, 1)),
+            yolo_to_pascal(pred_boxes, (1, 1)),
+            yolo_to_pascal(gt_boxes, (1, 1)),
         )
         res = np.mean([precition(iou_matrix, t) for t in self.iou_thresholds])
         return res

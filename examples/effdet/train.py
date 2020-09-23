@@ -43,7 +43,9 @@ def train(epochs: int) -> None:
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     visualize = Visualize("/store/efficientdet", "test", limit=2)
     get_score = MeanPrecition()
-    to_boxes = ToBoxes(confidence_threshold=config.confidence_threshold,)
+    to_boxes = ToBoxes(
+        confidence_threshold=config.confidence_threshold,
+    )
     trainer = Trainer(
         model,
         DataLoader(

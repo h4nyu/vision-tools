@@ -19,7 +19,14 @@ SIDEOUT: Any = {  # phi: (stages, channels)
 }
 
 Phi = Literal[
-    0, 1, 2, 3, 4, 5, 6, 7,
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
 ]
 
 
@@ -34,7 +41,11 @@ class EfficientNetBackbone(nn.Module):
         self._sideout_stages, self.sideout_channels = SIDEOUT[phi]
         self.projects = nn.ModuleList(
             [
-                nn.Conv2d(in_channels=i, out_channels=out_channels, kernel_size=1,)
+                nn.Conv2d(
+                    in_channels=i,
+                    out_channels=out_channels,
+                    kernel_size=1,
+                )
                 for i in self.sideout_channels
             ]
         )

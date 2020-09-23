@@ -4,7 +4,14 @@ import torch
 from object_detection.entities import YoloBoxes, BoxMaps
 
 Heatmaps = NewType("Heatmaps", torch.Tensor)  # [B, C, H, W]
-MkMapsFn = Callable[[List[YoloBoxes], Tuple[int, int], Tuple[int, int],], Heatmaps]
+MkMapsFn = Callable[
+    [
+        List[YoloBoxes],
+        Tuple[int, int],
+        Tuple[int, int],
+    ],
+    Heatmaps,
+]
 
 MkBoxMapsFn = Callable[[List[YoloBoxes], Heatmaps], BoxMaps]
 
@@ -204,7 +211,11 @@ GaussianMapMode = Literal["length", "aspect", "constant"]
 
 
 class MkGaussianMaps(MkMapsBase):
-    def __init__(self, sigma: float = 0.5, mode: GaussianMapMode = "length",) -> None:
+    def __init__(
+        self,
+        sigma: float = 0.5,
+        mode: GaussianMapMode = "length",
+    ) -> None:
         self.sigma = sigma
         self.mode = mode
 
@@ -220,7 +231,8 @@ class MkGaussianMaps(MkMapsBase):
             return Heatmaps(heatmap)
 
         grid_y, grid_x = torch.meshgrid(  # type:ignore
-            torch.arange(h, dtype=torch.int64), torch.arange(w, dtype=torch.int64),
+            torch.arange(h, dtype=torch.int64),
+            torch.arange(w, dtype=torch.int64),
         )
         img_wh = torch.tensor([w, h]).to(device)
         cxcy = boxes[:, :2] * img_wh
@@ -265,7 +277,8 @@ class MkFillMaps(MkMapsBase):
             return Heatmaps(heatmap)
 
         grid_y, grid_x = torch.meshgrid(  # type:ignore
-            torch.arange(h, dtype=torch.int64), torch.arange(w, dtype=torch.int64),
+            torch.arange(h, dtype=torch.int64),
+            torch.arange(w, dtype=torch.int64),
         )
         img_wh = torch.tensor([w, h]).to(device)
         cxcy = boxes[:, :2] * img_wh
@@ -292,7 +305,9 @@ class MkFillMaps(MkMapsBase):
 
 
 class MkCenterBoxMaps:
-    def __init__(self,) -> None:
+    def __init__(
+        self,
+    ) -> None:
         ...
 
     def _mkmaps(self, boxes: YoloBoxes, heatmaps: Heatmaps) -> BoxMaps:
@@ -310,7 +325,11 @@ class MkCenterBoxMaps:
         return BoxMaps(boxmaps)
 
     @torch.no_grad()
-    def __call__(self, box_batch: List[YoloBoxes], heatmaps: Heatmaps,) -> BoxMaps:
+    def __call__(
+        self,
+        box_batch: List[YoloBoxes],
+        heatmaps: Heatmaps,
+    ) -> BoxMaps:
         bms: List[torch.Tensor] = []
         for boxes in box_batch:
             bms.append(self._mkmaps(boxes, heatmaps))

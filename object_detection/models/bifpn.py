@@ -8,11 +8,16 @@ from .bottlenecks import SENextBottleneck2d
 
 class Down2d(nn.Module):
     def __init__(
-        self, channels: int, bilinear: bool = False, merge: bool = True,
+        self,
+        channels: int,
+        bilinear: bool = False,
+        merge: bool = True,
     ) -> None:
         super().__init__()
         self.down = SENextBottleneck2d(
-            in_channels=channels, out_channels=channels, stride=2,
+            in_channels=channels,
+            out_channels=channels,
+            stride=2,
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -24,7 +29,10 @@ class Up2d(nn.Module):
     up: t.Union[nn.Upsample, nn.ConvTranspose2d]
 
     def __init__(
-        self, channels: int, bilinear: bool = False, merge: bool = True,
+        self,
+        channels: int,
+        bilinear: bool = False,
+        merge: bool = True,
     ) -> None:
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
@@ -43,10 +51,16 @@ class Up2d(nn.Module):
 
 
 class Merge2d(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int,) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+    ) -> None:
         super().__init__()
         self.merge = SENextBottleneck2d(
-            in_channels=in_channels, out_channels=out_channels, stride=1,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            stride=1,
         )
 
     def forward(self, *inputs: Tensor) -> Tensor:

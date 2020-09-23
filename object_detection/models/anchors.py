@@ -63,7 +63,10 @@ class Anchors:
 
 
 class EmptyAnchors:
-    def __init__(self, use_cache: bool = True,) -> None:
+    def __init__(
+        self,
+        use_cache: bool = True,
+    ) -> None:
         self.use_cache = use_cache
         self.cache: Dict[Tuple[int, int], BoxMap] = {}
 

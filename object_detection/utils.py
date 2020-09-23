@@ -66,7 +66,11 @@ class DetectionPlot:
                 )
             self.ax.imshow(image.detach().cpu(), interpolation="nearest", alpha=alpha)
         elif len(image.shape) == 3:
-            _, h, w, = image.shape
+            (
+                _,
+                h,
+                w,
+            ) = image.shape
             if (h != self.h) and (w != self.w):
                 image = F.interpolate(
                     image.unsqueeze(0), size=(self.h, self.w)
@@ -99,7 +103,10 @@ class DetectionPlot:
         fontsize: int = 7,
     ) -> None:
         self.with_coco_boxes(
-            boxes=pascal_to_coco(boxes), probs=probs, color=color, fontsize=fontsize,
+            boxes=pascal_to_coco(boxes),
+            probs=probs,
+            color=color,
+            fontsize=fontsize,
         )
 
     def with_coco_boxes(

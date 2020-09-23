@@ -19,7 +19,11 @@ import random
 
 
 class PolyImage:
-    def __init__(self, height: int = 512, width: int = 512,) -> None:
+    def __init__(
+        self,
+        height: int = 512,
+        width: int = 512,
+    ) -> None:
         image = np.ones((height, width, 3), np.uint8) * 255
         self.height = height
         self.width = width
@@ -65,7 +69,10 @@ class TrainDataset(Dataset):
         self.object_size_range = object_size_range
 
     def __getitem__(self, idx: int) -> TrainSample:
-        poly = PolyImage(width=self.image_size[0], height=self.image_size[1],)
+        poly = PolyImage(
+            width=self.image_size[0],
+            height=self.image_size[1],
+        )
         count = np.random.randint(
             low=self.object_count_range[0], high=self.object_count_range[1]
         )
@@ -103,7 +110,10 @@ class PredictionDataset(Dataset):
         self.object_size_range = object_size_range
 
     def __getitem__(self, idx: int) -> PredictionSample:
-        poly = PolyImage(width=self.image_size[0], height=self.image_size[1],)
+        poly = PolyImage(
+            width=self.image_size[0],
+            height=self.image_size[1],
+        )
         count = np.random.randint(
             low=self.object_count_range[0], high=self.object_count_range[1]
         )

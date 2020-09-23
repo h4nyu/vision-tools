@@ -25,7 +25,11 @@ class ResNetBackbone(nn.Module):
         self.layers = list(self.backbone.children())[:-2]
         self.projects = nn.ModuleList(
             [
-                nn.Conv2d(in_channels=i, out_channels=out_channels, kernel_size=1,)
+                nn.Conv2d(
+                    in_channels=i,
+                    out_channels=out_channels,
+                    kernel_size=1,
+                )
                 for i in SIDEOUT[name]
             ]
         )

@@ -75,7 +75,13 @@ class SENextBottleneck2d(nn.Module):
         super().__init__()
         mid_channels = groups * (out_channels // 2 // groups)
         self.conv = nn.Sequential(
-            ConvBR2d(in_channels, mid_channels, kernel_size=1, stride=1, padding=0,),
+            ConvBR2d(
+                in_channels,
+                mid_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            ),
             ConvBR2d(
                 mid_channels,
                 mid_channels,

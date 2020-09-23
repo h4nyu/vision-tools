@@ -19,17 +19,41 @@ from torch.utils.data import DataLoader
 
 
 def test_hm_loss() -> None:
-    heatmaps = torch.tensor([[0.1, 0.5, 0.1], [0.5, 1, 0.5], [0.1, 0.5, 0.1],])
+    heatmaps = torch.tensor(
+        [
+            [0.1, 0.5, 0.1],
+            [0.5, 1, 0.5],
+            [0.1, 0.5, 0.1],
+        ]
+    )
     fn = HMLoss(beta=4)
-    preds = torch.tensor([[0.0, 0.0, 0.0], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
+    preds = torch.tensor(
+        [
+            [0.0, 0.0, 0.0],
+            [0.0, 1, 0.0],
+            [0.0, 0.0, 0.0],
+        ]
+    )
     res = fn(preds, heatmaps)
     assert res < 1e-4
 
-    preds = torch.tensor([[0.0, 0.0, 0.0], [0.5, 1, 0.5], [0.0, 0.0, 0.0],])
+    preds = torch.tensor(
+        [
+            [0.0, 0.0, 0.0],
+            [0.5, 1, 0.5],
+            [0.0, 0.0, 0.0],
+        ]
+    )
     res = fn(preds, heatmaps)
     assert res < 0.03
 
-    preds = torch.tensor([[0.5, 0.0, 0.5], [0.0, 1, 0.0], [0.0, 0.0, 0.0],])
+    preds = torch.tensor(
+        [
+            [0.5, 0.0, 0.5],
+            [0.0, 1, 0.0],
+            [0.0, 0.0, 0.0],
+        ]
+    )
     res = fn(preds, heatmaps)
     assert res < 0.3
 

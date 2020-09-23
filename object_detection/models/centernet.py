@@ -94,7 +94,8 @@ class CenterNet(nn.Module):
         self.backbone = backbone
         self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
         self.hm_reg = nn.Sequential(
-            Reg(in_channels=channels, out_channels=1, depth=depth), nn.Sigmoid(),
+            Reg(in_channels=channels, out_channels=1, depth=depth),
+            nn.Sigmoid(),
         )
         self.box_reg = nn.Sequential(
             Reg(in_channels=channels, out_channels=4, depth=depth),
@@ -116,7 +117,10 @@ class HMLoss(nn.Module):
     """
 
     def __init__(
-        self, alpha: float = 2.0, beta: float = 2.0, eps: float = 1e-4,
+        self,
+        alpha: float = 2.0,
+        beta: float = 2.0,
+        eps: float = 1e-4,
     ):
         super().__init__()
         self.alpha = alpha
@@ -177,7 +181,9 @@ class Criterion:
 
 class BoxLoss:
     def __init__(
-        self, matcher: Any = NearnestMatcher(), use_diff: bool = True,
+        self,
+        matcher: Any = NearnestMatcher(),
+        use_diff: bool = True,
     ) -> None:
         self.matcher = matcher
         self.loss = DIoULoss(size_average=True)
@@ -276,7 +282,10 @@ class PostProcess:
     def __init__(self, to_boxes: ToBoxes = ToBoxes()) -> None:
         self.to_boxes = to_boxes
 
-    def __call__(self, netout: NetOutput,) -> Tuple[List[YoloBoxes], List[Confidences]]:
+    def __call__(
+        self,
+        netout: NetOutput,
+    ) -> Tuple[List[YoloBoxes], List[Confidences]]:
         box_batch = []
         confidence_batch = []
         for boxes, confidences in self.to_boxes(netout):
@@ -428,5 +437,6 @@ class Trainer:
 
         self.visualize(outputs, preds, boxes, images, gt_hms)
         self.model_loader.save_if_needed(
-            self.model, self.meters[self.model_loader.key].get_value(),
+            self.model,
+            self.meters[self.model_loader.key].get_value(),
         )

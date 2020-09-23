@@ -121,12 +121,14 @@ class ClassificationModel(nn.Module):
         self.num_classes = num_classes
         self.num_anchors = num_anchors
         self.in_conv = SENextBottleneck2d(
-            in_channels=in_channels, out_channels=hidden_channels,
+            in_channels=in_channels,
+            out_channels=hidden_channels,
         )
         self.bottlenecks = nn.Sequential(
             *[
                 SENextBottleneck2d(
-                    in_channels=hidden_channels, out_channels=hidden_channels,
+                    in_channels=hidden_channels,
+                    out_channels=hidden_channels,
                 )
                 for _ in range(depth)
             ]
@@ -134,7 +136,6 @@ class ClassificationModel(nn.Module):
         self.output = nn.Conv2d(
             hidden_channels, num_anchors * num_classes, kernel_size=1, padding=0
         )
-        self.output_act = nn.Sigmoid()
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.in_conv(x)
@@ -159,12 +160,14 @@ class RegressionModel(nn.Module):
         super().__init__()
         self.out_size = out_size
         self.in_conv = SENextBottleneck2d(
-            in_channels=in_channels, out_channels=hidden_channels,
+            in_channels=in_channels,
+            out_channels=hidden_channels,
         )
         self.bottlenecks = nn.Sequential(
             *[
                 SENextBottleneck2d(
-                    in_channels=hidden_channels, out_channels=hidden_channels,
+                    in_channels=hidden_channels,
+                    out_channels=hidden_channels,
                 )
                 for _ in range(depth)
             ]
@@ -189,8 +192,7 @@ NetOutput = Tuple[List[YoloBoxes], List[BoxDiffs], List[Tensor]]
 
 
 def _init_weight(m: nn.Module) -> None:
-    """ Weight initialization as per Tensorflow official implementations.
-    """
+    """Weight initialization as per Tensorflow official implementations."""
     if isinstance(m, nn.BatchNorm2d):
         # looks like all bn init the same?
         m.weight.data.fill_(1.0)
@@ -301,7 +303,8 @@ class LabelLoss:
             - self.gamma * torch.log1p(torch.exp(neg_logits))
         )
         loss = modulator * cross_entropy
-        weighted_loss = torch.where(positive_label_mask, self.alpha * loss, (1.0 - self.alpha) * loss
+        weighted_loss = torch.where(
+            positive_label_mask, self.alpha * loss, (1.0 - self.alpha) * loss
         )
         weighted_loss = weighted_loss.sum() / positive_label_mask.sum().clamp(min=1.0)
         return weighted_loss

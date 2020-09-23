@@ -9,7 +9,14 @@ from object_detection.models.backbones.resnet import (
 
 
 @pytest.mark.parametrize(
-    "name", [("resnet18"), ("resnet34"), ("resnet50"), ("resnet101"), ("resnet152"),]
+    "name",
+    [
+        ("resnet18"),
+        ("resnet34"),
+        ("resnet50"),
+        ("resnet101"),
+        ("resnet152"),
+    ],
 )
 def test_resnetbackbone(name: ModelName) -> None:
     inputs = torch.rand((10, 3, 128, 128))
