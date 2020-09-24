@@ -23,6 +23,7 @@ from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
 from .losses import DIoU, HuberLoss, DIoULoss
+from .activations import FReLU
 from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
@@ -133,16 +134,16 @@ class ClassificationModel(nn.Module):
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.in_conv = SENextBottleneck2d(
-            in_channels=in_channels,
-            out_channels=hidden_channels,
+        self.in_conv = nn.Conv2d(
+            in_channels,
+            hidden_channels,
+            kernel_size=3,
+            padding=1,
         )
+
         self.bottlenecks = nn.Sequential(
             *[
-                SENextBottleneck2d(
-                    in_channels=hidden_channels,
-                    out_channels=hidden_channels,
-                )
+                FReLU(hidden_channels)
                 for _ in range(depth)
             ]
         )
@@ -185,16 +186,16 @@ class RegressionModel(nn.Module):
     ) -> None:
         super().__init__()
         self.out_size = out_size
-        self.in_conv = SENextBottleneck2d(
-            in_channels=in_channels,
-            out_channels=hidden_channels,
+        self.in_conv = nn.Conv2d(
+            in_channels,
+            hidden_channels,
+            kernel_size=3,
+            padding=1,
         )
+
         self.bottlenecks = nn.Sequential(
             *[
-                SENextBottleneck2d(
-                    in_channels=hidden_channels,
-                    out_channels=hidden_channels,
-                )
+                FReLU(hidden_channels)
                 for _ in range(depth)
             ]
         )
