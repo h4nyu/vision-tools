@@ -8,14 +8,13 @@ batch_size = 8
 # model
 channels = 64
 depth = 2
-lr = 1e-3
+lr = 1e-4
 
 input_size = (256, 256)
 object_count_range = (5, 20)
 object_size_range = (32, 64)
-iou_threshold = 0.1
 out_dir = "/store/efficientdet"
-metric: Tuple[str, WatchMode] = ("test_label", "min")
+metric: Tuple[str, WatchMode] = ("score", "max")
 pretrained = True
 
 anchor_ratios = [2 / 3, 1.0, 3 / 2]

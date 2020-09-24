@@ -41,9 +41,8 @@ class Anchors:
     def __call__(self, images: ImageBatch) -> YoloBoxes:
         h, w = images.shape[2:]
         device = images.device
-        if self.use_cache:
-            if (h, w) in self.cache:
-                return self.cache[(h, w)]
+        if self.use_cache and (h, w) in self.cache:
+            return self.cache[(h, w)]
 
         grid_y, grid_x = torch.meshgrid(  # type:ignore
             torch.arange(h, dtype=torch.float32) / h,
