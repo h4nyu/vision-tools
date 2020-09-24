@@ -21,7 +21,7 @@ jobs:
       - run:
           name: Lint App
           command: |
-            black .
+            poetry run black .
       - run:
           name: Test App
           command: |
