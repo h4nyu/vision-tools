@@ -84,4 +84,4 @@ def train(epochs: int) -> None:
 
 
 if __name__ == "__main__":
-    train(1000)
+    train(1)

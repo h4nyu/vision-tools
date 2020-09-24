@@ -41,49 +41,45 @@ def test_classification_model() -> None:
     [
         (
             [
-                [0.01],
-                [0.01],
                 [0.99],
+                [0.0],
             ],
-            0.13,
+            1e-5,
         ),
         (
             [
-                [0.9],
-                [0.0],
-                [0.9],
+                [0.99],
+                [0.99],
             ],
-            7.7,
+            4.6,
         ),
-        # ([[-10.0], [0.0], [-10.0],], 7.7),
+        (
+            [
+                [0.01],
+                [0.99],
+            ],
+            9.1,
+        ),
     ],
 )
 def test_label_loss(preds: Any, expected: float) -> None:
     match_score = torch.tensor(
         [
-            0.0,
-            0.5,
-            0.6,
+            0.9,
+            0.1,
         ]
-    )  # [neg, ignore, pos]
-    match_indices = torch.tensor(
-        [
-            0,
-            0,
-            0,
-        ]
-    )
+    )  # positive, negative
+    match_indices = torch.tensor([0, 0])
     pred_classes = torch.tensor(preds)
     gt_classes = torch.tensor([0, 0])
     fn = LabelLoss(iou_thresholds=(0.45, 0.55))
     res = fn(
         match_score=match_score,
         match_indices=match_indices,
-        logits=pred_classes,
+        preds=pred_classes,
         gt_classes=gt_classes,
     )
-    print(res)
-    # assert res < expected
+    assert res < expected
 
 
 @pytest.mark.parametrize(

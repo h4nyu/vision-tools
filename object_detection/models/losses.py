@@ -33,10 +33,6 @@ class HuberLoss:
 
 
 class FocalLoss:
-    """
-    Modified focal loss
-    """
-
     def __init__(
         self,
         gamma: float = 2.0,
