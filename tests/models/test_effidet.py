@@ -91,56 +91,36 @@ def test_label_loss(preds: Any, expected: float) -> None:
     [
         (
             [
-                [
-                    0.1,
-                    0.1,
-                    0.0,
-                    0.0,
-                ],
+                [-0.1, -0.1, 0.0, 0.0],
                 [0.1, 0.1, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0],
             ],
-            0.06,
+            0.0001,
         ),
         (
             [
-                [
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                ],
-                [0.1, 0.1, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0],
+                [0.1, 0.1, 0.0, 0.0],
             ],
-            0.04,
+            0.7,
         ),
         (
             [
-                [
-                    0.1,
-                    0.1,
-                    0.0,
-                    0.0,
-                ],
-                [0.1, 0.1, 0.0, 0.0],
-                [0.5, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
             ],
-            1e0,
+            1.26,
         ),
     ],
 )
 def test_box_loss(preds: Any, expected: float) -> None:
     match_score = torch.tensor(
         [
-            0.0,
-            0.4,
+            0.5,
             0.6,
         ]
     )
     match_indices = torch.tensor(
         [
-            0,
             1,
             0,
         ]
@@ -149,19 +129,18 @@ def test_box_loss(preds: Any, expected: float) -> None:
         [
             [0.5, 0.5, 0.1, 0.1],
             [0.5, 0.5, 0.1, 0.1],
-            [0.5, 0.5, 0.1, 0.1],
         ]
     )
     box_diff = BoxDiff(torch.tensor(preds))
     gt_boxes = YoloBoxes(
         torch.tensor(
             [
-                [0.5, 0.5, 0.1, 0.1],
-                [0.8, 0.8, 0.1, 0.1],
+                [0.6, 0.6, 0.1, 0.1],
+                [0.4, 0.4, 0.1, 0.1],
             ]
         )
     )
-    fn = BoxLoss()
+    fn = BoxLoss(iou_threshold=0.4)
     res = fn(
         match_score=match_score,
         match_indices=match_indices,
