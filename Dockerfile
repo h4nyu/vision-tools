@@ -22,6 +22,7 @@ ENV PATH=$PATH:/root/.poetry/bin
 ENV CUDA_VERSION 10.2.89
 ENV CUDA_PKG_VERSION 10-2=$CUDA_VERSION-1
 ENV NVIDIA_VISIBLE_DEVICES=all
+RUN poetry config virtualenvs.create false
 
 WORKDIR /srv
 COPY . .
