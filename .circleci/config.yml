@@ -17,7 +17,7 @@ jobs:
       - run:
           name: Tpye check App
           command: |
-            mypy .
+            poetry run mypy .
       - run:
           name: Lint App
           command: |
@@ -26,7 +26,7 @@ jobs:
           name: Test App
           command: |
             mkdir store
-            pytest -v --cov=object_detection
+            poetry run pytest -v --cov=object_detection
 
 workflows:
   main:

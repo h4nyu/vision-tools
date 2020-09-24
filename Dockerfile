@@ -25,3 +25,4 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 
 WORKDIR /srv
 COPY . .
+RUN poetry install
