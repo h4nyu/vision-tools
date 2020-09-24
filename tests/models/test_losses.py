@@ -1,4 +1,6 @@
 import torch
+import pytest
+import typing as t
 import torch.nn.functional as F
 from object_detection.models.losses import (
     DIoU,
@@ -65,5 +67,48 @@ def test_giou() -> None:
     assert F.l1_loss(res, torch.tensor([[1.5], [0.0]])) < 1e-7
 
 
-def test_focal_loss() -> None:
+@pytest.mark.parametrize(
+    "values, expected",
+    [
+        (
+            [
+                [-10, 10],
+                [10, -10],
+            ],
+            1e-6,
+        ),
+        (
+            [
+                [10, 10],
+                [10, -10],
+            ],
+            0.35,
+        ),
+        (
+            [
+                [10, 10],
+                [10, 10],
+            ],
+            0.70,
+        ),
+        (
+            [
+                [10, -10],
+                [10, -10],
+            ],
+            19,
+        ),
+    ],
+)
+def test_focal_loss(values: t.Any, expected: float) -> None:
     fn = FocalLoss()
+    pred = torch.Tensor(values).softmax(1)
+
+    target = torch.Tensor(
+        [
+            [0, 1],
+            [1, 0],
+        ]
+    )
+    res = fn(pred, target).sum()
+    assert res < expected

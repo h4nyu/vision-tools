@@ -41,6 +41,7 @@ class FocalLoss:
         self,
         gamma: float = 2.0,
         eps: float = 1e-4,
+        size_average: bool = True,
     ):
         super().__init__()
         self.gamma = gamma
@@ -57,8 +58,10 @@ class FocalLoss:
         gamma = self.gamma
         eps = self.eps
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
-        pos_loss = -((1 - pred) ** gamma) * torch.log(pred)
-        neg_loss = -(pred ** gamma) * torch.log(1 - pred)
+        pos_loss = (
+            -((1 - pred) ** gamma) * torch.log(pred) * gt.eq(1.0)
+        )
+        neg_loss = -(pred ** gamma) * torch.log(1 - pred) * gt.eq(0.0)
         loss = pos_loss + neg_loss
         return loss
 
