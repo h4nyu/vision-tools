@@ -32,7 +32,7 @@ class HuberLoss:
         return loss.mean() if self.size_average else loss.sum()
 
 
-class FocalLoss(nn.Module):
+class FocalLoss:
     """
     Modified focal loss
     """
@@ -46,10 +46,13 @@ class FocalLoss(nn.Module):
         self.gamma = gamma
         self.eps = eps
 
-    def forward(self, pred: Tensor, gt: Tensor) -> Tensor:
+    def __call__(self, pred: Tensor, gt: Tensor) -> Tensor:
         """
-        pred: 0-1 [B, C,..]
-        gt: 0-1 [B, C,..]
+        pred:
+            value_range: 0-1
+            shape: [B, C,..]
+        gt:
+            0,1 [B, C,..]
         """
         gamma = self.gamma
         eps = self.eps

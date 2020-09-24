@@ -7,9 +7,13 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install Poetry
+          command: |
+            curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+      - run:
           name: Install Package
           command: |
-            pip install -e .[dev]
+            poetry install
       - run:
           name: Tpye check App
           command: |

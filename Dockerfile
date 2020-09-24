@@ -5,9 +5,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub | apt-key add - && \
     echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list && \
     echo "deb https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/nvidia-ml.list && \
+    curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python && \
+    pip install --upgrade pip && \
     apt-get purge --autoremove -y curl && \
     rm -rf /var/lib/apt/lists/*
-
 ENV CUDA_VERSION 10.2.89
 ENV CUDA_PKG_VERSION 10-2=$CUDA_VERSION-1
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -17,10 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 ENV MYPYPATH=/srv/stubs
+ENV PATH=$PATH:/root/.poetry/bin
 ENV CUDA_VERSION 10.2.89
 ENV CUDA_PKG_VERSION 10-2=$CUDA_VERSION-1
 ENV NVIDIA_VISIBLE_DEVICES=all
 
 WORKDIR /srv
 COPY . .
-RUN pip install -e .[dev]
