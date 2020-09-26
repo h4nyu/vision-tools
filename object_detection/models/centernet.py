@@ -5,6 +5,7 @@ import typing as t
 import torch as tr
 import torch.nn.functional as F
 from functools import partial
+from .activations import FReLU
 from typing import (
     List,
     Tuple,
@@ -87,7 +88,7 @@ class Reg(nn.Module):
         channels = in_channels
         self.conv = nn.Sequential(
             *[
-                SENextBottleneck2d(in_channels, in_channels)
+                FReLU(in_channels)
                 for _ in range(depth)
             ]
         )
