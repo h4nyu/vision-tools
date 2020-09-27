@@ -10,7 +10,9 @@ FocsBoxes = typing.NewType("FocsBoxes", torch.Tensor)
 LogitMap = typing.NewType("LogitMap", torch.Tensor)  # [B, N, H, W]
 BoxMap = typing.NewType("BoxMap", torch.Tensor)  # [B, 4, H, W]
 CenterMap = typing.NewType("CenterMap", torch.Tensor)  # [B, 1, H, W]
+Location = typing.NewType("Location", torch.Tensor)  # [N, 2]
 Features = typing.List[torch.Tensor]
+Locations = typing.List[Location]
 
 BoxMaps = typing.List[BoxMap]
 CenterMaps = typing.List[CenterMap]
@@ -131,3 +133,49 @@ class FCOS(nn.Module):
         features = self.backbone(image_batch)
         features = self.fpn(features)
         return self.head(list(features))
+
+
+class Anchor:
+    def __init__(self, strides: typing.List[int] = [1, 2, 4]) -> None:
+        self.strides = strides
+
+    def __call__(self, features: Features) -> Locations:
+        locs = []
+        for i, feat in enumerate(features):
+            _, _, height, width = feat.shape
+            loc = self.loc_per_level(
+                height, width, self.strides[i], feat.device
+            )
+            locs.append(loc)
+        return locs
+
+    def loc_per_level(
+        self, height: int, width: int, stride: int, device: typing.Any
+    ) -> Location:
+        shift_x = torch.arange(
+            0,
+            width * stride,
+            step=stride,
+            dtype=torch.float32,
+            device=device,
+        )
+        shift_y = torch.arange(
+            0,
+            height * stride,
+            step=stride,
+            dtype=torch.float32,
+            device=device,
+        )
+        shift_y, shift_x = torch.meshgrid(shift_y, shift_x)
+        shift_x = shift_x.reshape(-1)
+        shift_y = shift_y.reshape(-1)
+        loc = torch.stack((shift_x, shift_y), 1) + stride // 2
+        return Location(loc)
+
+
+class TrainBench:
+    def __init__(self, model: FCOS) -> None:
+        self.model = model
+
+    def __call__(self, image_batch: ImageBatch) -> torch.Tensor:
+        ...

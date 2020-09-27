@@ -5,6 +5,7 @@ from object_detection.models.fcos import (
     Head,
     FCOS,
     FPN,
+    Anchor,
 )
 from object_detection.entities import ImageBatch
 from object_detection.models.backbones.resnet import (
@@ -59,3 +60,18 @@ def test_fcos() -> None:
     assert len(logits) == 5
     assert len(centers) == 5
     assert len(boxes) == 5
+
+
+def test_anchor() -> None:
+    batch_size = 2
+    channels = 3
+    width = 1
+    height = 1
+    features = [
+        torch.rand(batch_size, channels, height, width),
+    ]
+
+    fn = Anchor(strides=[1])
+    res = fn(features)
+    assert len(res) == len(features)
+    assert res[0].shape == (1, 2)
