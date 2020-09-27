@@ -8,6 +8,7 @@ from object_detection.models.losses import (
     DIoULoss,
     IoULoss,
     FocalLoss,
+    SigmoidFocalLoss,
 )
 from object_detection import PascalBoxes
 from torch import nn, Tensor
@@ -112,3 +113,31 @@ def test_focal_loss(values: t.Any, expected: float) -> None:
     )
     res = fn(pred, target).sum()
     assert res < expected
+
+
+@pytest.mark.parametrize(
+    "values, expected",
+    [
+        (
+            [-10, 10],
+            1e-6,
+        ),
+        (
+            [10, 10],
+            0.35,
+        ),
+    ],
+)
+def test_sigmoid_focal_loss(values: t.Any, expected: float) -> None:
+    fn = SigmoidFocalLoss()
+    source = torch.tensor([[values]]).float()
+    target = torch.tensor(
+        [
+            [
+                0,
+                1,
+            ]
+        ]
+    )
+    res = fn(source, target).sum()
+    print(res)

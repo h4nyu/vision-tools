@@ -32,16 +32,46 @@ class HuberLoss:
         return loss.mean() if self.size_average else loss.sum()
 
 
+class SigmoidFocalLoss:
+    def __init__(
+        self,
+        gamma: float = 2.0,
+        size_average: bool = True,
+        alpha: float = 0.25,
+    ):
+        self.gamma = gamma
+        self.alpha = alpha
+
+    def __call__(self, source: Tensor, target: Tensor) -> Tensor:
+        n_classes = target.shape[1]
+        class_ids = torch.arange(
+            1, n_classes + 1, dtype=target.dtype, device=target.device
+        ).unsqueeze(0)
+        p = torch.sigmoid(source)
+        gamma = self.gamma
+        alpha = self.alpha
+        pos = (1 - p) ** gamma * torch.log(p)
+        neg = p ** gamma * torch.log(1 - p)
+        loss = (
+            -(target == class_ids).float() * alpha * pos
+            - ((target != class_ids) * target >= 0).float()
+            * (1 - alpha)
+            * neg
+        )
+        return loss
+
+
 class FocalLoss:
     def __init__(
         self,
         gamma: float = 2.0,
         eps: float = 1e-4,
+        alpha: float = 0.25,
         size_average: bool = True,
     ):
-        super().__init__()
         self.gamma = gamma
         self.eps = eps
+        self.alpha = alpha
 
     def __call__(self, pred: Tensor, gt: Tensor) -> Tensor:
         """
@@ -53,12 +83,13 @@ class FocalLoss:
         """
         gamma = self.gamma
         eps = self.eps
+        alpha = self.alpha
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
         pos_loss = (
             -((1 - pred) ** gamma) * torch.log(pred) * gt.eq(1.0)
         )
         neg_loss = -(pred ** gamma) * torch.log(1 - pred) * gt.eq(0.0)
-        loss = pos_loss + neg_loss
+        loss = alpha * pos_loss + (1 - alpha) * neg_loss
         return loss
 
 

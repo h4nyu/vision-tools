@@ -136,6 +136,7 @@ class FCOS(nn.Module):
 
 
 class Anchor:
+    # TODO add size cache
     def __init__(self, strides: typing.List[int] = [1, 2, 4]) -> None:
         self.strides = strides
 
