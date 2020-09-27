@@ -87,10 +87,7 @@ class Reg(nn.Module):
         super().__init__()
         channels = in_channels
         self.conv = nn.Sequential(
-            *[
-                FReLU(in_channels)
-                for _ in range(depth)
-            ]
+            *[FReLU(in_channels) for _ in range(depth)]
         )
 
         self.out = nn.Sequential(

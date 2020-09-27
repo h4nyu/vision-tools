@@ -1,8 +1,9 @@
 import torch
-from object_detection.models.focs import (
+from object_detection.models.fcos import (
     centerness,
     FocsBoxes,
     Head,
+    FPN,
 )
 
 
@@ -38,3 +39,16 @@ def test_head() -> None:
 
     assert box_maps[0].shape == (1, 4, size, size)
     assert box_maps[1].shape == (1, 4, size * 2, size * 2)
+
+
+def test_fpn() -> None:
+    in_channels = 32
+    size = 512
+    fn = FPN(
+        in_channels=in_channels,
+        out_channels=64,
+    )
+    features = [
+        torch.rand(1, in_channels, size, size) for _ in range(7)
+    ]
+    out_features = fn(features)

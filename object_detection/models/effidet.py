@@ -142,10 +142,7 @@ class ClassificationModel(nn.Module):
         )
 
         self.bottlenecks = nn.Sequential(
-            *[
-                FReLU(hidden_channels)
-                for _ in range(depth)
-            ]
+            *[FReLU(hidden_channels) for _ in range(depth)]
         )
         self.output = nn.Conv2d(
             hidden_channels,
@@ -194,10 +191,7 @@ class RegressionModel(nn.Module):
         )
 
         self.bottlenecks = nn.Sequential(
-            *[
-                FReLU(hidden_channels)
-                for _ in range(depth)
-            ]
+            *[FReLU(hidden_channels) for _ in range(depth)]
         )
         self.out = nn.Conv2d(
             hidden_channels,
