@@ -1,6 +1,8 @@
 import torch
 import typing
 from torch import nn
+from object_detection.entities import ImageBatch
+from .bifpn import BiFPN, FP
 
 
 FocsBoxes = typing.NewType("FocsBoxes", torch.Tensor)
@@ -103,12 +105,29 @@ class Head(nn.Module):
 
 
 class FPN(nn.Module):
+    def __init__(self, channels: int, depth: int = 1) -> None:
+        super().__init__()
+        self.fpn = nn.Sequential(
+            *[BiFPN(channels=channels) for _ in range(depth)]
+        )
+
+    def forward(self, features: FP) -> FP:
+        return self.fpn(features)
+
+
+class FCOS(nn.Module):
     def __init__(
         self,
-        in_channels: int,
-        out_channels: int,
+        backbone: nn.Module,
+        fpn: nn.Module,
+        head: Head,
     ) -> None:
         super().__init__()
+        self.backbone = backbone
+        self.fpn = fpn
+        self.head = head
 
-    def forward(self, features: Features) -> Features:
-        return features
+    def forward(self, image_batch: ImageBatch) -> NetOut:
+        features = self.backbone(image_batch)
+        features = self.fpn(features)
+        return self.head(list(features))
