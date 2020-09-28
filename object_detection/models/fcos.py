@@ -3,6 +3,7 @@ import typing
 from torch import nn
 from object_detection.entities import ImageBatch
 from .bifpn import BiFPN, FP
+from .losses import SigmoidFocalLoss, DIoULoss
 
 
 FocsBoxes = typing.NewType("FocsBoxes", torch.Tensor)
@@ -115,6 +116,47 @@ class FPN(nn.Module):
 
     def forward(self, features: FP) -> FP:
         return self.fpn(features)
+
+
+DEFAULT_SIZE_RANGES = [
+    (1, 64),
+    (64, 128),
+    (128, 256),
+    (256, 512),
+    (512, 1024),
+]
+
+
+class Criterion:
+    def __init__(
+        self,
+        cls_loss: SigmoidFocalLoss,
+        box_loss: DIoULoss,
+        center_loss: nn.BCEWithLogitsLoss,
+        size_ranges: typing.List[
+            typing.Tuple[int, int]
+        ] = DEFAULT_SIZE_RANGES,
+    ) -> None:
+        self.box_loss = box_loss
+        self.cls_loss = cls_loss
+        self.center_loss = center_loss
+        self.size_ranges = size_ranges
+
+    def preprocess_target(
+        self,
+        locations: Locations,
+    ) -> None:
+        for i, loc_map in enumerate(locations):
+            ...
+
+    def __call__(
+        self,
+        locations: Locations,
+        logit_maps: LogitMaps,
+        box_maps: BoxMaps,
+        center_maps: CenterMaps,
+    ) -> torch.Tensor:
+        ...
 
 
 class FCOS(nn.Module):

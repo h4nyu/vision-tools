@@ -75,3 +75,17 @@ def test_anchor() -> None:
     res = fn(features)
     assert len(res) == len(features)
     assert res[0].shape == (1, 2)
+
+
+def test_criterion() -> None:
+    batch_size = 2
+    channels = 3
+    width = 128
+    height = 128
+    strides = [1, 2]
+    features = [
+        torch.rand(batch_size, channels, height, width),
+        torch.rand(batch_size, channels, height // 2, width // 2),
+    ]
+
+    locations = Anchor(strides=strides)(features)
