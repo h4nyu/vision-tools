@@ -38,7 +38,9 @@ def train(epochs: int) -> None:
         2, out_channels=config.channels, pretrained=True
     )
     anchors = Anchors(
-        size=config.anchor_size, ratios=config.anchor_ratios
+        size=config.anchor_size,
+        ratios=config.anchor_ratios,
+        scales=config.anchor_scales,
     )
     model = EfficientDet(
         num_classes=1,

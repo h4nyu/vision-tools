@@ -17,5 +17,6 @@ out_dir = "/store/efficientdet"
 metric: Tuple[str, WatchMode] = ("score", "max")
 pretrained = True
 
-anchor_ratios = [2 / 3, 1.0, 3 / 2]
-anchor_size = 4
+anchor_ratios = [1.0]
+anchor_scales = [1.0]
+anchor_size = 1

@@ -272,7 +272,7 @@ class EfficientDet(nn.Module):
 
 
 class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.5) -> None:
+    def __init__(self, iou_threshold: float = 0.1) -> None:
         self.iou_threshold = iou_threshold
         self.loss = DIoULoss()
 
@@ -306,7 +306,7 @@ class BoxLoss:
 class LabelLoss:
     def __init__(
         self,
-        iou_thresholds: Tuple[float, float] = (0.5, 0.5),
+        iou_thresholds: Tuple[float, float] = (0.1, 0.2),
     ) -> None:
         """
         focal_loss
