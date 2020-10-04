@@ -278,15 +278,16 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        box_weight: float = 1.0,
+        topk: int = 9,
+        box_weight: float = 3.0,
         cls_weight: float = 1.0,
     ) -> None:
         self.num_classes = num_classes
         self.box_weight = box_weight
         self.cls_weight = cls_weight
-        self.diou_loss = DIoULoss()
-        self.atss = ATSS()
-        self.focal_loss = FocalLoss()
+        self.box_loss = DIoULoss()
+        self.atss = ATSS(topk)
+        self.cls_loss = FocalLoss()
 
     def __call__(
         self,
@@ -332,7 +333,7 @@ class Criterion:
             matched_pred_boxes = (
                 anchors[pos_ids[:, 1]] + box_pred[pos_ids[:, 1]]
             )
-            box_losses[batch_id] = self.diou_loss(
+            box_losses[batch_id] = self.box_loss(
                 PascalBoxes(matched_gt_boxes),
                 PascalBoxes(matched_pred_boxes),
             ).sum()
@@ -341,7 +342,7 @@ class Criterion:
             cls_target[
                 pos_ids[:, 1], gt_lables[pos_ids[:, 0]].long()
             ] = 1
-            cls_losses[batch_id] = self.focal_loss(
+            cls_losses[batch_id] = self.cls_loss(
                 cls_pred.float(),
                 cls_target.float(),
             ).sum()
