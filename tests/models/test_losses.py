@@ -140,4 +140,3 @@ def test_sigmoid_focal_loss(values: t.Any, expected: float) -> None:
         ]
     )
     res = fn(source, target).sum()
-    print(res)

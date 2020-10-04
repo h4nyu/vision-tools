@@ -1,9 +1,10 @@
+import typing
 import torch
 from object_detection.entities import PascalBoxes
 from object_detection.models.atss import ATSS
 
 
-def test_atss() -> None:
+def test_atss_bench(benchmark: typing.Any) -> None:
     anchor = PascalBoxes(
         torch.tensor(
             [
@@ -24,5 +25,5 @@ def test_atss() -> None:
         ).float()
     )
     fn = ATSS(topk=3)
-    res = fn(anchor, gt)
-    assert res.tolist() == [0, 1]
+    res = benchmark(lambda: fn(anchor, gt))
+    assert res.tolist() == [[0, 0], [1, 1]]

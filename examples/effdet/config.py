@@ -6,9 +6,9 @@ confidence_threshold = 0.5
 batch_size = 8
 
 # model
-channels = 64
+channels = 256
 depth = 2
-lr = 1e-4
+lr = 1e-3
 
 input_size = (256, 256)
 object_count_range = (5, 20)

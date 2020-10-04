@@ -14,7 +14,7 @@ class ATSS:
     def __init__(
         self,
         topk: int = 9,
-        pylamid_levels: typing.List[int] = [3, 4, 5],
+        pylamid_levels: typing.List[int] = [3, 4, 5, 6, 7],
     ) -> None:
         self.topk = topk
         self.pylamid_levels = pylamid_levels
@@ -26,8 +26,16 @@ class ATSS:
         gt: PascalBoxes,
     ) -> Tensor:
         matched_ids = self.closest_assign(anchors, gt)
-        gt_count, anchor_count = matched_ids.shape
-        pos_ids_list: typing.List[Tensor] = []
+        gt_count, _ = matched_ids.shape
+        anchor_count, _ = anchors.shape
+        device = anchors.device
+        pos_ids = torch.zeros(
+            (
+                gt_count,
+                anchor_count,
+            ),
+            device=device,
+        )
         for i in range(gt_count):
             ids = matched_ids[i]
             matched_anchors = anchors[ids]
@@ -35,7 +43,5 @@ class ATSS:
             m_iou = ious.mean()
             s_iou = ious.std()
             th = m_iou + s_iou
-            pos_ids = ids[ious >= th]
-            pos_ids_list.append(pos_ids)
-        res = torch.unique(torch.stack(pos_ids_list))
-        return res
+            pos_ids[i, ids[ious >= th]] = True
+        return torch.nonzero(pos_ids, as_tuple=False)

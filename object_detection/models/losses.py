@@ -77,9 +77,9 @@ class FocalLoss:
         """
         pred:
             value_range: 0-1
-            shape: [B, C,..]
+            shape: [N, C,..]
         gt:
-            0,1 [B, C,..]
+            0,1 [N, C,..]
         """
         gamma = self.gamma
         eps = self.eps

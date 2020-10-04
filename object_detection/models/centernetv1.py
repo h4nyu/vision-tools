@@ -439,7 +439,7 @@ class Trainer:
         model_loader: ModelLoader,
         visualize: Visualize,
         optimizer: Any,
-        get_score: Callable[[YoloBoxes, YoloBoxes], float],
+        get_score: Callable[[PascalBoxes, PascalBoxes], float],
         to_boxes: ToBoxes,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
@@ -529,8 +529,14 @@ class Trainer:
             self.meters["test_box"].update(box_loss.item())
             self.meters["test_hm"].update(hm_loss.item())
             preds = self.to_boxes(outputs)
+            _, _, h, w = images.shape
             for (pred, gt) in zip(preds[0], box_batch):
-                self.meters["score"].update(self.get_score(pred, gt))
+                self.meters["score"].update(
+                    self.get_score(
+                        yolo_to_pascal(pred, (w, h)),
+                        yolo_to_pascal(gt, (w, h)),
+                    )
+                )
 
         self.visualize(outputs, preds, box_batch, images, gt_hms)
 

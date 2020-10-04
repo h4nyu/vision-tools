@@ -13,7 +13,6 @@ from object_detection.entities import (
     TrainSample,
     PredictionSample,
     Labels,
-    YoloBoxes,
     PascalBoxes,
     yolo_to_pascal,
     ImageBatch,
@@ -24,6 +23,7 @@ from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
 from .losses import DIoU, HuberLoss, DIoULoss
 from .activations import FReLU
+from .atss import ATSS
 from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
@@ -46,15 +46,17 @@ logger = getLogger(__name__)
 
 def collate_fn(
     batch: List[TrainSample],
-) -> Tuple[ImageBatch, List[YoloBoxes], List[Labels], List[ImageId]]:
+) -> Tuple[
+    ImageBatch, List[PascalBoxes], List[Labels], List[ImageId]
+]:
     images: List[t.Any] = []
     id_batch: List[ImageId] = []
-    box_batch: List[YoloBoxes] = []
+    box_batch: List[PascalBoxes] = []
     label_batch: List[Labels] = []
-
     for id, img, boxes, labels in batch:
+        c, h, w = img.shape
         images.append(img)
-        box_batch.append(boxes)
+        box_batch.append(yolo_to_pascal(boxes, (w, h)))
         id_batch.append(id)
         label_batch.append(labels)
     return (
@@ -93,8 +95,8 @@ class Visualize:
 
     def __call__(
         self,
-        src: Tuple[List[YoloBoxes], List[Confidences]],
-        tgt: List[YoloBoxes],
+        src: Tuple[List[PascalBoxes], List[Confidences]],
+        tgt: List[PascalBoxes],
         image_batch: ImageBatch,
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
@@ -116,8 +118,8 @@ class Visualize:
                 show_probs=self.show_probs,
             )
             plot.with_image(img, alpha=0.5)
-            plot.with_yolo_boxes(tb, color="blue")
-            plot.with_yolo_boxes(sb, sc, color="red")
+            plot.with_pascal_boxes(tb, color="blue")
+            plot.with_pascal_boxes(sb, sc, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
 
@@ -212,7 +214,7 @@ class RegressionModel(nn.Module):
 BoxDiff = NewType("BoxDiff", Tensor)
 BoxDiffs = NewType("BoxDiffs", Tensor)
 
-NetOutput = Tuple[List[YoloBoxes], List[BoxDiffs], List[Tensor]]
+NetOutput = Tuple[List[PascalBoxes], List[BoxDiffs], List[Tensor]]
 
 
 def _init_weight(m: nn.Module) -> None:
@@ -229,7 +231,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         channels: int = 64,
-        out_ids: List[PyramidIdx] = [3, 4, 5, 6],
+        out_ids: List[PyramidIdx] = [6, 7],
         anchors: Anchors = Anchors(),
         depth: int = 1,
     ) -> None:
@@ -258,7 +260,8 @@ class EfficientDet(nn.Module):
         features = self.backbone(images)
         features = self.neck(features)
         anchor_levels = [
-            self.anchors(features[i]) for i in self.out_ids
+            self.anchors(features[i], 2 ** (i + 1))
+            for i in self.out_ids
         ]
         box_levels = [self.box_reg(features[i]) for i in self.out_ids]
         label_levels = [
@@ -271,156 +274,82 @@ class EfficientDet(nn.Module):
         )
 
 
-class BoxLoss:
-    def __init__(self, iou_threshold: float = 0.1) -> None:
-        self.iou_threshold = iou_threshold
-        self.loss = DIoULoss()
-
-    def __call__(
-        self,
-        match_score: Tensor,
-        match_indices: Tensor,
-        anchors: Tensor,
-        box_diff: BoxDiff,
-        gt_boxes: YoloBoxes,
-    ) -> Tensor:
-        device = box_diff.device
-        high = self.iou_threshold
-        positive_indices = match_score > self.iou_threshold
-        num_pos = positive_indices.sum()
-        if num_pos == 0:
-            return torch.tensor(0.0).float().to(device)
-        matched_gt_boxes = gt_boxes[match_indices][positive_indices]
-        matched_anchors = anchors[positive_indices]
-        pred_diff = box_diff[positive_indices]
-        loss = self.loss(
-            yolo_to_pascal(
-                YoloBoxes(matched_anchors + pred_diff),
-                (1, 1),
-            ),
-            yolo_to_pascal(YoloBoxes(matched_gt_boxes), (1, 1)),
-        )
-        return loss
-
-
-class LabelLoss:
-    def __init__(
-        self,
-        iou_thresholds: Tuple[float, float] = (0.1, 0.2),
-    ) -> None:
-        """
-        focal_loss
-        """
-        self.gamma = 2.0
-        self.alpha = 0.25
-        self.beta = 4.0
-        self.iou_thresholds = iou_thresholds
-        self.loss = FocalLoss()
-
-    def __call__(
-        self,
-        match_score: Tensor,
-        match_indices: Tensor,
-        preds: Tensor,
-        gt_classes: Tensor,
-    ) -> Tensor:
-        device = preds.device
-        low, high = self.iou_thresholds
-        positive_indices = match_score > high
-        matched_gt_classes = gt_classes[match_indices]
-
-        targets = torch.zeros(preds.shape).to(
-            device, non_blocking=True
-        )
-        targets[
-            positive_indices,
-            matched_gt_classes[positive_indices].long(),
-        ] = 1
-        pos_count = positive_indices.sum()
-        loss = self.loss(preds, targets)
-        loss = loss.sum() / pos_count.sum().clamp(min=1.0)
-        return loss
-
-
 class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
         box_weight: float = 1.0,
-        label_weight: float = 1.0,
-        box_loss: BoxLoss = BoxLoss(),
-        label_loss: LabelLoss = LabelLoss(),
+        cls_weight: float = 1.0,
     ) -> None:
         self.num_classes = num_classes
         self.box_weight = box_weight
-        self.label_weight = label_weight
-        self.label_loss = label_loss
-        self.box_loss = box_loss
-        self.diou = DIoU()
+        self.cls_weight = cls_weight
+        self.diou_loss = DIoULoss()
+        self.atss = ATSS()
+        self.focal_loss = FocalLoss()
 
     def __call__(
         self,
         images: ImageBatch,
         net_output: NetOutput,
-        gt_boxes_list: List[YoloBoxes],
+        gt_boxes_list: List[PascalBoxes],
         gt_classes_list: List[Labels],
     ) -> Tuple[Tensor, Tensor, Tensor]:
         (
             anchor_levels,
-            box_diff_levels,
-            classification_levels,
+            box_reg_levels,
+            cls_pred_levels,
         ) = net_output
         device = anchor_levels[0].device
-        batch_size = classification_levels[0].shape[0]
-        box_losses: List[Tensor] = []
-        label_losses: List[Tensor] = []
+        batch_size = box_reg_levels[0].shape[0]
         _, _, h, w = images.shape
+        anchors = PascalBoxes(torch.cat([*anchor_levels], dim=0))
+        box_preds = torch.cat([*box_reg_levels], dim=1)
+        cls_preds = torch.cat([*cls_pred_levels], dim=1)
 
-        for anchors, box_diffs, pred_labels_level in zip(
-            anchor_levels,
-            box_diff_levels,
-            classification_levels,
-        ):
-            for (gt_boxes, gt_lables, box_diff, pred_labels,) in zip(
+        box_losses = torch.zeros(batch_size, device=device)
+        cls_losses = torch.zeros(batch_size, device=device)
+        for batch_id, (
+            gt_boxes,
+            gt_lables,
+            box_pred,
+            cls_pred,
+        ) in enumerate(
+            zip(
                 gt_boxes_list,
                 gt_classes_list,
-                box_diffs,
-                pred_labels_level,
-            ):
-                if len(gt_boxes) == 0:
-                    continue
-                iou_matrix = box_iou(
-                    yolo_to_pascal(anchors, wh=(w, h)),
-                    yolo_to_pascal(gt_boxes, wh=(w, h)),
-                )
-                match_score, match_indices = torch.max(
-                    iou_matrix, dim=1
-                )
-                label_losses.append(
-                    self.label_loss(
-                        match_score=match_score,
-                        match_indices=match_indices,
-                        preds=pred_labels,
-                        gt_classes=gt_lables,
-                    )
-                )
-                box_losses.append(
-                    self.box_loss(
-                        match_score=match_score,
-                        match_indices=match_indices,
-                        anchors=anchors,
-                        box_diff=BoxDiff(box_diff),
-                        gt_boxes=gt_boxes,
-                    )
-                )
-        all_box_loss = (
-            torch.stack(box_losses).mean() * self.box_weight
-        )
-        all_label_loss = (
-            torch.stack(label_losses).mean() * self.label_weight
-        )
-        loss = all_box_loss + all_label_loss
-        return loss, all_box_loss, all_label_loss
+                box_preds,
+                cls_preds,
+            )
+        ):
+            if len(gt_boxes) == 0:
+                continue
+            pos_ids = self.atss(
+                anchors,
+                PascalBoxes(gt_boxes),
+            )
+            matched_gt_boxes = gt_boxes[pos_ids[:, 0]]
+            matched_pred_boxes = (
+                anchors[pos_ids[:, 1]] + box_pred[pos_ids[:, 1]]
+            )
+            box_losses[batch_id] = self.diou_loss(
+                PascalBoxes(matched_gt_boxes),
+                PascalBoxes(matched_pred_boxes),
+            ).sum()
+
+            cls_target = torch.zeros(cls_pred.shape, device=device)
+            cls_target[
+                pos_ids[:, 1], gt_lables[pos_ids[:, 0]].long()
+            ] = 1
+            cls_losses[batch_id] = self.focal_loss(
+                cls_pred.float(),
+                cls_target.float(),
+            ).sum()
+
+        box_loss = box_losses.mean() * self.box_weight
+        cls_loss = cls_losses.mean() * self.cls_weight
+        loss = box_loss + cls_loss
+        return loss, box_loss, cls_loss
 
 
 class PreProcess:
@@ -433,8 +362,8 @@ class PreProcess:
 
     def __call__(
         self,
-        batch: t.Tuple[ImageBatch, List[YoloBoxes], List[Labels]],
-    ) -> t.Tuple[ImageBatch, List[YoloBoxes], List[Labels]]:
+        batch: t.Tuple[ImageBatch, List[PascalBoxes], List[Labels]],
+    ) -> t.Tuple[ImageBatch, List[PascalBoxes], List[Labels]]:
         image_batch, boxes_batch, label_batch = batch
         return (
             ImageBatch(
@@ -444,7 +373,7 @@ class PreProcess:
                 )
             ),
             [
-                YoloBoxes(
+                PascalBoxes(
                     x.to(
                         self.device,
                         non_blocking=self.non_blocking,
@@ -477,7 +406,7 @@ class ToBoxes:
 
     def __call__(
         self, net_output: NetOutput
-    ) -> t.Tuple[List[YoloBoxes], List[Confidences]]:
+    ) -> t.Tuple[List[PascalBoxes], List[Confidences]]:
         (
             anchor_levels,
             box_diff_levels,
@@ -495,13 +424,12 @@ class ToBoxes:
             confidences = confidences[filter_idx][: self.limit]
             boxes = boxes[filter_idx][: self.limit]
             sort_idx = nms(
-                yolo_to_pascal(YoloBoxes(boxes), (1, 1)),
+                boxes,
                 confidences,
                 self.iou_threshold,
             )
             confidences.argsort(descending=True)
-            boxes = YoloBoxes(boxes[sort_idx])
-            boxes = yolo_clamp(boxes)
+            boxes = PascalBoxes(boxes[sort_idx])
             confidences = confidences[sort_idx]
             box_batch.append(boxes)
             confidence_batch.append(Confidences(confidences))
@@ -517,7 +445,7 @@ class Trainer:
         model_loader: ModelLoader,
         visualize: Visualize,
         optimizer: t.Any,
-        get_score: Callable[[YoloBoxes, YoloBoxes], float],
+        get_score: Callable[[PascalBoxes, PascalBoxes], float],
         to_boxes: ToBoxes,
         device: str = "cpu",
         criterion: Criterion = Criterion(),
@@ -573,22 +501,20 @@ class Trainer:
         for (
             samples,
             gt_boxes_list,
-            gt_labes_list,
+            gt_cls_list,
             ids,
         ) in tqdm(loader):
             (
                 samples,
                 gt_boxes_list,
-                gt_labels_list,
-            ) = self.preprocess(
-                (samples, gt_boxes_list, gt_labes_list)
-            )
+                gt_cls_list,
+            ) = self.preprocess((samples, gt_boxes_list, gt_cls_list))
             outputs = self.model(samples)
             loss, box_loss, label_loss = self.criterion(
                 samples,
                 outputs,
                 gt_boxes_list,
-                gt_labes_list,
+                gt_cls_list,
             )
             self.optimizer.zero_grad()
             loss.backward()
@@ -602,15 +528,15 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.train()
         loader = self.test_loader
-        for samples, box_batch, gt_labes_list, ids in tqdm(loader):
+        for samples, box_batch, gt_cls_list, ids in tqdm(loader):
             (
                 samples,
                 box_batch,
-                gt_labels_list,
-            ) = self.preprocess((samples, box_batch, gt_labes_list))
+                gt_cls_list,
+            ) = self.preprocess((samples, box_batch, gt_cls_list))
             outputs = self.model(samples)
             loss, box_loss, label_loss = self.criterion(
-                samples, outputs, box_batch, gt_labes_list
+                samples, outputs, box_batch, gt_cls_list
             )
             self.meters["test_loss"].update(loss.item())
             self.meters["test_box"].update(box_loss.item())
@@ -646,7 +572,7 @@ class Predictor:
     @torch.no_grad()
     def __call__(
         self,
-    ) -> Tuple[List[YoloBoxes], List[Confidences], List[ImageId]]:
+    ) -> Tuple[List[PascalBoxes], List[Confidences], List[ImageId]]:
         self.model = self.model_loader.load_if_needed(self.model)
         self.model.eval()
         boxes_list = []

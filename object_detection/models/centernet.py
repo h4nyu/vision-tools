@@ -442,7 +442,7 @@ class Trainer:
         criterion: Criterion,
         optimizer: t.Any,
         visualize: Visualize,
-        get_score: Callable[[YoloBoxes, YoloBoxes], float],
+        get_score: Callable[[PascalBoxes, PascalBoxes], float],
         to_boxes: ToBoxes,
         device: str = "cpu",
     ) -> None:
@@ -515,13 +515,19 @@ class Trainer:
         loader = self.test_loader
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
+            _, _, h, w = images.shape
             outputs = self.model(images)
             loss, hm_loss, bm_loss, gt_hms = self.criterion(
                 images, outputs, boxes
             )
             preds = self.post_process(outputs)
             for (pred, gt) in zip(preds[0], boxes):
-                self.meters["score"].update(self.get_score(pred, gt))
+                self.meters["score"].update(
+                    self.get_score(
+                        yolo_to_pascal(pred, (w, h)),
+                        yolo_to_pascal(gt, (w, h)),
+                    )
+                )
 
             self.meters["test_loss"].update(loss.item())
             self.meters["test_hm"].update(hm_loss.item())

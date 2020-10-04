@@ -2,15 +2,13 @@ import torch
 import pytest
 from typing import Any
 from object_detection.entities.image import ImageBatch
-from object_detection.entities.box import YoloBoxes, Labels
+from object_detection.entities.box import PascalBoxes, Labels
 from object_detection.models.effidet import (
     RegressionModel,
     ClassificationModel,
     EfficientDet,
     Criterion,
-    LabelLoss,
     BoxDiff,
-    BoxLoss,
 )
 from object_detection.models.anchors import Anchors
 from object_detection.models.backbones.effnet import (
@@ -34,117 +32,6 @@ def test_classification_model() -> None:
     fn = ClassificationModel(in_channels=100, num_classes=2)
     res = fn(images)
     assert res.shape == (1, 900, 2)
-
-
-@pytest.mark.parametrize(
-    "preds,expected",
-    [
-        (
-            [
-                [0.99],
-                [0.0],
-            ],
-            1e-5,
-        ),
-        (
-            [
-                [0.99],
-                [0.99],
-            ],
-            4.6,
-        ),
-        (
-            [
-                [0.01],
-                [0.99],
-            ],
-            9.1,
-        ),
-    ],
-)
-def test_label_loss(preds: Any, expected: float) -> None:
-    match_score = torch.tensor(
-        [
-            0.9,
-            0.1,
-        ]
-    )  # positive, negative
-    match_indices = torch.tensor([0, 0])
-    pred_classes = torch.tensor(preds)
-    gt_classes = torch.tensor([0, 0])
-    fn = LabelLoss(iou_thresholds=(0.45, 0.55))
-    res = fn(
-        match_score=match_score,
-        match_indices=match_indices,
-        preds=pred_classes,
-        gt_classes=gt_classes,
-    )
-    assert res < expected
-
-
-@pytest.mark.parametrize(
-    "preds,expected",
-    [
-        (
-            [
-                [-0.1, -0.1, 0.0, 0.0],
-                [0.1, 0.1, 0.0, 0.0],
-            ],
-            0.0001,
-        ),
-        (
-            [
-                [0.0, 0.0, 0.0, 0.0],
-                [0.1, 0.1, 0.0, 0.0],
-            ],
-            0.7,
-        ),
-        (
-            [
-                [0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0],
-            ],
-            1.26,
-        ),
-    ],
-)
-def test_box_loss(preds: Any, expected: float) -> None:
-    match_score = torch.tensor(
-        [
-            0.5,
-            0.6,
-        ]
-    )
-    match_indices = torch.tensor(
-        [
-            1,
-            0,
-        ]
-    )
-    anchors = torch.tensor(
-        [
-            [0.5, 0.5, 0.1, 0.1],
-            [0.5, 0.5, 0.1, 0.1],
-        ]
-    )
-    box_diff = BoxDiff(torch.tensor(preds))
-    gt_boxes = YoloBoxes(
-        torch.tensor(
-            [
-                [0.6, 0.6, 0.1, 0.1],
-                [0.4, 0.4, 0.1, 0.1],
-            ]
-        )
-    )
-    fn = BoxLoss(iou_threshold=0.4)
-    res = fn(
-        match_score=match_score,
-        match_indices=match_indices,
-        anchors=anchors,
-        box_diff=box_diff,
-        gt_boxes=gt_boxes,
-    )
-    assert res < expected
 
 
 def test_effdet() -> None:
