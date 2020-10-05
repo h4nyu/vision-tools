@@ -127,6 +127,7 @@ class GIoU:
 class DIoU:
     def __init__(self) -> None:
         self.iou = IoU()
+        self.eps = 1e-4
 
     def __call__(self, src: PascalBoxes, tgt: PascalBoxes) -> Tensor:
         iou, _ = self.iou(src, tgt)
@@ -136,7 +137,7 @@ class DIoU:
         lt = torch.min(src[:, None, :2], tgt[:, :2])
         rb = torch.max(src[:, None, 2:], tgt[:, 2:])
 
-        diagnol = torch.pow((rb - lt).clamp(min=0), 2).sum(dim=-1)
+        diagnol = torch.pow((rb - lt).clamp(min=self.eps), 2).sum(dim=-1)
         ctr_dist = torch.pow(s_ctr - t_ctr, 2).sum(dim=-1)
 
         return 1 - iou + ctr_dist / diagnol

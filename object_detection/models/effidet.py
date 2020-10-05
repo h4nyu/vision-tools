@@ -336,7 +336,7 @@ class Criterion:
             box_losses[batch_id] = self.box_loss(
                 PascalBoxes(matched_gt_boxes),
                 PascalBoxes(matched_pred_boxes),
-            ).sum()
+            ).mean()
 
             cls_target = torch.zeros(cls_pred.shape, device=device)
             cls_target[
@@ -345,7 +345,7 @@ class Criterion:
             cls_losses[batch_id] = self.cls_loss(
                 cls_pred.float(),
                 cls_target.float(),
-            ).sum()
+            ).mean()
 
         box_loss = box_losses.mean() * self.box_weight
         cls_loss = cls_losses.mean() * self.cls_weight
