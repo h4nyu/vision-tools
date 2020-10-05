@@ -345,7 +345,7 @@ class Criterion:
             cls_losses[batch_id] = self.cls_loss(
                 cls_pred.float(),
                 cls_target.float(),
-            ).mean()
+            ).sum()
 
         box_loss = box_losses.mean() * self.box_weight
         cls_loss = cls_losses.mean() * self.cls_weight
