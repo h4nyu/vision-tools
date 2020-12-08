@@ -15,15 +15,11 @@ Reduction = Literal["none", "mean", "sum"]
 
 
 class HuberLoss:
-    def __init__(
-        self, size_average: bool = True, delta: float = 1.0
-    ) -> None:
+    def __init__(self, size_average: bool = True, delta: float = 1.0) -> None:
         self.delta = delta
         self.size_average = size_average
 
-    def __call__(
-        self, src: torch.Tensor, tgt: torch.Tensor
-    ) -> torch.Tensor:
+    def __call__(self, src: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
         err = src - tgt
         abs_err = err.abs()
         quadratic = torch.clamp(abs_err, max=self.delta)
@@ -54,9 +50,7 @@ class SigmoidFocalLoss:
         neg = p ** gamma * torch.log(1 - p)
         loss = (
             -(target == class_ids).float() * alpha * pos
-            - ((target != class_ids) * target >= 0).float()
-            * (1 - alpha)
-            * neg
+            - ((target != class_ids) * target >= 0).float() * (1 - alpha) * neg
         )
         return loss
 
@@ -85,9 +79,7 @@ class FocalLoss:
         eps = self.eps
         alpha = self.alpha
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
-        pos_loss = (
-            -((1 - pred) ** gamma) * torch.log(pred) * gt.eq(1.0)
-        )
+        pos_loss = -((1 - pred) ** gamma) * torch.log(pred) * gt.eq(1.0)
         neg_loss = -(pred ** gamma) * torch.log(1 - pred) * gt.eq(0.0)
         loss = alpha * pos_loss + (1 - alpha) * neg_loss
         return loss
@@ -179,9 +171,9 @@ class DIoULoss:
         lt = torch.min(src[:, :2], tgt[:, :2])
         rb = torch.max(src[:, 2:], tgt[:, 2:])
 
-        ctr_loss = torch.pow(s_ctr - t_ctr, 2).sum(
-            dim=-1
-        ) / torch.pow((rb - lt).clamp(min=0), 2).sum(dim=-1)
+        ctr_loss = torch.pow(s_ctr - t_ctr, 2).sum(dim=-1) / torch.pow(
+            (rb - lt).clamp(min=0), 2
+        ).sum(dim=-1)
         if self.size_average:
             ctr_loss = ctr_loss.mean()
 

@@ -34,9 +34,7 @@ def train(epochs: int) -> None:
         object_size_range=config.object_size_range,
         num_samples=256,
     )
-    backbone = EfficientNetBackbone(
-        2, out_channels=config.channels, pretrained=True
-    )
+    backbone = EfficientNetBackbone(2, out_channels=config.channels, pretrained=True)
     anchors = Anchors(
         size=config.anchor_size,
         ratios=config.anchor_ratios,

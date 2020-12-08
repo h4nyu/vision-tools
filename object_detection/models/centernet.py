@@ -86,9 +86,7 @@ class Reg(nn.Module):
     ) -> None:
         super().__init__()
         channels = in_channels
-        self.conv = nn.Sequential(
-            *[FReLU(in_channels) for _ in range(depth)]
-        )
+        self.conv = nn.Sequential(*[FReLU(in_channels) for _ in range(depth)])
 
         self.out = nn.Sequential(
             nn.Conv2d(
@@ -105,9 +103,7 @@ class Reg(nn.Module):
         return x
 
 
-NetOutput = Tuple[
-    Heatmaps, BoxMaps, BoxMap
-]  # label, pos, size, count
+NetOutput = Tuple[Heatmaps, BoxMaps, BoxMap]  # label, pos, size, count
 
 
 class CenterNet(nn.Module):
@@ -122,9 +118,7 @@ class CenterNet(nn.Module):
         self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(
-            *[BiFPN(channels=channels) for _ in range(depth)]
-        )
+        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
         self.hm_reg = nn.Sequential(
             Reg(
                 in_channels=channels,
@@ -182,9 +176,7 @@ class HMLoss(nn.Module):
         pos_loss = pos_loss.sum()
 
         neg_weight = (1 - gt) ** beta
-        neg_loss = neg_weight * (
-            -(pred ** alpha) * torch.log(1 - pred) * neg_mask
-        )
+        neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
         neg_loss = neg_loss.sum()
         loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
         return loss
@@ -219,9 +211,7 @@ class Criterion:
         _, _, h, w = s_hm.shape
         t_hm = self.mk_hmmaps(gt_boxes, (h, w), (orig_h, orig_w))
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
-        box_loss = (
-            self.boxloss(s_bm, gt_boxes, anchors) * self.box_weight
-        )
+        box_loss = self.boxloss(s_bm, gt_boxes, anchors) * self.box_weight
         loss = hm_loss + box_loss
         return (loss, hm_loss, box_loss, t_hm)
 
@@ -251,18 +241,12 @@ class BoxLoss:
                 continue
 
             pred_boxes = boxmap_to_boxes(BoxMap(diff_map))
-            match_indices, positive_indices = self.matcher(
-                anchors, gt_boxes, (w, h)
-            )
+            match_indices, positive_indices = self.matcher(anchors, gt_boxes, (w, h))
             num_pos = positive_indices.sum()
             if num_pos == 0:
                 continue
-            matched_gt_boxes = YoloBoxes(
-                gt_boxes[match_indices][positive_indices]
-            )
-            matched_pred_boxes = YoloBoxes(
-                pred_boxes[positive_indices]
-            )
+            matched_gt_boxes = YoloBoxes(gt_boxes[match_indices][positive_indices])
+            matched_pred_boxes = YoloBoxes(pred_boxes[positive_indices])
             if self.use_diff:
                 matched_pred_boxes = YoloBoxes(
                     anchors[positive_indices] + matched_pred_boxes
@@ -299,34 +283,23 @@ class ToBoxes:
         )
 
     @torch.no_grad()
-    def __call__(
-        self, inputs: NetOutput
-    ) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
+    def __call__(self, inputs: NetOutput) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
         heatmaps, boxmaps, anchormap = inputs
         device = heatmaps.device
-        kpmap = (self.max_pool(heatmaps) == heatmaps) & (
-            heatmaps > self.threshold
-        )
+        kpmap = (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
         batch_size, _, height, width = heatmaps.shape
-        original_wh = torch.tensor(
-            [width, height], dtype=torch.float32
-        ).to(device)
+        original_wh = torch.tensor([width, height], dtype=torch.float32).to(device)
         rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
-        for hm, km, bm in zip(
-            heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps
-        ):
+        for hm, km, bm in zip(heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps):
             kp = torch.nonzero(km, as_tuple=False)
             confidences = hm[kp[:, 0], kp[:, 1]]
             if self.use_diff:
                 boxes = (
-                    anchormap[:, kp[:, 0], kp[:, 1]].t()
-                    + bm[:, kp[:, 0], kp[:, 1]].t()
+                    anchormap[:, kp[:, 0], kp[:, 1]].t() + bm[:, kp[:, 0], kp[:, 1]].t()
                 )
             else:
                 boxes = bm[:, kp[:, 0], kp[:, 1]].t()
-            sort_idx = confidences.argsort(descending=True)[
-                : self.limit
-            ]
+            sort_idx = confidences.argsort(descending=True)[: self.limit]
             rows.append(
                 (
                     YoloBoxes(boxes[sort_idx]),
@@ -472,12 +445,7 @@ class Trainer:
         }
 
     def log(self) -> None:
-        value = ("|").join(
-            [
-                f"{k}:{v.get_value():.4f}"
-                for k, v in self.meters.items()
-            ]
-        )
+        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
         logger.info(value)
 
     def reset_meters(self) -> None:
@@ -498,9 +466,7 @@ class Trainer:
         for ids, images, boxes, labels in tqdm(loader):
             images, boxes = self.preprocess((images, boxes))
             outputs = self.model(images)
-            loss, hm_loss, bm_loss, _ = self.criterion(
-                images, outputs, boxes
-            )
+            loss, hm_loss, bm_loss, _ = self.criterion(images, outputs, boxes)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -517,9 +483,7 @@ class Trainer:
             images, boxes = self.preprocess((images, boxes))
             _, _, h, w = images.shape
             outputs = self.model(images)
-            loss, hm_loss, bm_loss, gt_hms = self.criterion(
-                images, outputs, boxes
-            )
+            loss, hm_loss, bm_loss, gt_hms = self.criterion(images, outputs, boxes)
             preds = self.post_process(outputs)
             for (pred, gt) in zip(preds[0], boxes):
                 self.meters["score"].update(
