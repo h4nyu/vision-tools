@@ -375,11 +375,9 @@ class ToBoxes:
         self,
         confidence_threshold: float = 0.5,
         iou_threshold: float = 0.5,
-        limit: int = 1000,
     ) -> None:
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
-        self.limit = limit
 
     def __call__(
         self, net_output: NetOutput
@@ -398,8 +396,8 @@ class ToBoxes:
             boxes = anchors + box_diff
             confidences, c_index = preds.max(dim=1)
             filter_idx = confidences > self.confidence_threshold
-            confidences = confidences[filter_idx][: self.limit]
-            boxes = boxes[filter_idx][: self.limit]
+            confidences = confidences[filter_idx]
+            boxes = boxes[filter_idx]
             sort_idx = nms(
                 boxes,
                 confidences,
