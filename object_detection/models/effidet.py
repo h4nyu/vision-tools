@@ -156,7 +156,8 @@ class ClassificationModel(nn.Module):
         x = self.bottlenecks(x)
         x = self.output(x)
         # out is B x C x W x H, with C = n_classes + n_anchors
-        out = x.permute(0, 2, 3, 1)
+        out = x.permute(0, 3, 2, 1)
+        # out = x.permute(0, 2, 3, 1)
         batch_size, width, height, channels = out.shape
         out = out.view(
             batch_size,
@@ -200,7 +201,7 @@ class RegressionModel(nn.Module):
         x = self.in_conv(x)
         x = self.bottlenecks(x)
         x = self.out(x)
-        x = x.permute(0, 2, 3, 1)
+        x = x.permute(0, 3, 2, 1)
         x = x.contiguous().view(x.shape[0], -1, self.out_size)
         return x
 

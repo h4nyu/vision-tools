@@ -57,6 +57,7 @@ def train(epochs: int) -> None:
     get_score = MeanPrecition()
     to_boxes = ToBoxes(
         confidence_threshold=config.confidence_threshold,
+        iou_threshold=config.iou_threshold,
     )
     trainer = Trainer(
         model,
