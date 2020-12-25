@@ -19,7 +19,7 @@ from object_detection.utils import DetectionPlot
     "stride, size, scales, ratios",
     [
         (
-            64,
+            256,
             2,
             [1.0],
             [1.0, 2.0, 0.5],

@@ -71,7 +71,8 @@ class Anchors:
         boxes = (
             torch.cat([grid_x0y0, grid_x1y1], dim=1)
             .permute(0, 2, 3, 1)
-            .reshape(-1, 4)
+            .contiguous()
+            .view(-1, 4)
         )
         boxes = PascalBoxes(boxes)
         if self.use_cache:
