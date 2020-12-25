@@ -30,7 +30,7 @@ def test_anchors(
 ) -> None:
     base_size = 1024
     size = 1
-    stride=1024
+    stride=512
     h = base_size // stride
     w = base_size // stride
     images = ImageBatch(
