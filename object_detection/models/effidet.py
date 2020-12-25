@@ -129,25 +129,20 @@ class ClassificationModel(nn.Module):
         in_channels: int,
         num_anchors: int = 9,
         num_classes: int = 80,
-        prior: float = 0.01,
-        hidden_channels: int = 256,
-        depth: int = 1,
     ) -> None:
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
         self.in_conv = nn.Conv2d(
             in_channels,
-            hidden_channels,
+            in_channels,
             kernel_size=3,
             padding=1,
         )
 
-        self.bottlenecks = nn.Sequential(
-            *[FReLU(hidden_channels) for _ in range(depth)]
-        )
+        self.act = FReLU(in_channels)
         self.output = nn.Conv2d(
-            hidden_channels,
+            in_channels,
             num_anchors * num_classes,
             kernel_size=1,
             padding=0,
@@ -155,7 +150,7 @@ class ClassificationModel(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.in_conv(x)
-        x = self.bottlenecks(x)
+        x = self.act(x)
         x = self.output(x)
         # out is B x C x W x H, with C = n_classes x n_anchors
         out = x.permute(0, 2, 3, 1)
@@ -178,13 +173,11 @@ class RegressionModel(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        out_size: int = 4,
         num_anchors: int = 9,
         hidden_channels: int = 256,
         depth: int = 1,
     ) -> None:
         super().__init__()
-        self.out_size = out_size
         self.in_conv = nn.Conv2d(
             in_channels,
             hidden_channels,
@@ -192,22 +185,20 @@ class RegressionModel(nn.Module):
             padding=1,
         )
 
-        self.bottlenecks = nn.Sequential(
-            *[FReLU(hidden_channels) for _ in range(depth)]
-        )
+        self.act = FReLU(hidden_channels)
         self.out = nn.Conv2d(
             hidden_channels,
-            num_anchors * self.out_size,
+            num_anchors * 4,
             kernel_size=1,
             padding=0,
         )
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.in_conv(x)
-        x = self.bottlenecks(x)
+        x = self.act(x)
         x = self.out(x)
-        x = x.permute(0, 3, 2, 1)
-        x = x.contiguous().view(x.shape[0], -1, self.out_size)
+        x = x.permute(0, 2, 3, 1)
+        x = x.contiguous().view(x.shape[0], -1, 4)
         return x
 
 
