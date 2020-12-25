@@ -36,7 +36,9 @@ def test_anchors() -> None:
     assert len(boxes) == 8 * 8
 
     plot = DetectionPlot(w=8, h=8)
-    plot.with_yolo_boxes(YoloBoxes(boxes[[0, 4, 28, 27]]), color="blue")
+    plot.with_yolo_boxes(
+        YoloBoxes(boxes[[0, 4, 28, 27]]), color="blue"
+    )
     plot.save(f"store/test-anchorv1.png")
 
 
@@ -55,8 +57,12 @@ def test_ctdtv1() -> None:
     assert anchors.shape == box_diffs.shape[1:]
 
 
-@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
-def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+@pytest.mark.parametrize(
+    "h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)]
+)
+def test_mkmaps(
+    h: int, w: int, cy: int, cx: int, dy: float, dx: float
+) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(threshold=0.1)
     mkmaps = MkGaussianMaps(sigma=2.0)
@@ -66,9 +72,13 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     mk_anchors = Anchors()
     anchormap = mk_anchors(hm)
     diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
-    diffmaps = in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    diffmaps = (
+        in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    )
 
-    out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
+    out_box_batch, out_conf_batch = to_boxes(
+        (anchormap, diffmaps, hm)
+    )
     out_boxes = out_box_batch[0]
     for box in out_boxes:
         assert F.l1_loss(box, in_boxes[0]) < 1e-8
@@ -79,8 +89,12 @@ def test_mkmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
     plot.save(f"store/test-heatmapv1.png")
 
 
-@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)])
-def test_mkfillmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+@pytest.mark.parametrize(
+    "h, w, cy, cx, dy, dx", [(40, 40, 16, 8, 0.001, 0.002)]
+)
+def test_mkfillmaps(
+    h: int, w: int, cy: int, cx: int, dy: float, dx: float
+) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(threshold=0.1)
     mkmaps = MkFillMaps(sigma=0.5)
@@ -89,9 +103,13 @@ def test_mkfillmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> N
     mk_anchors = Anchors()
     anchormap = mk_anchors(hm)
     diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
-    diffmaps = in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    diffmaps = (
+        in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    )
 
-    out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
+    out_box_batch, out_conf_batch = to_boxes(
+        (anchormap, diffmaps, hm)
+    )
     out_boxes = out_box_batch[0]
     for box in out_boxes:
         assert F.l1_loss(box, in_boxes[0]) < 1e-8
@@ -102,8 +120,12 @@ def test_mkfillmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> N
     plot.save(f"store/test-heatmapv1-fill.png")
 
 
-@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(80, 80, 32, 16, 0.001, 0.002)])
-def test_mkcornermaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+@pytest.mark.parametrize(
+    "h, w, cy, cx, dy, dx", [(80, 80, 32, 16, 0.001, 0.002)]
+)
+def test_mkcornermaps(
+    h: int, w: int, cy: int, cx: int, dy: float, dx: float
+) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(threshold=0.1)
     mkmaps = MkCornerMaps()
@@ -112,9 +134,13 @@ def test_mkcornermaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) ->
     mk_anchors = Anchors()
     anchormap = mk_anchors(hm)
     diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
-    diffmaps = in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    diffmaps = (
+        in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    )
 
-    out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
+    out_box_batch, out_conf_batch = to_boxes(
+        (anchormap, diffmaps, hm)
+    )
     out_boxes = out_box_batch[0]
     for box in out_boxes:
         assert F.l1_loss(box, in_boxes[0]) < 1e-8
@@ -125,8 +151,12 @@ def test_mkcornermaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) ->
     plot.save(f"store/test-corner.png")
 
 
-@pytest.mark.parametrize("h, w, cy, cx, dy, dx", [(80, 80, 32, 16, 0.001, 0.002)])
-def test_mkcrossmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> None:
+@pytest.mark.parametrize(
+    "h, w, cy, cx, dy, dx", [(80, 80, 32, 16, 0.001, 0.002)]
+)
+def test_mkcrossmaps(
+    h: int, w: int, cy: int, cx: int, dy: float, dx: float
+) -> None:
     in_boxes = YoloBoxes(torch.tensor([[0.201, 0.402, 0.1, 0.3]]))
     to_boxes = ToBoxes(threshold=0.1)
     mkmaps = MkCrossMaps()
@@ -135,9 +165,13 @@ def test_mkcrossmaps(h: int, w: int, cy: int, cx: int, dy: float, dx: float) -> 
     mk_anchors = Anchors()
     anchormap = mk_anchors(hm)
     diffmaps = BoxMaps(torch.zeros((1, *anchormap.shape)))
-    diffmaps = in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    diffmaps = (
+        in_boxes.view(1, 4, 1, 1).expand_as(diffmaps) - anchormap
+    )
 
-    out_box_batch, out_conf_batch = to_boxes((anchormap, diffmaps, hm))
+    out_box_batch, out_conf_batch = to_boxes(
+        (anchormap, diffmaps, hm)
+    )
     out_boxes = out_box_batch[0]
     for box in out_boxes:
         assert F.l1_loss(box, in_boxes[0]) < 1e-8

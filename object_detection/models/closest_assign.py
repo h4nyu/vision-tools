@@ -13,7 +13,9 @@ class ClosestAssign:
     def __init__(self, topk: int) -> None:
         self.topk = topk
 
-    def __call__(self, anchor: PascalBoxes, gt: PascalBoxes) -> Tensor:
+    def __call__(
+        self, anchor: PascalBoxes, gt: PascalBoxes
+    ) -> Tensor:
         anchor_count = anchor.shape[0]
         gt_count = gt.shape[0]
         anchor_ctr = (
@@ -27,5 +29,7 @@ class ClosestAssign:
         )
         gt_ctr = gt[:, :2]
         matrix = ((anchor_ctr - gt_ctr) ** 2).sum(dim=-1).sqrt()
-        _, matched_idx = torch.topk(matrix, self.topk, dim=0, largest=False)
+        _, matched_idx = torch.topk(
+            matrix, self.topk, dim=0, largest=False
+        )
         return matched_idx.t()

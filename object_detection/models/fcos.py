@@ -47,7 +47,9 @@ def centerness(boxes: FocsBoxes) -> torch.Tensor:
 
 
 class Head(nn.Module):
-    def __init__(self, depth: int, in_channels: int, n_classes: int) -> None:
+    def __init__(
+        self, depth: int, in_channels: int, n_classes: int
+    ) -> None:
         super().__init__()
         cls_modules: typing.List[nn.Module] = []
         box_modules: typing.List[nn.Module] = []
@@ -108,7 +110,9 @@ class Head(nn.Module):
 class FPN(nn.Module):
     def __init__(self, channels: int, depth: int = 1) -> None:
         super().__init__()
-        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
+        self.fpn = nn.Sequential(
+            *[BiFPN(channels=channels) for _ in range(depth)]
+        )
 
     def forward(self, features: FP) -> FP:
         return self.fpn(features)
@@ -129,7 +133,9 @@ class Criterion:
         cls_loss: SigmoidFocalLoss,
         box_loss: DIoULoss,
         center_loss: nn.BCEWithLogitsLoss,
-        size_ranges: typing.List[typing.Tuple[int, int]] = DEFAULT_SIZE_RANGES,
+        size_ranges: typing.List[
+            typing.Tuple[int, int]
+        ] = DEFAULT_SIZE_RANGES,
     ) -> None:
         self.box_loss = box_loss
         self.cls_loss = cls_loss
@@ -180,7 +186,9 @@ class Anchor:
         locs = []
         for i, feat in enumerate(features):
             _, _, height, width = feat.shape
-            loc = self.loc_per_level(height, width, self.strides[i], feat.device)
+            loc = self.loc_per_level(
+                height, width, self.strides[i], feat.device
+            )
             locs.append(loc)
         return locs
 

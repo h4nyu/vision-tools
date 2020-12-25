@@ -15,7 +15,9 @@ class EMAMeter:
         if np.isnan(self.ema):
             self.ema = value
         else:
-            self.ema = self.ema * self.alpha + value * (1.0 - self.alpha)
+            self.ema = self.ema * self.alpha + value * (
+                1.0 - self.alpha
+            )
         self.count += 1
 
     def get_value(self) -> float:
