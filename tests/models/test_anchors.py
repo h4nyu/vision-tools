@@ -30,7 +30,7 @@ def test_anchors(
 ) -> None:
     base_size = 1024
     size = 1
-    stride=512
+    stride = 512
     h = base_size // stride
     w = base_size // stride
     images = ImageBatch(
@@ -47,5 +47,3 @@ def test_anchors(
     plot.save(
         f"store/test-anchors-{stride}-{'-'.join([str(x) for x in  scales])}-{num_anchors}.png"
     )
-
-

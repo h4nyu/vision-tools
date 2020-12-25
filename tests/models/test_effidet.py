@@ -20,9 +20,7 @@ def test_regression_model() -> None:
     n, c, h, w = 2, 4, 10, 10
     num_anchors = 9
     images = torch.ones((n, c, h, w))
-    fn = RegressionModel(
-        in_channels=c, num_anchors=num_anchors
-    )
+    fn = RegressionModel(in_channels=c, num_anchors=num_anchors)
     res = fn(images)
     assert res.shape == (n, h * w * num_anchors, 4)
 
