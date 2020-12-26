@@ -269,7 +269,7 @@ class Criterion:
     def __init__(
         self,
         num_classes: int = 1,
-        topk: int = 9,
+        topk: int = 13,
         box_weight: float = 3.0,
         cls_weight: float = 1.0,
     ) -> None:

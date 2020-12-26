@@ -5,6 +5,8 @@ from object_detection.models.centernetv1 import (
 )
 from object_detection.model_loader import WatchMode
 
+batch_size = 8
+
 ## heatmap
 sigma = 1.0
 use_peak = True
@@ -12,7 +14,6 @@ mode: GaussianMapMode = "aspect"
 to_boxes_threshold = 0.5
 
 lr = 1e-3
-batch_size = 16
 out_idx: PyramidIdx = 4
 channels = 256
 input_size = (256, 256)
