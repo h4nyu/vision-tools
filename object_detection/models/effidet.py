@@ -127,20 +127,16 @@ class ClassificationModel(nn.Module):
     def __init__(
         self,
         in_channels: int,
+        depth: int,
         num_anchors: int = 9,
         num_classes: int = 80,
     ) -> None:
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.in_conv = nn.Conv2d(
-            in_channels,
-            in_channels,
-            kernel_size=3,
-            padding=1,
+        self.conv = nn.Sequential(
+            *[FReLU(in_channels) for _ in range(depth)]
         )
-
-        self.act = FReLU(in_channels)
         self.output = nn.Conv2d(
             in_channels,
             num_anchors * num_classes,
@@ -149,10 +145,8 @@ class ClassificationModel(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.in_conv(x)
-        x = self.act(x)
+        x = self.conv(x)
         x = self.output(x)
-        # out is B x C x W x H, with C = n_classes x n_anchors
         out = x.permute(0, 2, 3, 1)
         batch_size, width, height, channels = out.shape
         out = out.view(
@@ -178,14 +172,9 @@ class RegressionModel(nn.Module):
         depth: int = 1,
     ) -> None:
         super().__init__()
-        self.in_conv = nn.Conv2d(
-            in_channels,
-            hidden_channels,
-            kernel_size=3,
-            padding=1,
+        self.conv = nn.Sequential(
+            *[FReLU(in_channels) for _ in range(depth)]
         )
-
-        self.act = FReLU(hidden_channels)
         self.out = nn.Conv2d(
             hidden_channels,
             num_anchors * 4,
@@ -194,8 +183,7 @@ class RegressionModel(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.in_conv(x)
-        x = self.act(x)
+        x = self.conv(x)
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
         x = x.contiguous().view(x.shape[0], -1, 4)
@@ -234,12 +222,14 @@ class EfficientDet(nn.Module):
             *[BiFPN(channels=channels) for _ in range(depth)]
         )
         self.box_reg = RegressionModel(
+            depth=depth,
             in_channels=channels,
             hidden_channels=channels,
             num_anchors=self.anchors.num_anchors,
         )
         self.classification = ClassificationModel(
             channels,
+            depth=depth,
             num_classes=num_classes,
             num_anchors=self.anchors.num_anchors,
         )
