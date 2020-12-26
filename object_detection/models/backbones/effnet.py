@@ -33,7 +33,7 @@ Phi = Literal[
 class EfficientNetBackbone(nn.Module):
     def __init__(
         self,
-        phi: Phi,
+        phi: int,
         out_channels: int,
         pretrained: bool = False,
     ):
