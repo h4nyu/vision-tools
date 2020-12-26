@@ -18,7 +18,9 @@ class MobileV3(nn.Module):
         super().__init__()
         padding = (kernel_size - 1) // 2
         self.stride = stride
-        self.is_shortcut = (stride == 1) and (in_channels == out_channels)
+        self.is_shortcut = (stride == 1) and (
+            in_channels == out_channels
+        )
         self.conv = nn.Sequential(
             ConvBR2d(
                 in_channels,
@@ -95,10 +97,16 @@ class SENextBottleneck2d(nn.Module):
         self.bypass = nn.Sequential()
         if stride > 1:
             if pool == "max":
-                self.conv.add_module("pool", nn.MaxPool2d(stride, stride))
+                self.conv.add_module(
+                    "pool", nn.MaxPool2d(stride, stride)
+                )
             elif pool == "avg":
-                self.conv.add_module("pool", nn.AvgPool2d(stride, stride))
-            self.bypass.add_module("pool", nn.AvgPool2d(stride, stride))
+                self.conv.add_module(
+                    "pool", nn.AvgPool2d(stride, stride)
+                )
+            self.bypass.add_module(
+                "pool", nn.AvgPool2d(stride, stride)
+            )
         self.conv.add_module(
             "conv3",
             nn.Sequential(

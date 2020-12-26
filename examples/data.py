@@ -32,7 +32,9 @@ class PolyImage:
         self.height = height
         self.width = width
         self.image = image
-        self.boxes = PascalBoxes(torch.empty((0, 4), dtype=torch.int32))
+        self.boxes = PascalBoxes(
+            torch.empty((0, 4), dtype=torch.int32)
+        )
 
     def _get_box(self, pts: Any) -> Tuple[int, int, int, int]:
         xs = pts[:, :, 0]
@@ -62,7 +64,9 @@ class PolyImage:
         self.boxes = PascalBoxes(torch.cat([self.boxes, boxes]))
 
     def __call__(self) -> Tuple[Image, YoloBoxes]:
-        img = torch.from_numpy(self.image).permute(2, 0, 1) / 255.0  # [H, W]
+        img = (
+            torch.from_numpy(self.image).permute(2, 0, 1) / 255.0
+        )  # [H, W]
         boxes = pascal_to_yolo(self.boxes, (self.width, self.height))
         return Image(img.float()), boxes
 

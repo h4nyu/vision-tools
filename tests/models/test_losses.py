@@ -19,7 +19,9 @@ def test_iouloss() -> None:
     pred_boxes = PascalBoxes(
         torch.tensor([[0.2, 0.2, 0.25, 0.25], [0.2, 0.2, 0.3, 0.3]])
     )
-    tgt_boxes = PascalBoxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
+    tgt_boxes = PascalBoxes(
+        torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
+    )
     iouloss, union = fn(
         pred_boxes,
         tgt_boxes,
@@ -37,7 +39,9 @@ def test_diouloss() -> None:
             ]
         )
     )
-    tgt_boxes = PascalBoxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
+    tgt_boxes = PascalBoxes(
+        torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
+    )
     res = fn(
         pred_boxes,
         tgt_boxes,

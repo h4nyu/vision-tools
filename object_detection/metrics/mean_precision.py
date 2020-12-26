@@ -33,7 +33,9 @@ class MeanPrecition:
     ) -> None:
         self.iou_thresholds = iou_thresholds
 
-    def __call__(self, pred_boxes: PascalBoxes, gt_boxes: PascalBoxes) -> float:
+    def __call__(
+        self, pred_boxes: PascalBoxes, gt_boxes: PascalBoxes
+    ) -> float:
         if len(gt_boxes) == 0:
             return 1.0 if len(pred_boxes) == 0 else 0.0
         if len(pred_boxes) == 0:
@@ -43,5 +45,7 @@ class MeanPrecition:
             pred_boxes,
             gt_boxes,
         )
-        res = np.mean([precition(iou_matrix, t) for t in self.iou_thresholds])
+        res = np.mean(
+            [precition(iou_matrix, t) for t in self.iou_thresholds]
+        )
         return res

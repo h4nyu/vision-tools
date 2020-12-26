@@ -56,7 +56,9 @@ class DetectionPlot:
     def set_title(self, text: str) -> None:
         self.ax.set_title(text)
 
-    def with_image(self, image: Tensor, alpha: Optional[float] = None) -> None:
+    def with_image(
+        self, image: Tensor, alpha: Optional[float] = None
+    ) -> None:
         if len(image.shape) == 2:
             h, w = image.shape
             if (h != self.h) and (w != self.w):
