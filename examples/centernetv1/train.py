@@ -47,7 +47,7 @@ def train(epochs: int) -> None:
         box_depth=cfg.box_depth,
         anchors=Anchors(size=cfg.anchor_size),
     )
-    mkmaps = MkCornerMaps()
+    mkmaps = MkGaussianMaps()
     criterion = Criterion(
         box_weight=cfg.box_weight,
         heatmap_weight=cfg.heatmap_weight,

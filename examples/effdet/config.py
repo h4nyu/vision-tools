@@ -4,13 +4,13 @@ from object_detection.model_loader import WatchMode
 
 confidence_threshold = 0.4
 iou_threshold = 0.66
-batch_size = 16
+batch_size = 8
 
 # model
 channels = 64
 depth = 2
-lr = 1e-4
-out_ids = [4, 5, 6, 7]
+lr = 1e-3
+out_ids = [4, 5]
 
 input_size = (256, 256)
 object_count_range = (5, 20)

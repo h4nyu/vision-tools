@@ -15,7 +15,7 @@ to_boxes_threshold = 0.5
 
 lr = 1e-3
 out_idx: PyramidIdx = 4
-channels = 256
+channels = 64
 input_size = (256, 256)
 metric: Tuple[str, WatchMode] = ("score", "max")
 
