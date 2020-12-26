@@ -21,7 +21,7 @@ from object_detection.model_loader import (
 )
 from examples.data import TrainDataset
 from object_detection.metrics import MeanPrecition
-from examples.ctdtrv1 import config as cfg
+from examples.centernetv1 import config as cfg
 
 
 def train(epochs: int) -> None:
