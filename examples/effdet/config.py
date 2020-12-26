@@ -10,7 +10,7 @@ batch_size = 8
 channels = 64
 depth = 2
 lr = 1e-3
-out_ids:List[int] = [4, 5]
+out_ids:List[int] = [5, 6]
 
 input_size = (256, 256)
 object_count_range = (5, 20)

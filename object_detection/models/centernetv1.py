@@ -53,7 +53,7 @@ from .tta import HFlipTTA, VFlipTTA
 logger = getLogger(__name__)
 
 
-Heatmap = NewType("Heatmap", Tensor)  # [1, H, W]
+Heatmap = NewType("Heatmap", Tensor)  # [C, H, W]
 NetOutput = Tuple[BoxMap, BoxMaps, Heatmaps]
 
 
@@ -247,8 +247,7 @@ class CenterNetV1(nn.Module):
         self.box_out = nn.Sequential(
             nn.Conv2d(
                 in_channels=channels,
-                out_channels=4,
-                kernel_size=1,
+                out_channels=4, kernel_size=1,
             ),
             nn.Sigmoid(),
         )
@@ -403,6 +402,7 @@ class Criterion:
         hm_losses: List[Tensor] = []
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hms.shape
+
 
         t_hms = self.mkmaps(gt_boxes_list, (h, w), (orig_h, orig_w))
         hm_loss = self.hm_loss(s_hms, t_hms) * self.heatmap_weight
