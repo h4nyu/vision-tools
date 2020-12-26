@@ -9,6 +9,7 @@ from object_detection.models.effidet import (
     EfficientDet,
     Criterion,
     BoxDiff,
+    ToBoxes,
 )
 from object_detection.models.anchors import Anchors
 from object_detection.models.backbones.effnet import (
@@ -32,18 +33,23 @@ def test_classification_model() -> None:
     assert res.shape == (1, 900, 2)
 
 
-def test_effdet() -> None:
+def test_effdet_forward() -> None:
     images = ImageBatch(torch.ones((1, 3, 512, 512)))
     annotations = torch.ones((1, 10, 5))
     channels = 32
+    to_boxes = ToBoxes()
     backbone = EfficientNetBackbone(
         1, out_channels=channels, pretrained=True
     )
-    fn = EfficientDet(
+    net = EfficientDet(
         num_classes=2,
         backbone=backbone,
         channels=32,
     )
-    anchors, boxes, labels = fn(images)
-    for x, y in zip(labels, boxes):
-        assert x.shape[:2] == y.shape[:2]
+    netout = net(images)
+    anchors, boxes, labels = netout
+
+    # for x, y in zip(labels, boxes):
+    #     assert x.shape[:2] == y.shape[:2]
+    to_boxes(netout)
+

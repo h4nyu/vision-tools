@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import *
 from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
@@ -10,7 +10,7 @@ batch_size = 8
 channels = 64
 depth = 2
 lr = 1e-3
-out_ids = [4, 5]
+out_ids:List[int] = [4, 5]
 
 input_size = (256, 256)
 object_count_range = (5, 20)
