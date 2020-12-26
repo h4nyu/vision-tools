@@ -16,23 +16,21 @@ from object_detection.utils import DetectionPlot
 
 
 @pytest.mark.parametrize(
-    "stride, size, scales, ratios",
+    "scales, ratios",
     [
         (
-            64,
-            2,
-            [1.0],
-            [1.0, 2.0, 0.5],
+            [0.5, 0.9],
+            [1.0, 0.75],
         ),
     ],
 )
 def test_anchors(
-    stride: int,
-    size: float,
     scales: List[float],
     ratios: List[float],
 ) -> None:
     base_size = 1024
+    size = 1
+    stride = 512
     h = base_size // stride
     w = base_size // stride
     images = ImageBatch(
@@ -43,10 +41,8 @@ def test_anchors(
     num_anchors = len(scales) * len(ratios)
     anchor_count = w * h * num_anchors
     assert res.shape == (anchor_count, 4)
-    offset = num_anchors * h * (w // 2) + num_anchors * h // 2
-    ids = [offset + x for x in range(num_anchors)]
     plot = DetectionPlot(w=base_size, h=base_size)
-    plot.with_pascal_boxes(PascalBoxes(res[ids]), color="red")
+    plot.with_pascal_boxes(res, color="red")
     plot.save(
-        f"store/test-anchors-{stride}-{size}-{'-'.join([str(x) for x in  scales])}-{num_anchors}.png"
+        f"store/test-anchors-{stride}-{'-'.join([str(x) for x in  scales])}-{num_anchors}.png"
     )

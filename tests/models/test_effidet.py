@@ -16,14 +16,12 @@ from object_detection.models.backbones.effnet import (
 
 
 def test_regression_model() -> None:
-    c, h, w = 4, 10, 10
+    n, c, h, w = 2, 4, 10, 10
     num_anchors = 9
-    images = torch.ones((1, c, h, w))
-    fn = RegressionModel(
-        in_channels=c, num_anchors=num_anchors, out_size=c
-    )
+    images = torch.ones((n, c, h, w))
+    fn = RegressionModel(in_channels=c, num_anchors=num_anchors)
     res = fn(images)
-    assert res.shape == (1, h * w * num_anchors, 4)
+    assert res.shape == (n, h * w * num_anchors, 4)
 
 
 def test_classification_model() -> None:
