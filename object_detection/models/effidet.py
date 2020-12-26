@@ -222,7 +222,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         channels: int = 64,
-        out_ids: List[PyramidIdx] = [6, 7],
+        out_ids: List[int] = [6, 7],
         anchors: Anchors = Anchors(),
         depth: int = 1,
     ) -> None:
