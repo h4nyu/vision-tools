@@ -5,7 +5,7 @@ import itertools
 from typing import Any, Dict, Tuple
 from torch import nn, Tensor
 from object_detection.entities import (
-    YoloBoxes,
+    PascalBoxes,
     ImageBatch,
     boxmaps_to_boxes,
     BoxMaps,
@@ -35,36 +35,46 @@ class Anchors:
             .view(self.num_anchors, 1)
             .expand((self.num_anchors, 2))
         ) * size
-        self.cache: Dict[Tuple[int, int], YoloBoxes] = {}
+        self.cache: Dict[Tuple[int, int], PascalBoxes] = {}
 
     @torch.no_grad()
-    def __call__(self, images: ImageBatch) -> YoloBoxes:
+    def __call__(
+        self, images: ImageBatch, stride: int
+    ) -> PascalBoxes:
         h, w = images.shape[2:]
         device = images.device
-        if self.use_cache:
-            if (h, w) in self.cache:
-                return self.cache[(h, w)]
-
+        if self.use_cache and (h, w) in self.cache:
+            return self.cache[(h, w)]
         grid_y, grid_x = torch.meshgrid(  # type:ignore
-            torch.arange(h, dtype=torch.float32) / h,
-            torch.arange(w, dtype=torch.float32) / w,
+            torch.arange(0, h, dtype=torch.float32, device=device)
+            * stride
+            + stride // 2,
+            torch.arange(0, w, dtype=torch.float32, device=device)
+            * stride
+            + stride // 2,
         )
-        box_wh = torch.tensor([1 / w, 1 / h])
+        box_wh = torch.tensor([stride, stride])
         box_wh = self.ratios * self.scales * box_wh
         box_wh = (
             box_wh.to(device)
             .view(self.num_anchors, 2, 1, 1)
             .expand((self.num_anchors, 2, h, w))
         )
-        grid_xy = (
+        grid_x0y0 = (
             torch.stack([grid_x, grid_y])
             .to(device)
             .expand(self.num_anchors, 2, h, w)
+            - box_wh // 2
         )
-        boxmaps = BoxMaps(torch.cat([grid_xy, box_wh], dim=1))
-        boxes = boxmaps_to_boxes(boxmaps)
-        boxes = yolo_clamp(boxes)
 
+        grid_x1y1 = grid_x0y0 + box_wh
+        boxes = (
+            torch.cat([grid_x0y0, grid_x1y1], dim=1)
+            .permute(2, 3, 0, 1)
+            .contiguous()
+            .view(-1, 4)
+        )
+        boxes = PascalBoxes(boxes)
         if self.use_cache:
             self.cache[(h, w)] = boxes
         return boxes

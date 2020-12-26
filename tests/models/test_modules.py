@@ -10,7 +10,6 @@ def test_hswish() -> None:
     req = torch.zeros((1,))
     m = Hswish()
     res = m(req)
-    print(res)
 
 
 def test_hsigmoid() -> None:

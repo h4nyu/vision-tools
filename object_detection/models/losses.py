@@ -32,31 +32,64 @@ class HuberLoss:
         return loss.mean() if self.size_average else loss.sum()
 
 
-class FocalLoss(nn.Module):
-    """
-    Modified focal loss
-    """
+class SigmoidFocalLoss:
+    def __init__(
+        self,
+        gamma: float = 2.0,
+        size_average: bool = True,
+        alpha: float = 0.25,
+    ):
+        self.gamma = gamma
+        self.alpha = alpha
 
+    def __call__(self, source: Tensor, target: Tensor) -> Tensor:
+        n_classes = target.shape[1]
+        class_ids = torch.arange(
+            1, n_classes + 1, dtype=target.dtype, device=target.device
+        ).unsqueeze(0)
+        p = torch.sigmoid(source)
+        gamma = self.gamma
+        alpha = self.alpha
+        pos = (1 - p) ** gamma * torch.log(p)
+        neg = p ** gamma * torch.log(1 - p)
+        loss = (
+            -(target == class_ids).float() * alpha * pos
+            - ((target != class_ids) * target >= 0).float()
+            * (1 - alpha)
+            * neg
+        )
+        return loss
+
+
+class FocalLoss:
     def __init__(
         self,
         gamma: float = 2.0,
         eps: float = 1e-4,
+        alpha: float = 0.25,
+        size_average: bool = True,
     ):
-        super().__init__()
         self.gamma = gamma
         self.eps = eps
+        self.alpha = alpha
 
-    def forward(self, pred: Tensor, gt: Tensor) -> Tensor:
+    def __call__(self, pred: Tensor, gt: Tensor) -> Tensor:
         """
-        pred: 0-1 [B, C,..]
-        gt: 0-1 [B, C,..]
+        pred:
+            value_range: 0-1
+            shape: [N, C,..]
+        gt:
+            0,1 [N, C,..]
         """
         gamma = self.gamma
         eps = self.eps
+        alpha = self.alpha
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
-        pos_loss = -((1 - pred) ** gamma) * torch.log(pred)
-        neg_loss = -(pred ** gamma) * torch.log(1 - pred)
-        loss = pos_loss + neg_loss
+        pos_loss = (
+            -((1 - pred) ** gamma) * torch.log(pred) * gt.eq(1.0)
+        )
+        neg_loss = -(pred ** gamma) * torch.log(1 - pred) * gt.eq(0.0)
+        loss = alpha * pos_loss + (1 - alpha) * neg_loss
         return loss
 
 
@@ -94,6 +127,7 @@ class GIoU:
 class DIoU:
     def __init__(self) -> None:
         self.iou = IoU()
+        self.eps = 1e-4
 
     def __call__(self, src: PascalBoxes, tgt: PascalBoxes) -> Tensor:
         iou, _ = self.iou(src, tgt)
@@ -103,7 +137,9 @@ class DIoU:
         lt = torch.min(src[:, None, :2], tgt[:, :2])
         rb = torch.max(src[:, None, 2:], tgt[:, 2:])
 
-        diagnol = torch.pow((rb - lt).clamp(min=0), 2).sum(dim=-1)
+        diagnol = torch.pow((rb - lt).clamp(min=self.eps), 2).sum(
+            dim=-1
+        )
         ctr_dist = torch.pow(s_ctr - t_ctr, 2).sum(dim=-1)
 
         return 1 - iou + ctr_dist / diagnol

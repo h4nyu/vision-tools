@@ -20,6 +20,8 @@ BoxMaps = NewType("BoxMaps", Tensor)  # [B, 4, H, W]
 BoxMap = NewType("BoxMap", Tensor)  # [4, H, W]
 
 
+AnchorMap = NewType("AnchorMap", Tensor)  # [N, [H, W]], H, W]
+
 Labels = NewType("Labels", Tensor)
 Confidences = NewType("Confidences", Tensor)
 

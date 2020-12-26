@@ -38,7 +38,9 @@ def train(epochs: int) -> None:
         2, out_channels=config.channels, pretrained=True
     )
     anchors = Anchors(
-        size=config.anchor_size, ratios=config.anchor_ratios
+        size=config.anchor_size,
+        ratios=config.anchor_ratios,
+        scales=config.anchor_scales,
     )
     model = EfficientDet(
         num_classes=1,
@@ -57,6 +59,7 @@ def train(epochs: int) -> None:
     get_score = MeanPrecition()
     to_boxes = ToBoxes(
         confidence_threshold=config.confidence_threshold,
+        iou_threshold=config.iou_threshold,
     )
     trainer = Trainer(
         model,
@@ -84,4 +87,4 @@ def train(epochs: int) -> None:
 
 
 if __name__ == "__main__":
-    train(1000)
+    train(10000)
