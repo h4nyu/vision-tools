@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 from functools import partial
+from .activations import FReLU
 from torch import nn, Tensor
 from typing import Tuple, List, NewType, Callable, Any
 from torch.utils.data import DataLoader
@@ -181,10 +182,7 @@ class Reg(nn.Module):
         super().__init__()
         channels = in_channels
         self.conv = nn.Sequential(
-            *[
-                SENextBottleneck2d(in_channels, in_channels)
-                for _ in range(depth)
-            ]
+            *[FReLU(in_channels) for _ in range(depth)]
         )
 
         self.out = nn.Sequential(
@@ -247,7 +245,8 @@ class CenterNetV1(nn.Module):
         self.box_out = nn.Sequential(
             nn.Conv2d(
                 in_channels=channels,
-                out_channels=4, kernel_size=1,
+                out_channels=4,
+                kernel_size=1,
             ),
             nn.Sigmoid(),
         )
@@ -402,7 +401,6 @@ class Criterion:
         hm_losses: List[Tensor] = []
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hms.shape
-
 
         t_hms = self.mkmaps(gt_boxes_list, (h, w), (orig_h, orig_w))
         hm_loss = self.hm_loss(s_hms, t_hms) * self.heatmap_weight

@@ -28,7 +28,7 @@ def test_regression_model() -> None:
 
 def test_classification_model() -> None:
     images = torch.ones((1, 100, 10, 10))
-    fn = ClassificationModel(in_channels=100, num_classes=2)
+    fn = ClassificationModel(in_channels=100, num_classes=2, depth=1)
     res = fn(images)
     assert res.shape == (1, 900, 2)
 
@@ -52,4 +52,3 @@ def test_effdet_forward() -> None:
     # for x, y in zip(labels, boxes):
     #     assert x.shape[:2] == y.shape[:2]
     to_boxes(netout)
-

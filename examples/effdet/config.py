@@ -9,9 +9,9 @@ batch_size = 8
 # model
 backbone_id = 1
 channels = 64
-depth = 2
+box_depth = 2
 lr = 1e-3
-out_ids:List[int] = [5, 6, 7]
+out_ids: List[int] = [5, 6, 7]
 
 input_size = (256, 256)
 object_count_range = (5, 20)

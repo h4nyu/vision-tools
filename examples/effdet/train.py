@@ -35,7 +35,9 @@ def train(epochs: int) -> None:
         num_samples=256,
     )
     backbone = EfficientNetBackbone(
-        config.backbone_id, out_channels=config.channels, pretrained=True
+        config.backbone_id,
+        out_channels=config.channels,
+        pretrained=True,
     )
     anchors = Anchors(
         size=config.anchor_size,
@@ -48,7 +50,7 @@ def train(epochs: int) -> None:
         channels=config.channels,
         backbone=backbone,
         anchors=anchors,
-        depth=config.depth,
+        box_depth=config.box_depth,
     )
     model_loader = ModelLoader(
         out_dir=config.out_dir,

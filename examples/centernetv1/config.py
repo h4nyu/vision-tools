@@ -11,7 +11,7 @@ batch_size = 8
 sigma = 1.0
 use_peak = True
 mode: GaussianMapMode = "aspect"
-to_boxes_threshold = 0.5
+to_boxes_threshold = 0.3
 
 lr = 1e-3
 out_idx: PyramidIdx = 4

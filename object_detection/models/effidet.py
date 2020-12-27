@@ -212,24 +212,26 @@ class EfficientDet(nn.Module):
         channels: int = 64,
         out_ids: List[int] = [6, 7],
         anchors: Anchors = Anchors(),
-        depth: int = 1,
+        fpn_depth: int = 1,
+        box_depth: int = 1,
+        cls_depth: int = 1,
     ) -> None:
         super().__init__()
         self.out_ids = np.array(out_ids) - 3
         self.anchors = anchors
         self.backbone = backbone
         self.neck = nn.Sequential(
-            *[BiFPN(channels=channels) for _ in range(depth)]
+            *[BiFPN(channels=channels) for _ in range(fpn_depth)]
         )
         self.box_reg = RegressionModel(
-            depth=depth,
+            depth=box_depth,
             in_channels=channels,
             hidden_channels=channels,
             num_anchors=self.anchors.num_anchors,
         )
         self.classification = ClassificationModel(
             channels,
-            depth=depth,
+            depth=cls_depth,
             num_classes=num_classes,
             num_anchors=self.anchors.num_anchors,
         )
