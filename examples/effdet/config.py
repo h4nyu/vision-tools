@@ -10,7 +10,7 @@ batch_size = 8
 backbone_id = 1
 channels = 64
 box_depth = 2
-lr = 1e-3
+lr = 1e-5
 out_ids: List[int] = [5, 6, 7]
 
 input_size = (256, 256)
@@ -21,8 +21,8 @@ metric: Tuple[str, WatchMode] = ("score", "max")
 pretrained = True
 
 # criterion
-topk = 9
-box_weight = 10
+topk = 29
+box_weight = 30
 
 anchor_ratios = [1.0]
 anchor_scales = [1.0, 1.25, 1.5]
