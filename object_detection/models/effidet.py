@@ -508,7 +508,7 @@ class Trainer:
 
     @torch.no_grad()
     def eval_one_epoch(self) -> None:
-        self.model.train()
+        self.model.eval()
         loader = self.test_loader
         for samples, box_batch, gt_cls_list, ids in tqdm(loader):
             (

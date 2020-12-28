@@ -2,7 +2,7 @@ from typing import *
 from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
-confidence_threshold = 0.4
+confidence_threshold = 0.5
 iou_threshold = 0.66
 batch_size = 8
 
@@ -10,7 +10,7 @@ batch_size = 8
 backbone_id = 1
 channels = 64
 box_depth = 2
-lr = 1e-5
+lr = 1e-4
 out_ids: List[int] = [5, 6, 7]
 
 input_size = (256, 256)
@@ -22,7 +22,7 @@ pretrained = True
 
 # criterion
 topk = 29
-box_weight = 30
+box_weight = 50
 
 anchor_ratios = [1.0]
 anchor_scales = [1.0, 1.25, 1.5]
