@@ -45,6 +45,7 @@ logger = getLogger(__name__)
 
 TrainSample = Tuple[ImageId, Image, PascalBoxes, Labels]
 
+
 def collate_fn(
     batch: List[TrainSample],
 ) -> Tuple[

@@ -19,6 +19,7 @@ from .mkmaps import (
 )
 from .bottlenecks import SENextBottleneck2d
 from .centernet import (
+    collate_fn,
     HMLoss,
     PreProcess,
     Labels,
@@ -56,27 +57,6 @@ logger = getLogger(__name__)
 
 Heatmap = NewType("Heatmap", Tensor)  # [C, H, W]
 NetOutput = Tuple[BoxMap, BoxMaps, Heatmaps]
-
-
-def collate_fn(
-    batch: List[TrainSample],
-) -> Tuple[ImageBatch, List[YoloBoxes], List[Labels], List[ImageId]]:
-    images: List[Any] = []
-    id_batch: List[ImageId] = []
-    box_batch: List[YoloBoxes] = []
-    label_batch: List[Labels] = []
-
-    for id, img, boxes, labels in batch:
-        images.append(img)
-        box_batch.append(boxes)
-        id_batch.append(id)
-        label_batch.append(labels)
-    return (
-        ImageBatch(torch.stack(images)),
-        box_batch,
-        label_batch,
-        id_batch,
-    )
 
 
 def prediction_collate_fn(

@@ -5,7 +5,7 @@ from object_detection.entities import (
     TrainSample,
     Image,
     ImageSize,
-    YoloBoxes,
+    PascalBoxes,
     ImageId,
     Labels,
 )
@@ -23,12 +23,12 @@ class RandomDataset(Dataset):
         image = torch.rand((3, *self.image_size), dtype=torch.float32)
         boxes = torch.rand(
             (random.randint(1, 9), 4), dtype=torch.float32
-        ).clamp(0, 1.0)
+        ).clamp(0, max(self.image_size))
         labels = torch.zeros((len(boxes),))
         return (
             ImageId(""),
             Image(image),
-            YoloBoxes(boxes.float()),
+            PascalBoxes(boxes.float()),
             Labels(labels),
         )
 

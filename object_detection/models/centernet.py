@@ -66,7 +66,9 @@ def collate_fn(
 
     for id, img, boxes, labels in batch:
         images.append(img)
-        box_batch.append(boxes)
+        box_batch.append(
+            pascal_to_yolo(boxes, (img.shape[2], img.shape[3]))
+        )
         id_batch.append(id)
         label_batch.append(labels)
     return (

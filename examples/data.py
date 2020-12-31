@@ -63,11 +63,11 @@ class PolyImage:
         boxes = torch.tensor([self._get_box(pts)], dtype=torch.int32)
         self.boxes = PascalBoxes(torch.cat([self.boxes, boxes]))
 
-    def __call__(self) -> Tuple[Image, YoloBoxes]:
+    def __call__(self) -> Tuple[Image, PascalBoxes]:
         img = (
             torch.from_numpy(self.image).permute(2, 0, 1) / 255.0
         )  # [H, W]
-        boxes = pascal_to_yolo(self.boxes, (self.width, self.height))
+        boxes = self.boxes
         return Image(img.float()), boxes
 
 
@@ -105,7 +105,7 @@ class TrainDataset(Dataset):
         return (
             ImageId(""),
             Image(image),
-            YoloBoxes(boxes.float()),
+            PascalBoxes(boxes.float()),
             Labels(labels),
         )
 

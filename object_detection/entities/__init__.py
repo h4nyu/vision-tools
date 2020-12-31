@@ -4,7 +4,7 @@ from .image import *
 from typing_extensions import Literal
 
 
-TrainSample = Tuple[ImageId, Image, YoloBoxes, Labels]
+TrainSample = Tuple[ImageId, Image, PascalBoxes, Labels]
 PyramidIdx = Literal[3, 4, 5, 6, 7]
 FP = Tuple[
     Tensor, Tensor, Tensor, Tensor, Tensor
