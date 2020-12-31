@@ -7,10 +7,10 @@ import torchvision
 
 from functools import partial
 from object_detection.entities import (
+    Image,
     ImageId,
     Confidences,
     PyramidIdx,
-    TrainSample,
     PredictionSample,
     Labels,
     PascalBoxes,
@@ -43,6 +43,7 @@ from .tta import VFlipTTA, HFlipTTA
 
 logger = getLogger(__name__)
 
+TrainSample = Tuple[ImageId, Image, PascalBoxes, Labels]
 
 def collate_fn(
     batch: List[TrainSample],
@@ -56,7 +57,7 @@ def collate_fn(
     for id, img, boxes, labels in batch:
         c, h, w = img.shape
         images.append(img)
-        box_batch.append(yolo_to_pascal(boxes, (w, h)))
+        box_batch.append(boxes)
         id_batch.append(id)
         label_batch.append(labels)
     return (
@@ -533,37 +534,3 @@ class Trainer:
             self.model,
             self.meters[self.model_loader.key].get_value(),
         )
-
-
-class Predictor:
-    def __init__(
-        self,
-        model: nn.Module,
-        loader: DataLoader,
-        model_loader: ModelLoader,
-        to_boxes: ToBoxes,
-        device: str = "cpu",
-    ) -> None:
-        self.device = torch.device(device)
-        self.model_loader = model_loader
-        self.model = model.to(self.device)
-        self.preprocess = PreProcess(self.device)
-        self.to_boxes = to_boxes
-        self.loader = loader
-
-    @torch.no_grad()
-    def __call__(
-        self,
-    ) -> Tuple[List[PascalBoxes], List[Confidences], List[ImageId]]:
-        self.model = self.model_loader.load_if_needed(self.model)
-        self.model.eval()
-        boxes_list = []
-        confs_list = []
-        id_list = []
-        for images, ids in tqdm(self.loader):
-            images = images.to(self.device)
-            preds = self.model(images)
-            boxes_list += preds[0]
-            confs_list += preds[1]
-            id_list += ids
-        return boxes_list, confs_list, id_list
