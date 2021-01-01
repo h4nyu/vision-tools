@@ -29,13 +29,13 @@ def train(epochs: int) -> None:
         cfg.input_size,
         object_count_range=cfg.object_count_range,
         object_size_range=cfg.object_size_range,
-        num_samples=1024,
+        num_samples=10,
     )
     test_dataset = TrainDataset(
         cfg.input_size,
         object_count_range=cfg.object_count_range,
         object_size_range=cfg.object_size_range,
-        num_samples=256,
+        num_samples=10,
     )
     backbone = EfficientNetBackbone(
         1, out_channels=cfg.channels, pretrained=True

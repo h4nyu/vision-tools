@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import torch
-from typing import Any, Tuple
+from typing import Any, Tuple, List
 from torch import Tensor
 from torch.utils.data import Dataset
 from object_detection.entities.image import RGB, Image
@@ -35,17 +35,9 @@ class PolyImage:
         self.boxes = PascalBoxes(
             torch.empty((0, 4), dtype=torch.int32)
         )
+        self.labels: List[int] = []
 
-    def _get_box(self, pts: Any) -> Tuple[int, int, int, int]:
-        xs = pts[:, :, 0]
-        ys = pts[:, :, 1]
-        x0 = np.min(xs)
-        y0 = np.min(ys)
-        x1 = np.max(xs)
-        y1 = np.max(ys)
-        return x0, y0, x1, y1
-
-    def add(self, max_size: int = 128) -> None:
+    def add_triangle(self, max_size: int = 128) -> None:
         base_x = np.random.randint(0, self.width - max_size)
         base_y = np.random.randint(0, self.height - max_size)
         xs = np.random.randint(
@@ -60,15 +52,45 @@ class PolyImage:
         )
         pts = np.concatenate((xs, ys), axis=2)
         self.image = cv2.fillPoly(self.image, pts, (0, 0, 0))
-        boxes = torch.tensor([self._get_box(pts)], dtype=torch.int32)
+        x0 = np.min(pts[:, :, 0])
+        y0 = np.min(pts[:, :, 1])
+        x1 = np.max(pts[:, :, 0])
+        y1 = np.max(pts[:, :, 1])
+        boxes = torch.tensor([[x0, y0, x1, y1]], dtype=torch.int32)
         self.boxes = PascalBoxes(torch.cat([self.boxes, boxes]))
+        self.labels.append(0)
 
-    def __call__(self) -> Tuple[Image, PascalBoxes]:
+    def add_circle(self, max_size: int = 128) -> None:
+        cx = np.random.randint(0, self.width - max_size)
+        cy = np.random.randint(0, self.height - max_size)
+        radius = random.randint(1, max_size)
+
+        self.image = cv2.circle(
+            self.image, (cx, cy), radius, (0, 0, 0)
+        )
+        x0 = np.max(cx - radius, 0)
+        y0 = np.max(cy - radius, 0)
+        x1 = cx + radius
+        y1 = cy + radius
+        boxes = torch.tensor([[x0, y0, x1, y1]], dtype=torch.int32)
+        self.boxes = PascalBoxes(torch.cat([self.boxes, boxes]))
+        self.labels.append(1)
+
+    def add(self, max_size: int) -> None:
+        random.choice(
+            [
+                self.add_triangle,
+                self.add_circle,
+            ]
+        )(max_size)
+
+    def __call__(self) -> Tuple[Image, PascalBoxes, Labels]:
         img = (
             torch.from_numpy(self.image).permute(2, 0, 1) / 255.0
         )  # [H, W]
         boxes = self.boxes
-        return Image(img.float()), boxes
+        labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
+        return Image(img.float()), boxes, labels
 
 
 class TrainDataset(Dataset):
@@ -100,8 +122,7 @@ class TrainDataset(Dataset):
         )
         for s in sizes:
             poly.add(s)
-        image, boxes = poly()
-        labels = torch.zeros((len(boxes),), dtype=torch.int32)
+        image, boxes, labels = poly()
         return (
             ImageId(""),
             Image(image),
@@ -142,7 +163,7 @@ class PredictionDataset(Dataset):
         )
         for s in sizes:
             poly.add(s)
-        image, _ = poly()
+        image, _, _ = poly()
         return (
             ImageId(""),
             Image(image),
