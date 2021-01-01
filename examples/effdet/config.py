@@ -3,14 +3,14 @@ from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
 confidence_threshold = 0.6
-iou_threshold = 0.66
+iou_threshold = 0.7
 batch_size = 16
 
 # model
 backbone_id = 1
 channels = 64
 box_depth = 2
-lr = 1e-3
+lr = 1e-4
 out_ids: List[int] = [5, 6]
 
 input_size = (256, 256)
@@ -22,7 +22,7 @@ pretrained = True
 
 # criterion
 topk = 19
-box_weight = 1
+box_weight = 10
 cls_weight = 1
 
 anchor_ratios = [1.0]
