@@ -1,6 +1,6 @@
 import torch
 from object_detection.entities import PascalBoxes
-from object_detection.models.closest_assign import ClosestAssign
+from object_detection.models.assign import ClosestAssign
 
 
 def test_closest_assign() -> None:

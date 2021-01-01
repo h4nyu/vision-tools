@@ -60,6 +60,7 @@ def train(epochs: int) -> None:
     criterion = Criterion(
         topk=config.topk,
         box_weight=config.box_weight,
+        cls_weight=config.cls_weight,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     visualize = Visualize("/store/efficientdet", "test", limit=2)

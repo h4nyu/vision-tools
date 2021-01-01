@@ -270,7 +270,7 @@ class Criterion:
         self.num_classes = num_classes
         self.box_weight = box_weight
         self.cls_weight = cls_weight
-        self.box_loss = DIoULoss()
+        self.box_loss = DIoULoss(size_average=True)
         self.atss = ATSS(topk)
         self.cls_loss = FocalLoss()
 

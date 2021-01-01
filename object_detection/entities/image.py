@@ -6,5 +6,5 @@ ImageId = NewType("ImageId", str)
 Image = NewType("Image", Tensor)  # [C, H, W] dtype
 
 ImageBatch = NewType("ImageBatch", Tensor)  # [B, C, H, W]
-ImageSize = Tuple[int, int]  # H, W
+ImageSize = Tuple[int, int]  # W, H
 RGB = Tuple[int, int, int]

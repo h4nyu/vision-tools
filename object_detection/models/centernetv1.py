@@ -474,7 +474,7 @@ class Trainer:
     def train_one_epoch(self) -> None:
         self.model.train()
         loader = self.train_loader
-        for images, box_batch, ids, _ in tqdm(loader):
+        for ids, images, box_batch, labels in tqdm(loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
             (
@@ -494,7 +494,7 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.eval()
         loader = self.test_loader
-        for images, box_batch, ids, _ in tqdm(loader):
+        for ids, images, box_batch, labels in tqdm(loader):
             images, box_batch = self.preprocess((images, box_batch))
             outputs = self.model(images)
             (
