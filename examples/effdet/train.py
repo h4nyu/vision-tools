@@ -45,7 +45,7 @@ def train(epochs: int) -> None:
         scales=config.anchor_scales,
     )
     model = EfficientDet(
-        num_classes=1,
+        num_classes=2,
         out_ids=config.out_ids,
         channels=config.channels,
         backbone=backbone,

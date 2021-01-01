@@ -51,7 +51,7 @@ class PolyImage:
             size=(1, 3, 1),
         )
         pts = np.concatenate((xs, ys), axis=2)
-        self.image = cv2.fillPoly(self.image, pts, (0, 0, 0))
+        self.image = cv2.polylines(self.image, pts, 1, (0, 0, 0))
         x0 = np.min(pts[:, :, 0])
         y0 = np.min(pts[:, :, 1])
         x1 = np.max(pts[:, :, 0])

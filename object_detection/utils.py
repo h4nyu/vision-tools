@@ -15,6 +15,7 @@ from .entities.box import (
     CoCoBoxes,
     YoloBoxes,
     PascalBoxes,
+    Labels,
     yolo_to_coco,
     pascal_to_coco,
 )
@@ -100,6 +101,7 @@ class DetectionPlot:
         self,
         boxes: YoloBoxes,
         probs: t.Optional[Tensor] = None,
+        labels: t.Optional[Labels] = None,
         color: str = "black",
         fontsize: int = 7,
     ) -> None:
@@ -107,6 +109,7 @@ class DetectionPlot:
             boxes=yolo_to_coco(boxes, size=(self.w, self.h)),
             probs=probs,
             color=color,
+            labels=labels,
             fontsize=fontsize,
         )
 
@@ -114,6 +117,7 @@ class DetectionPlot:
         self,
         boxes: PascalBoxes,
         probs: t.Optional[Tensor] = None,
+        labels: t.Optional[Labels] = None,
         color: str = "black",
         fontsize: int = 7,
     ) -> None:
@@ -121,6 +125,7 @@ class DetectionPlot:
             boxes=pascal_to_coco(boxes),
             probs=probs,
             color=color,
+            labels=labels,
             fontsize=fontsize,
         )
 
@@ -128,26 +133,27 @@ class DetectionPlot:
         self,
         boxes: CoCoBoxes,
         probs: t.Optional[Tensor] = None,
+        labels: t.Optional[Tensor] = None,
         color: str = "black",
-        fontsize: int = 7,
+        fontsize: int = 8,
     ) -> None:
         """
         boxes: coco format
         """
         b = len(boxes)
         _probs = probs if probs is not None else torch.ones((b,))
+        _labels = labels if labels is not None else torch.zeros((b,), dtype=torch.int32)
         _boxes = boxes.clone()
-        for box, p in zip(_boxes, _probs):
+        for box, p, c in zip(_boxes, _probs, _labels):
             x0 = box[0]
             y0 = box[1]
-            if self.show_probs:
-                self.ax.text(
-                    x0,
-                    y0,
-                    f"{p:.2f}",
-                    fontsize=fontsize,
-                    color=color,
-                )
+            self.ax.text(
+                x0,
+                y0,
+                f"[{c}]{p:.2f}",
+                fontsize=fontsize,
+                color=color,
+            )
             rect = mpatches.Rectangle(
                 (x0, y0),
                 width=box[2],

@@ -10,7 +10,7 @@ batch_size = 16
 backbone_id = 1
 channels = 64
 box_depth = 2
-lr = 1e-4
+lr = 1e-3
 out_ids: List[int] = [5, 6]
 
 input_size = (256, 256)

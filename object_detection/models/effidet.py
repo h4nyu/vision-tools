@@ -97,20 +97,24 @@ class Visualize:
 
     def __call__(
         self,
-        src: Tuple[List[PascalBoxes], List[Confidences]],
-        tgt: List[PascalBoxes],
         image_batch: ImageBatch,
+        src: Tuple[List[PascalBoxes], List[Confidences], List[Labels]],
+        tgt: Tuple[List[PascalBoxes], List[Labels]],
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
-        tgt = tgt[: self.limit]
-        src_box_batch, src_confidence_batch = src
+        gt_boxes, gt_labels = tgt
+        gt_boxes = gt_boxes[: self.limit]
+        gt_labels = gt_labels[: self.limit]
+        box_batch, confidence_batch, label_batch = src
         _, _, h, w = image_batch.shape
-        for i, (img, sb, sc, tb) in enumerate(
+        for i, (img, boxes, confidences, labels, gtb, gtl) in enumerate(
             zip(
                 image_batch,
-                src_box_batch,
-                src_confidence_batch,
-                tgt,
+                box_batch,
+                confidence_batch,
+                label_batch,
+                gt_boxes,
+                gt_labels,
             )
         ):
             plot = DetectionPlot(
@@ -120,8 +124,8 @@ class Visualize:
                 show_probs=self.show_probs,
             )
             plot.with_image(img, alpha=0.5)
-            plot.with_pascal_boxes(tb, color="blue")
-            plot.with_pascal_boxes(sb, sc, color="red")
+            plot.with_pascal_boxes(gtb, color="blue", labels=gtl)
+            plot.with_pascal_boxes(boxes, confidences, labels=labels, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
 
@@ -169,8 +173,7 @@ class RegressionModel(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        num_anchors: int = 9,
-        hidden_channels: int = 256,
+        num_anchors: int,
         depth: int = 1,
     ) -> None:
         super().__init__()
@@ -178,7 +181,7 @@ class RegressionModel(nn.Module):
             *[FReLU(in_channels) for _ in range(depth)]
         )
         self.out = nn.Conv2d(
-            hidden_channels,
+            in_channels,
             num_anchors * 4,
             kernel_size=1,
             padding=0,
@@ -228,7 +231,6 @@ class EfficientDet(nn.Module):
         self.box_reg = RegressionModel(
             depth=box_depth,
             in_channels=channels,
-            hidden_channels=channels,
             num_anchors=self.anchors.num_anchors,
         )
         self.classification = ClassificationModel(
@@ -239,8 +241,7 @@ class EfficientDet(nn.Module):
         )
         for n, m in self.named_modules():
             if "backbone" not in n:
-                _init_weight(m)
-
+                _init_weight(m) 
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
         features = self.neck(features)
@@ -388,9 +389,10 @@ class ToBoxes:
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
 
+    @torch.no_grad()
     def __call__(
         self, net_output: NetOutput
-    ) -> t.Tuple[List[PascalBoxes], List[Confidences]]:
+    ) -> t.Tuple[List[PascalBoxes], List[Confidences], List[Labels]]:
         (
             anchor_levels,
             box_diff_levels,
@@ -398,6 +400,7 @@ class ToBoxes:
         ) = net_output
         box_batch = []
         confidence_batch = []
+        label_batch = []
         anchors = torch.cat(anchor_levels, dim=0)  # type: ignore
         box_diffs = torch.cat(box_diff_levels, dim=1)  # type:ignore
         labels_batch = torch.cat(labels_levels, dim=1)  # type:ignore
@@ -406,6 +409,7 @@ class ToBoxes:
             confidences, c_index = preds.max(dim=1)
             filter_idx = confidences > self.confidence_threshold
             confidences = confidences[filter_idx]
+            c_index = c_index[filter_idx]
             boxes = boxes[filter_idx]
             sort_idx = nms(
                 boxes,
@@ -415,9 +419,11 @@ class ToBoxes:
             confidences.argsort(descending=True)
             boxes = PascalBoxes(boxes[sort_idx])
             confidences = confidences[sort_idx]
+            c_index = c_index[sort_idx]
             box_batch.append(boxes)
             confidence_batch.append(Confidences(confidences))
-        return box_batch, confidence_batch
+            label_batch.append(Labels(c_index))
+        return box_batch, confidence_batch, label_batch
 
 
 class Trainer:
@@ -530,7 +536,11 @@ class Trainer:
             for (pred, gt) in zip(preds[0], box_batch):
                 self.meters["score"].update(self.get_score(pred, gt))
 
-        self.visualize(preds, box_batch, samples)
+        self.visualize(
+                samples,
+                preds,
+                (box_batch, gt_cls_list),
+        )
         self.model_loader.save_if_needed(
             self.model,
             self.meters[self.model_loader.key].get_value(),
