@@ -13,8 +13,6 @@ from .mkmaps import (
     GaussianMapMode,
     MkGaussianMaps,
     MkFillMaps,
-    MkCornerMaps,
-    MkCrossMaps,
     MkMapsFn,
 )
 from .bottlenecks import SENextBottleneck2d

@@ -10,7 +10,6 @@ from object_detection.models.centernetv1 import (
     Anchors,
     MkGaussianMaps,
     MkFillMaps,
-    MkCornerMaps,
 )
 from object_detection.models.backbones.effnet import (
     EfficientNetBackbone,
