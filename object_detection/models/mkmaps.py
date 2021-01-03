@@ -1,12 +1,13 @@
 from typing import Tuple, List, Callable, NewType
 from typing_extensions import Literal
 import torch
-from object_detection.entities import YoloBoxes, BoxMaps
+from object_detection.entities import YoloBoxes, BoxMaps, Labels
 
 Heatmaps = NewType("Heatmaps", torch.Tensor)  # [B, C, H, W]
 MkMapsFn = Callable[
     [
         List[YoloBoxes],
+        List[Labels],
         Tuple[int, int],
         Tuple[int, int],
     ],
@@ -17,6 +18,8 @@ MkBoxMapsFn = Callable[[List[YoloBoxes], Heatmaps], BoxMaps]
 
 
 class MkMapsBase:
+    num_classes: int
+
     def _mkmaps(
         self,
         boxes: YoloBoxes,
@@ -29,12 +32,21 @@ class MkMapsBase:
     def __call__(
         self,
         box_batch: List[YoloBoxes],
+        label_batch: List[Labels],
         hw: Tuple[int, int],
         original_hw: Tuple[int, int],
     ) -> Heatmaps:
         hms: List[torch.Tensor] = []
-        for boxes in box_batch:
-            hm = self._mkmaps(boxes, hw, original_hw)
+        for boxes, labels in zip(box_batch, label_batch):
+            hm = torch.cat(
+                [
+                    self._mkmaps(
+                        YoloBoxes(boxes[labels == i]), hw, original_hw
+                    )
+                    for i in range(self.num_classes)
+                ],
+                dim=1,
+            )
             hms.append(hm)
         return Heatmaps(torch.cat(hms, dim=0))
 
@@ -45,11 +57,13 @@ GaussianMapMode = Literal["length", "aspect", "constant"]
 class MkGaussianMaps(MkMapsBase):
     def __init__(
         self,
+        num_classes: int,
         sigma: float = 0.5,
         mode: GaussianMapMode = "length",
     ) -> None:
         self.sigma = sigma
         self.mode = mode
+        self.num_classes = num_classes
 
     def _mkmaps(
         self,

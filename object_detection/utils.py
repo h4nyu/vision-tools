@@ -37,7 +37,7 @@ class DetectionPlot:
         h: int = 128,
         figsize: t.Tuple[int, int] = (10, 10),
         use_alpha: bool = True,
-        show_probs: bool = False,
+        show_confidences: bool = False,
     ) -> None:
         self.w, self.h = (w, h)
         self.fig, self.ax = plt.subplots(figsize=figsize)
@@ -46,7 +46,7 @@ class DetectionPlot:
             interpolation="nearest",
         )
         self.use_alpha = use_alpha
-        self.show_probs = show_probs
+        self.show_confidences = show_confidences
 
     def __del__(self) -> None:
         plt.close(self.fig)
@@ -100,14 +100,14 @@ class DetectionPlot:
     def with_yolo_boxes(
         self,
         boxes: YoloBoxes,
-        probs: t.Optional[Tensor] = None,
+        confidences: t.Optional[Tensor] = None,
         labels: t.Optional[Labels] = None,
         color: str = "black",
         fontsize: int = 7,
     ) -> None:
         self.with_coco_boxes(
             boxes=yolo_to_coco(boxes, size=(self.w, self.h)),
-            probs=probs,
+            confidences=confidences,
             color=color,
             labels=labels,
             fontsize=fontsize,
@@ -116,14 +116,14 @@ class DetectionPlot:
     def with_pascal_boxes(
         self,
         boxes: PascalBoxes,
-        probs: t.Optional[Tensor] = None,
+        confidences: t.Optional[Tensor] = None,
         labels: t.Optional[Labels] = None,
         color: str = "black",
         fontsize: int = 7,
     ) -> None:
         self.with_coco_boxes(
             boxes=pascal_to_coco(boxes),
-            probs=probs,
+            confidences=confidences,
             color=color,
             labels=labels,
             fontsize=fontsize,
@@ -132,7 +132,7 @@ class DetectionPlot:
     def with_coco_boxes(
         self,
         boxes: CoCoBoxes,
-        probs: t.Optional[Tensor] = None,
+        confidences: t.Optional[Tensor] = None,
         labels: t.Optional[Tensor] = None,
         color: str = "black",
         fontsize: int = 8,
@@ -141,10 +141,18 @@ class DetectionPlot:
         boxes: coco format
         """
         b = len(boxes)
-        _probs = probs if probs is not None else torch.ones((b,))
-        _labels = labels if labels is not None else torch.zeros((b,), dtype=torch.int32)
+        _confidences = (
+            confidences
+            if confidences is not None
+            else torch.ones((b,))
+        )
+        _labels = (
+            labels
+            if labels is not None
+            else torch.zeros((b,), dtype=torch.int32)
+        )
         _boxes = boxes.clone()
-        for box, p, c in zip(_boxes, _probs, _labels):
+        for box, p, c in zip(_boxes, _confidences, _labels):
             x0 = box[0]
             y0 = box[1]
             self.ax.text(

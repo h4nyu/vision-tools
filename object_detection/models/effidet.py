@@ -87,18 +87,20 @@ class Visualize:
         prefix: str,
         limit: int = 1,
         use_alpha: bool = True,
-        show_probs: bool = True,
+        show_confidences: bool = True,
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
         self.use_alpha = use_alpha
-        self.show_probs = show_probs
+        self.show_confidences = show_confidences
 
     def __call__(
         self,
         image_batch: ImageBatch,
-        src: Tuple[List[PascalBoxes], List[Confidences], List[Labels]],
+        src: Tuple[
+            List[PascalBoxes], List[Confidences], List[Labels]
+        ],
         tgt: Tuple[List[PascalBoxes], List[Labels]],
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
@@ -107,7 +109,14 @@ class Visualize:
         gt_labels = gt_labels[: self.limit]
         box_batch, confidence_batch, label_batch = src
         _, _, h, w = image_batch.shape
-        for i, (img, boxes, confidences, labels, gtb, gtl) in enumerate(
+        for i, (
+            img,
+            boxes,
+            confidences,
+            labels,
+            gtb,
+            gtl,
+        ) in enumerate(
             zip(
                 image_batch,
                 box_batch,
@@ -121,11 +130,13 @@ class Visualize:
                 h=h,
                 w=w,
                 use_alpha=self.use_alpha,
-                show_probs=self.show_probs,
+                show_confidences=self.show_confidences,
             )
             plot.with_image(img, alpha=0.5)
             plot.with_pascal_boxes(gtb, color="blue", labels=gtl)
-            plot.with_pascal_boxes(boxes, confidences, labels=labels, color="red")
+            plot.with_pascal_boxes(
+                boxes, confidences, labels=labels, color="red"
+            )
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
 
@@ -241,7 +252,8 @@ class EfficientDet(nn.Module):
         )
         for n, m in self.named_modules():
             if "backbone" not in n:
-                _init_weight(m) 
+                _init_weight(m)
+
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
         features = self.neck(features)
@@ -537,9 +549,9 @@ class Trainer:
                 self.meters["score"].update(self.get_score(pred, gt))
 
         self.visualize(
-                samples,
-                preds,
-                (box_batch, gt_cls_list),
+            samples,
+            preds,
+            (box_batch, gt_cls_list),
         )
         self.model_loader.save_if_needed(
             self.model,

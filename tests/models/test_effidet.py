@@ -49,4 +49,3 @@ def test_effdet_to_box() -> None:
     netout = net(images)
     for boxes, confidences, labels in zip(*to_boxes(netout)):
         assert len(boxes) == len(confidences) == len(labels)
-
