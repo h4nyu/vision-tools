@@ -1,5 +1,4 @@
 from typing import Tuple
-from object_detection.entities import PyramidIdx
 from object_detection.models.mkmaps import (
     GaussianMapMode,
 )
@@ -14,7 +13,7 @@ to_boxes_threshold = 0.3
 
 lr = 1e-4
 batch_size = 8
-out_idx: PyramidIdx = 4
+out_idx = 4
 channels = 64
 input_size = (256, 256)
 metric: Tuple[str, WatchMode] = ("score", "max")

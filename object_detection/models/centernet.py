@@ -24,7 +24,6 @@ from object_detection.entities import (
     YoloBoxes,
     Confidences,
     PascalBoxes,
-    PyramidIdx,
     yolo_to_pascal,
     pascal_to_yolo,
     yolo_to_coco,
@@ -114,7 +113,7 @@ class CenterNet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         depth: int = 2,
-        out_idx: PyramidIdx = 4,
+        out_idx: int = 4,
     ) -> None:
         super().__init__()
         self.out_idx = out_idx - 3
