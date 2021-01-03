@@ -10,7 +10,6 @@ from object_detection.entities import (
     Image,
     ImageId,
     Confidences,
-    PyramidIdx,
     PredictionSample,
     Labels,
     PascalBoxes,

@@ -7,7 +7,6 @@ import matplotlib.patches as mpatches
 from pathlib import Path
 from typing import List
 from object_detection.entities import (
-    PyramidIdx,
     PascalBoxes,
     ImageBatch,
 )

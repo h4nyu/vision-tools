@@ -1,5 +1,4 @@
 from typing import *
-from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
 confidence_threshold = 0.5
