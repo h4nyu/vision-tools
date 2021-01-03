@@ -29,18 +29,19 @@ def train(epochs: int) -> None:
         cfg.input_size,
         object_count_range=cfg.object_count_range,
         object_size_range=cfg.object_size_range,
-        num_samples=10,
+        num_samples=1024,
     )
     test_dataset = TrainDataset(
         cfg.input_size,
         object_count_range=cfg.object_count_range,
         object_size_range=cfg.object_size_range,
-        num_samples=10,
+        num_samples=256,
     )
     backbone = EfficientNetBackbone(
         1, out_channels=cfg.channels, pretrained=True
     )
     model = CenterNet(
+        num_classes=2,
         channels=cfg.channels,
         backbone=backbone,
         out_idx=cfg.out_idx,
@@ -49,7 +50,7 @@ def train(epochs: int) -> None:
     criterion = Criterion(
         box_weight=cfg.box_weight,
         heatmap_weight=cfg.heatmap_weight,
-        mk_hmmaps=MkGaussianMaps(),
+        mk_hmmaps=MkGaussianMaps(num_classes=cfg.num_classes),
         mk_boxmaps=MkCenterBoxMaps(),
     )
     train_loader = DataLoader(

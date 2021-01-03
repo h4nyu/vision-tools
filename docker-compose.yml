@@ -15,4 +15,5 @@ services:
     volumes:
       - .:/srv
       - ./store:/store
+      - ./.cache:/root/.cache
     runtime: nvidia

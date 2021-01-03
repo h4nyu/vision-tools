@@ -115,6 +115,7 @@ class CenterNet(nn.Module):
     def __init__(
         self,
         channels: int,
+        num_classes: int,
         backbone: nn.Module,
         depth: int = 2,
         out_idx: PyramidIdx = 4,
@@ -129,7 +130,7 @@ class CenterNet(nn.Module):
         self.hm_reg = nn.Sequential(
             Reg(
                 in_channels=channels,
-                out_channels=1,
+                out_channels=num_classes,
                 depth=depth,
             ),
             nn.Sigmoid(),
@@ -213,15 +214,19 @@ class Criterion:
         self,
         images: ImageBatch,
         netout: NetOutput,
-        gt_boxes: List[YoloBoxes],
+        gt_box_batch: t.List[YoloBoxes],
+        gt_label_batch: t.List[Labels],
     ) -> Tuple[Tensor, Tensor, Tensor, Heatmaps]:
         s_hm, s_bm, anchors = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
-        t_hm = self.mk_hmmaps(gt_boxes, (h, w), (orig_h, orig_w))
+        t_hm = self.mk_hmmaps(
+            gt_box_batch, gt_label_batch, (h, w), (orig_h, orig_w)
+        )
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
         box_loss = (
-            self.boxloss(s_bm, gt_boxes, anchors) * self.box_weight
+            self.boxloss(s_bm, gt_box_batch, anchors)
+            * self.box_weight
         )
         loss = hm_loss + box_loss
         return (loss, hm_loss, box_loss, t_hm)
@@ -302,39 +307,42 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, inputs: NetOutput
-    ) -> t.List[t.Tuple[YoloBoxes, Confidences]]:
+    ) -> t.Tuple[
+        t.List[YoloBoxes], t.List[Confidences], t.List[Labels]
+    ]:
         heatmaps, boxmaps, anchormap = inputs
         device = heatmaps.device
-        kpmap = (self.max_pool(heatmaps) == heatmaps) & (
-            heatmaps > self.threshold
+        kpmaps = heatmaps * (
+            (self.max_pool(heatmaps) == heatmaps)
+            & (heatmaps > self.threshold)
         )
-        batch_size, _, height, width = heatmaps.shape
-        original_wh = torch.tensor(
-            [width, height], dtype=torch.float32
-        ).to(device)
-        rows: t.List[t.Tuple[YoloBoxes, Confidences]] = []
-        for hm, km, bm in zip(
-            heatmaps.squeeze(1), kpmap.squeeze(1), boxmaps
-        ):
+        kpmaps, labelmaps = torch.max(kpmaps, dim=1)
+
+        box_batch: t.List[YoloBoxes] = []
+        confidence_batch: t.List[Confidences] = []
+        label_batch: t.List[Labels] = []
+        for km, lm, bm in zip(kpmaps, labelmaps, boxmaps):
             kp = torch.nonzero(km, as_tuple=False)
-            confidences = hm[kp[:, 0], kp[:, 1]]
+            pos_idx = (kp[:, 0], kp[:, 1])
+            confidences = km[pos_idx]
+            labels = lm[pos_idx]
+
             if self.use_diff:
                 boxes = (
-                    anchormap[:, kp[:, 0], kp[:, 1]].t()
-                    + bm[:, kp[:, 0], kp[:, 1]].t()
+                    anchormap[:, pos_idx[0], pos_idx[1]].t()
+                    + bm[:, pos_idx[0], pos_idx[1]].t()
                 )
             else:
-                boxes = bm[:, kp[:, 0], kp[:, 1]].t()
+                boxes = bm[:, pos_idx[0], pos_idx[1]].t()
             sort_idx = confidences.argsort(descending=True)[
                 : self.limit
             ]
-            rows.append(
-                (
-                    YoloBoxes(boxes[sort_idx]),
-                    Confidences(confidences[sort_idx]),
-                )
+            box_batch.append(YoloBoxes(boxes[sort_idx]))
+            confidence_batch.append(
+                Confidences(confidences[sort_idx])
             )
-        return rows
+            label_batch.append(Labels(labels[sort_idx]))
+        return box_batch, confidence_batch, label_batch
 
 
 class PreProcess:
@@ -352,22 +360,6 @@ class PreProcess:
         return image_batch, box_batch
 
 
-class PostProcess:
-    def __init__(self, to_boxes: ToBoxes = ToBoxes()) -> None:
-        self.to_boxes = to_boxes
-
-    def __call__(
-        self,
-        netout: NetOutput,
-    ) -> Tuple[List[YoloBoxes], List[Confidences]]:
-        box_batch = []
-        confidence_batch = []
-        for boxes, confidences in self.to_boxes(netout):
-            box_batch.append(boxes)
-            confidence_batch.append(confidences)
-        return box_batch, confidence_batch
-
-
 class Visualize:
     def __init__(
         self,
@@ -375,35 +367,51 @@ class Visualize:
         prefix: str,
         limit: int = 1,
         use_alpha: bool = True,
-        show_probs: bool = True,
+        show_confidences: bool = True,
         figsize: Tuple[int, int] = (10, 10),
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
         self.use_alpha = use_alpha
-        self.show_probs = show_probs
+        self.show_confidences = show_confidences
         self.figsize = figsize
 
     @torch.no_grad()
     def __call__(
         self,
         net_out: NetOutput,
-        src: Tuple[List[YoloBoxes], List[Confidences]],
-        tgt: List[YoloBoxes],
+        box_batch: List[YoloBoxes],
+        confidence_batch: List[Confidences],
+        label_batch: List[Labels],
+        gt_box_batch: List[YoloBoxes],
+        gt_label_batch: List[Labels],
         image_batch: ImageBatch,
         gt_hms: Heatmaps,
     ) -> None:
         heatmap, _, _ = net_out
-        box_batch, confidence_batch = src
         box_batch = box_batch[: self.limit]
         confidence_batch = confidence_batch[: self.limit]
+        label_batch = label_batch[: self.limit]
+        gt_box_batch = gt_box_batch[: self.limit]
+        gt_label_batch = gt_label_batch[: self.limit]
         _, _, h, w = image_batch.shape
-        for i, (sb, sc, tb, hm, img, gt_hm) in enumerate(
+        for i, (
+            boxes,
+            confidences,
+            labels,
+            gt_boxes,
+            gt_labels,
+            hm,
+            img,
+            gt_hm,
+        ) in enumerate(
             zip(
                 box_batch,
                 confidence_batch,
-                tgt,
+                label_batch,
+                gt_box_batch,
+                gt_label_batch,
                 heatmap,
                 image_batch,
                 gt_hms,
@@ -414,12 +422,19 @@ class Visualize:
                 w=w,
                 use_alpha=self.use_alpha,
                 figsize=self.figsize,
-                show_probs=self.show_probs,
+                show_confidences=self.show_confidences,
             )
             plot.with_image(img, alpha=0.7)
             plot.with_image(hm[0].log(), alpha=0.3)
-            plot.with_yolo_boxes(tb, color="blue")
-            plot.with_yolo_boxes(sb, sc, color="red")
+            plot.with_yolo_boxes(
+                boxes=gt_boxes, labels=gt_labels, color="blue"
+            )
+            plot.with_yolo_boxes(
+                boxes=boxes,
+                labels=labels,
+                confidences=confidences,
+                color="red",
+            )
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
             plot = DetectionPlot(
@@ -453,7 +468,7 @@ class Trainer:
         self.test_loader = test_loader
         self.criterion = criterion
         self.preprocess = PreProcess(self.device)
-        self.post_process = PostProcess(to_boxes=to_boxes)
+        self.to_boxes = to_boxes
         self.model = model.to(self.device)
         self.get_score = get_score
 
@@ -496,11 +511,17 @@ class Trainer:
     def train_one_epoch(self) -> None:
         self.model.train()
         loader = self.train_loader
-        for ids, images, boxes, labels in tqdm(loader):
-            images, boxes = self.preprocess((images, boxes))
-            outputs = self.model(images)
+        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(
+            loader
+        ):
+            gt_box_batch = [x.to(self.device) for x in gt_box_batch]
+            gt_label_batch = [
+                x.to(self.device) for x in gt_label_batch
+            ]
+            image_batch = image_batch.to(self.device)
+            netout = self.model(image_batch)
             loss, hm_loss, bm_loss, _ = self.criterion(
-                images, outputs, boxes
+                image_batch, netout, gt_box_batch, gt_label_batch
             )
             self.optimizer.zero_grad()
             loss.backward()
@@ -514,19 +535,27 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.eval()
         loader = self.test_loader
-        for ids, images, boxes, labels in tqdm(loader):
-            images, boxes = self.preprocess((images, boxes))
-            _, _, h, w = images.shape
-            outputs = self.model(images)
+        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(
+            loader
+        ):
+            image_batch = image_batch.to(self.device)
+            gt_box_batch = [x.to(self.device) for x in gt_box_batch]
+            gt_label_batch = [
+                x.to(self.device) for x in gt_label_batch
+            ]
+            _, _, h, w = image_batch.shape
+            netout = self.model(image_batch)
             loss, hm_loss, bm_loss, gt_hms = self.criterion(
-                images, outputs, boxes
+                image_batch, netout, gt_box_batch, gt_label_batch
             )
-            preds = self.post_process(outputs)
-            for (pred, gt) in zip(preds[0], boxes):
+            box_batch, confidence_batch, label_batch = self.to_boxes(
+                netout
+            )
+            for boxes, gt_boxes in zip(box_batch, gt_box_batch):
                 self.meters["score"].update(
                     self.get_score(
-                        yolo_to_pascal(pred, (w, h)),
-                        yolo_to_pascal(gt, (w, h)),
+                        yolo_to_pascal(boxes, (w, h)),
+                        yolo_to_pascal(gt_boxes, (w, h)),
                     )
                 )
 
@@ -534,7 +563,16 @@ class Trainer:
             self.meters["test_hm"].update(hm_loss.item())
             self.meters["test_bm"].update(bm_loss.item())
 
-        self.visualize(outputs, preds, boxes, images, gt_hms)
+        self.visualize(
+            netout,
+            box_batch,
+            confidence_batch,
+            label_batch,
+            gt_box_batch,
+            gt_label_batch,
+            image_batch,
+            gt_hms,
+        )
         self.model_loader.save_if_needed(
             self.model,
             self.meters[self.model_loader.key].get_value(),

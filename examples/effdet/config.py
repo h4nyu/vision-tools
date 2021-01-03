@@ -2,16 +2,17 @@ from typing import *
 from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
-confidence_threshold = 0.6
-iou_threshold = 0.7
-batch_size = 16
+confidence_threshold = 0.3
+iou_threshold = 0.66
+batch_size = 8
 
 # model
 backbone_id = 1
 channels = 64
 box_depth = 2
-lr = 1e-4
-out_ids: List[int] = [5, 6]
+lr = 1e-3
+out_ids: List[int] = [4, 5, 6]
+
 
 input_size = (256, 256)
 object_count_range = (5, 20)
@@ -21,10 +22,10 @@ metric: Tuple[str, WatchMode] = ("score", "max")
 pretrained = True
 
 # criterion
-topk = 19
+topk = 39
 box_weight = 10
 cls_weight = 1
 
 anchor_ratios = [1.0]
 anchor_scales = [1.0, 1.25, 1.5, 1.75]
-anchor_size = 1
+anchor_size = 2

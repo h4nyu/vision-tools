@@ -1,6 +1,6 @@
 import torch
 from object_detection.utils import DetectionPlot
-from object_detection.entities.box import ( PascalBoxes , Labels)
+from object_detection.entities.box import PascalBoxes, Labels
 
 
 def test_detection_plot() -> None:
