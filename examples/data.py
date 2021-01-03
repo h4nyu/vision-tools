@@ -63,7 +63,7 @@ class PolyImage:
     def add_circle(self, max_size: int = 128) -> None:
         cx = np.random.randint(0, self.width - max_size)
         cy = np.random.randint(0, self.height - max_size)
-        radius = random.randint(1, max_size)
+        radius = random.randint(1, max_size // 2)
 
         self.image = cv2.circle(
             self.image, (cx, cy), radius, (0, 0, 0)
