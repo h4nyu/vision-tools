@@ -3,7 +3,7 @@ name = "object-detection"
 include = ["object-detection/py.typed"]
 version = "0.1.1"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Xinyuan Yao <yao.ntno@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
