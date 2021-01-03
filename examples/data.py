@@ -32,9 +32,7 @@ class PolyImage:
         self.height = height
         self.width = width
         self.image = image
-        self.boxes = PascalBoxes(
-            torch.empty((0, 4), dtype=torch.int32)
-        )
+        self.boxes = PascalBoxes(torch.empty((0, 4), dtype=torch.int32))
         self.labels: List[int] = []
 
     def add_triangle(self, max_size: int = 128) -> None:
@@ -65,9 +63,7 @@ class PolyImage:
         cy = np.random.randint(0, self.height - max_size)
         radius = random.randint(1, max_size // 2)
 
-        self.image = cv2.circle(
-            self.image, (cx, cy), radius, (0, 0, 0)
-        )
+        self.image = cv2.circle(self.image, (cx, cy), radius, (0, 0, 0))
         x0 = np.max(cx - radius, 0)
         y0 = np.max(cy - radius, 0)
         x1 = cx + radius
@@ -85,9 +81,7 @@ class PolyImage:
         )(max_size)
 
     def __call__(self) -> Tuple[Image, PascalBoxes, Labels]:
-        img = (
-            torch.from_numpy(self.image).permute(2, 0, 1) / 255.0
-        )  # [H, W]
+        img = torch.from_numpy(self.image).permute(2, 0, 1) / 255.0  # [H, W]
         boxes = self.boxes
         labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
         return Image(img.float()), boxes, labels

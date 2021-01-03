@@ -29,9 +29,7 @@ PredBoxes = Tuple[CoCoBoxes, Confidences]
 LabelBoxes = Tuple[CoCoBoxes, Labels]
 
 YoloBoxBatch = NewType("YoloBoxBatch", Tensor)  # [B, N, 4]
-ConfidenceBatch = NewType(
-    "ConfidenceBatch", Tensor
-)  # [B, N] 0.0 ~ 1.0
+ConfidenceBatch = NewType("ConfidenceBatch", Tensor)  # [B, N] 0.0 ~ 1.0
 
 
 def boxmap_to_boxes(x: BoxMap) -> YoloBoxes:
@@ -138,8 +136,6 @@ def yolo_vflip(yolo: YoloBoxes) -> YoloBoxes:
 
 def yolo_clamp(yolo: YoloBoxes) -> YoloBoxes:
     return pascal_to_yolo(
-        PascalBoxes(
-            yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)
-        ),
+        PascalBoxes(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)),
         (1, 1),
     )

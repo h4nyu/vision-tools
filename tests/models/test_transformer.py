@@ -12,13 +12,9 @@ def test_multihead() -> None:
     query = torch.rand(target_sequence, batch_size, embed_dim)
     key = torch.ones(source_seqence, batch_size, embed_dim)
     value = torch.rand(source_seqence, batch_size, embed_dim)
-    key_padding_mask = torch.zeros(
-        (batch_size, source_seqence), dtype=torch.bool
-    )
+    key_padding_mask = torch.zeros((batch_size, source_seqence), dtype=torch.bool)
 
-    fn = nn.MultiheadAttention(
-        embed_dim=embed_dim, num_heads=2, dropout=0.1
-    )
+    fn = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=2, dropout=0.1)
     target, memory = fn(
         query=query,
         key=key,

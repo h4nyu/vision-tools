@@ -38,9 +38,7 @@ def test_effdet_to_box() -> None:
     annotations = torch.ones((1, 10, 5))
     channels = 32
     to_boxes = ToBoxes()
-    backbone = EfficientNetBackbone(
-        1, out_channels=channels, pretrained=True
-    )
+    backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
     net = EfficientDet(
         num_classes=2,
         backbone=backbone,

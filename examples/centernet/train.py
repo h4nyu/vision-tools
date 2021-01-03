@@ -37,9 +37,7 @@ def train(epochs: int) -> None:
         object_size_range=cfg.object_size_range,
         num_samples=256,
     )
-    backbone = EfficientNetBackbone(
-        1, out_channels=cfg.channels, pretrained=True
-    )
+    backbone = EfficientNetBackbone(1, out_channels=cfg.channels, pretrained=True)
     model = CenterNet(
         num_classes=2,
         channels=cfg.channels,

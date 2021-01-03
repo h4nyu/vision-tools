@@ -20,19 +20,13 @@ class RandomLayout(A.DualTransform):
         self.size_limit = size_limit
 
     def apply(
-        self,
-        img: Any,
-        size: Tuple[int, int],
-        offset: Tuple[int, int],
-        **params: Dict
+        self, img: Any, size: Tuple[int, int], offset: Tuple[int, int], **params: Dict
     ) -> Any:
         width = self.width * size[0]
         height = self.height * size[1]
         offset_x = self.width * offset[0]
         offset_y = self.height * offset[1]
-        pts1 = np.float32(
-            [[0, 0], [0, img.shape[0]], [img.shape[1], 0]]
-        )
+        pts1 = np.float32([[0, 0], [0, img.shape[0]], [img.shape[1], 0]])
         pts2 = np.float32(
             [
                 [offset_x, offset_y],

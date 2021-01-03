@@ -57,9 +57,7 @@ class DetectionPlot:
     def set_title(self, text: str) -> None:
         self.ax.set_title(text)
 
-    def with_image(
-        self, image: Tensor, alpha: Optional[float] = None
-    ) -> None:
+    def with_image(self, image: Tensor, alpha: Optional[float] = None) -> None:
         if len(image.shape) == 2:
             h, w = image.shape
             if (h != self.h) and (w != self.w):
@@ -141,16 +139,8 @@ class DetectionPlot:
         boxes: coco format
         """
         b = len(boxes)
-        _confidences = (
-            confidences
-            if confidences is not None
-            else torch.ones((b,))
-        )
-        _labels = (
-            labels
-            if labels is not None
-            else torch.zeros((b,), dtype=torch.int32)
-        )
+        _confidences = confidences if confidences is not None else torch.ones((b,))
+        _labels = labels if labels is not None else torch.zeros((b,), dtype=torch.int32)
         _boxes = boxes.clone()
         for box, p, c in zip(_boxes, _confidences, _labels):
             x0 = box[0]

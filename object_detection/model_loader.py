@@ -36,9 +36,7 @@ class BestWatcher:
 
     def step(self, metrics: float) -> bool:
         if self.ema and not math.isnan(self.prev_metrics):
-            metrics = self.prev_metrics * self.alpha + metrics * (
-                1 - self.alpha
-            )
+            metrics = self.prev_metrics * self.alpha + metrics * (1 - self.alpha)
         self.prev_metrics = metrics
         if self.op(metrics - self.min_delta, self.best):
             self.best = metrics
@@ -62,9 +60,7 @@ class ModelLoader:
         self.best_watcher = best_watcher
 
     def check_point_exists(self) -> bool:
-        return (
-            self.checkpoint_file.exists() and self.model_path.exists()
-        )
+        return self.checkpoint_file.exists() and self.model_path.exists()
 
     def load_if_needed(self, model: nn.Module) -> nn.Module:
         if self.check_point_exists():

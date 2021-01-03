@@ -69,9 +69,7 @@ def test_centernet_forward() -> None:
     inputs = torch.rand((1, 3, 512, 512))
     channels = 32
     backbone = ResNetBackbone("resnet34", out_channels=channels)
-    fn = CenterNet(
-        num_classes=2, channels=channels, backbone=backbone, out_idx=3
-    )
+    fn = CenterNet(num_classes=2, channels=channels, backbone=backbone, out_idx=3)
 
     netout = fn(inputs)
     heatmap, sizemap, _ = netout

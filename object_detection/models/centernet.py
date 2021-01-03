@@ -87,9 +87,7 @@ class Reg(nn.Module):
     ) -> None:
         super().__init__()
         channels = in_channels
-        self.conv = nn.Sequential(
-            *[FReLU(in_channels) for _ in range(depth)]
-        )
+        self.conv = nn.Sequential(*[FReLU(in_channels) for _ in range(depth)])
 
         self.out = nn.Sequential(
             nn.Conv2d(
@@ -106,9 +104,7 @@ class Reg(nn.Module):
         return x
 
 
-NetOutput = Tuple[
-    Heatmaps, BoxMaps, BoxMap
-]  # label, pos, size, count
+NetOutput = Tuple[Heatmaps, BoxMaps, BoxMap]  # label, pos, size, count
 
 
 class CenterNet(nn.Module):
@@ -124,9 +120,7 @@ class CenterNet(nn.Module):
         self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(
-            *[BiFPN(channels=channels) for _ in range(depth)]
-        )
+        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
         self.hm_reg = nn.Sequential(
             Reg(
                 in_channels=channels,
@@ -184,9 +178,7 @@ class HMLoss(nn.Module):
         pos_loss = pos_loss.sum()
 
         neg_weight = (1 - gt) ** beta
-        neg_loss = neg_weight * (
-            -(pred ** alpha) * torch.log(1 - pred) * neg_mask
-        )
+        neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
         neg_loss = neg_loss.sum()
         loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
         return loss
@@ -220,14 +212,9 @@ class Criterion:
         s_hm, s_bm, anchors = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
-        t_hm = self.mk_hmmaps(
-            gt_box_batch, gt_label_batch, (h, w), (orig_h, orig_w)
-        )
+        t_hm = self.mk_hmmaps(gt_box_batch, gt_label_batch, (h, w), (orig_h, orig_w))
         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
-        box_loss = (
-            self.boxloss(s_bm, gt_box_batch, anchors)
-            * self.box_weight
-        )
+        box_loss = self.boxloss(s_bm, gt_box_batch, anchors) * self.box_weight
         loss = hm_loss + box_loss
         return (loss, hm_loss, box_loss, t_hm)
 
@@ -257,18 +244,12 @@ class BoxLoss:
                 continue
 
             pred_boxes = boxmap_to_boxes(BoxMap(diff_map))
-            match_indices, positive_indices = self.matcher(
-                anchors, gt_boxes, (w, h)
-            )
+            match_indices, positive_indices = self.matcher(anchors, gt_boxes, (w, h))
             num_pos = positive_indices.sum()
             if num_pos == 0:
                 continue
-            matched_gt_boxes = YoloBoxes(
-                gt_boxes[match_indices][positive_indices]
-            )
-            matched_pred_boxes = YoloBoxes(
-                pred_boxes[positive_indices]
-            )
+            matched_gt_boxes = YoloBoxes(gt_boxes[match_indices][positive_indices])
+            matched_pred_boxes = YoloBoxes(pred_boxes[positive_indices])
             if self.use_diff:
                 matched_pred_boxes = YoloBoxes(
                     anchors[positive_indices] + matched_pred_boxes
@@ -307,14 +288,11 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, inputs: NetOutput
-    ) -> t.Tuple[
-        t.List[YoloBoxes], t.List[Confidences], t.List[Labels]
-    ]:
+    ) -> t.Tuple[t.List[YoloBoxes], t.List[Confidences], t.List[Labels]]:
         heatmaps, boxmaps, anchormap = inputs
         device = heatmaps.device
         kpmaps = heatmaps * (
-            (self.max_pool(heatmaps) == heatmaps)
-            & (heatmaps > self.threshold)
+            (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
         )
         kpmaps, labelmaps = torch.max(kpmaps, dim=1)
 
@@ -334,13 +312,9 @@ class ToBoxes:
                 )
             else:
                 boxes = bm[:, pos_idx[0], pos_idx[1]].t()
-            sort_idx = confidences.argsort(descending=True)[
-                : self.limit
-            ]
+            sort_idx = confidences.argsort(descending=True)[: self.limit]
             box_batch.append(YoloBoxes(boxes[sort_idx]))
-            confidence_batch.append(
-                Confidences(confidences[sort_idx])
-            )
+            confidence_batch.append(Confidences(confidences[sort_idx]))
             label_batch.append(Labels(labels[sort_idx]))
         return box_batch, confidence_batch, label_batch
 
@@ -426,9 +400,7 @@ class Visualize:
             )
             plot.with_image(img, alpha=0.7)
             plot.with_image(hm[0].log(), alpha=0.3)
-            plot.with_yolo_boxes(
-                boxes=gt_boxes, labels=gt_labels, color="blue"
-            )
+            plot.with_yolo_boxes(boxes=gt_boxes, labels=gt_labels, color="blue")
             plot.with_yolo_boxes(
                 boxes=boxes,
                 labels=labels,
@@ -488,12 +460,7 @@ class Trainer:
         }
 
     def log(self) -> None:
-        value = ("|").join(
-            [
-                f"{k}:{v.get_value():.4f}"
-                for k, v in self.meters.items()
-            ]
-        )
+        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
         logger.info(value)
 
     def reset_meters(self) -> None:
@@ -511,13 +478,9 @@ class Trainer:
     def train_one_epoch(self) -> None:
         self.model.train()
         loader = self.train_loader
-        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(
-            loader
-        ):
+        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(loader):
             gt_box_batch = [x.to(self.device) for x in gt_box_batch]
-            gt_label_batch = [
-                x.to(self.device) for x in gt_label_batch
-            ]
+            gt_label_batch = [x.to(self.device) for x in gt_label_batch]
             image_batch = image_batch.to(self.device)
             netout = self.model(image_batch)
             loss, hm_loss, bm_loss, _ = self.criterion(
@@ -535,22 +498,16 @@ class Trainer:
     def eval_one_epoch(self) -> None:
         self.model.eval()
         loader = self.test_loader
-        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(
-            loader
-        ):
+        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(loader):
             image_batch = image_batch.to(self.device)
             gt_box_batch = [x.to(self.device) for x in gt_box_batch]
-            gt_label_batch = [
-                x.to(self.device) for x in gt_label_batch
-            ]
+            gt_label_batch = [x.to(self.device) for x in gt_label_batch]
             _, _, h, w = image_batch.shape
             netout = self.model(image_batch)
             loss, hm_loss, bm_loss, gt_hms = self.criterion(
                 image_batch, netout, gt_box_batch, gt_label_batch
             )
-            box_batch, confidence_batch, label_batch = self.to_boxes(
-                netout
-            )
+            box_batch, confidence_batch, label_batch = self.to_boxes(netout)
             for boxes, gt_boxes in zip(box_batch, gt_box_batch):
                 self.meters["score"].update(
                     self.get_score(

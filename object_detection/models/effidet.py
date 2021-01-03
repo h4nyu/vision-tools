@@ -48,9 +48,7 @@ TrainSample = Tuple[ImageId, Image, PascalBoxes, Labels]
 
 def collate_fn(
     batch: List[TrainSample],
-) -> Tuple[
-    ImageBatch, List[PascalBoxes], List[Labels], List[ImageId]
-]:
+) -> Tuple[ImageBatch, List[PascalBoxes], List[Labels], List[ImageId]]:
     images: List[t.Any] = []
     id_batch: List[ImageId] = []
     box_batch: List[PascalBoxes] = []
@@ -98,9 +96,7 @@ class Visualize:
     def __call__(
         self,
         image_batch: ImageBatch,
-        src: Tuple[
-            List[PascalBoxes], List[Confidences], List[Labels]
-        ],
+        src: Tuple[List[PascalBoxes], List[Confidences], List[Labels]],
         tgt: Tuple[List[PascalBoxes], List[Labels]],
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
@@ -109,14 +105,7 @@ class Visualize:
         gt_labels = gt_labels[: self.limit]
         box_batch, confidence_batch, label_batch = src
         _, _, h, w = image_batch.shape
-        for i, (
-            img,
-            boxes,
-            confidences,
-            labels,
-            gtb,
-            gtl,
-        ) in enumerate(
+        for i, (img, boxes, confidences, labels, gtb, gtl,) in enumerate(
             zip(
                 image_batch,
                 box_batch,
@@ -134,9 +123,7 @@ class Visualize:
             )
             plot.with_image(img, alpha=0.5)
             plot.with_pascal_boxes(gtb, color="blue", labels=gtl)
-            plot.with_pascal_boxes(
-                boxes, confidences, labels=labels, color="red"
-            )
+            plot.with_pascal_boxes(boxes, confidences, labels=labels, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
 
@@ -151,9 +138,7 @@ class ClassificationModel(nn.Module):
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.conv = nn.Sequential(
-            *[FReLU(in_channels) for _ in range(depth)]
-        )
+        self.conv = nn.Sequential(*[FReLU(in_channels) for _ in range(depth)])
         self.output = nn.Conv2d(
             in_channels,
             num_anchors * num_classes,
@@ -173,11 +158,7 @@ class ClassificationModel(nn.Module):
             self.num_anchors,
             self.num_classes,
         )
-        return (
-            out.contiguous()
-            .view(batch_size, -1, self.num_classes)
-            .sigmoid()
-        )
+        return out.contiguous().view(batch_size, -1, self.num_classes).sigmoid()
 
 
 class RegressionModel(nn.Module):
@@ -188,9 +169,7 @@ class RegressionModel(nn.Module):
         depth: int = 1,
     ) -> None:
         super().__init__()
-        self.conv = nn.Sequential(
-            *[FReLU(in_channels) for _ in range(depth)]
-        )
+        self.conv = nn.Sequential(*[FReLU(in_channels) for _ in range(depth)])
         self.out = nn.Conv2d(
             in_channels,
             num_anchors * 4,
@@ -236,9 +215,7 @@ class EfficientDet(nn.Module):
         self.out_ids = np.array(out_ids) - 3
         self.anchors = anchors
         self.backbone = backbone
-        self.neck = nn.Sequential(
-            *[BiFPN(channels=channels) for _ in range(fpn_depth)]
-        )
+        self.neck = nn.Sequential(*[BiFPN(channels=channels) for _ in range(fpn_depth)])
         self.box_reg = RegressionModel(
             depth=box_depth,
             in_channels=channels,
@@ -257,14 +234,9 @@ class EfficientDet(nn.Module):
     def forward(self, images: ImageBatch) -> NetOutput:
         features = self.backbone(images)
         features = self.neck(features)
-        anchor_levels = [
-            self.anchors(features[i], 2 ** (i + 1))
-            for i in self.out_ids
-        ]
+        anchor_levels = [self.anchors(features[i], 2 ** (i + 1)) for i in self.out_ids]
         box_levels = [self.box_reg(features[i]) for i in self.out_ids]
-        label_levels = [
-            self.classification(features[i]) for i in self.out_ids
-        ]
+        label_levels = [self.classification(features[i]) for i in self.out_ids]
         return (
             anchor_levels,
             box_levels,
@@ -308,12 +280,7 @@ class Criterion:
 
         box_losses = torch.zeros(batch_size, device=device)
         cls_losses = torch.zeros(batch_size, device=device)
-        for batch_id, (
-            gt_boxes,
-            gt_lables,
-            box_pred,
-            cls_pred,
-        ) in enumerate(
+        for batch_id, (gt_boxes, gt_lables, box_pred, cls_pred,) in enumerate(
             zip(
                 gt_boxes_list,
                 gt_classes_list,
@@ -328,18 +295,14 @@ class Criterion:
                 PascalBoxes(gt_boxes),
             )
             matched_gt_boxes = gt_boxes[pos_ids[:, 0]]
-            matched_pred_boxes = (
-                anchors[pos_ids[:, 1]] + box_pred[pos_ids[:, 1]]
-            )
+            matched_pred_boxes = anchors[pos_ids[:, 1]] + box_pred[pos_ids[:, 1]]
             box_losses[batch_id] = self.box_loss(
                 PascalBoxes(matched_gt_boxes),
                 PascalBoxes(matched_pred_boxes),
             ).mean()
 
             cls_target = torch.zeros(cls_pred.shape, device=device)
-            cls_target[
-                pos_ids[:, 1], gt_lables[pos_ids[:, 0]].long()
-            ] = 1
+            cls_target[pos_ids[:, 1], gt_lables[pos_ids[:, 0]].long()] = 1
             cls_losses[batch_id] = self.cls_loss(
                 cls_pred.float(),
                 cls_target.float(),
@@ -352,9 +315,7 @@ class Criterion:
 
 
 class PreProcess:
-    def __init__(
-        self, device: t.Any, non_blocking: bool = True
-    ) -> None:
+    def __init__(self, device: t.Any, non_blocking: bool = True) -> None:
         super().__init__()
         self.device = device
         self.non_blocking = non_blocking
@@ -477,12 +438,7 @@ class Trainer:
         }
 
     def log(self) -> None:
-        value = ("|").join(
-            [
-                f"{k}:{v.get_value():.4f}"
-                for k, v in self.meters.items()
-            ]
-        )
+        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
         logger.info(value)
 
     def reset_meters(self) -> None:
