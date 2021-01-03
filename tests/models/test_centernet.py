@@ -76,7 +76,7 @@ def test_centernet_forward() -> None:
     netout = fn(inputs)
     heatmap, sizemap, _ = netout
     assert heatmap.shape == (1, 2, 512 // 2, 512 // 2)
-    assert sizemap.shape == (1, 2 * 4, 512 // 2, 512 // 2)
+    assert sizemap.shape == (1, 4, 512 // 2, 512 // 2)
 
 
 def test_to_boxes() -> None:
