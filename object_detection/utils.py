@@ -41,6 +41,8 @@ class DetectionPlot:
     ) -> None:
         self.w, self.h = (w, h)
         self.fig, self.ax = plt.subplots(figsize=figsize)
+        self.fig.patch.set_visible(False)
+        self.ax.axis('off')
         self.ax.imshow(
             torch.ones(self.w, self.h, 3),
             interpolation="nearest",
