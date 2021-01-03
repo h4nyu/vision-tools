@@ -114,15 +114,11 @@ class Visualize:
                 gt_labels,
             )
         ):
-            plot = DetectionPlot(
-                h=h,
-                w=w,
-                use_alpha=self.use_alpha,
-                show_confidences=self.show_confidences,
+            plot = DetectionPlot(img)
+            plot.draw_boxes(boxes=gtb, color="blue", labels=gtl)
+            plot.draw_boxes(
+                boxes=boxes, color="red", labels=labels, confidences=confidences
             )
-            plot.with_image(img, alpha=0.5)
-            plot.with_pascal_boxes(gtb, color="blue", labels=gtl)
-            plot.with_pascal_boxes(boxes, confidences, labels=labels, color="red")
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
 
 

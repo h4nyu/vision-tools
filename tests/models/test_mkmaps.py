@@ -1,6 +1,6 @@
 import pytest, torch
 from object_detection.utils import DetectionPlot
-from object_detection.entities.box import YoloBoxes, Labels, BoxMaps
+from object_detection.entities.box import YoloBoxes, Labels, BoxMaps, yolo_to_pascal
 from object_detection.models.mkmaps import MkGaussianMaps
 from object_detection.models.anchors import EmptyAnchors
 from object_detection.models.centernet import (
@@ -10,8 +10,7 @@ from object_detection.models.centernet import (
 
 
 def test_mkmaps() -> None:
-
-    h, w = 40, 40
+    h, w = 1000, 1000
     gt_boxes = YoloBoxes(
         torch.tensor(
             [
@@ -33,8 +32,7 @@ def test_mkmaps() -> None:
 
     box_batch, conf_batch, label_batch = to_boxes((hm, boxmaps, anchormap))
     for i in range(2):
-        plot = DetectionPlot(w=w, h=h)
-        plot.with_image((hm[0, i] + 1e-4).log())
-        plot.with_yolo_boxes(gt_boxes, color="blue")
-        plot.with_yolo_boxes(box_batch[0], labels=label_batch[0], color="red")
+        plot = DetectionPlot((hm[0, i] + 1e-4).log() * 255)
+        plot.draw_boxes(yolo_to_pascal(gt_boxes, (w, h)), color="blue")
+        plot.draw_boxes(yolo_to_pascal(box_batch[0], (w, h)), color="red")
         plot.save(f"store/test-mk-gaussian-map-{i}.png")

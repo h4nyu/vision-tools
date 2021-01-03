@@ -390,33 +390,17 @@ class Visualize:
                 gt_hms,
             )
         ):
-            plot = DetectionPlot(
-                h=h,
-                w=w,
-                use_alpha=self.use_alpha,
-                figsize=self.figsize,
-                show_confidences=self.show_confidences,
+            plot = DetectionPlot(img)
+            plot.draw_boxes(
+                boxes=yolo_to_pascal(gt_boxes, (w, h)), labels=gt_labels, color="blue"
             )
-            plot.with_image(img, alpha=0.7)
-            plot.with_image(hm[0].log(), alpha=0.3)
-            plot.with_yolo_boxes(boxes=gt_boxes, labels=gt_labels, color="blue")
-            plot.with_yolo_boxes(
-                boxes=boxes,
+            plot.draw_boxes(
+                boxes=yolo_to_pascal(boxes, (w, h)),
                 labels=labels,
                 confidences=confidences,
                 color="red",
             )
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
-
-            plot = DetectionPlot(
-                h=h,
-                w=w,
-                use_alpha=self.use_alpha,
-                figsize=self.figsize,
-            )
-            plot.with_image(img, alpha=0.7)
-            plot.with_image((gt_hm[0] + 1e-4).log(), alpha=0.3)
-            plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
 
 
 class Trainer:

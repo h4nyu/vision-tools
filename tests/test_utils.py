@@ -1,17 +1,24 @@
 import torch
 from object_detection.utils import DetectionPlot
-from object_detection.entities.box import PascalBoxes, Labels
+from object_detection.entities.box import PascalBoxes, Labels, Confidences
 
 
 def test_detection_plot() -> None:
-    in_boxes = PascalBoxes(
+    boxes = PascalBoxes(
         torch.tensor(
             [
-                [10, 10, 30, 30],
+                [10, 10, 300, 300],
             ]
         )
     )
-    labels = Labels(torch.tensor([1], dtype=torch.int32))
-    plot = DetectionPlot(w=100, h=100)
-    plot.with_pascal_boxes(in_boxes, color="blue", labels=labels)
-    plot.save(f"store/test-plot.png")
+    img = torch.ones((3, 1000, 1000), dtype=torch.uint8)
+    labels = Labels(torch.tensor([10], dtype=torch.int32))
+    confidences = Confidences(torch.tensor([0.5]))
+    plot = DetectionPlot(img)
+    plot.overlay(torch.ones((3, 1000, 1000), dtype=torch.uint8) * 122, 0.5)
+    plot.draw_boxes(
+        boxes=boxes,
+        labels=labels,
+        confidences=confidences,
+    )
+    plot.save("/store/test-plot.jpg")

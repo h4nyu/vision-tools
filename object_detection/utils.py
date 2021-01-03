@@ -1,7 +1,7 @@
 import torch
-import typing as t
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+from typing import *
+from torch import Tensor
+from PIL import Image, ImageDraw
 import json
 import random
 import numpy as np
@@ -19,6 +19,7 @@ from .entities.box import (
     yolo_to_coco,
     pascal_to_coco,
 )
+from torchvision.utils import save_image
 
 logger = getLogger(__name__)
 
@@ -30,137 +31,50 @@ def init_seed(seed: int = 777) -> None:
     torch.cuda.manual_seed(seed)  # type: ignore
 
 
+colors = [
+    "green",
+    "red",
+    "blue",
+]
+
+
 class DetectionPlot:
     def __init__(
         self,
-        w: int = 128,
-        h: int = 128,
-        figsize: t.Tuple[int, int] = (10, 10),
-        use_alpha: bool = True,
-        show_confidences: bool = False,
+        img: torch.Tensor,
     ) -> None:
-        self.w, self.h = (w, h)
-        self.fig, self.ax = plt.subplots(figsize=figsize)
-        self.fig.patch.set_visible(False)
-        self.ax.axis('off')
-        self.ax.imshow(
-            torch.ones(self.w, self.h, 3),
-            interpolation="nearest",
-        )
-        self.use_alpha = use_alpha
-        self.show_confidences = show_confidences
+        if img.ndim == 2:
+            ndarr = img.numpy().astype(np.uint8)
+        if img.ndim == 3:
+            ndarr = img.permute(1, 2, 0).numpy().astype(np.uint8)
 
-    def __del__(self) -> None:
-        plt.close(self.fig)
+        self.img = Image.fromarray(ndarr)
+        self.draw = ImageDraw.Draw(self.img)
 
-    def save(self, path: t.Union[str, Path]) -> None:
-        self.fig.savefig(path)
+    def save(self, path: Union[str, Path]) -> None:
+        self.img.save(path)
 
-    def set_title(self, text: str) -> None:
-        self.ax.set_title(text)
+    def overlay(self, img: Tensor, alpha: float) -> None:
+        other = Image.fromarray(img.permute(1, 2, 0).numpy())
+        self.img = Image.blend(self.img, other, alpha)
 
-    def with_image(self, image: Tensor, alpha: Optional[float] = None) -> None:
-        if len(image.shape) == 2:
-            h, w = image.shape
-            if (h != self.h) and (w != self.w):
-                image = (
-                    F.interpolate(
-                        image.unsqueeze(0).unsqueeze(0),
-                        size=(self.h, self.w),
-                    )
-                    .squeeze(0)
-                    .squeeze(0)
-                )
-            self.ax.imshow(
-                image.detach().cpu(),
-                interpolation="nearest",
-                alpha=alpha,
-            )
-        elif len(image.shape) == 3:
-            (
-                _,
-                h,
-                w,
-            ) = image.shape
-            if (h != self.h) and (w != self.w):
-                image = F.interpolate(
-                    image.unsqueeze(0),
-                    size=(self.h, self.w),
-                ).squeeze(0)
-            image = image.permute(1, 2, 0)
-            self.ax.imshow(
-                image.detach().cpu(),
-                interpolation="nearest",
-                alpha=alpha,
-            )
-        else:
-            shape = image.shape
-            raise ValueError(f"invald shape={shape}")
-
-    def with_yolo_boxes(
-        self,
-        boxes: YoloBoxes,
-        confidences: t.Optional[Tensor] = None,
-        labels: t.Optional[Labels] = None,
-        color: str = "black",
-        fontsize: int = 7,
-    ) -> None:
-        self.with_coco_boxes(
-            boxes=yolo_to_coco(boxes, size=(self.w, self.h)),
-            confidences=confidences,
-            color=color,
-            labels=labels,
-            fontsize=fontsize,
-        )
-
-    def with_pascal_boxes(
+    @torch.no_grad()
+    def draw_boxes(
         self,
         boxes: PascalBoxes,
-        confidences: t.Optional[Tensor] = None,
-        labels: t.Optional[Labels] = None,
-        color: str = "black",
-        fontsize: int = 7,
+        confidences: Optional[Tensor] = None,
+        labels: Optional[Tensor] = None,
+        color: str = "white",
+        font_size: int = 8,
+        line_width: int = 1,
     ) -> None:
-        self.with_coco_boxes(
-            boxes=pascal_to_coco(boxes),
-            confidences=confidences,
-            color=color,
-            labels=labels,
-            fontsize=fontsize,
-        )
-
-    def with_coco_boxes(
-        self,
-        boxes: CoCoBoxes,
-        confidences: t.Optional[Tensor] = None,
-        labels: t.Optional[Tensor] = None,
-        color: str = "black",
-        fontsize: int = 8,
-    ) -> None:
-        """
-        boxes: coco format
-        """
-        b = len(boxes)
-        _confidences = confidences if confidences is not None else torch.ones((b,))
-        _labels = labels if labels is not None else torch.zeros((b,), dtype=torch.int32)
-        _boxes = boxes.clone()
-        for box, p, c in zip(_boxes, _confidences, _labels):
-            x0 = box[0]
-            y0 = box[1]
-            self.ax.text(
-                x0,
-                y0,
-                f"[{c}]{p:.2f}",
-                fontsize=fontsize,
-                color=color,
+        _labels = labels.tolist() if labels is not None else []
+        for i, box in enumerate(boxes.tolist()):
+            self.draw.rectangle(box, width=line_width, outline=color)
+            label = "{}".format(labels[i]) if labels is not None else ""
+            confidence = (
+                "{:.3f}".format(float(confidences[i]))
+                if confidences is not None
+                else ""
             )
-            rect = mpatches.Rectangle(
-                (x0, y0),
-                width=box[2],
-                height=box[3],
-                fill=False,
-                edgecolor=color,
-                linewidth=1,
-                alpha=float(p) if self.use_alpha else None,
-            )
-            self.ax.add_patch(rect)
+            self.draw.text((box[0], box[1]), f"{label}: {confidence}", fill=color)
