@@ -2,8 +2,8 @@ from typing import *
 from object_detection.entities import PyramidIdx
 from object_detection.model_loader import WatchMode
 
-confidence_threshold = 0.3
-iou_threshold = 0.66
+confidence_threshold = 0.5
+iou_threshold = 0.60
 batch_size = 8
 
 # model

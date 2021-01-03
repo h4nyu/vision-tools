@@ -22,9 +22,6 @@ mypy = "^0.790"
 pytest-cov = "^2.10.1"
 pytest-benchmark = "^3.2.3"
 
-[tool.black]
-line-length = 70
-
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
