@@ -81,7 +81,7 @@ class PolyImage:
         )(max_size)
 
     def __call__(self) -> Tuple[Image, PascalBoxes, Labels]:
-        img = torch.from_numpy(self.image).permute(2, 0, 1) / 255.0  # [H, W]
+        img = torch.from_numpy(self.image).permute(2, 0, 1)  # [H, W]
         boxes = self.boxes
         labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
         return Image(img.float()), boxes, labels

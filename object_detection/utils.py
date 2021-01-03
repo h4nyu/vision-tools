@@ -44,10 +44,9 @@ class DetectionPlot:
         img: torch.Tensor,
     ) -> None:
         if img.ndim == 2:
-            ndarr = img.numpy().astype(np.uint8)
+            ndarr = img.to('cpu', torch.uint8).numpy()
         if img.ndim == 3:
-            ndarr = img.permute(1, 2, 0).numpy().astype(np.uint8)
-
+            ndarr = img.to('cpu', torch.uint8).permute(1, 2, 0).numpy()
         self.img = Image.fromarray(ndarr)
         self.draw = ImageDraw.Draw(self.img)
 
@@ -55,7 +54,7 @@ class DetectionPlot:
         self.img.save(path)
 
     def overlay(self, img: Tensor, alpha: float) -> None:
-        other = Image.fromarray(img.permute(1, 2, 0).numpy())
+        other = Image.fromarray(img.to('cpu', torch.uint8).permute(1, 2, 0).numpy())
         self.img = Image.blend(self.img, other, alpha)
 
     @torch.no_grad()
