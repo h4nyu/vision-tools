@@ -9,7 +9,7 @@ from object_detection.entities import (
 )
 
 
-def precition(iou_matrix: Tensor, threshold: float) -> float:
+def precision(iou_matrix: Tensor, threshold: float) -> float:
     candidates, candidate_ids = (iou_matrix).max(1)
     n_pr, n_gt = iou_matrix.shape
     match_ids = candidate_ids[candidates > threshold]
@@ -43,5 +43,5 @@ class MeanPrecition:
             pred_boxes,
             gt_boxes,
         )
-        res = np.mean([precition(iou_matrix, t) for t in self.iou_thresholds])
+        res = np.mean([precision(iou_matrix, t) for t in self.iou_thresholds])
         return res
