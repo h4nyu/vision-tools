@@ -16,18 +16,8 @@ def test_average_precision() -> None:
             [
                 [2, 2, 4, 4],
                 [2, 2, 4, 4],
-                [2, 2, 4, 4],
                 [3, 3, 5, 5],
             ]
-        )
-    )
-    confidences = Confidences(
-        torch.tensor(
-            [
-                0.8,
-                0.8,
-                0.9,
-            ],
         )
     )
     gt_boxes = PascalBoxes(
@@ -40,7 +30,6 @@ def test_average_precision() -> None:
     metrics = AveragePrecision(iou_threshold=0.5)
     res = metrics(
         boxes=boxes,
-        confidences=confidences,
         gt_boxes=gt_boxes,
     )
     print(res)
