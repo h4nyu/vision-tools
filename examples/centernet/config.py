@@ -11,11 +11,11 @@ use_peak = True
 mode: GaussianMapMode = "aspect"
 to_boxes_threshold = 0.3
 
-lr = 1e-4
+lr = 1e-3
 batch_size = 8
-out_idx = 4
+out_idx = 5
 channels = 64
-input_size = (256, 256)
+input_size = (512, 512)
 metric: Tuple[str, WatchMode] = ("score", "max")
 
 heatmap_weight = 1.0

@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
+from adabelief_pytorch import AdaBelief
 from object_detection.models.centernet import (
     collate_fn,
     CenterNet,
@@ -63,7 +64,8 @@ def train(epochs: int) -> None:
         batch_size=cfg.batch_size * 2,
         shuffle=True,
     )
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
+    optimizer = AdaBelief(model.parameters(), lr=cfg.lr, eps=1e-16, betas=(0.9,0.999), weight_decouple = True, rectify = False)
+
     visualize = Visualize(cfg.out_dir, "test", limit=2)
 
     model_loader = ModelLoader(
