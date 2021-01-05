@@ -1,3 +1,4 @@
+from adabelief_pytorch import AdaBelief
 import torch
 from torch.utils.data import DataLoader
 from object_detection.models.backbones.effnet import (
@@ -62,7 +63,7 @@ def train(epochs: int) -> None:
         box_weight=config.box_weight,
         cls_weight=config.cls_weight,
     )
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+    optimizer = AdaBelief(model.parameters(), lr=config.lr, eps=1e-16, betas=(0.9,0.999), weight_decouple = True, rectify = False)
     visualize = Visualize("/store/efficientdet", "test", limit=2)
     get_score = MeanPrecition()
     to_boxes = ToBoxes(
