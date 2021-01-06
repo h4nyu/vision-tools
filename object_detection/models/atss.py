@@ -25,10 +25,10 @@ class ATSS:
         anchors: PascalBoxes,
         gt: PascalBoxes,
     ) -> Tensor:
+        device = anchors.device
         matched_ids = self.assign(anchors, gt)
         gt_count, _ = matched_ids.shape
         anchor_count, _ = anchors.shape
-        device = anchors.device
         pos_ids = torch.zeros(
             (
                 gt_count,

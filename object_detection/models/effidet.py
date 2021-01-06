@@ -283,25 +283,25 @@ class Criterion:
                 cls_preds,
             )
         ):
-            if len(gt_boxes) == 0:
-                continue
             pos_ids = self.atss(
                 anchors,
                 PascalBoxes(gt_boxes),
             )
             matched_gt_boxes = gt_boxes[pos_ids[:, 0]]
             matched_pred_boxes = anchors[pos_ids[:, 1]] + box_pred[pos_ids[:, 1]]
-            box_losses[batch_id] = self.box_loss(
-                PascalBoxes(matched_gt_boxes),
-                PascalBoxes(matched_pred_boxes),
-            ).mean()
-
             cls_target = torch.zeros(cls_pred.shape, device=device)
             cls_target[pos_ids[:, 1], gt_lables[pos_ids[:, 0]].long()] = 1
             cls_losses[batch_id] = self.cls_loss(
                 cls_pred.float(),
                 cls_target.float(),
             ).sum()
+
+            if len(gt_boxes) == 0:
+                continue
+            box_losses[batch_id] = self.box_loss(
+                PascalBoxes(matched_gt_boxes),
+                PascalBoxes(matched_pred_boxes),
+            ).mean()
 
         box_loss = box_losses.mean() * self.box_weight
         cls_loss = cls_losses.mean() * self.cls_weight

@@ -14,8 +14,11 @@ class ClosestAssign:
         self.topk = topk
 
     def __call__(self, anchor: PascalBoxes, gt: PascalBoxes) -> Tensor:
-        anchor_count = anchor.shape[0]
+        device = anchor.device
         gt_count = gt.shape[0]
+        anchor_count = anchor.shape[0]
+        if gt_count == 0:
+            return torch.zeros((0, gt_count), device=device)
         anchor_ctr = (
             ((anchor[:, :2] + anchor[:, 2:]) / 2.0)
             .view(anchor_count, 1, 2)
