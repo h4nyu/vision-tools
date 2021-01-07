@@ -48,7 +48,7 @@ def train(epochs: int) -> None:
     criterion = Criterion(
         box_weight=cfg.box_weight,
         heatmap_weight=cfg.heatmap_weight,
-        mk_hmmaps=MkGaussianMaps(num_classes=cfg.num_classes),
+        mk_hmmaps=MkGaussianMaps(num_classes=cfg.num_classes, sigma=cfg.sigma),
         mk_boxmaps=MkCenterBoxMaps(),
     )
     train_loader = DataLoader(

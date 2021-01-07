@@ -402,6 +402,12 @@ class Visualize:
                 color="red",
             )
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
+            gt_merged_hm, _ = torch.max(gt_hm, dim=0)
+            plot = DetectionPlot(gt_merged_hm * 255)
+            plot.save(f"{self.out_dir}/{self.prefix}-gt-hm-{i}.png")
+            merged_hm, _ = torch.max(hm, dim=0)
+            plot = DetectionPlot(merged_hm * 255)
+            plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
 
 
 class Trainer:
@@ -494,7 +500,6 @@ class Trainer:
             loss, hm_loss, bm_loss, gt_hms = self.criterion(
                 image_batch, netout, gt_box_batch, gt_label_batch
             )
-            print(loss, hm_loss, bm_loss)
             box_batch, confidence_batch, label_batch = self.to_boxes(netout)
             for boxes, gt_boxes in zip(box_batch, gt_box_batch):
                 self.meters["score"].update(

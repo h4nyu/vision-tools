@@ -20,6 +20,7 @@ from .entities.box import (
     pascal_to_coco,
 )
 from torchvision.utils import save_image
+from torch.nn.functional import interpolate
 
 logger = getLogger(__name__)
 
@@ -43,19 +44,20 @@ class DetectionPlot:
         self,
         img: torch.Tensor,
     ) -> None:
+        self.img = self.to_image(img)
+        self.draw = ImageDraw.Draw(self.img)
+
+    def to_image(self, img: torch.Tensor) -> Image:
         if img.ndim == 2:
             ndarr = img.to("cpu", torch.uint8).numpy()
-        if img.ndim == 3:
+        elif img.ndim == 3:
             ndarr = img.to("cpu", torch.uint8).permute(1, 2, 0).numpy()
-        self.img = Image.fromarray(ndarr)
-        self.draw = ImageDraw.Draw(self.img)
+        else:
+            raise ValueError("invalid shape")
+        return Image.fromarray(ndarr)
 
     def save(self, path: Union[str, Path]) -> None:
         self.img.save(path)
-
-    def overlay(self, img: Tensor, alpha: float) -> None:
-        other = Image.fromarray(img.to("cpu", torch.uint8).permute(1, 2, 0).numpy())
-        self.img = Image.blend(self.img, other, alpha)
 
     @torch.no_grad()
     def draw_boxes(
@@ -76,4 +78,4 @@ class DetectionPlot:
                 if confidences is not None
                 else ""
             )
-            self.draw.text((box[0], box[1]), f"{label}: {confidence}", fill=color)
+            self.draw.text((box[0], box[1]), f"{label} {confidence}", fill=color)
