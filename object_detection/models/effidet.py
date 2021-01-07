@@ -33,6 +33,7 @@ from logging import getLogger
 from pathlib import Path
 from typing_extensions import Literal
 from tqdm import tqdm
+from torch.cuda.amp import GradScaler, autocast
 
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
@@ -419,6 +420,7 @@ class Trainer:
         self.criterion = criterion
         self.visualize = visualize
         self.get_score = get_score
+        self.scaler = GradScaler()
         self.meters = {
             key: MeanMeter()
             for key in [
@@ -462,17 +464,19 @@ class Trainer:
                 gt_boxes_list,
                 gt_cls_list,
             ) = self.preprocess((samples, gt_boxes_list, gt_cls_list))
-            outputs = self.model(samples)
-            loss, box_loss, label_loss = self.criterion(
-                samples,
-                outputs,
-                gt_boxes_list,
-                gt_cls_list,
-            )
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
 
+            self.optimizer.zero_grad()
+            with autocast(enabled=True):
+                outputs = self.model(samples)
+                loss, box_loss, label_loss = self.criterion(
+                    samples,
+                    outputs,
+                    gt_boxes_list,
+                    gt_cls_list,
+                )
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
             self.meters["train_loss"].update(loss.item())
             self.meters["train_box"].update(box_loss.item())
             self.meters["train_label"].update(label_loss.item())

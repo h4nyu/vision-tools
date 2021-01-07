@@ -46,6 +46,7 @@ from object_detection.entities import (
     Image,
     TrainSample,
 )
+from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
 from object_detection.model_loader import ModelLoader
@@ -155,7 +156,7 @@ class HMLoss(nn.Module):
         self,
         alpha: float = 2.0,
         beta: float = 2.0,
-        eps: float = 1e-4,
+        eps: float = 1e-3,
     ):
         super().__init__()
         self.alpha = alpha
@@ -426,6 +427,7 @@ class Trainer:
         self.to_boxes = to_boxes
         self.model = model.to(self.device)
         self.get_score = get_score
+        self.scaler = GradScaler()
 
         self.model_loader = model_loader
         self.visualize = visualize
@@ -465,13 +467,15 @@ class Trainer:
             gt_box_batch = [x.to(self.device) for x in gt_box_batch]
             gt_label_batch = [x.to(self.device) for x in gt_label_batch]
             image_batch = image_batch.to(self.device)
-            netout = self.model(image_batch)
-            loss, hm_loss, bm_loss, _ = self.criterion(
-                image_batch, netout, gt_box_batch, gt_label_batch
-            )
             self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            with autocast():
+                netout = self.model(image_batch)
+                loss, hm_loss, bm_loss, _ = self.criterion(
+                    image_batch, netout, gt_box_batch, gt_label_batch
+                )
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
 
             self.meters["train_loss"].update(loss.item())
             self.meters["train_hm"].update(hm_loss.item())
@@ -490,6 +494,7 @@ class Trainer:
             loss, hm_loss, bm_loss, gt_hms = self.criterion(
                 image_batch, netout, gt_box_batch, gt_label_batch
             )
+            print(loss, hm_loss, bm_loss)
             box_batch, confidence_batch, label_batch = self.to_boxes(netout)
             for boxes, gt_boxes in zip(box_batch, gt_box_batch):
                 self.meters["score"].update(
