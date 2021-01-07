@@ -135,6 +135,7 @@ class CenterNet(nn.Module):
                 out_channels=4,
                 depth=depth,
             ),
+            nn.Sigmoid(),
         )
         self.anchors = EmptyAnchors()
 
@@ -254,7 +255,6 @@ class BoxLoss:
                 matched_pred_boxes = YoloBoxes(
                     anchors[positive_indices] + matched_pred_boxes
                 )
-
             box_losses.append(
                 self.loss(
                     yolo_to_pascal(matched_pred_boxes, (1, 1)),
@@ -318,20 +318,6 @@ class ToBoxes:
             label_batch.append(Labels(labels[sort_idx]))
         return box_batch, confidence_batch, label_batch
 
-
-class PreProcess:
-    def __init__(self, device: t.Any) -> None:
-        super().__init__()
-        self.device = device
-
-    def __call__(
-        self, batch: t.Tuple[ImageBatch, t.List[YoloBoxes]]
-    ) -> t.Tuple[ImageBatch, List[YoloBoxes]]:
-        image_batch, box_batch = batch
-        image_batch = ImageBatch(image_batch.to(self.device))
-        box_batch = [YoloBoxes(x.to(self.device)) for x in box_batch]
-
-        return image_batch, box_batch
 
 
 class Visualize:
@@ -429,7 +415,6 @@ class Trainer:
         self.train_loader = train_loader
         self.test_loader = test_loader
         self.criterion = criterion
-        self.preprocess = PreProcess(self.device)
         self.to_boxes = to_boxes
         self.model = model.to(self.device)
         self.get_score = get_score
