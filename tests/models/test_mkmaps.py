@@ -21,7 +21,7 @@ def test_mkmaps() -> None:
     )
     gt_labels = Labels(torch.tensor([1, 0]))
     to_boxes = ToBoxes(threshold=0.1)
-    mkmaps = MkGaussianMaps(sigma=2.0, num_classes=2)
+    mkmaps = MkGaussianMaps(sigma=20.0, num_classes=2)
     hm = mkmaps([gt_boxes], [gt_labels], (h, w), (h * 10, w * 10))
     assert hm.shape == (1, 2, h, w)
     mk_anchors = EmptyAnchors()
@@ -31,8 +31,8 @@ def test_mkmaps() -> None:
     )
 
     box_batch, conf_batch, label_batch = to_boxes((hm, boxmaps, anchormap))
-    for i in range(2):
-        plot = DetectionPlot((hm[0, i] + 1e-4).log() * 255)
-        plot.draw_boxes(yolo_to_pascal(gt_boxes, (w, h)), color="blue")
-        plot.draw_boxes(yolo_to_pascal(box_batch[0], (w, h)), color="red")
-        plot.save(f"store/test-mk-gaussian-map-{i}.png")
+    merged, _ = torch.max(hm[0], dim=0)
+    plot = DetectionPlot(merged * 255)
+    plot.draw_boxes(yolo_to_pascal(gt_boxes, (w, h)), color="blue")
+    plot.draw_boxes(yolo_to_pascal(box_batch[0], (w, h)), color="red")
+    plot.save(f"store/test-mk-gaussian-map.png")
