@@ -157,7 +157,7 @@ class HMLoss(nn.Module):
         self,
         alpha: float = 2.0,
         beta: float = 2.0,
-        eps: float = 1e-3,
+        eps: float = 5e-4,
     ):
         super().__init__()
         self.alpha = alpha
