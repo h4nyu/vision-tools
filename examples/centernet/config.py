@@ -15,7 +15,7 @@ lr = 1e-4
 batch_size = 8
 out_idx = 4
 channels = 64
-input_size = (256, 256)
+input_size = (512, 512)
 metric: Tuple[str, WatchMode] = ("score", "max")
 
 heatmap_weight = 1.0

@@ -13,7 +13,7 @@ lr = 1e-4
 out_ids: List[int] = [4, 5, 6]
 
 
-input_size = (256, 256)
+input_size = (512, 512)
 object_count_range = (5, 20)
 object_size_range = (32, 64)
 out_dir = "/store/efficientdet"
