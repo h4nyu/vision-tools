@@ -69,7 +69,7 @@ def train(epochs: int) -> None:
         model.parameters(),
         lr=cfg.lr,
         betas=(0.9, 0.999),
-        eps=1e-8,
+        eps=1e-4,
         weight_decay=0,
     )
     visualize = Visualize(cfg.out_dir, "test", limit=2)
