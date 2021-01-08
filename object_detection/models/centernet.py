@@ -414,6 +414,7 @@ class Trainer:
         get_score: Callable[[PascalBoxes, PascalBoxes], float],
         to_boxes: ToBoxes,
         device: str = "cpu",
+        use_amp: bool = False,
     ) -> None:
         self.device = torch.device(device)
         self.optimizer = optimizer
@@ -424,6 +425,7 @@ class Trainer:
         self.model = model.to(self.device)
         self.get_score = get_score
         self.scaler = GradScaler()
+        self.use_amp = use_amp
 
         self.model_loader = model_loader
         self.visualize = visualize
@@ -464,7 +466,7 @@ class Trainer:
             gt_label_batch = [x.to(self.device) for x in gt_label_batch]
             image_batch = image_batch.to(self.device)
             self.optimizer.zero_grad()
-            with autocast():
+            with autocast(enabled=self.use_amp):
                 netout = self.model(image_batch)
                 loss, hm_loss, bm_loss, _ = self.criterion(
                     image_batch, netout, gt_box_batch, gt_label_batch

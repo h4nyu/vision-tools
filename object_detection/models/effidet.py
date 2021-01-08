@@ -189,7 +189,7 @@ class RegressionModel(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        # x = self.conv(x)
+        x = self.conv(x)
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
         x = x.contiguous().view(x.shape[0], -1, 4)
@@ -422,11 +422,13 @@ class Trainer:
         get_score: Callable[[PascalBoxes, PascalBoxes], float],
         to_boxes: ToBoxes,
         device: str = "cpu",
+        use_amp: bool = False,
         criterion: Criterion = Criterion(),
     ) -> None:
         self.device = torch.device(device)
         self.model_loader = model_loader
         self.model = model.to(self.device)
+        self.use_amp = use_amp
         self.preprocess = PreProcess(self.device)
         self.to_boxes = to_boxes
         self.optimizer = optimizer
@@ -481,7 +483,7 @@ class Trainer:
             ) = self.preprocess((samples, gt_boxes_list, gt_cls_list))
 
             self.optimizer.zero_grad()
-            with autocast(enabled=True):
+            with autocast(enabled=self.use_amp):
                 outputs = self.model(samples)
                 loss, box_loss, label_loss = self.criterion(
                     samples,
