@@ -3,13 +3,13 @@ from object_detection.model_loader import WatchMode
 
 confidence_threshold = 0.5
 iou_threshold = 0.60
-batch_size = 8
+batch_size = 12
 
 # model
 backbone_id = 1
 channels = 64
 box_depth = 2
-lr = 1e-4
+lr = 1e-3
 out_ids: List[int] = [4, 5, 6]
 
 

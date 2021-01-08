@@ -40,6 +40,20 @@ def boxmaps_to_boxes(x: BoxMaps) -> YoloBoxes:
     return YoloBoxes(x.permute(3, 2, 0, 1).reshape(-1, 4))
 
 
+def resize(boxes: PascalBoxes, scale: Tuple[float, float]) -> PascalBoxes:
+    if len(boxes) == 0:
+        return boxes
+    wr, hr = scale
+    x0, y0, x1, y1 = boxes.unbind(-1)
+    b = [
+        x0 * wr,
+        y0 * hr,
+        x1 * wr,
+        y1 * hr,
+    ]
+    return PascalBoxes(torch.stack(b, dim=-1))
+
+
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
     if len(coco) == 0:
         return YoloBoxes(coco)

@@ -1,8 +1,7 @@
 import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
-from .modules import Hswish, ConvBR2d, CSE2d, Mish
-from .activations import FReLU
+from .modules import Hswish, ConvBR2d, CSE2d, Mish, FReLU
 from typing_extensions import Literal
 
 
@@ -28,6 +27,7 @@ class MobileV3(nn.Module):
                 padding=0,
                 bias=False,
             ),
+            FReLU(mid_channels),
             ConvBR2d(
                 mid_channels,
                 mid_channels,
@@ -36,7 +36,6 @@ class MobileV3(nn.Module):
                 padding=padding,
                 groups=mid_channels,
                 bias=False,
-                activation=None,
             ),
             CSE2d(mid_channels, reduction=4),
             FReLU(mid_channels),
@@ -47,7 +46,6 @@ class MobileV3(nn.Module):
                 kernel_size=1,
                 stride=1,
                 padding=0,
-                activation=None,
             ),
         )
 
@@ -82,6 +80,7 @@ class SENextBottleneck2d(nn.Module):
                 stride=1,
                 padding=0,
             ),
+            FReLU(mid_channels),
             ConvBR2d(
                 mid_channels,
                 mid_channels,
@@ -90,6 +89,7 @@ class SENextBottleneck2d(nn.Module):
                 padding=1,
                 groups=groups,
             ),
+            FReLU(mid_channels),
         )
 
         self.bypass = nn.Sequential()
@@ -108,7 +108,6 @@ class SENextBottleneck2d(nn.Module):
                     kernel_size=1,
                     padding=0,
                     stride=1,
-                    activation=None,
                 ),
             ),
         )
@@ -121,7 +120,6 @@ class SENextBottleneck2d(nn.Module):
                     kernel_size=1,
                     padding=0,
                     stride=1,
-                    activation=None,
                 ),
             )
         self.cse = CSE2d(out_channels, reduction)

@@ -21,7 +21,7 @@ from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
 from .losses import DIoU, HuberLoss, DIoULoss
-from .activations import FReLU
+from .modules import FReLU, ConvBR2d
 from .atss import ATSS
 from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops.boxes import box_iou
@@ -134,7 +134,14 @@ class ClassificationModel(nn.Module):
         super(ClassificationModel, self).__init__()
         self.num_classes = num_classes
         self.num_anchors = num_anchors
-        self.conv = nn.Sequential(*[FReLU(in_channels) for _ in range(depth)])
+        self.conv = nn.Sequential(*[
+            nn.Sequential(
+                ConvBR2d(in_channels, in_channels, 3),
+                FReLU(in_channels),
+            )
+            for _
+            in range(depth)
+        ])
         self.output = nn.Conv2d(
             in_channels,
             num_anchors * num_classes,
@@ -157,6 +164,7 @@ class ClassificationModel(nn.Module):
         return out.contiguous().view(batch_size, -1, self.num_classes).sigmoid()
 
 
+
 class RegressionModel(nn.Module):
     def __init__(
         self,
@@ -165,7 +173,14 @@ class RegressionModel(nn.Module):
         depth: int = 1,
     ) -> None:
         super().__init__()
-        self.conv = nn.Sequential(*[FReLU(in_channels) for _ in range(depth)])
+        self.conv = nn.Sequential(*[
+            nn.Sequential(
+                ConvBR2d(in_channels, in_channels, 3),
+                FReLU(in_channels),
+            )
+            for _
+            in range(depth)
+        ])
         self.out = nn.Conv2d(
             in_channels,
             num_anchors * 4,
@@ -174,7 +189,7 @@ class RegressionModel(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.conv(x)
+        # x = self.conv(x)
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
         x = x.contiguous().view(x.shape[0], -1, 4)

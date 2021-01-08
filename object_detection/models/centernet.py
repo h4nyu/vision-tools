@@ -5,7 +5,6 @@ import typing as t
 import torch as tr
 import torch.nn.functional as F
 from functools import partial
-from .activations import FReLU
 from typing import (
     List,
     Tuple,
@@ -33,7 +32,7 @@ from object_detection.entities import (
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
-from .modules import ConvBR2d, Mish
+from .modules import ConvBR2d, FReLU
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import HuberLoss, DIoULoss
@@ -87,7 +86,14 @@ class Reg(nn.Module):
     ) -> None:
         super().__init__()
         channels = in_channels
-        self.conv = nn.Sequential(*[FReLU(in_channels) for _ in range(depth)])
+        self.conv = nn.Sequential(*[
+            nn.Sequential(
+                ConvBR2d(in_channels, in_channels, 3),
+                FReLU(in_channels),
+            )
+            for _
+            in range(depth)
+        ])
 
         self.out = nn.Sequential(
             nn.Conv2d(
@@ -317,7 +323,6 @@ class ToBoxes:
             confidence_batch.append(Confidences(confidences[sort_idx]))
             label_batch.append(Labels(labels[sort_idx]))
         return box_batch, confidence_batch, label_batch
-
 
 
 class Visualize:

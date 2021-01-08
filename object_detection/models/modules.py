@@ -4,6 +4,25 @@ from typing import Optional
 import torch.nn.functional as F
 
 
+class FReLU(nn.Module):
+    def __init__(self, in_channels: int, kerel_size: int = 3) -> None:
+        super().__init__()
+        self.conv = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=in_channels,
+            kernel_size=kerel_size,
+            stride=1,
+            padding=kerel_size // 2,
+            groups=in_channels,
+        )
+        self.bn = nn.BatchNorm2d(in_channels)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x0 = self.conv(x)
+        x0 = self.bn(x)
+        x = torch.max(x, x0)
+        return x
+
 class Mish(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         return x * (torch.tanh(F.softplus(x)))
@@ -56,13 +75,12 @@ class ConvBR2d(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: int=3,
         stride: int = 1,
-        padding: int = 0,
+        padding: int = 1,
         dilation: int = 1,
         groups: int = 1,
         bias: bool = False,
-        activation: Optional[nn.Module] = Mish(),
     ):
         super().__init__()
         self.conv = nn.Conv2d(
@@ -76,11 +94,8 @@ class ConvBR2d(nn.Module):
             bias=bias,
         )
         self.norm = nn.BatchNorm2d(out_channels)
-        self.activation = activation
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
         x = self.norm(x)
-        if self.activation is not None:
-            x = self.activation(x)
         return x
