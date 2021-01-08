@@ -18,6 +18,7 @@ from object_detection.model_loader import (
 )
 from examples.data import TrainDataset
 from object_detection.metrics import MeanPrecition
+import torch_optimizer as optim
 from examples.effdet import config
 
 
@@ -62,7 +63,13 @@ def train(epochs: int) -> None:
         box_weight=config.box_weight,
         cls_weight=config.cls_weight,
     )
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+    optimizer = optim.RAdam(
+        model.parameters(),
+        lr=config.lr,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=0,
+    )
     visualize = Visualize("/store/efficientdet", "test", limit=2)
     get_score = MeanPrecition()
     to_boxes = ToBoxes(

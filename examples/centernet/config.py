@@ -11,8 +11,8 @@ use_peak = True
 mode: GaussianMapMode = "aspect"
 to_boxes_threshold = 0.3
 
-lr = 1e-4
-batch_size = 12
+lr = 1e-3
+batch_size = 24
 out_idx = 4
 channels = 64
 input_size = (512, 512)
@@ -23,4 +23,5 @@ box_weight = 5.0
 object_count_range = (5, 20)
 object_size_range = (32, 128)
 out_dir = "/store/centernet"
-box_depth = 2
+box_depth = 1
+cls_depth = 2

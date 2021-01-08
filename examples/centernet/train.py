@@ -8,6 +8,7 @@ from object_detection.models.centernet import (
     Criterion,
     ToBoxes,
 )
+import torch_optimizer as optim
 from object_detection.models.mkmaps import (
     MkGaussianMaps,
     MkCenterBoxMaps,
@@ -43,7 +44,8 @@ def train(epochs: int) -> None:
         channels=cfg.channels,
         backbone=backbone,
         out_idx=cfg.out_idx,
-        depth=cfg.box_depth,
+        box_depth=cfg.box_depth,
+        cls_depth=cfg.cls_depth,
     )
     criterion = Criterion(
         box_weight=cfg.box_weight,
@@ -63,7 +65,13 @@ def train(epochs: int) -> None:
         batch_size=cfg.batch_size * 2,
         shuffle=True,
     )
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
+    optimizer = optim.RAdam(
+        model.parameters(),
+        lr=cfg.lr,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+        weight_decay=0,
+    )
     visualize = Visualize(cfg.out_dir, "test", limit=2)
 
     model_loader = ModelLoader(
@@ -84,6 +92,7 @@ def train(epochs: int) -> None:
         device="cuda",
         get_score=get_score,
         to_boxes=to_boxes,
+        use_amp=True,
     )
     trainer(epochs)
 

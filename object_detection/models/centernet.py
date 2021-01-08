@@ -86,14 +86,15 @@ class Reg(nn.Module):
     ) -> None:
         super().__init__()
         channels = in_channels
-        self.conv = nn.Sequential(*[
-            nn.Sequential(
-                ConvBR2d(in_channels, in_channels, 3),
-                FReLU(in_channels),
-            )
-            for _
-            in range(depth)
-        ])
+        self.conv = nn.Sequential(
+            *[
+                nn.Sequential(
+                    ConvBR2d(in_channels, in_channels, 3),
+                    FReLU(in_channels),
+                )
+                for _ in range(depth)
+            ]
+        )
 
         self.out = nn.Sequential(
             nn.Conv2d(
@@ -119,19 +120,21 @@ class CenterNet(nn.Module):
         channels: int,
         num_classes: int,
         backbone: nn.Module,
-        depth: int = 2,
+        box_depth: int = 1,
+        cls_depth: int = 1,
+        fpn_depth: int = 1,
         out_idx: int = 4,
     ) -> None:
         super().__init__()
         self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(depth)])
+        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(fpn_depth)])
         self.hm_reg = nn.Sequential(
             Reg(
                 in_channels=channels,
                 out_channels=num_classes,
-                depth=depth,
+                depth=cls_depth,
             ),
             nn.Sigmoid(),
         )
@@ -139,7 +142,7 @@ class CenterNet(nn.Module):
             Reg(
                 in_channels=channels,
                 out_channels=4,
-                depth=depth,
+                depth=box_depth,
             ),
             nn.Sigmoid(),
         )

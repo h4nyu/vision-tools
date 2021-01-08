@@ -23,6 +23,7 @@ class FReLU(nn.Module):
         x = torch.max(x, x0)
         return x
 
+
 class Mish(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         return x * (torch.tanh(F.softplus(x)))
@@ -75,7 +76,7 @@ class ConvBR2d(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int=3,
+        kernel_size: int = 3,
         stride: int = 1,
         padding: int = 1,
         dilation: int = 1,
