@@ -189,9 +189,10 @@ class RegressionModel(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        # x = self.conv(x)
+        x = self.conv(x)
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
+        print(x)
         x = x.contiguous().view(x.shape[0], -1, 4)
         return x
 
