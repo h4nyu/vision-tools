@@ -7,13 +7,13 @@ batch_size = 12
 
 # model
 backbone_id = 1
-channels = 64
-box_depth = 2
+channels = 128
+box_depth = 1
 lr = 1e-3
-out_ids: List[int] = [4, 5, 6]
+out_ids: List[int] = [5, 6]
 
 
-input_size = (512, 512)
+input_size = (256, 256)
 object_count_range = (5, 20)
 object_size_range = (32, 128)
 out_dir = "/store/efficientdet"
@@ -25,6 +25,6 @@ topk = 39
 box_weight = 10
 cls_weight = 1
 
-anchor_ratios = [1.0]
-anchor_scales = [1.0, 1.25, 1.5, 1.75]
-anchor_size = 2
+anchor_ratios = [1.0, 2, 0.5]
+anchor_scales = [1.0, 1.5]
+anchor_size = 4

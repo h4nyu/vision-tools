@@ -32,7 +32,7 @@ from object_detection.entities import (
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
-from .modules import ConvBR2d, FReLU
+from .modules import FReLU, ConvBR2d, SeparableConv2d, SeparableConvBR2d
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import HuberLoss, DIoULoss
@@ -89,7 +89,7 @@ class Reg(nn.Module):
         self.conv = nn.Sequential(
             *[
                 nn.Sequential(
-                    ConvBR2d(in_channels, in_channels, 3),
+                    SeparableConvBR2d(in_channels, in_channels),
                     FReLU(in_channels),
                 )
                 for _ in range(depth)
@@ -97,11 +97,9 @@ class Reg(nn.Module):
         )
 
         self.out = nn.Sequential(
-            nn.Conv2d(
+            SeparableConv2d(
                 in_channels,
                 out_channels,
-                kernel_size=1,
-                padding=0,
             )
         )
 

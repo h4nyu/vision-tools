@@ -20,9 +20,6 @@ from object_detection.entities import (
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
-from .losses import DIoU, HuberLoss, DIoULoss
-from .modules import FReLU, ConvBR2d
-from .atss import ATSS
 from typing import Any, List, Tuple, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
@@ -37,7 +34,9 @@ from torch.cuda.amp import GradScaler, autocast
 
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
-from .losses import FocalLoss
+from .losses import DIoU, HuberLoss, DIoULoss, FocalLoss
+from .modules import FReLU, ConvBR2d, SeparableConv2d, SeparableConvBR2d
+from .atss import ATSS
 from .anchors import Anchors
 from .tta import VFlipTTA, HFlipTTA
 
@@ -137,32 +136,30 @@ class ClassificationModel(nn.Module):
         self.conv = nn.Sequential(
             *[
                 nn.Sequential(
-                    ConvBR2d(in_channels, in_channels),
+                    SeparableConvBR2d(in_channels, in_channels),
                     FReLU(in_channels),
                 )
                 for _ in range(depth)
             ]
         )
-        self.output = nn.Conv2d(
+        self.out = SeparableConvBR2d(
             in_channels,
             num_anchors * num_classes,
-            kernel_size=1,
-            padding=0,
         )
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
-        x = self.output(x)
-        out = x.permute(0, 2, 3, 1)
-        batch_size, width, height, channels = out.shape
-        out = out.view(
+        x = self.out(x)
+        x = x.permute(0, 2, 3, 1)
+        batch_size, width, height, channels = x.shape
+        x = x.view(
             batch_size,
             width,
             height,
             self.num_anchors,
             self.num_classes,
         )
-        return out.contiguous().view(batch_size, -1, self.num_classes).sigmoid()
+        return x.contiguous().view(batch_size, -1, self.num_classes).sigmoid()
 
 
 class RegressionModel(nn.Module):
@@ -176,17 +173,15 @@ class RegressionModel(nn.Module):
         self.conv = nn.Sequential(
             *[
                 nn.Sequential(
-                    ConvBR2d(in_channels, in_channels),
+                    SeparableConvBR2d(in_channels, in_channels),
                     FReLU(in_channels),
                 )
                 for _ in range(depth)
             ]
         )
-        self.out = nn.Conv2d(
+        self.out = SeparableConvBR2d(
             in_channels,
             num_anchors * 4,
-            kernel_size=1,
-            padding=0,
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -370,9 +365,11 @@ class ToBoxes:
         self,
         confidence_threshold: float = 0.5,
         iou_threshold: float = 0.5,
+        limit:int=1000,
     ) -> None:
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
+        self.limit = limit
 
     @torch.no_grad()
     def __call__(
@@ -400,7 +397,7 @@ class ToBoxes:
                 boxes,
                 confidences,
                 self.iou_threshold,
-            )
+            )[:self.limit]
             confidences.argsort(descending=True)
             boxes = PascalBoxes(boxes[sort_idx])
             confidences = confidences[sort_idx]
