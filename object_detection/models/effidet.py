@@ -365,7 +365,7 @@ class ToBoxes:
         self,
         confidence_threshold: float = 0.5,
         iou_threshold: float = 0.5,
-        limit:int=1000,
+        limit: int = 1000,
     ) -> None:
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
@@ -397,7 +397,7 @@ class ToBoxes:
                 boxes,
                 confidences,
                 self.iou_threshold,
-            )[:self.limit]
+            )[: self.limit]
             confidences.argsort(descending=True)
             boxes = PascalBoxes(boxes[sort_idx])
             confidences = confidences[sort_idx]

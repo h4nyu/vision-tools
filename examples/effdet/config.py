@@ -17,7 +17,7 @@ input_size = (256, 256)
 object_count_range = (5, 20)
 object_size_range = (32, 128)
 out_dir = "/store/efficientdet"
-metric: Tuple[str, WatchMode] = ("score", "max")
+metric: Tuple[str, WatchMode] = ("test_label", "min")
 pretrained = True
 
 # criterion
