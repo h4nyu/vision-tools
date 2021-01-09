@@ -29,4 +29,4 @@ def test_average_precision() -> None:
         boxes,
         gt_boxes,
     )
-    assert round(res, 4) == round((1/2 * 1/2 + 1/3 * 1/2), 4)
+    assert round(res, 4) == round((1 / 2 * 1 / 2 + 1 / 3 * 1 / 2), 4)
