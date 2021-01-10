@@ -1,7 +1,7 @@
 import torch
 from typing import Set, Any
 import numpy as np
-from object_detection.entities import Labels, PascalBoxes
+from object_detection.entities import PascalBoxes
 from torchvision.ops.boxes import box_iou
 
 
