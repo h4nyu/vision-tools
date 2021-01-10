@@ -33,6 +33,7 @@ class MeanPrecition:
     ) -> None:
         self.iou_thresholds = iou_thresholds
 
+    @torch.no_grad()
     def __call__(self, pred_boxes: PascalBoxes, gt_boxes: PascalBoxes) -> float:
         if len(gt_boxes) == 0:
             return 1.0 if len(pred_boxes) == 0 else 0.0

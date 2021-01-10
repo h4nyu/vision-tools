@@ -1,29 +1,39 @@
-import numpy as np
+import numpy as np, torch
 from typing import Tuple, List, Dict
 from object_detection.metrics.average_precision import AveragePrecision
-from object_detection.entities import PascalBoxes, Labels
+from object_detection.entities import PascalBoxes, Labels, Confidences
 
 
 class MeanAveragePrecision:
     def __init__(
-        self, classes: List[int], iou_threshold: float, eps: float = 1e-8
+        self, num_classes: int, iou_threshold: float, eps: float = 1e-8
     ) -> None:
-        self.classes = classes
         self.ap = AveragePrecision(iou_threshold, eps)
+        self.aps = {k: AveragePrecision(iou_threshold, eps) for k in range(num_classes)}
         self.eps = eps
 
-    def __call__(
+    def reset(self) -> None:
+        for v in self.aps.values():
+            v.reset()
+
+    @torch.no_grad()
+    def add(
         self,
-        labels: Labels,
         boxes: PascalBoxes,
-        gt_labels: Labels,
+        confidences: Confidences,
+        labels: Labels,
         gt_boxes: PascalBoxes,
-    ) -> Tuple[float, Dict[int, float]]:
-        aps = {
-            k: self.ap(
+        gt_labels: Labels,
+    ) -> None:
+        for k in np.unique(gt_labels.to("cpu").numpy()):
+            ap = self.aps[k]
+            ap.add(
                 boxes=PascalBoxes(boxes[labels == k]),
+                confidences=Confidences(confidences[labels == k]),
                 gt_boxes=PascalBoxes(gt_boxes[gt_labels == k]),
             )
-            for k in self.classes
-        }
-        return np.mean(aps.values()), aps
+
+    @torch.no_grad()
+    def __call__(self) -> Tuple[float, Dict[int, float]]:
+        aps = {k: v() for k, v in self.aps.items()}
+        return np.fromiter(aps.values(), dtype=float).mean(), aps

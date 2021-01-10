@@ -141,8 +141,7 @@ class CenterNet(nn.Module):
                 in_channels=channels,
                 out_channels=4,
                 depth=box_depth,
-            ),
-            nn.Sigmoid(),
+            )
         )
         self.anchors = EmptyAnchors()
 
@@ -278,7 +277,7 @@ class ToBoxes:
         self,
         threshold: float = 0.1,
         kernel_size: int = 3,
-        limit: int = 1000,
+        limit: int = 100,
         use_diff: bool = True,
     ) -> None:
         self.limit = limit
@@ -400,123 +399,3 @@ class Visualize:
             merged_hm, _ = torch.max(hm, dim=0)
             plot = DetectionPlot(merged_hm * 255)
             plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
-
-
-class Trainer:
-    def __init__(
-        self,
-        model: nn.Module,
-        train_loader: DataLoader,
-        test_loader: DataLoader,
-        model_loader: ModelLoader,
-        criterion: Criterion,
-        optimizer: t.Any,
-        visualize: Visualize,
-        get_score: Callable[[PascalBoxes, PascalBoxes], float],
-        to_boxes: ToBoxes,
-        device: str = "cpu",
-        use_amp: bool = False,
-    ) -> None:
-        self.device = torch.device(device)
-        self.optimizer = optimizer
-        self.train_loader = train_loader
-        self.test_loader = test_loader
-        self.criterion = criterion
-        self.to_boxes = to_boxes
-        self.model = model.to(self.device)
-        self.get_score = get_score
-        self.scaler = GradScaler()
-        self.use_amp = use_amp
-
-        self.model_loader = model_loader
-        self.visualize = visualize
-        self.meters = {
-            key: MeanMeter()
-            for key in [
-                "train_loss",
-                "train_hm",
-                "train_bm",
-                "test_loss",
-                "test_hm",
-                "test_bm",
-                "score",
-            ]
-        }
-
-    def log(self) -> None:
-        value = ("|").join([f"{k}:{v.get_value():.4f}" for k, v in self.meters.items()])
-        logger.info(value)
-
-    def reset_meters(self) -> None:
-        for v in self.meters.values():
-            v.reset()
-
-    def __call__(self, epochs: int) -> None:
-        self.model = self.model_loader.load_if_needed(self.model)
-        for _ in range(epochs):
-            self.train_one_epoch()
-            self.eval_one_epoch()
-            self.log()
-            self.reset_meters()
-
-    def train_one_epoch(self) -> None:
-        self.model.train()
-        loader = self.train_loader
-        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(loader):
-            gt_box_batch = [x.to(self.device) for x in gt_box_batch]
-            gt_label_batch = [x.to(self.device) for x in gt_label_batch]
-            image_batch = image_batch.to(self.device)
-            self.optimizer.zero_grad()
-            with autocast(enabled=self.use_amp):
-                netout = self.model(image_batch)
-                loss, hm_loss, bm_loss, _ = self.criterion(
-                    image_batch, netout, gt_box_batch, gt_label_batch
-                )
-            self.scaler.scale(loss).backward()
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-
-            self.meters["train_loss"].update(loss.item())
-            self.meters["train_hm"].update(hm_loss.item())
-            self.meters["train_bm"].update(bm_loss.item())
-
-    @torch.no_grad()
-    def eval_one_epoch(self) -> None:
-        self.model.eval()
-        loader = self.test_loader
-        for ids, image_batch, gt_box_batch, gt_label_batch in tqdm(loader):
-            image_batch = image_batch.to(self.device)
-            gt_box_batch = [x.to(self.device) for x in gt_box_batch]
-            gt_label_batch = [x.to(self.device) for x in gt_label_batch]
-            _, _, h, w = image_batch.shape
-            netout = self.model(image_batch)
-            loss, hm_loss, bm_loss, gt_hms = self.criterion(
-                image_batch, netout, gt_box_batch, gt_label_batch
-            )
-            box_batch, confidence_batch, label_batch = self.to_boxes(netout)
-            for boxes, gt_boxes in zip(box_batch, gt_box_batch):
-                self.meters["score"].update(
-                    self.get_score(
-                        yolo_to_pascal(boxes, (w, h)),
-                        yolo_to_pascal(gt_boxes, (w, h)),
-                    )
-                )
-
-            self.meters["test_loss"].update(loss.item())
-            self.meters["test_hm"].update(hm_loss.item())
-            self.meters["test_bm"].update(bm_loss.item())
-
-        self.visualize(
-            netout,
-            box_batch,
-            confidence_batch,
-            label_batch,
-            gt_box_batch,
-            gt_label_batch,
-            image_batch,
-            gt_hms,
-        )
-        self.model_loader.save_if_needed(
-            self.model,
-            self.meters[self.model_loader.key].get_value(),
-        )

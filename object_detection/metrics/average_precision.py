@@ -1,7 +1,7 @@
 import torch
-from typing import Set, Any
+from typing import Set, Any, Tuple, List
 import numpy as np
-from object_detection.entities import PascalBoxes
+from object_detection.entities import PascalBoxes, Confidences
 from torchvision.ops.boxes import box_iou
 
 
@@ -25,27 +25,44 @@ class AveragePrecision:
     ) -> None:
         self.iou_threshold = iou_threshold
         self.eps = eps
+        self.tp_list: List[Any] = []
+        self.confidence_list: List[Any] = []
+        self.n_gt_box = 0
 
-    def __call__(
+    def reset(self) -> None:
+        self.n_gt_box = 0
+        self.confidence_list = []
+        self.tp_list = []
+
+    def add(
         self,
         boxes: PascalBoxes,
+        confidences: Confidences,
         gt_boxes: PascalBoxes,
-    ) -> float:
+    ) -> None:
         n_gt_box = len(gt_boxes)
         n_box = len(boxes)
-        if n_box == 0 or n_gt_box == 0:
-            return 0.0
-
+        if n_box == 0:
+            return
         tp = np.zeros(n_box)
         iou_matrix = box_iou(boxes, gt_boxes)
-        confidences, matched_cls_indices = torch.max(iou_matrix, dim=1)
+        ious, matched_cls_indices = torch.max(iou_matrix, dim=1)
         matched: Set = set()
         for box_id, cls_id in enumerate(matched_cls_indices.to("cpu").numpy()):
-            if confidences[box_id] > self.iou_threshold and cls_id not in matched:
+            if ious[box_id] > self.iou_threshold and cls_id not in matched:
                 tp[box_id] = 1
                 matched.add(cls_id)
+        self.tp_list.append(tp)
+        self.confidence_list.append(confidences.to("cpu").numpy())
+        self.n_gt_box += n_gt_box
+
+    def __call__(self) -> float:
+        if len(self.confidence_list) == 0:
+            return 0.0
+        sort_indices = np.argsort(-np.concatenate(self.confidence_list))
+        tp = np.concatenate(self.tp_list)[sort_indices]
         tpc = tp.cumsum()
         fpc = (1 - tp).cumsum()
-        recall = fpc / (n_gt_box + self.eps)
+        recall = tpc / (self.n_gt_box + self.eps)
         precision = tpc / (tpc + fpc)
         return auc(recall, precision)

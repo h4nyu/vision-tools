@@ -7,7 +7,6 @@ from object_detection.models.centernet import (
     CenterNet,
     ToBoxes,
     HMLoss,
-    Trainer,
     Visualize,
     collate_fn,
 )
