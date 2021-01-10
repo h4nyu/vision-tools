@@ -1,12 +1,14 @@
 import torch
 from torch.utils.data import DataLoader
+from torch.cuda.amp import GradScaler, autocast
 from object_detection.models.backbones.effnet import (
     EfficientNetBackbone,
 )
+from object_detection.metrics import MeanAveragePrecision
+from tqdm import tqdm
 from object_detection.models.effidet import (
     collate_fn,
     EfficientDet,
-    Trainer,
     Criterion,
     Visualize,
     ToBoxes,
@@ -20,9 +22,15 @@ from examples.data import TrainDataset
 from object_detection.metrics import MeanPrecition
 import torch_optimizer as optim
 from examples.effdet import config
+from logging import (
+    getLogger,
+)
+
+logger = getLogger(__name__)
 
 
 def train(epochs: int) -> None:
+    device = torch.device("cuda")
     train_dataset = TrainDataset(
         config.input_size,
         object_count_range=config.object_count_range,
@@ -46,13 +54,13 @@ def train(epochs: int) -> None:
         scales=config.anchor_scales,
     )
     model = EfficientDet(
-        num_classes=2,
+        num_classes=config.num_classes,
         out_ids=config.out_ids,
         channels=config.channels,
         backbone=backbone,
         anchors=anchors,
         box_depth=config.box_depth,
-    )
+    ).to(device)
     model_loader = ModelLoader(
         out_dir=config.out_dir,
         key=config.metric[0],
@@ -76,29 +84,85 @@ def train(epochs: int) -> None:
         confidence_threshold=config.confidence_threshold,
         iou_threshold=config.iou_threshold,
     )
-    trainer = Trainer(
-        model,
-        DataLoader(
-            train_dataset,
-            collate_fn=collate_fn,
-            batch_size=config.batch_size,
-            shuffle=True,
-        ),
-        DataLoader(
-            test_dataset,
-            collate_fn=collate_fn,
-            batch_size=config.batch_size * 2,
-            shuffle=True,
-        ),
-        model_loader=model_loader,
-        optimizer=optimizer,
-        visualize=visualize,
-        criterion=criterion,
-        get_score=get_score,
-        device="cuda",
-        to_boxes=to_boxes,
+    train_loader = DataLoader(
+        train_dataset,
+        collate_fn=collate_fn,
+        batch_size=config.batch_size,
+        shuffle=True,
     )
-    trainer(epochs)
+    test_loader = DataLoader(
+        test_dataset,
+        collate_fn=collate_fn,
+        batch_size=config.batch_size * 2,
+        shuffle=True,
+    )
+    scaler = GradScaler()
+    metrics = MeanAveragePrecision(iou_threshold=0.3, num_classes=config.num_classes)
+
+    def train_step() -> None:
+        model.train()
+        for (
+            image_batch,
+            gt_box_batch,
+            gt_label_batch,
+            _,
+        ) in tqdm(train_loader):
+            image_batch = image_batch.to(device)
+            gt_box_batch = [x.to(device) for x in gt_box_batch]
+            gt_label_batch = [x.to(device) for x in gt_label_batch]
+            optimizer.zero_grad()
+            with autocast(enabled=config.use_amp):
+                netout = model(image_batch)
+                loss, box_loss, label_loss = criterion(
+                    image_batch,
+                    netout,
+                    gt_box_batch,
+                    gt_label_batch,
+                )
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+    @torch.no_grad()
+    def eval_step() -> None:
+        model.eval()
+        for image_batch, gt_box_batch, gt_label_batch, _ in tqdm(test_loader):
+            image_batch = image_batch.to(device)
+            gt_box_batch = [x.to(device) for x in gt_box_batch]
+            gt_label_batch = [x.to(device) for x in gt_label_batch]
+            netout = model(image_batch)
+            loss, box_loss, label_loss = criterion(
+                image_batch, netout, gt_box_batch, gt_label_batch
+            )
+            box_batch, confidence_batch, label_batch = to_boxes(netout)
+
+            for boxes, gt_boxes, labels, gt_labels, confidences in zip(
+                box_batch, gt_box_batch, label_batch, gt_label_batch, confidence_batch
+            ):
+                metrics.add(
+                    boxes=boxes,
+                    confidences=confidences,
+                    labels=labels,
+                    gt_boxes=gt_boxes,
+                    gt_labels=gt_labels,
+                )
+        score, scores = metrics()
+        logger.info(f"{score=}, {scores=}")
+
+        visualize(
+            image_batch,
+            (box_batch, confidence_batch, label_batch),
+            (gt_box_batch, gt_label_batch),
+        )
+        score, scores = metrics()
+        model_loader.save_if_needed(
+            model,
+            score,
+        )
+
+    for _ in range(epochs):
+        train_step()
+        eval_step()
 
 
 if __name__ == "__main__":

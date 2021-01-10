@@ -87,9 +87,6 @@ def train(epochs: int) -> None:
         best_watcher=BestWatcher(mode=cfg.metric[1]),
     )
     to_boxes = ToBoxes(threshold=cfg.to_boxes_threshold)
-    get_score = lambda *args: MeanAveragePrecision(
-        iou_threshold=0.3, num_classes=cfg.num_classes
-    )(*args)[0]
     scaler = GradScaler()
 
     def train_step() -> None:

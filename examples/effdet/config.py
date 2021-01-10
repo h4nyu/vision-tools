@@ -1,15 +1,18 @@
 from typing import *
 from object_detection.model_loader import WatchMode
 
+# train
 confidence_threshold = 0.5
 iou_threshold = 0.60
 batch_size = 12
+lr = 1e-3
+use_amp = True
 
 # model
+num_classes = 2
 backbone_id = 1
 channels = 128
 box_depth = 1
-lr = 1e-3
 out_ids: List[int] = [5, 6]
 
 
