@@ -13,19 +13,19 @@ num_classes = 2
 backbone_id = 1
 channels = 128
 box_depth = 1
-out_ids: List[int] = [5, 6, 7]
+out_ids: List[int] = [6, 7]
 
 
 input_size = (256, 256)
 object_count_range = (5, 20)
 object_size_range = (32, 64)
 out_dir = "/store/efficientdet"
-metric: Tuple[str, WatchMode] = ("test_label", "min")
+metric: Tuple[str, WatchMode] = ("score", "max")
 pretrained = True
 
 # criterion
-topk = 13
-box_weight = 20
+topk = 9
+box_weight = 30
 cls_weight = 1
 
 anchor_ratios = [1.0, 2/3, 3/2]
