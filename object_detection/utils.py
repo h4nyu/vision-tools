@@ -66,7 +66,6 @@ class DetectionPlot:
         confidences: Optional[Tensor] = None,
         labels: Optional[Tensor] = None,
         color: str = "white",
-        font_size: int = 8,
         line_width: int = 1,
     ) -> None:
         _labels = labels.tolist() if labels is not None else []

@@ -35,10 +35,7 @@ class Up2d(nn.Module):
     ) -> None:
         super().__init__()
         self.merge = merge
-        self.up = nn.Upsample(
-            scale_factor=2,
-            mode='nearest'
-        )
+        self.up = nn.Upsample(scale_factor=2, mode="nearest")
 
     def forward(self, x, t):  # type: ignore
         x = self.up(x)

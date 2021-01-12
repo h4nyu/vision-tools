@@ -97,7 +97,6 @@ def train(epochs: int) -> None:
         shuffle=True,
     )
     scaler = GradScaler()
-    metrics = MeanAveragePrecision(iou_threshold=0.3, num_classes=config.num_classes)
     logs: Dict[str, float] = {}
 
     def train_step() -> None:
@@ -123,12 +122,12 @@ def train(epochs: int) -> None:
                     gt_box_batch,
                     gt_label_batch,
                 )
-                loss_meter.update(loss.item())
-                box_loss_meter.update(box_loss.item())
-                label_loss_meter.update(label_loss.item())
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+            loss_meter.update(loss.item())
+            box_loss_meter.update(box_loss.item())
+            label_loss_meter.update(label_loss.item())
         logs["train_loss"] = loss_meter.get_value()
         logs["train_box"] = box_loss_meter.get_value()
         logs["train_label"] = label_loss_meter.get_value()
@@ -139,6 +138,9 @@ def train(epochs: int) -> None:
         loss_meter = MeanMeter()
         box_loss_meter = MeanMeter()
         label_loss_meter = MeanMeter()
+        metrics = MeanAveragePrecision(
+            iou_threshold=0.3, num_classes=config.num_classes
+        )
         for image_batch, gt_box_batch, gt_label_batch, _ in tqdm(test_loader):
             image_batch = image_batch.to(device)
             gt_box_batch = [x.to(device) for x in gt_box_batch]
