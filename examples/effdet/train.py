@@ -1,4 +1,5 @@
 import torch
+from typing import Dict
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 from object_detection.models.backbones.effnet import (
@@ -18,8 +19,8 @@ from object_detection.model_loader import (
     ModelLoader,
     BestWatcher,
 )
+from object_detection.meters import MeanMeter
 from examples.data import TrainDataset
-from object_detection.metrics import MeanPrecition
 import torch_optimizer as optim
 from examples.effdet import config
 from logging import (
@@ -78,8 +79,7 @@ def train(epochs: int) -> None:
         eps=1e-8,
         weight_decay=0,
     )
-    visualize = Visualize("/store/efficientdet", "test", limit=2)
-    get_score = MeanPrecition()
+    visualize = Visualize("/store/efficientdet", "test", limit=config.batch_size)
     to_boxes = ToBoxes(
         confidence_threshold=config.confidence_threshold,
         iou_threshold=config.iou_threshold,
@@ -98,9 +98,13 @@ def train(epochs: int) -> None:
     )
     scaler = GradScaler()
     metrics = MeanAveragePrecision(iou_threshold=0.3, num_classes=config.num_classes)
+    logs: Dict[str, float] = {}
 
     def train_step() -> None:
         model.train()
+        loss_meter = MeanMeter()
+        box_loss_meter = MeanMeter()
+        label_loss_meter = MeanMeter()
         for (
             image_batch,
             gt_box_batch,
@@ -119,13 +123,22 @@ def train(epochs: int) -> None:
                     gt_box_batch,
                     gt_label_batch,
                 )
+                loss_meter.update(loss.item())
+                box_loss_meter.update(box_loss.item())
+                label_loss_meter.update(label_loss.item())
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+        logs["train_loss"] = loss_meter.get_value()
+        logs["train_box"] = box_loss_meter.get_value()
+        logs["train_label"] = label_loss_meter.get_value()
 
     @torch.no_grad()
     def eval_step() -> None:
         model.eval()
+        loss_meter = MeanMeter()
+        box_loss_meter = MeanMeter()
+        label_loss_meter = MeanMeter()
         for image_batch, gt_box_batch, gt_label_batch, _ in tqdm(test_loader):
             image_batch = image_batch.to(device)
             gt_box_batch = [x.to(device) for x in gt_box_batch]
@@ -135,6 +148,10 @@ def train(epochs: int) -> None:
                 image_batch, netout, gt_box_batch, gt_label_batch
             )
             box_batch, confidence_batch, label_batch = to_boxes(netout)
+
+            loss_meter.update(loss.item())
+            box_loss_meter.update(box_loss.item())
+            label_loss_meter.update(label_loss.item())
 
             for boxes, gt_boxes, labels, gt_labels, confidences in zip(
                 box_batch, gt_box_batch, label_batch, gt_label_batch, confidence_batch
@@ -146,8 +163,14 @@ def train(epochs: int) -> None:
                     gt_boxes=gt_boxes,
                     gt_labels=gt_labels,
                 )
+
         score, scores = metrics()
-        logger.info(f"{score=}, {scores=}")
+        logs["test_loss"] = loss_meter.get_value()
+        logs["test_box"] = box_loss_meter.get_value()
+        logs["test_label"] = label_loss_meter.get_value()
+        logs["score"] = score
+        for k, v in scores.items():
+            logs[f"score-{k}"] = v
 
         visualize(
             image_batch,
@@ -160,9 +183,13 @@ def train(epochs: int) -> None:
             score,
         )
 
+    def log() -> None:
+        logger.info(",".join([f"{k}={v:.3f}" for k, v in logs.items()]))
+
     for _ in range(epochs):
         train_step()
         eval_step()
+        log()
 
 
 if __name__ == "__main__":
