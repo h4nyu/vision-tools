@@ -2,7 +2,7 @@ from typing import *
 from object_detection.model_loader import WatchMode
 
 # train
-confidence_threshold = 0.3
+confidence_threshold = 0.4
 iou_threshold = 0.60
 batch_size = 8
 lr = 1e-3
@@ -13,7 +13,7 @@ num_classes = 2
 backbone_id = 1
 channels = 128
 box_depth = 1
-out_ids: List[int] = [4, 5, 6]
+out_ids: List[int] = [4, 5, 6, 7]
 
 
 input_size = (256, 256)
@@ -30,4 +30,4 @@ cls_weight = 1
 
 anchor_ratios = [1.0]
 anchor_scales = [1.0]
-anchor_size = 4
+anchor_size = 2

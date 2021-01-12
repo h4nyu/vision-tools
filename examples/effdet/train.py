@@ -186,6 +186,7 @@ def train(epochs: int) -> None:
     def log() -> None:
         logger.info(",".join([f"{k}={v:.3f}" for k, v in logs.items()]))
 
+    model_loader.load_if_needed(model)
     for _ in range(epochs):
         train_step()
         eval_step()

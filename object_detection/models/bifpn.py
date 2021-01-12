@@ -31,20 +31,14 @@ class Up2d(nn.Module):
     def __init__(
         self,
         channels: int,
-        bilinear: bool = False,
         merge: bool = True,
     ) -> None:
         super().__init__()
-        # if bilinear, use the normal convolutions to reduce the number of channels
         self.merge = merge
-        if bilinear:
-            self.up = nn.Upsample(
-                scale_factor=2,
-                mode="bilinear",
-                align_corners=True,
-            )
-        else:
-            self.up = nn.ConvTranspose2d(channels, channels, kernel_size=2, stride=2)
+        self.up = nn.Upsample(
+            scale_factor=2,
+            mode='nearest'
+        )
 
     def forward(self, x, t):  # type: ignore
         x = self.up(x)
