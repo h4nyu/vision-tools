@@ -13,7 +13,7 @@ num_classes = 2
 backbone_id = 1
 channels = 128
 box_depth = 1
-out_ids: List[int] = [4, 5, 6, 7]
+out_ids: List[int] = [5, 6, 7]
 
 
 input_size = (256, 256)
