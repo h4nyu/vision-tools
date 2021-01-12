@@ -9,6 +9,7 @@ from object_detection.entities.box import (
     PascalBoxes,
     YoloBoxes,
     pascal_to_yolo,
+    filter_size,
 )
 from object_detection.entities import (
     TrainSample,
@@ -117,11 +118,13 @@ class TrainDataset(Dataset):
         for s in sizes:
             poly.add(s)
         image, boxes, labels = poly()
+        boxes, indices = filter_size(boxes, lambda x: x > 36)
+        labels = Labels(labels[indices])
         return (
             ImageId(""),
             Image(image),
             PascalBoxes(boxes.float()),
-            Labels(labels),
+            labels,
         )
 
     def __len__(self) -> int:

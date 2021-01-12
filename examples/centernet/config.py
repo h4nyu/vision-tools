@@ -12,7 +12,7 @@ mode: GaussianMapMode = "aspect"
 to_boxes_threshold = 0.3
 
 lr = 1e-3
-batch_size = 24
+batch_size = 8
 out_idx = 4
 channels = 128
 input_size = (256, 256)
