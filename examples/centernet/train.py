@@ -32,6 +32,7 @@ from examples.centernet import config as cfg
 from logging import (
     getLogger,
 )
+
 logger = getLogger(__name__)
 
 
