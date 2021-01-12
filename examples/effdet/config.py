@@ -18,16 +18,16 @@ out_ids: List[int] = [4, 5, 6, 7]
 
 input_size = (256, 256)
 object_count_range = (5, 20)
-object_size_range = (32, 128)
+object_size_range = (32, 64)
 out_dir = "/store/efficientdet"
 metric: Tuple[str, WatchMode] = ("test_label", "min")
 pretrained = True
 
 # criterion
-topk = 39
+topk = 13
 box_weight = 20
 cls_weight = 1
 
-anchor_ratios = [1.0]
-anchor_scales = [1.0]
+anchor_ratios = [1.0, 2/3, 3/2]
+anchor_scales = [1.0, 1.33, 1.66]
 anchor_size = 2

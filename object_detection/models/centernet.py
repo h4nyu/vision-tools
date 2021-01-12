@@ -77,7 +77,7 @@ def collate_fn(
     )
 
 
-class Reg(nn.Module):
+class Head(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -129,7 +129,7 @@ class CenterNet(nn.Module):
         self.backbone = backbone
         self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(fpn_depth)])
         self.hm_reg = nn.Sequential(
-            Reg(
+            Head(
                 in_channels=channels,
                 out_channels=num_classes,
                 depth=cls_depth,
@@ -137,7 +137,7 @@ class CenterNet(nn.Module):
             nn.Sigmoid(),
         )
         self.box_reg = nn.Sequential(
-            Reg(
+            Head(
                 in_channels=channels,
                 out_channels=4,
                 depth=box_depth,
