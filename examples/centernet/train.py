@@ -17,8 +17,8 @@ from object_detection.models.mkmaps import (
     MkGaussianMaps,
     MkCenterBoxMaps,
 )
-from object_detection.models.backbones.effnet import (
-    EfficientNetBackbone,
+from object_detection.models.backbones.resnet import (
+    ResNetBackbone,
 )
 from object_detection.model_loader import (
     ModelLoader,
@@ -44,7 +44,7 @@ def train(epochs: int) -> None:
         object_size_range=cfg.object_size_range,
         num_samples=256,
     )
-    backbone = EfficientNetBackbone(1, out_channels=cfg.channels, pretrained=True)
+    backbone = ResNetBackbone("resnet50", out_channels=cfg.channels)
     model = CenterNet(
         num_classes=2,
         channels=cfg.channels,
