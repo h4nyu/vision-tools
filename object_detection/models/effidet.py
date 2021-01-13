@@ -142,7 +142,7 @@ class ClassificationModel(nn.Module):
                 for _ in range(depth)
             ]
         )
-        self.out = SeparableConvBR2d(
+        self.out = SeparableConv2d(
             in_channels,
             num_anchors * num_classes,
         )
@@ -179,7 +179,7 @@ class RegressionModel(nn.Module):
                 for _ in range(depth)
             ]
         )
-        self.out = SeparableConvBR2d(
+        self.out = SeparableConv2d(
             in_channels,
             num_anchors * 4,
         )

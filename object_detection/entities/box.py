@@ -1,5 +1,5 @@
 import torch
-from typing import NewType, Tuple
+from typing import NewType, Tuple, Callable
 from torch import Tensor
 from .image import ImageSize
 
@@ -153,3 +153,14 @@ def yolo_clamp(yolo: YoloBoxes) -> YoloBoxes:
         PascalBoxes(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)),
         (1, 1),
     )
+
+
+def filter_size(
+    boxes: PascalBoxes, cond: Callable[[Tensor], Tensor]
+) -> Tuple[PascalBoxes, Tensor]:
+    if len(boxes) == 0:
+        return boxes, torch.tensor([], dtype=torch.bool)
+    x0, y0, x1, y1 = boxes.unbind(-1)
+    area = (x1 - x0) * (y1 - y0)
+    indices = cond(area)
+    return PascalBoxes(boxes[indices]), indices
