@@ -76,7 +76,7 @@ def train(epochs: int) -> None:
         model.parameters(),
         lr=config.lr,
         betas=(0.9, 0.999),
-        eps=1e-8,
+        eps=1e-16,
         weight_decay=0,
     )
     visualize = Visualize("/store/efficientdet", "test", limit=config.batch_size)
