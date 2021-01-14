@@ -334,6 +334,7 @@ class Visualize:
         use_alpha: bool = True,
         show_confidences: bool = True,
         figsize: Tuple[int, int] = (10, 10),
+        transforms:Any = None,
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
@@ -341,6 +342,7 @@ class Visualize:
         self.use_alpha = use_alpha
         self.show_confidences = show_confidences
         self.figsize = figsize
+        self.transforms = transforms
 
     @torch.no_grad()
     def __call__(
@@ -382,7 +384,7 @@ class Visualize:
                 gt_hms,
             )
         ):
-            plot = DetectionPlot(img)
+            plot = DetectionPlot(self.transforms(img) if self.transforms is not None else img)
             plot.draw_boxes(
                 boxes=yolo_to_pascal(gt_boxes, (w, h)), labels=gt_labels, color="blue"
             )
@@ -394,8 +396,8 @@ class Visualize:
             )
             plot.save(f"{self.out_dir}/{self.prefix}-boxes-{i}.png")
             gt_merged_hm, _ = torch.max(gt_hm, dim=0)
-            plot = DetectionPlot(gt_merged_hm * 255)
+            plot = DetectionPlot(gt_merged_hm)
             plot.save(f"{self.out_dir}/{self.prefix}-gt-hm-{i}.png")
             merged_hm, _ = torch.max(hm, dim=0)
-            plot = DetectionPlot(merged_hm * 255)
+            plot = DetectionPlot(merged_hm)
             plot.save(f"{self.out_dir}/{self.prefix}-hm-{i}.png")
