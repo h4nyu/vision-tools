@@ -142,6 +142,9 @@ class IoULoss:
     def __call__(
         self, boxes1: PascalBoxes, boxes2: PascalBoxes
     ) -> t.Tuple[Tensor, Tensor]:
+        device = boxes1.device
+        if len(boxes1) == 0 and len(boxes2) == 0:
+            return torch.tensor(0.0, device=device), torch.zeros(0, device=device)
         area1 = box_area(boxes1)
         area2 = box_area(boxes2)
         lt = torch.max(boxes1[:, :2], boxes2[:, :2])  # [N,M,2]
@@ -153,6 +156,7 @@ class IoULoss:
         union = area1 + area2 - inter
 
         iou = inter / union
+
         if self.size_average:
             iou = iou.mean()
         return 1 - iou, union
@@ -164,10 +168,14 @@ class DIoULoss:
         self.size_average = size_average
 
     def __call__(self, src: PascalBoxes, tgt: PascalBoxes) -> Tensor:
+        device = src.device
+        if len(src) == 0 and len(tgt) == 0:
+            if self.size_average:
+                return torch.tensor(0.0, device=device)
+            return torch.zeros(0, device=device)
         iouloss, _ = self.iouloss(src, tgt)
         s_ctr = (src[:, :2] + src[:, 2:]) / 2
         t_ctr = (tgt[:, :2] + tgt[:, 2:]) / 2
-
         lt = torch.min(src[:, :2], tgt[:, :2])
         rb = torch.max(src[:, 2:], tgt[:, 2:])
 
