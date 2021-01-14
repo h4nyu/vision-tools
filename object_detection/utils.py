@@ -44,7 +44,7 @@ class DetectionPlot:
         self,
         img: torch.Tensor,
     ) -> None:
-        self.img = self.to_image(img)
+        self.img = self.to_image(img * 255)
         self.draw = ImageDraw.Draw(self.img)
 
     def to_image(self, img: torch.Tensor) -> Image:
@@ -54,7 +54,7 @@ class DetectionPlot:
             ndarr = img.to("cpu", torch.uint8).permute(1, 2, 0).numpy()
         else:
             raise ValueError("invalid shape")
-        return Image.fromarray(ndarr * 255)
+        return Image.fromarray(ndarr)
 
     def save(self, path: Union[str, Path]) -> None:
         self.img.save(path)
