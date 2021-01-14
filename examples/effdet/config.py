@@ -17,7 +17,7 @@ out_ids: List[int] = [6, 7]
 
 
 input_size = (256, 256)
-object_count_range = (0, 2)
+object_count_range = (0, 32)
 object_size_range = (32, 64)
 out_dir = "/store/efficientdet"
 metric: Tuple[str, WatchMode] = ("score", "max")
