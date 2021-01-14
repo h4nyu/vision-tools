@@ -85,12 +85,14 @@ class Visualize:
         limit: int = 1,
         use_alpha: bool = True,
         show_confidences: bool = True,
+        transforms: Any = None,
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
         self.limit = limit
         self.use_alpha = use_alpha
         self.show_confidences = show_confidences
+        self.transforms = transforms
 
     def __call__(
         self,
@@ -114,7 +116,7 @@ class Visualize:
                 gt_labels,
             )
         ):
-            plot = DetectionPlot(img)
+            plot = DetectionPlot(self.transforms(img) if self.transforms is not None else img)
             plot.draw_boxes(boxes=gtb, color="blue", labels=gtl)
             plot.draw_boxes(
                 boxes=boxes, color="red", labels=labels, confidences=confidences
