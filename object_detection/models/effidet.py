@@ -116,7 +116,9 @@ class Visualize:
                 gt_labels,
             )
         ):
-            plot = DetectionPlot(self.transforms(img) if self.transforms is not None else img)
+            plot = DetectionPlot(
+                self.transforms(img) if self.transforms is not None else img
+            )
             plot.draw_boxes(boxes=gtb, color="blue", labels=gtl)
             plot.draw_boxes(
                 boxes=boxes, color="red", labels=labels, confidences=confidences

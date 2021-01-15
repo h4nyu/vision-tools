@@ -334,7 +334,7 @@ class Visualize:
         use_alpha: bool = True,
         show_confidences: bool = True,
         figsize: Tuple[int, int] = (10, 10),
-        transforms:Any = None,
+        transforms: Any = None,
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
@@ -384,7 +384,9 @@ class Visualize:
                 gt_hms,
             )
         ):
-            plot = DetectionPlot(self.transforms(img) if self.transforms is not None else img)
+            plot = DetectionPlot(
+                self.transforms(img) if self.transforms is not None else img
+            )
             plot.draw_boxes(
                 boxes=yolo_to_pascal(gt_boxes, (w, h)), labels=gt_labels, color="blue"
             )
