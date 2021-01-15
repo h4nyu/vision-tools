@@ -38,7 +38,6 @@ def test_anchors(
     stride = 2 ** 7
     h = base_size // stride
     w = base_size // stride
-    print(h, w)
     images = ImageBatch(torch.zeros((1, 3, h, w), dtype=torch.float32))
     fn = Anchors(size=size, scales=scales, ratios=ratios)
     res = fn(images, stride)
