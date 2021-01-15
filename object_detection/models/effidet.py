@@ -156,13 +156,7 @@ class ClassificationModel(nn.Module):
         x = self.out(x)
         x = x.permute(0, 2, 3, 1)
         batch_size, width, height, channels = x.shape
-        x = x.view(
-            batch_size,
-            width,
-            height,
-            self.num_anchors,
-            self.num_classes,
-        )
+        x = x.view(batch_size, width, height, self.num_anchors, self.num_classes)
         return x.contiguous().view(batch_size, -1, self.num_classes).sigmoid()
 
 

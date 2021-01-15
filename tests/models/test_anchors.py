@@ -23,12 +23,12 @@ from object_detection.utils import DetectionPlot
             1,
         ),
         (
-            [2/3],
+            [2 / 3],
             [0.75],
             2,
         ),
         (
-            [3/2],
+            [3 / 2],
             [1.25],
             3,
         ),
