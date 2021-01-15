@@ -155,6 +155,17 @@ def yolo_clamp(yolo: YoloBoxes) -> YoloBoxes:
     )
 
 
+def box_clamp(boxes: PascalBoxes, width: int, height: int) -> PascalBoxes:
+    if len(boxes) == 0:
+        return boxes
+    x0, y0, x1, y1 = boxes.clamp(min=0).unbind(-1)
+    x0 = x0.clamp(max=width)
+    x1 = x1.clamp(max=width)
+    y0 = y0.clamp(max=height)
+    y1 = y1.clamp(max=height)
+    return PascalBoxes(torch.stack([x0, y0, x1, y1], dim=-1))
+
+
 def filter_size(
     boxes: PascalBoxes, cond: Callable[[Tensor], Tensor]
 ) -> Tuple[PascalBoxes, Tensor]:

@@ -11,6 +11,7 @@ from object_detection.entities import (
     BoxMaps,
     BoxMap,
     yolo_clamp,
+    box_clamp,
 )
 
 
@@ -66,7 +67,7 @@ class Anchors:
             .contiguous()
             .view(-1, 4)
         )
-        boxes = PascalBoxes(boxes)
+        boxes = box_clamp(PascalBoxes(boxes), width=w * stride, height=h * stride)
         if self.use_cache:
             self.cache[(h, w)] = boxes
         return boxes
