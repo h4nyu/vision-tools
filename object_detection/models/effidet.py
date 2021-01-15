@@ -305,9 +305,6 @@ class Criterion:
                 cls_pred.float(),
                 cls_target.float(),
             ).sum()
-
-            if len(gt_boxes) == 0:
-                continue
             box_losses[batch_id] = self.box_loss(
                 PascalBoxes(matched_gt_boxes),
                 PascalBoxes(matched_pred_boxes),
