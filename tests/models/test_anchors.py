@@ -52,8 +52,8 @@ def test_anchors(
     assert res.shape == (anchor_count, 4)
     assert 0 == res.min()
     plot = DetectionPlot(torch.ones((3, original_h, original_w)))
-    plot.draw_boxes(boxes=res[3:4], color="red")
-    plot.draw_boxes(boxes=res[-4:-3], color="blue")
+    plot.draw_boxes(boxes=PascalBoxes(res[3:4]), color="red")
+    plot.draw_boxes(boxes=PascalBoxes(res[-4:-3]), color="blue")
     plot.save(
         f"store/test-anchors-{size}-{stride}-{'-'.join([str(x) for x in  scales])}-{num_anchors}.png"
     )
