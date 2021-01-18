@@ -171,7 +171,7 @@ def shift(boxes: PascalBoxes, diff: Tuple[Nummber, Nummber]) -> PascalBoxes:
     if len(boxes) == 0:
         return boxes
     diff_x, diff_y = diff
-    boxes[:, [0, 2]] = boxes[:, [0, 1]] + diff_x
+    boxes[:, [0, 2]] = boxes[:, [0, 2]] + diff_x
     boxes[:, [1, 3]] = boxes[:, [1, 3]] + diff_y
     return PascalBoxes(boxes)
 
