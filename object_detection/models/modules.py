@@ -1,6 +1,6 @@
 import torch, math
 from torch import nn, Tensor
-from typing import Optional
+from typing import Optional, Union, Tuple, List
 import torch.nn.functional as F
 
 
@@ -200,4 +200,50 @@ class SeparableConvBR2d(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
         x = self.bn(x)
+        return x
+
+
+class MaxPool2dStaticSamePadding(nn.Module):
+    stride: Tuple[int, int]
+    kernel_size: Tuple[int, int]
+
+    def __init__(
+        self,
+        kernel_size: Union[int, Tuple[int, int]] = 2,
+        stride: Union[int, Tuple[int, int]] = 1,
+    ) -> None:
+        super().__init__()
+        self.pool = nn.MaxPool2d(kernel_size=kernel_size, stride=stride)
+        if isinstance(stride, int):
+            self.stride = (stride, stride)
+        elif len(stride) == 1:
+            self.stride = (stride[0], stride[0])
+        else:
+            self.stride = stride
+
+        if isinstance(kernel_size, int):
+            self.kernel_size = (kernel_size, kernel_size)
+        elif len(kernel_size) == 1:
+            self.kernel_size = (kernel_size[0], kernel_size[0])
+        else:
+            self.kernel_size = kernel_size
+
+    def forward(self, x: Tensor) -> Tensor:
+        _, _, h, w = x.shape
+        extra_h = (
+            (math.ceil(w / self.stride[1]) - 1) * self.stride[1]
+            - w
+            + self.kernel_size[1]
+        )
+        extra_v = (
+            (math.ceil(h / self.stride[0]) - 1) * self.stride[0]
+            - h
+            + self.kernel_size[0]
+        )
+        left = extra_h // 2
+        right = extra_h - left
+        top = extra_v // 2
+        bottom = extra_v - top
+        x = F.pad(x, [left, right, top, bottom])
+        x = self.pool(x)
         return x

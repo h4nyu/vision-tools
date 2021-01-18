@@ -1,4 +1,4 @@
-import torch
+import torch, pytest
 from object_detection.models.bifpn import BiFPN
 
 
