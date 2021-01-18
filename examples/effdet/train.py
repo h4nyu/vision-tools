@@ -83,6 +83,7 @@ def train(epochs: int) -> None:
     to_boxes = ToBoxes(
         confidence_threshold=config.confidence_threshold,
         iou_threshold=config.iou_threshold,
+        limit=config.object_count_range[1],
     )
     train_loader = DataLoader(
         train_dataset,
