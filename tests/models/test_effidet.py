@@ -37,7 +37,8 @@ def test_effdet_to_box() -> None:
     images = ImageBatch(torch.ones((1, 3, 512, 512)))
     annotations = torch.ones((1, 10, 5))
     channels = 32
-    to_boxes = ToBoxes()
+    limit = 12
+    to_boxes = ToBoxes(limit=limit)
     backbone = EfficientNetBackbone(1, out_channels=channels, pretrained=True)
     net = EfficientDet(
         num_classes=2,
@@ -46,4 +47,4 @@ def test_effdet_to_box() -> None:
     )
     netout = net(images)
     for boxes, confidences, labels in zip(*to_boxes(netout)):
-        assert len(boxes) == len(confidences) == len(labels)
+        assert len(boxes) == len(confidences) == len(labels) == limit

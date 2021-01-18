@@ -383,21 +383,34 @@ class ToBoxes:
         labels_batch = torch.cat(labels_levels, dim=1)  # type:ignore
         for box_diff, preds in zip(box_diffs, labels_batch):
             boxes = anchors + box_diff
-            confidences, c_index = preds.max(dim=1)
+            confidences, labels = preds.max(dim=1)
             filter_idx = confidences > self.confidence_threshold
             confidences = confidences[filter_idx]
-            c_index = c_index[filter_idx]
+            labels = labels[filter_idx]
             boxes = boxes[filter_idx]
-            sort_idx = nms(
-                boxes,
-                confidences,
-                self.iou_threshold,
-            )[: self.limit]
-            confidences.argsort(descending=True)
-            boxes = PascalBoxes(boxes[sort_idx])
-            confidences = confidences[sort_idx]
-            c_index = c_index[sort_idx]
+            unique_labels = labels.unique()
+
+            box_list:List[Tensor] = []
+            confidence_list:List[Tensor] = []
+            label_list:List[Tensor] = []
+            for c in unique_labels:
+                cls_indices = labels == c
+                nms_indices = nms(
+                    boxes[cls_indices],
+                    confidences[cls_indices],
+                    self.iou_threshold,
+                )[: self.limit]
+                box_list.append(boxes[nms_indices])
+                confidence_list.append(confidences[nms_indices])
+                label_list.append(labels[cls_indices])
+            confidences = torch.cat(confidence_list, dim=0)
+            boxes = torch.cat(box_list, dim=0)
+            labels = torch.cat(label_list, dim=0)
+            sort_indices = confidences.argsort(descending=True)[: self.limit]
+            boxes = PascalBoxes(boxes[sort_indices])
+            confidences = confidences[sort_indices]
+            labels = labels[sort_indices]
             box_batch.append(boxes)
             confidence_batch.append(Confidences(confidences))
-            label_batch.append(Labels(c_index))
+            label_batch.append(Labels(labels))
         return box_batch, confidence_batch, label_batch
