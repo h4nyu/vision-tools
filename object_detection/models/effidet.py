@@ -408,9 +408,20 @@ class ToBoxes:
                 box_list.append(c_boxes[nms_indices])
                 confidence_list.append(c_confidences[nms_indices])
                 label_list.append(c_labels[nms_indices])
-            confidences = torch.cat(confidence_list, dim=0)
-            boxes = torch.cat(box_list, dim=0)
-            labels = torch.cat(label_list, dim=0)
+            if len(confidence_list) > 0:
+                confidences = torch.cat(confidence_list, dim=0)
+            else:
+                confidences = torch.zeros(
+                    0, device=confidences.device, dtype=confidences.dtype
+                )
+            if len(box_list) > 0:
+                boxes = torch.cat(box_list, dim=0)
+            else:
+                boxes = torch.zeros(0, device=boxes.device, dtype=boxes.dtype)
+            if len(label_list) > 0:
+                labels = torch.cat(label_list, dim=0)
+            else:
+                labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
             sort_indices = confidences.argsort(descending=True)[: self.limit]
             boxes = PascalBoxes(boxes[sort_indices])
             confidences = confidences[sort_indices]
