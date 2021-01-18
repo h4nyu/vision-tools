@@ -390,9 +390,9 @@ class ToBoxes:
             boxes = boxes[filter_idx]
             unique_labels = labels.unique()
 
-            box_list:List[Tensor] = []
-            confidence_list:List[Tensor] = []
-            label_list:List[Tensor] = []
+            box_list: List[Tensor] = []
+            confidence_list: List[Tensor] = []
+            label_list: List[Tensor] = []
             for c in unique_labels:
                 cls_indices = labels == c
                 nms_indices = nms(
