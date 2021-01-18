@@ -395,14 +395,19 @@ class ToBoxes:
             label_list: List[Tensor] = []
             for c in unique_labels:
                 cls_indices = labels == c
+                if cls_indices.sum() == 0:
+                    continue
+                c_boxes = boxes[cls_indices]
+                c_confidences = confidences[cls_indices]
+                c_labels = labels[cls_indices]
                 nms_indices = nms(
-                    boxes[cls_indices],
-                    confidences[cls_indices],
+                    c_boxes,
+                    c_confidences,
                     self.iou_threshold,
                 )[: self.limit]
-                box_list.append(boxes[nms_indices])
-                confidence_list.append(confidences[nms_indices])
-                label_list.append(labels[cls_indices])
+                box_list.append(c_boxes[nms_indices])
+                confidence_list.append(c_confidences[nms_indices])
+                label_list.append(c_labels[nms_indices])
             confidences = torch.cat(confidence_list, dim=0)
             boxes = torch.cat(box_list, dim=0)
             labels = torch.cat(label_list, dim=0)
