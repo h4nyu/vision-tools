@@ -1,6 +1,7 @@
 import torch
 from typing import NewType, Tuple, Callable, Union
 from torch import Tensor
+from torchvision.ops.boxes import box_iou, box_area
 from .image import ImageSize
 
 CoCoBoxes = NewType(
@@ -185,3 +186,20 @@ def filter_size(
     area = (x1 - x0) * (y1 - y0)
     indices = cond(area)
     return PascalBoxes(boxes[indices]), indices
+
+
+def box_in_area(
+    boxes: PascalBoxes,
+    area: Tensor,
+    min_fill: float = 0.7,
+) -> Tensor:
+    if len(boxes) == 0:
+        return torch.zeros(0, dtype=torch.long, device=boxes.device)
+    lt = torch.max(boxes[:, :2], area[:2])
+    rb = torch.min(boxes[:, 2:], area[2:])
+    wh = (rb - lt).clamp(min=0)
+    overlaped_area = wh[:, 0] * wh[:, 1]
+    areas = box_area(boxes)
+    fill_ratio = overlaped_area / areas
+    indices = fill_ratio > min_fill
+    return indices
