@@ -1,5 +1,5 @@
 import torch
-from typing import NewType, Tuple, Callable
+from typing import NewType, Tuple, Callable, Union
 from torch import Tensor
 from .image import ImageSize
 
@@ -18,6 +18,7 @@ FcosBoxes = NewType(
 )  # [B, Pos] Pos:[l, t, r, b] original torch.int32
 BoxMaps = NewType("BoxMaps", Tensor)  # [B, 4, H, W]
 BoxMap = NewType("BoxMap", Tensor)  # [4, H, W]
+Nummber = Union[float, int]
 
 
 AnchorMap = NewType("AnchorMap", Tensor)  # [N, [H, W]], H, W]
@@ -164,6 +165,15 @@ def box_clamp(boxes: PascalBoxes, width: int, height: int) -> PascalBoxes:
     y0 = y0.clamp(max=height)
     y1 = y1.clamp(max=height)
     return PascalBoxes(torch.stack([x0, y0, x1, y1], dim=-1))
+
+
+def shift(boxes: PascalBoxes, diff: Tuple[Nummber, Nummber]) -> PascalBoxes:
+    if len(boxes) == 0:
+        return boxes
+    diff_x, diff_y = diff
+    boxes[:, [0, 2]] = boxes[:, [0, 1]] + diff_x
+    boxes[:, [1, 3]] = boxes[:, [1, 3]] + diff_y
+    return PascalBoxes(boxes)
 
 
 def filter_size(
