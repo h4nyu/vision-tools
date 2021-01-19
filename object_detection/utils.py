@@ -43,9 +43,11 @@ class DetectionPlot:
     def __init__(
         self,
         img: torch.Tensor,
+        box_limit: int = 500,
     ) -> None:
         self.img = self.to_image(img * 255)
         self.draw = ImageDraw.Draw(self.img)
+        self.box_limit = box_limit
 
     def to_image(self, img: torch.Tensor) -> Image:
         if img.ndim == 2:
@@ -69,7 +71,7 @@ class DetectionPlot:
         line_width: int = 1,
     ) -> None:
         _labels = labels.tolist() if labels is not None else []
-        for i, box in enumerate(boxes.tolist()):
+        for i, box in enumerate(boxes[:self.box_limit].tolist()):
             self.draw.rectangle(box, width=line_width, outline=color)
             label = "{}".format(labels[i]) if labels is not None else ""
             confidence = (
