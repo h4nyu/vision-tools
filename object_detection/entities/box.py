@@ -203,3 +203,23 @@ def box_in_area(
     fill_ratio = overlaped_area / areas
     indices = fill_ratio > min_fill
     return indices
+
+
+def box_hflip(boxes: PascalBoxes, image_size: Tuple[Nummber, Nummber]) -> PascalBoxes:
+    if len(boxes) == 0:
+        return boxes
+    w, h = image_size
+    box_w = boxes[:, 2] - boxes[:, 0]
+    boxes[:, 0] = w - boxes[:, 0] - box_w
+    boxes[:, 2] = w - boxes[:, 2] + box_w
+    return PascalBoxes(boxes)
+
+
+def box_vflip(boxes: PascalBoxes, image_size: Tuple[Nummber, Nummber]) -> PascalBoxes:
+    if len(boxes) == 0:
+        return boxes
+    w, h = image_size
+    box_h = boxes[:, 3] - boxes[:, 1]
+    boxes[:, 1] = h - boxes[:, 1] - box_h
+    boxes[:, 3] = h - boxes[:, 3] + box_h
+    return PascalBoxes(boxes)

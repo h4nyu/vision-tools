@@ -6,6 +6,8 @@ from object_detection.entities.box import (
     yolo_hflip,
     yolo_vflip,
     box_in_area,
+    box_hflip,
+    box_vflip,
     PascalBoxes,
 )
 import torch.nn.functional as F
@@ -52,3 +54,33 @@ def test_box_in_area() -> None:
     area = torch.tensor([11, 0, 40, 40])
     res = box_in_area(boxes, area)
     assert res.tolist() == [True, True, False]
+
+
+def test_box_hflip() -> None:
+    boxes = PascalBoxes(
+        torch.tensor(
+            [
+                [10, 10, 20, 30],
+                [80, 20, 90, 30],
+            ]
+        )
+    )
+    img_size = (100, 100)
+    res = box_hflip(boxes, img_size)
+    assert res.tolist() == [[80, 10, 90, 30], [10, 20, 20, 30]]
+    res = box_hflip(res, img_size)
+    assert boxes.tolist() == res.tolist()
+
+def test_box_vflip() -> None:
+    boxes = PascalBoxes(
+        torch.tensor(
+            [
+                [10, 10, 20, 30],
+            ]
+        )
+    )
+    img_size = (100, 100)
+    res = box_vflip(boxes, img_size)
+    assert res.tolist() == [[10, 70, 20, 90]]
+    res = box_vflip(res, img_size)
+    assert res.tolist() == boxes.tolist()
