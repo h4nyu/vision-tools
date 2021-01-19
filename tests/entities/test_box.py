@@ -71,6 +71,7 @@ def test_box_hflip() -> None:
     res = box_hflip(res, img_size)
     assert boxes.tolist() == res.tolist()
 
+
 def test_box_vflip() -> None:
     boxes = PascalBoxes(
         torch.tensor(
