@@ -7,12 +7,11 @@ import torch.nn.functional as F
 class FReLU(nn.Module):
     def __init__(self, in_channels: int, kerel_size: int = 3) -> None:
         super().__init__()
-        self.conv = nn.Conv2d(
+        self.conv = Conv2dStaticSamePadding(
             in_channels=in_channels,
             out_channels=in_channels,
             kernel_size=kerel_size,
             stride=1,
-            padding=kerel_size // 2,
             groups=in_channels,
         )
         self.bn = nn.BatchNorm2d(in_channels)
@@ -122,18 +121,19 @@ class Conv2dStaticSamePadding(nn.Module):
             bias=bias,
             groups=groups,
         )
-        self.stride = self.conv.stride
-        self.kernel_size = self.conv.kernel_size
-        self.dilation = self.conv.dilation
+        if isinstance(stride, int):
+            self.stride = (stride, stride)
+        elif len(stride) == 1:
+            self.stride = (stride[0], stride[0])
+        else:
+            self.stride = stride
 
-        # self.stride = tuple(self.stride, self.stride)
-        # elif len(self.stride) == 1:
-        #     self.stride = tuple([self.stride[0]] * 2)
-
-        # if isinstance(self.kernel_size, int):
-        #     self.kernel_size = tuple([self.kernel_size] * 2)
-        # elif len(self.kernel_size) == 1:
-        #     self.kernel_size = tuple([self.kernel_size[0]] * 2)
+        if isinstance(kernel_size, int):
+            self.kernel_size = (kernel_size, kernel_size)
+        elif len(kernel_size) == 1:
+            self.kernel_size = (kernel_size[0], kernel_size[0])
+        else:
+            self.kernel_size = kernel_size
 
     def forward(self, x: Tensor) -> Tensor:
         h, w = x.shape[-2:]

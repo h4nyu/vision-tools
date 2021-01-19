@@ -3,11 +3,7 @@ import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
 from object_detection.entities import FP
-from .modules import (
-    Conv2dStaticSamePadding,
-    SeparableConvBR2d,
-    MaxPool2dStaticSamePadding,
-)
+from .bottlenecks import SENextBottleneck2d
 
 
 class Down2d(nn.Module):
@@ -18,18 +14,14 @@ class Down2d(nn.Module):
         merge: bool = True,
     ) -> None:
         super().__init__()
-        self.conv = SeparableConvBR2d(
+        self.down = SENextBottleneck2d(
             in_channels=channels,
             out_channels=channels,
-        )
-        self.pool = MaxPool2dStaticSamePadding(
-            kernel_size=3,
             stride=2,
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.conv(x)
-        x = self.pool(x)
+        x = self.down(x)
         return x
 
 
@@ -60,9 +52,10 @@ class Merge2d(nn.Module):
         out_channels: int,
     ) -> None:
         super().__init__()
-        self.merge = SeparableConvBR2d(
+        self.merge = SENextBottleneck2d(
             in_channels=in_channels,
             out_channels=out_channels,
+            stride=1,
         )
 
     def forward(self, *inputs: Tensor) -> Tensor:
