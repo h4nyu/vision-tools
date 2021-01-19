@@ -2,7 +2,7 @@ from typing import *
 from object_detection.model_loader import WatchMode
 
 # train
-confidence_threshold = 0.4
+confidence_threshold = 0.01
 iou_threshold = 0.60
 batch_size = 8
 lr = 1e-3

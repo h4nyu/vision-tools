@@ -395,17 +395,33 @@ class ToBoxes:
             label_list: List[Tensor] = []
             for c in unique_labels:
                 cls_indices = labels == c
+                if cls_indices.sum() == 0:
+                    continue
+                c_boxes = boxes[cls_indices]
+                c_confidences = confidences[cls_indices]
+                c_labels = labels[cls_indices]
                 nms_indices = nms(
-                    boxes[cls_indices],
-                    confidences[cls_indices],
+                    c_boxes,
+                    c_confidences,
                     self.iou_threshold,
                 )[: self.limit]
-                box_list.append(boxes[nms_indices])
-                confidence_list.append(confidences[nms_indices])
-                label_list.append(labels[cls_indices])
-            confidences = torch.cat(confidence_list, dim=0)
-            boxes = torch.cat(box_list, dim=0)
-            labels = torch.cat(label_list, dim=0)
+                box_list.append(c_boxes[nms_indices])
+                confidence_list.append(c_confidences[nms_indices])
+                label_list.append(c_labels[nms_indices])
+            if len(confidence_list) > 0:
+                confidences = torch.cat(confidence_list, dim=0)
+            else:
+                confidences = torch.zeros(
+                    0, device=confidences.device, dtype=confidences.dtype
+                )
+            if len(box_list) > 0:
+                boxes = torch.cat(box_list, dim=0)
+            else:
+                boxes = torch.zeros(0, device=boxes.device, dtype=boxes.dtype)
+            if len(label_list) > 0:
+                labels = torch.cat(label_list, dim=0)
+            else:
+                labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
             sort_indices = confidences.argsort(descending=True)[: self.limit]
             boxes = PascalBoxes(boxes[sort_indices])
             confidences = confidences[sort_indices]

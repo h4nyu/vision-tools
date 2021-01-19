@@ -1,6 +1,7 @@
 import torch
-from typing import NewType, Tuple, Callable
+from typing import NewType, Tuple, Callable, Union
 from torch import Tensor
+from torchvision.ops.boxes import box_iou, box_area
 from .image import ImageSize
 
 CoCoBoxes = NewType(
@@ -18,6 +19,7 @@ FcosBoxes = NewType(
 )  # [B, Pos] Pos:[l, t, r, b] original torch.int32
 BoxMaps = NewType("BoxMaps", Tensor)  # [B, 4, H, W]
 BoxMap = NewType("BoxMap", Tensor)  # [4, H, W]
+Nummber = Union[float, int]
 
 
 AnchorMap = NewType("AnchorMap", Tensor)  # [N, [H, W]], H, W]
@@ -166,6 +168,15 @@ def box_clamp(boxes: PascalBoxes, width: int, height: int) -> PascalBoxes:
     return PascalBoxes(torch.stack([x0, y0, x1, y1], dim=-1))
 
 
+def shift(boxes: PascalBoxes, diff: Tuple[Nummber, Nummber]) -> PascalBoxes:
+    if len(boxes) == 0:
+        return boxes
+    diff_x, diff_y = diff
+    boxes[:, [0, 2]] = boxes[:, [0, 2]] + diff_x
+    boxes[:, [1, 3]] = boxes[:, [1, 3]] + diff_y
+    return PascalBoxes(boxes)
+
+
 def filter_size(
     boxes: PascalBoxes, cond: Callable[[Tensor], Tensor]
 ) -> Tuple[PascalBoxes, Tensor]:
@@ -175,3 +186,20 @@ def filter_size(
     area = (x1 - x0) * (y1 - y0)
     indices = cond(area)
     return PascalBoxes(boxes[indices]), indices
+
+
+def box_in_area(
+    boxes: PascalBoxes,
+    area: Tensor,
+    min_fill: float = 0.7,
+) -> Tensor:
+    if len(boxes) == 0:
+        return torch.zeros(0, dtype=torch.long, device=boxes.device)
+    lt = torch.max(boxes[:, :2], area[:2])
+    rb = torch.min(boxes[:, 2:], area[2:])
+    wh = (rb - lt).clamp(min=0)
+    overlaped_area = wh[:, 0] * wh[:, 1]
+    areas = box_area(boxes)
+    fill_ratio = overlaped_area / areas
+    indices = fill_ratio > min_fill
+    return indices
