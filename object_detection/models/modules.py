@@ -61,7 +61,7 @@ class CSE2d(nn.Module):
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(in_channels, in_channels // reduction, 1),
-            Mish(),
+            FReLU(in_channels//reduction),
             nn.Conv2d(in_channels // reduction, in_channels, 1),
             Hsigmoid(inplace=True),
         )
