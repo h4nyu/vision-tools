@@ -3,7 +3,12 @@ import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
 from object_detection.entities import FP
-from .bottlenecks import SENextBottleneck2d
+from .modules import (
+    Conv2dStaticSamePadding,
+    SeparableConvBR2d,
+    MaxPool2dStaticSamePadding,
+    FReLU,
+)
 
 
 class Down2d(nn.Module):
@@ -14,14 +19,20 @@ class Down2d(nn.Module):
         merge: bool = True,
     ) -> None:
         super().__init__()
-        self.down = SENextBottleneck2d(
+        self.conv = SeparableConvBR2d(
             in_channels=channels,
             out_channels=channels,
+        )
+        self.pool = MaxPool2dStaticSamePadding(
+            kernel_size=3,
             stride=2,
         )
+        self.act = FReLU(channels)
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.down(x)
+        x = self.conv(x)
+        x = self.pool(x)
+        x = self.act(x)
         return x
 
 
@@ -36,12 +47,14 @@ class Up2d(nn.Module):
         super().__init__()
         self.merge = merge
         self.up = nn.Upsample(scale_factor=2, mode="nearest")
+        self.act = FReLU(channels)
 
     def forward(self, x, t):  # type: ignore
         x = self.up(x)
         diff_h = torch.tensor([x.size()[2] - t.size()[2]])
         diff_w = torch.tensor([x.size()[3] - t.size()[3]])
         x = F.pad(x, (diff_h - diff_h // 2, diff_w - diff_w // 2))
+        x = self.act(x)
         return x
 
 
@@ -52,15 +65,16 @@ class Merge2d(nn.Module):
         out_channels: int,
     ) -> None:
         super().__init__()
-        self.merge = SENextBottleneck2d(
+        self.merge = SeparableConvBR2d(
             in_channels=in_channels,
             out_channels=out_channels,
-            stride=1,
         )
+        self.act = FReLU(out_channels)
 
     def forward(self, *inputs: Tensor) -> Tensor:
         x = torch.cat(inputs, dim=1)
         x = self.merge(x)
+        x = self.act(x)
         return x
 
 
