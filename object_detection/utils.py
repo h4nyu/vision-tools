@@ -71,7 +71,7 @@ class DetectionPlot:
         line_width: int = 1,
     ) -> None:
         _labels = labels.tolist() if labels is not None else []
-        for i, box in enumerate(boxes[:self.box_limit].tolist()):
+        for i, box in enumerate(boxes[: self.box_limit].tolist()):
             self.draw.rectangle(box, width=line_width, outline=color)
             label = "{}".format(labels[i]) if labels is not None else ""
             confidence = (

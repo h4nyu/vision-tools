@@ -397,14 +397,21 @@ class ToBoxes:
                 cls_indices = labels == c
                 if cls_indices.sum() == 0:
                     continue
+
                 c_boxes = boxes[cls_indices]
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
+
+                sort_indices = c_confidences.argsort(descending=True)[: self.limit]
+                c_boxes = c_boxes[sort_indices]
+                c_confidences = c_confidences[sort_indices]
+                c_labels = c_labels[sort_indices]
+
                 nms_indices = nms(
                     c_boxes,
                     c_confidences,
                     self.iou_threshold,
-                )[: self.limit]
+                )
                 box_list.append(c_boxes[nms_indices])
                 confidence_list.append(c_confidences[nms_indices])
                 label_list.append(c_labels[nms_indices])
@@ -422,11 +429,11 @@ class ToBoxes:
                 labels = torch.cat(label_list, dim=0)
             else:
                 labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
-            sort_indices = confidences.argsort(descending=True)[: self.limit]
-            boxes = PascalBoxes(boxes[sort_indices])
+            sort_indices = confidences.argsort(descending=True)
+            boxes = boxes[sort_indices]
             confidences = confidences[sort_indices]
             labels = labels[sort_indices]
-            box_batch.append(boxes)
+            box_batch.append(PascalBoxes(boxes))
             confidence_batch.append(Confidences(confidences))
             label_batch.append(Labels(labels))
         return box_batch, confidence_batch, label_batch
