@@ -45,7 +45,8 @@ class AveragePrecision:
         if n_box == 0:
             return
         tp = np.zeros(n_box)
-        iou_matrix = box_iou(boxes, gt_boxes)
+        sort_indecis = confidences.argsort(descending=True)
+        iou_matrix = box_iou(boxes[sort_indecis], gt_boxes)
         ious, matched_cls_indices = torch.max(iou_matrix, dim=1)
         matched: Set = set()
         for box_id, cls_id in enumerate(matched_cls_indices.to("cpu").numpy()):
