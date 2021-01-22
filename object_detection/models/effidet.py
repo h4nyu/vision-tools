@@ -35,7 +35,7 @@ from torch.cuda.amp import GradScaler, autocast
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import DIoU, HuberLoss, DIoULoss, FocalLoss
-from .modules import FReLU, ConvBR2d, SeparableConv2d, SeparableConvBR2d
+from .modules import ConvBR2d, SeparableConv2d, SeparableConvBR2d, Mish
 from .atss import ATSS
 from .anchors import Anchors
 from .tta import VFlipTTA, HFlipTTA
@@ -141,7 +141,7 @@ class ClassificationModel(nn.Module):
             *[
                 nn.Sequential(
                     SeparableConvBR2d(in_channels, in_channels),
-                    FReLU(in_channels),
+                    Mish(),
                 )
                 for _ in range(depth)
             ]
@@ -172,7 +172,7 @@ class RegressionModel(nn.Module):
             *[
                 nn.Sequential(
                     SeparableConvBR2d(in_channels, in_channels),
-                    FReLU(in_channels),
+                    Mish(),
                 )
                 for _ in range(depth)
             ]

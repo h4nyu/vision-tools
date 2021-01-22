@@ -1,7 +1,7 @@
 import typing as t
 from torch import nn, Tensor
 import torch.nn.functional as F
-from .modules import Hswish, ConvBR2d, CSE2d, Mish, FReLU
+from .modules import Hswish, ConvBR2d, CSE2d, Mish
 from typing_extensions import Literal
 
 
@@ -27,7 +27,7 @@ class MobileV3(nn.Module):
                 padding=0,
                 bias=False,
             ),
-            FReLU(mid_channels),
+            Mish(),
             ConvBR2d(
                 mid_channels,
                 mid_channels,
@@ -38,7 +38,7 @@ class MobileV3(nn.Module):
                 bias=False,
             ),
             CSE2d(mid_channels, reduction=4),
-            FReLU(mid_channels),
+            Mish(),
             # pw-linear
             ConvBR2d(
                 mid_channels,
@@ -80,7 +80,7 @@ class SENextBottleneck2d(nn.Module):
                 stride=1,
                 padding=0,
             ),
-            FReLU(mid_channels),
+            Mish(),
             ConvBR2d(
                 mid_channels,
                 mid_channels,
@@ -89,7 +89,7 @@ class SENextBottleneck2d(nn.Module):
                 padding=1,
                 groups=groups,
             ),
-            FReLU(mid_channels),
+            Mish(),
         )
 
         self.bypass = nn.Sequential()
@@ -123,7 +123,7 @@ class SENextBottleneck2d(nn.Module):
                 ),
             )
         self.cse = CSE2d(out_channels, reduction)
-        self.activation = FReLU(out_channels)
+        self.activation = Mish()
 
     def forward(self, x: Tensor) -> Tensor:
         s = self.conv(x)
