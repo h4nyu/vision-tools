@@ -35,7 +35,7 @@ from torch.cuda.amp import GradScaler, autocast
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import DIoU, HuberLoss, DIoULoss, FocalLoss
-from .modules import ConvBR2d, SeparableConv2d, SeparableConvBR2d, Mish
+from .modules import ConvBR2d, SeparableConv2d, SeparableConvBR2d, Mish, MemoryEfficientSwish
 from .atss import ATSS
 from .anchors import Anchors
 from .tta import VFlipTTA, HFlipTTA
@@ -138,7 +138,13 @@ class ClassificationModel(nn.Module):
         self.num_classes = num_classes
         self.num_anchors = num_anchors
         self.conv = nn.Sequential(
-            *[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)]
+            *[
+                nn.Sequential(
+                    SeparableConvBR2d(in_channels, in_channels),
+                    MemoryEfficientSwish(),
+                )
+                for _ in range(depth)
+            ]
         )
         self.out = SeparableConv2d(
             in_channels,
@@ -163,7 +169,13 @@ class RegressionModel(nn.Module):
     ) -> None:
         super().__init__()
         self.conv = nn.Sequential(
-            *[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)]
+            *[
+                nn.Sequential(
+                    SeparableConvBR2d(in_channels, in_channels),
+                    MemoryEfficientSwish(),
+                )
+                for _ in range(depth)
+            ]
         )
         self.out = SeparableConv2d(
             in_channels,

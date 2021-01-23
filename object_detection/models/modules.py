@@ -142,18 +142,8 @@ class Conv2dStaticSamePadding(nn.Module):
             bias=bias,
             groups=groups,
         )
-        self.stride = self.conv.stride
-        self.kernel_size = self.conv.kernel_size
-        self.dilation = self.conv.dilation
-
-        # self.stride = tuple(self.stride, self.stride)
-        # elif len(self.stride) == 1:
-        #     self.stride = tuple([self.stride[0]] * 2)
-
-        # if isinstance(self.kernel_size, int):
-        #     self.kernel_size = tuple([self.kernel_size] * 2)
-        # elif len(self.kernel_size) == 1:
-        #     self.kernel_size = tuple([self.kernel_size[0]] * 2)
+        self.stride = (stride, stride)
+        self.kernel_size = (kernel_size, kernel_size)
 
     def forward(self, x: Tensor) -> Tensor:
         h, w = x.shape[-2:]

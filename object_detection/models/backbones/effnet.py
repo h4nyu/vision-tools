@@ -6,6 +6,7 @@ from object_detection.entities import FP
 from efficientnet_pytorch.model import EfficientNet
 from typing_extensions import Literal
 from typing import Any
+from .connector import BackboneConnector
 
 SIDEOUT: Any = {  # phi: (stages, channels)
     0: ([0, 2, 4, 10, 15], [16, 24, 40, 112, 320]),
@@ -47,15 +48,9 @@ class EfficientNetBackbone(nn.Module):
             self._sideout_stages,
             self.sideout_channels,
         ) = SIDEOUT[phi]
-        self.projects = nn.ModuleList(
-            [
-                nn.Conv2d(
-                    in_channels=i,
-                    out_channels=out_channels,
-                    kernel_size=1,
-                )
-                for i in self.sideout_channels
-            ]
+        self.convs = BackboneConnector(
+            out_channels,
+            self.sideout_channels,
         )
 
     def forward(self, x: torch.Tensor) -> FP:
@@ -69,12 +64,4 @@ class EfficientNetBackbone(nn.Module):
             x = block(x, drop_connect_rate=drop_connect_rate)
             if idx in self._sideout_stages:
                 feats.append(x)
-
-        p3, p4, p5, p6, p7 = feats
-        return (
-            self.projects[0](p3),
-            self.projects[1](p4),
-            self.projects[2](p5),
-            self.projects[3](p6),
-            self.projects[4](p7),
-        )
+        return self.convs(feats)
