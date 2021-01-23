@@ -138,10 +138,7 @@ class ClassificationModel(nn.Module):
         self.num_classes = num_classes
         self.num_anchors = num_anchors
         self.conv = nn.Sequential(
-            *[
-                SENextBottleneck2d(in_channels, in_channels)
-                for _ in range(depth)
-            ]
+            *[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)]
         )
         self.out = SeparableConv2d(
             in_channels,
@@ -166,10 +163,7 @@ class RegressionModel(nn.Module):
     ) -> None:
         super().__init__()
         self.conv = nn.Sequential(
-            *[
-                SENextBottleneck2d(in_channels, in_channels)
-                for _ in range(depth)
-            ]
+            *[SENextBottleneck2d(in_channels, in_channels) for _ in range(depth)]
         )
         self.out = SeparableConv2d(
             in_channels,

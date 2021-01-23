@@ -1,7 +1,27 @@
 import torch, math
+from typing import *
 from torch import nn, Tensor
 from typing import Optional
 import torch.nn.functional as F
+
+
+class SwishImplementation(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx: Any, i: Any) -> Any:  # type: ignore
+        result = i * torch.sigmoid(i)
+        ctx.save_for_backward(i)
+        return result
+
+    @staticmethod
+    def backward(ctx: Any, grad_output: Tensor) -> Tensor:  # type: ignore
+        i = ctx.saved_variables[0]
+        sigmoid_i = torch.sigmoid(i)
+        return grad_output * (sigmoid_i * (1 + i * (1 - sigmoid_i)))
+
+
+class MemoryEfficientSwish(nn.Module):
+    def forward(self, x: Tensor) -> Tensor:
+        return SwishImplementation.apply(x)
 
 
 class FReLU(nn.Module):
@@ -164,7 +184,7 @@ class SeparableConv2d(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        out_channels: int,
+        out_channels: Optional[int] = None,
     ):
         super().__init__()
 
@@ -176,9 +196,14 @@ class SeparableConv2d(nn.Module):
             groups=in_channels,
             bias=False,
         )
-        self.pointwise_conv = Conv2dStaticSamePadding(
-            in_channels, out_channels, kernel_size=1, stride=1
-        )
+        if out_channels is None:
+            self.pointwise_conv = Conv2dStaticSamePadding(
+                in_channels, in_channels, kernel_size=1, stride=1
+            )
+        else:
+            self.pointwise_conv = Conv2dStaticSamePadding(
+                in_channels, out_channels, kernel_size=1, stride=1
+            )
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.depthwise_conv(x)
@@ -200,4 +225,36 @@ class SeparableConvBR2d(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
         x = self.bn(x)
+        return x
+
+
+class MaxPool2dStaticSamePadding(nn.Module):
+    def __init__(self, kernel_size: int, stride: int) -> None:
+        super().__init__()
+        self.pool = nn.MaxPool2d(kernel_size=kernel_size, stride=stride)
+
+        self.stride = (stride, stride)
+        self.kernel_size = (kernel_size, kernel_size)
+
+    def forward(self, x: Tensor) -> Tensor:
+        h, w = x.shape[-2:]
+        extra_h = (
+            (math.ceil(w / self.stride[1]) - 1) * self.stride[1]
+            - w
+            + self.kernel_size[1]
+        )
+        extra_v = (
+            (math.ceil(h / self.stride[0]) - 1) * self.stride[0]
+            - h
+            + self.kernel_size[0]
+        )
+
+        left = extra_h // 2
+        right = extra_h - left
+        top = extra_v // 2
+        bottom = extra_v - top
+
+        x = F.pad(x, [left, right, top, bottom])
+
+        x = self.pool(x)
         return x

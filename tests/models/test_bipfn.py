@@ -3,7 +3,7 @@ from object_detection.models.bifpn import BiFPN
 
 
 def test_bifpn() -> None:
-    req = (
+    req = tuple(
         torch.ones((1, 128, 1024 // (2 ** i), 1024 // (2 ** i))) for i in range(3, 8)
     )
     m = BiFPN(channels=128)
