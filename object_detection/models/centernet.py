@@ -32,7 +32,7 @@ from object_detection.entities import (
 from object_detection.utils import DetectionPlot
 from object_detection.entities.image import ImageId
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
-from .modules import FReLU, ConvBR2d, SeparableConv2d, SeparableConvBR2d
+from .modules import FReLU, ConvBR2d, SeparableConv2d, SeparableConvBR2d, MemoryEfficientSwish
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .losses import HuberLoss, DIoULoss
@@ -90,7 +90,7 @@ class Head(nn.Module):
             *[
                 nn.Sequential(
                     SeparableConvBR2d(in_channels, in_channels),
-                    FReLU(in_channels),
+                    MemoryEfficientSwish(),
                 )
                 for _ in range(depth)
             ]
