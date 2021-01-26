@@ -362,9 +362,9 @@ class ToBoxes:
                 labels = torch.cat(label_list, dim=0)
             else:
                 labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
-            box_batch.append(YoloBoxes(boxes[nms_indices]))
-            confidence_batch.append(Confidences(confidences[nms_indices]))
-            label_batch.append(Labels(labels[nms_indices]))
+            box_batch.append(YoloBoxes(boxes))
+            confidence_batch.append(Confidences(confidences))
+            label_batch.append(Labels(labels))
         return box_batch, confidence_batch, label_batch
 
 
