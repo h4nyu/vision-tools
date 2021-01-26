@@ -41,9 +41,15 @@ class EfficientNetBackbone(nn.Module):
         super().__init__()
         model_name = f"efficientnet-b{phi}"
         if pretrained:
-            self.module = EfficientNet.from_pretrained(model_name)
+            model = EfficientNet.from_pretrained(model_name)
         else:
-            self.module = EfficientNet.from_name(model_name)
+            model = EfficientNet.from_name(model_name)
+        del model._conv_head
+        del model._bn1
+        del model._avg_pooling
+        del model._dropout
+        del model._fc
+        self.model = model
         (
             self._sideout_stages,
             self.sideout_channels,
@@ -54,7 +60,7 @@ class EfficientNetBackbone(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> FP:
-        m = self.module
+        m = self.model
         x = m._swish(m._bn0(m._conv_stem(x)))
         feats = []
         for idx, block in enumerate(m._blocks):
