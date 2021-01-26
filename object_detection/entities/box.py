@@ -129,6 +129,8 @@ def pascal_to_coco(pascal: PascalBoxes) -> CoCoBoxes:
 
 
 def yolo_hflip(yolo: YoloBoxes) -> YoloBoxes:
+    if len(yolo) == 0:
+        return yolo
     cx, cy, w, h = yolo.unbind(-1)
     b = [
         1.0 - cx,
