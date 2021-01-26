@@ -307,10 +307,12 @@ class Criterion:
             matched_pred_boxes = anchors[pos_ids[:, 1]] + box_pred[pos_ids[:, 1]]
             cls_target = torch.zeros(cls_pred.shape, device=device)
             cls_target[pos_ids[:, 1], gt_lables[pos_ids[:, 0]].long()] = 1
+
+            num_pos = max(len(pos_ids), 1)
             cls_losses[batch_id] = self.cls_loss(
                 cls_pred.float(),
                 cls_target.float(),
-            ).sum()
+            ).sum() / num_pos
             box_losses[batch_id] = self.box_loss(
                 PascalBoxes(matched_gt_boxes),
                 PascalBoxes(matched_pred_boxes),
