@@ -33,3 +33,65 @@ def test_average_precision() -> None:
 
     res = metrics()
     assert round(res, 4) == round((1 / 2 * 1 / 2 + 1 / 3 * 1 / 2), 4)
+
+
+def test_no_gt_has_box() -> None:
+    metrics = AveragePrecision(iou_threshold=0.3)
+    boxes = PascalBoxes(
+        torch.tensor(
+            [
+                [15, 15, 25, 25],
+                [0, 0, 15, 15],
+                [25, 25, 35, 35],
+            ]
+        )
+    )
+    confidences = Confidences(torch.tensor([0.9, 0.8, 0.7]))
+
+    gt_boxes = PascalBoxes(torch.tensor([]))
+    metrics.add(
+        boxes,
+        confidences,
+        gt_boxes,
+    )
+
+    res = metrics()
+    assert round(res, 4) == round(0, 4)
+
+
+def test_no_gt_and_box() -> None:
+    metrics = AveragePrecision(iou_threshold=0.3)
+    boxes = PascalBoxes(torch.tensor([]))
+    confidences = Confidences(torch.tensor([]))
+
+    gt_boxes = PascalBoxes(torch.tensor([]))
+    metrics.add(
+        boxes,
+        confidences,
+        gt_boxes,
+    )
+
+    res = metrics()
+    assert round(res, 4) == round(1.0, 4)
+
+
+def test_has_gt_no_box() -> None:
+    metrics = AveragePrecision(iou_threshold=0.3)
+    boxes = PascalBoxes(torch.tensor([]))
+    confidences = Confidences(torch.tensor([]))
+
+    gt_boxes = PascalBoxes(
+        torch.tensor(
+            [
+                [15, 15, 25, 25],
+            ]
+        )
+    )
+    metrics.add(
+        boxes,
+        confidences,
+        gt_boxes,
+    )
+
+    res = metrics()
+    assert round(res, 4) == round(0, 4)

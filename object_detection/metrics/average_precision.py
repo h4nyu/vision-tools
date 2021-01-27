@@ -40,11 +40,17 @@ class AveragePrecision:
         confidences: Confidences,
         gt_boxes: PascalBoxes,
     ) -> None:
+
         n_gt_box = len(gt_boxes)
         n_box = len(boxes)
-        if n_box == 0:
+        if n_gt_box == 0 and n_box == 0:
             return
         tp = np.zeros(n_box)
+        if n_box == 0 or n_gt_box == 0:
+            self.tp_list.append(tp)
+            self.confidence_list.append(confidences.to("cpu").numpy())
+            return
+
         sort_indecis = confidences.argsort(descending=True)
         iou_matrix = box_iou(boxes[sort_indecis], gt_boxes)
         ious, matched_cls_indices = torch.max(iou_matrix, dim=1)
@@ -58,8 +64,8 @@ class AveragePrecision:
         self.n_gt_box += n_gt_box
 
     def __call__(self) -> float:
-        if len(self.confidence_list) == 0:
-            return 0.0
+        if self.n_gt_box == len(self.tp_list) == 0:
+            return 1.0
         sort_indices = np.argsort(-np.concatenate(self.confidence_list))
         tp = np.concatenate(self.tp_list)[sort_indices]
         tpc = tp.cumsum()
