@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from object_detection.entities import FP
 from .bottlenecks import SENextBottleneck2d
 from .modules import (
-    SeparableConv2d,
+    SeparableConvBR2d,
     Conv2dStaticSamePadding,
     MaxPool2dStaticSamePadding,
     MemoryEfficientSwish,
@@ -16,14 +16,14 @@ class BiFPN(nn.Module):
     def __init__(self, channels: int) -> None:
         super().__init__()
 
-        self.conv6_up = SeparableConv2d(channels)
-        self.conv5_up = SeparableConv2d(channels)
-        self.conv4_up = SeparableConv2d(channels)
-        self.conv3_up = SeparableConv2d(channels)
-        self.conv4_down = SeparableConv2d(channels)
-        self.conv5_down = SeparableConv2d(channels)
-        self.conv6_down = SeparableConv2d(channels)
-        self.conv7_down = SeparableConv2d(channels)
+        self.conv6_up = SeparableConvBR2d(channels)
+        self.conv5_up = SeparableConvBR2d(channels)
+        self.conv4_up = SeparableConvBR2d(channels)
+        self.conv3_up = SeparableConvBR2d(channels)
+        self.conv4_down = SeparableConvBR2d(channels)
+        self.conv5_down = SeparableConvBR2d(channels)
+        self.conv6_down = SeparableConvBR2d(channels)
+        self.conv7_down = SeparableConvBR2d(channels)
 
         self.p6_upsample = nn.Upsample(scale_factor=2, mode="nearest")
         self.p5_upsample = nn.Upsample(scale_factor=2, mode="nearest")
