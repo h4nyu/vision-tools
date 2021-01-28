@@ -25,7 +25,9 @@ class MeanAveragePrecision:
         gt_boxes: PascalBoxes,
         gt_labels: Labels,
     ) -> None:
-        for k in np.unique(gt_labels.to("cpu").numpy()):
+        unique_gt_labels = set(np.unique(gt_labels.to("cpu").numpy()))
+        unique_labels = set(np.unique(labels.to("cpu").numpy()))
+        for k in unique_labels | unique_gt_labels:
             ap = self.aps[k]
             ap.add(
                 boxes=PascalBoxes(boxes[labels == k]),
