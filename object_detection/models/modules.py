@@ -210,7 +210,11 @@ class SeparableConvBR2d(nn.Module):
         super().__init__()
 
         self.conv = SeparableConv2d(in_channels, out_channels)
-        self.bn = nn.BatchNorm2d(num_features=out_channels if out_channels is not None else in_channels, momentum=0.01, eps=1e-3)
+        self.bn = nn.BatchNorm2d(
+            num_features=out_channels if out_channels is not None else in_channels,
+            momentum=0.01,
+            eps=1e-3,
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.conv(x)
