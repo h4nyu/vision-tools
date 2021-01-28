@@ -151,13 +151,13 @@ class CenterNet(nn.Module):
         )
         self.anchors = EmptyAnchors()
 
-    def forward(self, x: ImageBatch) -> NetOutput:
+    def forward(self, x: ImageBatch) -> Tuple[NetOutput, FP]:
         fp = self.backbone(x)
         fp = self.fpn(fp)
         heatmaps = Heatmaps(self.hm_reg(fp[self.out_idx]))
         anchors = self.anchors(heatmaps)
         boxmaps = self.box_reg(fp[self.out_idx])
-        return heatmaps, BoxMaps(boxmaps), anchors
+        return (heatmaps, BoxMaps(boxmaps), anchors), fp
 
 
 class HMLoss(nn.Module):
