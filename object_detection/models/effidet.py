@@ -308,7 +308,7 @@ class Criterion:
             cls_target = torch.zeros(cls_pred.shape, device=device)
             cls_target[pos_ids[:, 1], gt_lables[pos_ids[:, 0]].long()] = 1
 
-            num_pos = max(len(pos_ids), 1)
+            num_pos = max(len(gt_boxes), 1)
             cls_losses[batch_id] = (
                 self.cls_loss(
                     cls_pred.float(),
