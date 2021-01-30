@@ -340,7 +340,7 @@ class ToBoxes:
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
                 nms_indices = nms(
-                    c_boxes,
+                    yolo_to_pascal(c_boxes, (1, 1)),
                     c_confidences,
                     self.iou_threshold,
                 )[: self.limit]
