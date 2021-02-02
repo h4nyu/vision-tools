@@ -75,13 +75,25 @@ class FocalLoss:
         gt:
             0,1 [N, C,..]
         """
+        device = pred.device
         gamma = self.gamma
         eps = self.eps
         alpha = self.alpha
         pred = torch.clamp(pred, min=self.eps, max=1 - self.eps)
-        pos_loss = -((1 - pred) ** gamma) * torch.log(pred) * gt.eq(1.0)
-        neg_loss = -(pred ** gamma) * torch.log(1 - pred) * gt.eq(0.0)
-        loss = alpha * pos_loss + (1 - alpha) * neg_loss
+        if len(gt) == 0:
+            alpha_factor = torch.ones_like(pred).to(device) * alpha
+            alpha_factor = 1.0 - alpha_factor
+            focal_weight = alpha_factor * torch.pow(pred, gamma)
+            bce = -(torch.log(1.0 - pred))
+            loss = focal_weight * bce
+            return loss
+
+        alpha_factor = torch.ones_like(gt) * alpha
+        alpha_factor = torch.where(torch.eq(gt, 1.0), alpha_factor, 1.0 - alpha_factor)
+        focal_weight = torch.where(torch.eq(gt, 1.0), 1.0 - pred, pred)
+        focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
+        bce = -(gt * torch.log(pred) + (1.0 - gt) * torch.log(1.0 - pred))
+        loss = focal_weight * bce
         return loss
 
 
