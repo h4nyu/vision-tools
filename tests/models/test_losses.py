@@ -79,27 +79,20 @@ def test_giou() -> None:
                 [10, 10],
                 [10, -10],
             ],
-            0.35,
+            7,
         ),
         (
             [
                 [10, 10],
                 [10, 10],
             ],
-            0.70,
-        ),
-        (
-            [
-                [10, -10],
-                [10, -10],
-            ],
-            19,
+            14,
         ),
     ],
 )
 def test_focal_loss(values: t.Any, expected: float) -> None:
     fn = FocalLoss()
-    pred = torch.Tensor(values).softmax(1)
+    pred = torch.Tensor(values).sigmoid()
 
     target = torch.Tensor(
         [
@@ -109,6 +102,15 @@ def test_focal_loss(values: t.Any, expected: float) -> None:
     )
     res = fn(pred, target).sum()
     assert res < expected
+
+
+def test_focal_loss_empty() -> None:
+    fn = FocalLoss()
+    pred = torch.Tensor([[-10, -10]]).sigmoid()
+
+    target = torch.Tensor([])
+    res = fn(pred, target).sum()
+    assert res < 1e-6
 
 
 @pytest.mark.parametrize(
