@@ -418,7 +418,7 @@ class ToBoxes:
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
 
-                sort_indices = c_confidences.argsort(descending=True)
+                sort_indices = c_confidences.argsort(descending=True)[:self.limit]
                 c_boxes = c_boxes[sort_indices]
                 c_confidences = c_confidences[sort_indices]
                 c_labels = c_labels[sort_indices]
@@ -427,7 +427,7 @@ class ToBoxes:
                     c_boxes,
                     c_confidences,
                     self.iou_threshold,
-                )[:self.limit]
+                )
                 box_list.append(c_boxes[nms_indices])
                 confidence_list.append(c_confidences[nms_indices])
                 label_list.append(c_labels[nms_indices])
