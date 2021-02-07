@@ -418,7 +418,7 @@ class ToBoxes:
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
 
-                sort_indices = c_confidences.argsort(descending=True)[:self.limit]
+                sort_indices = c_confidences.argsort(descending=True)[: self.limit]
                 c_boxes = c_boxes[sort_indices]
                 c_confidences = c_confidences[sort_indices]
                 c_labels = c_labels[sort_indices]
