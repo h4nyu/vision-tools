@@ -376,11 +376,9 @@ class ToBoxes:
         self,
         confidence_threshold: float = 0.5,
         iou_threshold: float = 0.5,
-        limit: int = 1000,
     ) -> None:
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
-        self.limit = limit
 
     @torch.no_grad()
     def __call__(
@@ -418,7 +416,7 @@ class ToBoxes:
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
 
-                sort_indices = c_confidences.argsort(descending=True)[: self.limit]
+                sort_indices = c_confidences.argsort(descending=True)
                 c_boxes = c_boxes[sort_indices]
                 c_confidences = c_confidences[sort_indices]
                 c_labels = c_labels[sort_indices]

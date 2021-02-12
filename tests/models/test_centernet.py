@@ -70,7 +70,7 @@ def test_centernet_forward() -> None:
     backbone = ResNetBackbone("resnet34", out_channels=channels)
     fn = CenterNet(num_classes=2, channels=channels, backbone=backbone, out_idx=3)
 
-    netout, _ = fn(inputs)
+    netout = fn(inputs)
     heatmap, sizemap, _ = netout
     assert heatmap.shape == (1, 2, 512 // 2, 512 // 2)
     assert sizemap.shape == (1, 4, 512 // 2, 512 // 2)
