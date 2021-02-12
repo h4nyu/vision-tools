@@ -26,8 +26,8 @@ class RandomLayout(A.DualTransform):
         height = self.height * size[1]
         offset_x = self.width * offset[0]
         offset_y = self.height * offset[1]
-        pts1 = np.float32([[0, 0], [0, img.shape[0]], [img.shape[1], 0]])
-        pts2 = np.float32(
+        pts1 = np.array([[0, 0], [0, img.shape[0]], [img.shape[1], 0]])
+        pts2 = np.array(
             [
                 [offset_x, offset_y],
                 [offset_x, offset_y + height],

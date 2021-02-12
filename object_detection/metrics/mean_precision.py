@@ -44,5 +44,5 @@ class MeanPrecition:
             pred_boxes,
             gt_boxes,
         )
-        res = np.mean([precition(iou_matrix, t) for t in self.iou_thresholds])
+        res = float(np.mean([precition(iou_matrix, t) for t in self.iou_thresholds]))
         return res
