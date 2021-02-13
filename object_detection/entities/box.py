@@ -218,3 +218,28 @@ def box_vflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
     boxes[:, 1] = h - boxes[:, 1] - box_h
     boxes[:, 3] = h - boxes[:, 3] + box_h
     return Boxes(boxes)
+
+
+def filter_limit(
+    boxes: Boxes,
+    confidences: Confidences,
+    labels: Labels,
+    limit: int,
+) -> tuple[Boxes, Confidences, Labels]:
+    unique_labels = torch.unique(labels)
+    box_list = []
+    label_list = []
+    conf_list = []
+    for c in unique_labels:
+        c_indecies = labels == c
+        c_boxes = boxes[c_indecies][:limit]
+        c_labels = labels[c_indecies][:limit]
+        c_confidences = confidences[c_indecies][:limit]
+        box_list.append(c_boxes)
+        label_list.append(c_labels)
+        conf_list.append(c_confidences)
+    return (
+        Boxes(torch.cat(box_list)),
+        Confidences(torch.cat(conf_list)),
+        Labels(torch.cat(label_list)),
+    )

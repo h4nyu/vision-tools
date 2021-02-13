@@ -14,6 +14,7 @@ from object_detection.entities import (
     yolo_to_pascal,
     ImageBatch,
     yolo_clamp,
+    filter_limit,
 )
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
@@ -55,6 +56,7 @@ class Visualize:
         use_alpha: bool = True,
         show_confidences: bool = True,
         transforms: Any = None,
+        box_limit: int = 100,
     ) -> None:
         self.prefix = prefix
         self.out_dir = Path(out_dir)
@@ -62,6 +64,7 @@ class Visualize:
         self.use_alpha = use_alpha
         self.show_confidences = show_confidences
         self.transforms = transforms
+        self.box_limit = box_limit
 
     def __call__(
         self,
@@ -85,6 +88,12 @@ class Visualize:
                 gt_labels,
             )
         ):
+            boxes, confidences, labels = filter_limit(
+                boxes,
+                confidences,
+                labels,
+                self.box_limit,
+            )
             plot = DetectionPlot(
                 self.transforms(img) if self.transforms is not None else img
             )

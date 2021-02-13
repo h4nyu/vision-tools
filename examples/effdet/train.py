@@ -106,7 +106,12 @@ def train(epochs: int) -> None:
         eps=1e-16,
         weight_decay=0,
     )
-    visualize = Visualize("/store/efficientdet", "test", limit=config.batch_size)
+    visualize = Visualize(
+        "/store/efficientdet",
+        "test",
+        limit=config.batch_size,
+        box_limit=config.vis_box_limit,
+    )
     to_boxes = ToBoxes(
         confidence_threshold=config.confidence_threshold,
         iou_threshold=config.iou_threshold,

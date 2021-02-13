@@ -15,6 +15,9 @@ channels = 128
 box_depth = 1
 out_ids: list[int] = [6, 7]
 
+# to_box
+vis_box_limit = 50
+
 
 input_size = (256, 256)
 object_count_range = (0, 32)
