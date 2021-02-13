@@ -27,7 +27,6 @@ from object_detection.entities import (
     boxmap_to_boxes,
 )
 from object_detection.utils import DetectionPlot
-from object_detection.entities.image import ImageId
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
 from .modules import (
     FReLU,

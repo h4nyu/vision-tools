@@ -8,7 +8,6 @@ import torchvision
 from functools import partial
 from object_detection.entities import (
     Image,
-    ImageId,
     Confidences,
     Labels,
     Boxes,

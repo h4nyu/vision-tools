@@ -15,7 +15,6 @@ from object_detection.entities import (
     Image,
     ImageSize,
     YoloBoxes,
-    ImageId,
     Labels,
 )
 import random

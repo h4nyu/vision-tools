@@ -5,7 +5,6 @@ from object_detection.entities import (
     Image,
     ImageSize,
     Boxes,
-    ImageId,
     Labels,
 )
 import random
