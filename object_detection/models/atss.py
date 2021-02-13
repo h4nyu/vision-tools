@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 from .assign import ClosestAssign
 from torchvision.ops.boxes import box_iou
-from object_detection.entities import PascalBoxes, AnchorMap
+from object_detection.entities import Boxes, AnchorMap
 import typing
 
 
@@ -22,8 +22,8 @@ class ATSS:
 
     def __call__(
         self,
-        anchors: PascalBoxes,
-        gt: PascalBoxes,
+        anchors: Boxes,
+        gt: Boxes,
     ) -> Tensor:
         device = anchors.device
         matched_ids = self.assign(anchors, gt)

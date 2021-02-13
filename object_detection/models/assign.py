@@ -1,7 +1,7 @@
 import torch
 import typing
 from torch import Tensor
-from object_detection.entities import PascalBoxes
+from object_detection.entities import Boxes
 
 
 class ClosestAssign:
@@ -13,7 +13,7 @@ class ClosestAssign:
     def __init__(self, topk: int) -> None:
         self.topk = topk
 
-    def __call__(self, anchor: PascalBoxes, gt: PascalBoxes) -> Tensor:
+    def __call__(self, anchor: Boxes, gt: Boxes) -> Tensor:
         device = anchor.device
         gt_count = gt.shape[0]
         anchor_count = anchor.shape[0]

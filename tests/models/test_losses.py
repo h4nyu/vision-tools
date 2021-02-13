@@ -10,16 +10,14 @@ from object_detection.models.losses import (
     FocalLoss,
     SigmoidFocalLoss,
 )
-from object_detection import PascalBoxes
+from object_detection import Boxes
 from torch import nn, Tensor
 
 
 def test_iouloss() -> None:
     fn = IoULoss()
-    pred_boxes = PascalBoxes(
-        torch.tensor([[0.2, 0.2, 0.25, 0.25], [0.2, 0.2, 0.3, 0.3]])
-    )
-    tgt_boxes = PascalBoxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
+    pred_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.25, 0.25], [0.2, 0.2, 0.3, 0.3]]))
+    tgt_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
     iouloss, union = fn(
         pred_boxes,
         tgt_boxes,
@@ -29,7 +27,7 @@ def test_iouloss() -> None:
 
 def test_diouloss() -> None:
     fn = DIoULoss()
-    pred_boxes = PascalBoxes(
+    pred_boxes = Boxes(
         torch.tensor(
             [
                 [0.2, 0.2, 0.3, 0.3],
@@ -37,7 +35,7 @@ def test_diouloss() -> None:
             ]
         )
     )
-    tgt_boxes = PascalBoxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
+    tgt_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
     res = fn(
         pred_boxes,
         tgt_boxes,
@@ -47,7 +45,7 @@ def test_diouloss() -> None:
 
 def test_giou() -> None:
     fn = GIoU()
-    pred_boxes = PascalBoxes(
+    pred_boxes = Boxes(
         torch.tensor(
             [
                 [0.1, 0.1, 0.2, 0.2],
@@ -55,7 +53,7 @@ def test_giou() -> None:
             ]
         )
     )
-    tgt_boxes = PascalBoxes(torch.tensor([[0.2, 0.2, 0.3, 0.3]]))
+    tgt_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.3, 0.3]]))
     res = fn(
         pred_boxes,
         tgt_boxes,

@@ -5,7 +5,7 @@ from collections import defaultdict
 from torch import Tensor
 from torchvision.ops.boxes import box_iou
 from object_detection.entities import (
-    PascalBoxes,
+    Boxes,
 )
 
 
@@ -34,7 +34,7 @@ class MeanPrecition:
         self.iou_thresholds = iou_thresholds
 
     @torch.no_grad()
-    def __call__(self, pred_boxes: PascalBoxes, gt_boxes: PascalBoxes) -> float:
+    def __call__(self, pred_boxes: Boxes, gt_boxes: Boxes) -> float:
         if len(gt_boxes) == 0:
             return 1.0 if len(pred_boxes) == 0 else 0.0
         if len(pred_boxes) == 0:

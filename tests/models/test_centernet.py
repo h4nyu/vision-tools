@@ -8,7 +8,6 @@ from object_detection.models.centernet import (
     ToBoxes,
     HMLoss,
     Visualize,
-    collate_fn,
 )
 from object_detection.entities import (
     YoloBoxes,

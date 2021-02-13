@@ -6,19 +6,17 @@ from torch import Tensor
 from torch.utils.data import Dataset
 from object_detection.entities.image import RGB, Image
 from object_detection.entities.box import (
-    PascalBoxes,
+    Boxes,
     YoloBoxes,
     pascal_to_yolo,
     filter_size,
 )
 from object_detection.entities import (
-    TrainSample,
     Image,
     ImageSize,
     YoloBoxes,
     ImageId,
     Labels,
-    PredictionSample,
 )
 import random
 
@@ -33,7 +31,7 @@ class PolyImage:
         self.height = height
         self.width = width
         self.image = image
-        self.boxes = PascalBoxes(torch.empty((0, 4), dtype=torch.int32))
+        self.boxes = Boxes(torch.empty((0, 4), dtype=torch.int32))
         self.labels: List[int] = []
 
     def add_triangle(self, max_size: int = 128) -> None:
@@ -56,7 +54,7 @@ class PolyImage:
         x1 = np.max(pts[:, :, 0])
         y1 = np.max(pts[:, :, 1])
         boxes = torch.tensor([[x0, y0, x1, y1]], dtype=torch.int32)
-        self.boxes = PascalBoxes(torch.cat([self.boxes, boxes]))
+        self.boxes = Boxes(torch.cat([self.boxes, boxes]))
         self.labels.append(0)
 
     def add_circle(self, max_size: int = 128) -> None:
@@ -70,7 +68,7 @@ class PolyImage:
         x1 = cx + radius
         y1 = cy + radius
         boxes = torch.tensor([[x0, y0, x1, y1]], dtype=torch.int32)
-        self.boxes = PascalBoxes(torch.cat([self.boxes, boxes]))
+        self.boxes = Boxes(torch.cat([self.boxes, boxes]))
         self.labels.append(1)
 
     def add(self, max_size: int) -> None:
@@ -81,7 +79,7 @@ class PolyImage:
             ]
         )(max_size)
 
-    def __call__(self) -> Tuple[Image, PascalBoxes, Labels]:
+    def __call__(self) -> Tuple[Image, Boxes, Labels]:
         img = torch.from_numpy(self.image).permute(2, 0, 1)  # [H, W]
         boxes = self.boxes
         labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
@@ -101,7 +99,7 @@ class TrainDataset(Dataset):
         self.object_count_range = object_count_range
         self.object_size_range = object_size_range
 
-    def __getitem__(self, idx: int) -> TrainSample:
+    def __getitem__(self, idx: int) -> Tuple[str, Image, Boxes, Labels]:
         poly = PolyImage(
             width=self.image_size[0],
             height=self.image_size[1],
@@ -121,49 +119,10 @@ class TrainDataset(Dataset):
         boxes, indices = filter_size(boxes, lambda x: x > 36)
         labels = Labels(labels[indices])
         return (
-            ImageId(""),
+            "",
             Image(image),
-            PascalBoxes(boxes.float()),
+            Boxes(boxes.float()),
             labels,
-        )
-
-    def __len__(self) -> int:
-        return self.num_samples
-
-
-class PredictionDataset(Dataset):
-    def __init__(
-        self,
-        image_size: ImageSize,
-        object_size_range: Tuple[int, int],
-        object_count_range: Tuple[int, int] = (1, 10),
-        num_samples: int = 100,
-    ) -> None:
-        self.image_size = image_size
-        self.num_samples = num_samples
-        self.object_count_range = object_count_range
-        self.object_size_range = object_size_range
-
-    def __getitem__(self, idx: int) -> PredictionSample:
-        poly = PolyImage(
-            width=self.image_size[0],
-            height=self.image_size[1],
-        )
-        count = np.random.randint(
-            low=self.object_count_range[0],
-            high=self.object_count_range[1],
-        )
-        sizes = np.random.randint(
-            low=self.object_size_range[0],
-            high=self.object_size_range[1],
-            size=(count,),
-        )
-        for s in sizes:
-            poly.add(s)
-        image, _, _ = poly()
-        return (
-            ImageId(""),
-            Image(image),
         )
 
     def __len__(self) -> int:

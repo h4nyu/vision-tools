@@ -2,7 +2,7 @@ import torch
 import pytest
 from typing import Any
 from object_detection.entities.image import ImageBatch
-from object_detection.entities.box import PascalBoxes, Labels
+from object_detection.entities.box import Boxes, Labels
 from object_detection.models.effidet import (
     RegressionModel,
     ClassificationModel,

@@ -14,7 +14,7 @@ from logging import getLogger
 from .entities.box import (
     CoCoBoxes,
     YoloBoxes,
-    PascalBoxes,
+    Boxes,
     Labels,
     yolo_to_coco,
     pascal_to_coco,
@@ -64,7 +64,7 @@ class DetectionPlot:
     @torch.no_grad()
     def draw_boxes(
         self,
-        boxes: PascalBoxes,
+        boxes: Boxes,
         confidences: Optional[Tensor] = None,
         labels: Optional[Tensor] = None,
         color: str = "white",

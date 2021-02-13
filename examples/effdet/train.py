@@ -1,14 +1,20 @@
 import torch
-from typing import Dict
+from typing import *
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 from object_detection.models.backbones.effnet import (
     EfficientNetBackbone,
 )
+from object_detection.entities import (
+    Image,
+    ImageBatch,
+    Boxes,
+    Labels,
+    Boxes,
+)
 from object_detection.metrics import MeanAveragePrecision
 from tqdm import tqdm
 from object_detection.models.effidet import (
-    collate_fn,
     EfficientDet,
     Criterion,
     Visualize,
@@ -28,6 +34,27 @@ from logging import (
 )
 
 logger = getLogger(__name__)
+
+
+def collate_fn(
+    batch: List[Tuple[str, Image, Boxes, Labels]],
+) -> Tuple[ImageBatch, List[Boxes], List[Labels], List[str]]:
+    images: List[Any] = []
+    id_batch: List[str] = []
+    box_batch: List[Boxes] = []
+    label_batch: List[Labels] = []
+    for id, img, boxes, labels in batch:
+        c, h, w = img.shape
+        images.append(img)
+        box_batch.append(boxes)
+        id_batch.append(id)
+        label_batch.append(labels)
+    return (
+        ImageBatch(torch.stack(images)),
+        box_batch,
+        label_batch,
+        id_batch,
+    )
 
 
 def train(epochs: int) -> None:

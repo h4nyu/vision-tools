@@ -1,12 +1,12 @@
 import numpy as np
 import torch
-from object_detection.entities import Labels, PascalBoxes, Confidences
+from object_detection.entities import Labels, Boxes, Confidences
 from object_detection.metrics.average_precision import AveragePrecision, auc
 
 
 def test_average_precision() -> None:
     metrics = AveragePrecision(iou_threshold=0.3)
-    boxes = PascalBoxes(
+    boxes = Boxes(
         torch.tensor(
             [
                 [15, 15, 25, 25],
@@ -17,7 +17,7 @@ def test_average_precision() -> None:
     )
     confidences = Confidences(torch.tensor([0.9, 0.8, 0.7]))
 
-    gt_boxes = PascalBoxes(
+    gt_boxes = Boxes(
         torch.tensor(
             [
                 [0, 0, 10, 10],
@@ -37,7 +37,7 @@ def test_average_precision() -> None:
 
 def test_no_gt_has_box() -> None:
     metrics = AveragePrecision(iou_threshold=0.3)
-    boxes = PascalBoxes(
+    boxes = Boxes(
         torch.tensor(
             [
                 [15, 15, 25, 25],
@@ -48,7 +48,7 @@ def test_no_gt_has_box() -> None:
     )
     confidences = Confidences(torch.tensor([0.9, 0.8, 0.7]))
 
-    gt_boxes = PascalBoxes(torch.tensor([]))
+    gt_boxes = Boxes(torch.tensor([]))
     metrics.add(
         boxes,
         confidences,
@@ -61,10 +61,10 @@ def test_no_gt_has_box() -> None:
 
 def test_no_gt_and_box() -> None:
     metrics = AveragePrecision(iou_threshold=0.3)
-    boxes = PascalBoxes(torch.tensor([]))
+    boxes = Boxes(torch.tensor([]))
     confidences = Confidences(torch.tensor([]))
 
-    gt_boxes = PascalBoxes(torch.tensor([]))
+    gt_boxes = Boxes(torch.tensor([]))
     metrics.add(
         boxes,
         confidences,
@@ -77,10 +77,10 @@ def test_no_gt_and_box() -> None:
 
 def test_has_gt_no_box() -> None:
     metrics = AveragePrecision(iou_threshold=0.3)
-    boxes = PascalBoxes(torch.tensor([]))
+    boxes = Boxes(torch.tensor([]))
     confidences = Confidences(torch.tensor([]))
 
-    gt_boxes = PascalBoxes(
+    gt_boxes = Boxes(
         torch.tensor(
             [
                 [15, 15, 25, 25],

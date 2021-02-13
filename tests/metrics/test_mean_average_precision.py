@@ -1,12 +1,12 @@
 import numpy as np
 import torch
-from object_detection.entities import Labels, PascalBoxes, Confidences
+from object_detection.entities import Labels, Boxes, Confidences
 from object_detection.metrics.mean_average_precision import MeanAveragePrecision
 
 
 def test_half() -> None:
     metrics = MeanAveragePrecision(num_classes=2, iou_threshold=0.3)
-    boxes = PascalBoxes(
+    boxes = Boxes(
         torch.tensor(
             [
                 [15, 15, 25, 25],
@@ -36,7 +36,7 @@ def test_half() -> None:
         )
     )
 
-    gt_boxes = PascalBoxes(
+    gt_boxes = Boxes(
         torch.tensor(
             [
                 [0, 0, 10, 10],

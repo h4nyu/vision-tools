@@ -1,10 +1,10 @@
 import torch
-from object_detection.entities import PascalBoxes
+from object_detection.entities import Boxes
 from object_detection.models.assign import ClosestAssign
 
 
 def test_closest_assign() -> None:
-    anchor = PascalBoxes(
+    anchor = Boxes(
         torch.tensor(
             [
                 [5, 5, 6, 6],
@@ -17,7 +17,7 @@ def test_closest_assign() -> None:
         )
     )
 
-    gt = PascalBoxes(
+    gt = Boxes(
         torch.tensor(
             [
                 [10, 10, 11, 11],

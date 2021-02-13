@@ -1,11 +1,10 @@
-import typing as t
+from typing import *
 import torch
 from torch.utils.data import Dataset
 from object_detection.entities import (
-    TrainSample,
     Image,
     ImageSize,
-    PascalBoxes,
+    Boxes,
     ImageId,
     Labels,
 )
@@ -17,16 +16,16 @@ class RandomDataset(Dataset):
         self.image_size = image_size
         self.num_samples = num_samples
 
-    def __getitem__(self, idx: int) -> TrainSample:
+    def __getitem__(self, idx: int) -> Tuple[str, Image, Boxes, Labels]:
         image = torch.rand((3, *self.image_size), dtype=torch.float32)
         boxes = torch.rand((random.randint(1, 9), 4), dtype=torch.float32).clamp(
             0, max(self.image_size)
         )
         labels = torch.zeros((len(boxes),))
         return (
-            ImageId(""),
+            "",
             Image(image),
-            PascalBoxes(boxes.float()),
+            Boxes(boxes.float()),
             Labels(labels),
         )
 

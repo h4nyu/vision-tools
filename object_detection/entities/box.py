@@ -10,13 +10,8 @@ CoCoBoxes = NewType(
 YoloBoxes = NewType(
     "YoloBoxes", Tensor
 )  # [B, Pos] Pos:[cx, cy, width, height] normalized
-PascalBoxes = NewType(
-    "PascalBoxes", Tensor
-)  # [B, Pos] Pos:[x0, y0, x1, y1] original torch.int32
+Boxes = NewType("Boxes", Tensor)  # [B, Pos] Pos:[x0, y0, x1, y1] original torch.int32
 
-FcosBoxes = NewType(
-    "FcosBoxes", Tensor
-)  # [B, Pos] Pos:[l, t, r, b] original torch.int32
 BoxMaps = NewType("BoxMaps", Tensor)  # [B, 4, H, W]
 BoxMap = NewType("BoxMap", Tensor)  # [4, H, W]
 Nummber = Union[float, int]
@@ -42,7 +37,7 @@ def boxmaps_to_boxes(x: BoxMaps) -> YoloBoxes:
     return YoloBoxes(x.permute(3, 2, 0, 1).reshape(-1, 4))
 
 
-def resize(boxes: PascalBoxes, scale: Tuple[float, float]) -> PascalBoxes:
+def resize(boxes: Boxes, scale: Tuple[float, float]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     wr, hr = scale
@@ -53,7 +48,7 @@ def resize(boxes: PascalBoxes, scale: Tuple[float, float]) -> PascalBoxes:
         x1 * wr,
         y1 * hr,
     ]
-    return PascalBoxes(torch.stack(b, dim=-1))
+    return Boxes(torch.stack(b, dim=-1))
 
 
 def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
@@ -70,17 +65,17 @@ def coco_to_yolo(coco: CoCoBoxes, size: ImageSize) -> YoloBoxes:
     return YoloBoxes(torch.stack(b, dim=-1))
 
 
-def coco_to_pascal(coco: CoCoBoxes) -> PascalBoxes:
+def coco_to_pascal(coco: CoCoBoxes) -> Boxes:
     if len(coco) == 0:
-        return PascalBoxes(coco)
+        return Boxes(coco)
     x0, y0, w, h = coco.unbind(-1)
     b = [x0, y0, x0 + w, y0 + h]
-    return PascalBoxes(torch.stack(b, dim=-1))
+    return Boxes(torch.stack(b, dim=-1))
 
 
-def yolo_to_pascal(yolo: YoloBoxes, wh: ImageSize) -> PascalBoxes:
+def yolo_to_pascal(yolo: YoloBoxes, wh: ImageSize) -> Boxes:
     if len(yolo) == 0:
-        return PascalBoxes(yolo)
+        return Boxes(yolo)
     image_w, image_h = wh
     cx, cy, w, h = yolo.unbind(-1)
     size_w, size_h = wh
@@ -90,7 +85,7 @@ def yolo_to_pascal(yolo: YoloBoxes, wh: ImageSize) -> PascalBoxes:
         ((cx + 0.5 * w) * size_w),
         ((cy + 0.5 * h) * size_h),
     ]
-    return PascalBoxes(torch.stack(b, dim=-1))
+    return Boxes(torch.stack(b, dim=-1))
 
 
 def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:
@@ -101,7 +96,7 @@ def yolo_to_coco(yolo: YoloBoxes, size: ImageSize) -> CoCoBoxes:
     return CoCoBoxes(b)
 
 
-def pascal_to_yolo(pascal: PascalBoxes, size: ImageSize) -> YoloBoxes:
+def pascal_to_yolo(pascal: Boxes, size: ImageSize) -> YoloBoxes:
     if len(pascal) == 0:
         return YoloBoxes(pascal)
     x0, y0, x1, y1 = pascal.float().unbind(-1)
@@ -115,7 +110,7 @@ def pascal_to_yolo(pascal: PascalBoxes, size: ImageSize) -> YoloBoxes:
     return YoloBoxes(torch.stack(b, dim=-1))
 
 
-def pascal_to_coco(pascal: PascalBoxes) -> CoCoBoxes:
+def pascal_to_coco(pascal: Boxes) -> CoCoBoxes:
     if len(pascal) == 0:
         return CoCoBoxes(pascal)
     x0, y0, x1, y1 = pascal.unbind(-1)
@@ -154,12 +149,12 @@ def yolo_vflip(yolo: YoloBoxes) -> YoloBoxes:
 
 def yolo_clamp(yolo: YoloBoxes) -> YoloBoxes:
     return pascal_to_yolo(
-        PascalBoxes(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)),
+        Boxes(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)),
         (1, 1),
     )
 
 
-def box_clamp(boxes: PascalBoxes, width: int, height: int) -> PascalBoxes:
+def box_clamp(boxes: Boxes, width: int, height: int) -> Boxes:
     if len(boxes) == 0:
         return boxes
     x0, y0, x1, y1 = boxes.clamp(min=0).unbind(-1)
@@ -167,31 +162,29 @@ def box_clamp(boxes: PascalBoxes, width: int, height: int) -> PascalBoxes:
     x1 = x1.clamp(max=width)
     y0 = y0.clamp(max=height)
     y1 = y1.clamp(max=height)
-    return PascalBoxes(torch.stack([x0, y0, x1, y1], dim=-1))
+    return Boxes(torch.stack([x0, y0, x1, y1], dim=-1))
 
 
-def shift(boxes: PascalBoxes, diff: Tuple[Nummber, Nummber]) -> PascalBoxes:
+def shift(boxes: Boxes, diff: Tuple[Nummber, Nummber]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     diff_x, diff_y = diff
     boxes[:, [0, 2]] = boxes[:, [0, 2]] + diff_x
     boxes[:, [1, 3]] = boxes[:, [1, 3]] + diff_y
-    return PascalBoxes(boxes)
+    return Boxes(boxes)
 
 
-def filter_size(
-    boxes: PascalBoxes, cond: Callable[[Tensor], Tensor]
-) -> Tuple[PascalBoxes, Tensor]:
+def filter_size(boxes: Boxes, cond: Callable[[Tensor], Tensor]) -> Tuple[Boxes, Tensor]:
     if len(boxes) == 0:
         return boxes, torch.tensor([], dtype=torch.bool)
     x0, y0, x1, y1 = boxes.unbind(-1)
     area = (x1 - x0) * (y1 - y0)
     indices = cond(area)
-    return PascalBoxes(boxes[indices]), indices
+    return Boxes(boxes[indices]), indices
 
 
 def box_in_area(
-    boxes: PascalBoxes,
+    boxes: Boxes,
     area: Tensor,
     min_fill: float = 0.7,
 ) -> Tensor:
@@ -207,21 +200,21 @@ def box_in_area(
     return indices
 
 
-def box_hflip(boxes: PascalBoxes, image_size: Tuple[Nummber, Nummber]) -> PascalBoxes:
+def box_hflip(boxes: Boxes, image_size: Tuple[Nummber, Nummber]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
     box_w = boxes[:, 2] - boxes[:, 0]
     boxes[:, 0] = w - boxes[:, 0] - box_w
     boxes[:, 2] = w - boxes[:, 2] + box_w
-    return PascalBoxes(boxes)
+    return Boxes(boxes)
 
 
-def box_vflip(boxes: PascalBoxes, image_size: Tuple[Nummber, Nummber]) -> PascalBoxes:
+def box_vflip(boxes: Boxes, image_size: Tuple[Nummber, Nummber]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
     box_h = boxes[:, 3] - boxes[:, 1]
     boxes[:, 1] = h - boxes[:, 1] - box_h
     boxes[:, 3] = h - boxes[:, 3] + box_h
-    return PascalBoxes(boxes)
+    return Boxes(boxes)

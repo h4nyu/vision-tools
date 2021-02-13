@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import torchvision
 from torch import Tensor
 from object_detection.entities import FP
 from efficientnet_pytorch.model import EfficientNet

@@ -1,11 +1,10 @@
 import torch
-from typing import Dict
+from typing import *
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from object_detection.meters import MeanMeter
 from object_detection.models.centernet import (
-    collate_fn,
     CenterNet,
     Visualize,
     Criterion,
@@ -26,6 +25,14 @@ from object_detection.model_loader import (
     ModelLoader,
     BestWatcher,
 )
+from object_detection.entities import (
+    Image,
+    Boxes,
+    Labels,
+    ImageBatch,
+    YoloBoxes,
+    pascal_to_yolo,
+)
 from examples.data import TrainDataset
 from object_detection.metrics import MeanAveragePrecision
 from examples.centernet import config as cfg
@@ -34,6 +41,28 @@ from logging import (
 )
 
 logger = getLogger(__name__)
+
+
+def collate_fn(
+    batch: List[Tuple[str, Image, Boxes, Labels]],
+) -> Tuple[List[str], ImageBatch, List[YoloBoxes], List[Labels]]:
+    images: List[Any] = []
+    id_batch: List[str] = []
+    box_batch: List[YoloBoxes] = []
+    label_batch: List[Labels] = []
+
+    for id, img, boxes, labels in batch:
+        images.append(img)
+        _, h, w = img.shape
+        box_batch.append(pascal_to_yolo(boxes, (w, h)))
+        id_batch.append(id)
+        label_batch.append(labels)
+    return (
+        id_batch,
+        ImageBatch(torch.stack(images)),
+        box_batch,
+        label_batch,
+    )
 
 
 def train(epochs: int) -> None:

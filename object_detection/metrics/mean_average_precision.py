@@ -1,7 +1,7 @@
 import numpy as np, torch
 from typing import Tuple, List, Dict
 from object_detection.metrics.average_precision import AveragePrecision
-from object_detection.entities import PascalBoxes, Labels, Confidences
+from object_detection.entities import Boxes, Labels, Confidences
 
 
 class MeanAveragePrecision:
@@ -19,10 +19,10 @@ class MeanAveragePrecision:
     @torch.no_grad()
     def add(
         self,
-        boxes: PascalBoxes,
+        boxes: Boxes,
         confidences: Confidences,
         labels: Labels,
-        gt_boxes: PascalBoxes,
+        gt_boxes: Boxes,
         gt_labels: Labels,
     ) -> None:
         unique_gt_labels = set(np.unique(gt_labels.to("cpu").numpy()))
@@ -30,9 +30,9 @@ class MeanAveragePrecision:
         for k in unique_labels | unique_gt_labels:
             ap = self.aps[k]
             ap.add(
-                boxes=PascalBoxes(boxes[labels == k]),
+                boxes=Boxes(boxes[labels == k]),
                 confidences=Confidences(confidences[labels == k]),
-                gt_boxes=PascalBoxes(gt_boxes[gt_labels == k]),
+                gt_boxes=Boxes(gt_boxes[gt_labels == k]),
             )
 
     @torch.no_grad()

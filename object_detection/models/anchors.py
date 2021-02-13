@@ -5,7 +5,7 @@ import itertools
 from typing import Any, Dict, Tuple
 from torch import nn, Tensor
 from object_detection.entities import (
-    PascalBoxes,
+    Boxes,
     ImageBatch,
     boxmaps_to_boxes,
     BoxMaps,
@@ -34,10 +34,10 @@ class Anchors:
         self.scales = (
             pairs[:, 0].view(self.num_anchors, 1).expand((self.num_anchors, 2))
         ) * size
-        self.cache: Dict[Tuple[int, int], PascalBoxes] = {}
+        self.cache: Dict[Tuple[int, int], Boxes] = {}
 
     @torch.no_grad()
-    def __call__(self, images: ImageBatch, stride: int) -> PascalBoxes:
+    def __call__(self, images: ImageBatch, stride: int) -> Boxes:
         h, w = images.shape[2:]
         device = images.device
         if self.use_cache and (h, w) in self.cache:
@@ -67,7 +67,7 @@ class Anchors:
             .contiguous()
             .view(-1, 4)
         )
-        boxes = box_clamp(PascalBoxes(boxes), width=w * stride, height=h * stride)
+        boxes = box_clamp(Boxes(boxes), width=w * stride, height=h * stride)
         if self.use_cache:
             self.cache[(h, w)] = boxes
         return boxes

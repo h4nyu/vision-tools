@@ -10,9 +10,8 @@ from object_detection.entities import (
     Image,
     ImageId,
     Confidences,
-    PredictionSample,
     Labels,
-    PascalBoxes,
+    Boxes,
     yolo_to_pascal,
     ImageBatch,
     yolo_clamp,
@@ -48,40 +47,6 @@ from .tta import VFlipTTA, HFlipTTA
 
 logger = getLogger(__name__)
 
-TrainSample = Tuple[ImageId, Image, PascalBoxes, Labels]
-
-
-def collate_fn(
-    batch: List[TrainSample],
-) -> Tuple[ImageBatch, List[PascalBoxes], List[Labels], List[ImageId]]:
-    images: List[t.Any] = []
-    id_batch: List[ImageId] = []
-    box_batch: List[PascalBoxes] = []
-    label_batch: List[Labels] = []
-    for id, img, boxes, labels in batch:
-        c, h, w = img.shape
-        images.append(img)
-        box_batch.append(boxes)
-        id_batch.append(id)
-        label_batch.append(labels)
-    return (
-        ImageBatch(torch.stack(images)),
-        box_batch,
-        label_batch,
-        id_batch,
-    )
-
-
-def prediction_collate_fn(
-    batch: List[PredictionSample],
-) -> Tuple[ImageBatch, List[ImageId]]:
-    images: List[Any] = []
-    id_batch: List[ImageId] = []
-    for id, img in batch:
-        images.append(img)
-        id_batch.append(id)
-    return ImageBatch(torch.stack(images)), id_batch
-
 
 class Visualize:
     def __init__(
@@ -103,8 +68,8 @@ class Visualize:
     def __call__(
         self,
         image_batch: ImageBatch,
-        src: Tuple[List[PascalBoxes], List[Confidences], List[Labels]],
-        tgt: Tuple[List[PascalBoxes], List[Labels]],
+        src: Tuple[List[Boxes], List[Confidences], List[Labels]],
+        tgt: Tuple[List[Boxes], List[Labels]],
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
         gt_boxes, gt_labels = tgt
@@ -199,7 +164,7 @@ class RegressionModel(nn.Module):
 BoxDiff = NewType("BoxDiff", Tensor)
 BoxDiffs = NewType("BoxDiffs", Tensor)
 
-NetOutput = Tuple[List[PascalBoxes], List[BoxDiffs], List[Tensor]]
+NetOutput = Tuple[List[Boxes], List[BoxDiffs], List[Tensor]]
 
 
 def _init_weight(m: nn.Module) -> None:
@@ -274,7 +239,7 @@ class Criterion:
         self,
         images: ImageBatch,
         net_output: NetOutput,
-        gt_boxes_list: List[PascalBoxes],
+        gt_boxes_list: List[Boxes],
         gt_classes_list: List[Labels],
     ) -> Tuple[Tensor, Tensor, Tensor]:
         (
@@ -285,7 +250,7 @@ class Criterion:
         device = anchor_levels[0].device
         batch_size = box_reg_levels[0].shape[0]
         _, _, h, w = images.shape
-        anchors = PascalBoxes(torch.cat([*anchor_levels], dim=0))
+        anchors = Boxes(torch.cat([*anchor_levels], dim=0))
         box_preds = torch.cat([*box_reg_levels], dim=1)
         cls_preds = torch.cat([*cls_pred_levels], dim=1)
 
@@ -301,7 +266,7 @@ class Criterion:
         ):
             pos_ids = self.atss(
                 anchors,
-                PascalBoxes(gt_boxes),
+                Boxes(gt_boxes),
             )
             matched_gt_boxes = gt_boxes[pos_ids[:, 0]]
             matched_pred_boxes = anchors[pos_ids[:, 1]] + box_pred[pos_ids[:, 1]]
@@ -322,8 +287,8 @@ class Criterion:
             if len(gt_boxes) == 0:
                 continue
             box_losses[batch_id] = self.box_loss(
-                PascalBoxes(matched_gt_boxes),
-                PascalBoxes(matched_pred_boxes),
+                Boxes(matched_gt_boxes),
+                Boxes(matched_pred_boxes),
             ).mean()
 
         box_loss = box_losses.mean() * self.box_weight
@@ -340,8 +305,8 @@ class PreProcess:
 
     def __call__(
         self,
-        batch: t.Tuple[ImageBatch, List[PascalBoxes], List[Labels]],
-    ) -> t.Tuple[ImageBatch, List[PascalBoxes], List[Labels]]:
+        batch: t.Tuple[ImageBatch, List[Boxes], List[Labels]],
+    ) -> t.Tuple[ImageBatch, List[Boxes], List[Labels]]:
         image_batch, boxes_batch, label_batch = batch
         return (
             ImageBatch(
@@ -351,7 +316,7 @@ class PreProcess:
                 )
             ),
             [
-                PascalBoxes(
+                Boxes(
                     x.to(
                         self.device,
                         non_blocking=self.non_blocking,
@@ -383,7 +348,7 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, net_output: NetOutput
-    ) -> t.Tuple[List[PascalBoxes], List[Confidences], List[Labels]]:
+    ) -> t.Tuple[List[Boxes], List[Confidences], List[Labels]]:
         (
             anchor_levels,
             box_diff_levels,
@@ -447,7 +412,7 @@ class ToBoxes:
             boxes = boxes[sort_indices]
             confidences = confidences[sort_indices]
             labels = labels[sort_indices]
-            box_batch.append(PascalBoxes(boxes))
+            box_batch.append(Boxes(boxes))
             confidence_batch.append(Confidences(confidences))
             label_batch.append(Labels(labels))
         return box_batch, confidence_batch, label_batch

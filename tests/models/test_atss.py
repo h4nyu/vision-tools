@@ -1,11 +1,11 @@
 import typing
 import torch
-from object_detection.entities import PascalBoxes
+from object_detection.entities import Boxes
 from object_detection.models.atss import ATSS
 
 
 def test_atss_bench(benchmark: typing.Any) -> None:
-    anchor = PascalBoxes(
+    anchor = Boxes(
         torch.tensor(
             [
                 [11, 11, 21, 21],
@@ -16,7 +16,7 @@ def test_atss_bench(benchmark: typing.Any) -> None:
         ).float()
     )
 
-    gt = PascalBoxes(
+    gt = Boxes(
         torch.tensor(
             [
                 [10, 10, 20, 20],

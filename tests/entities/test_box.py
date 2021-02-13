@@ -8,7 +8,7 @@ from object_detection.entities.box import (
     box_in_area,
     box_hflip,
     box_vflip,
-    PascalBoxes,
+    Boxes,
 )
 import torch.nn.functional as F
 from object_detection.utils import DetectionPlot
@@ -42,7 +42,7 @@ def test_yolo_to_pascal() -> None:
 
 
 def test_box_in_area() -> None:
-    boxes = PascalBoxes(
+    boxes = Boxes(
         torch.tensor(
             [
                 [10, 10, 20, 30],
@@ -57,7 +57,7 @@ def test_box_in_area() -> None:
 
 
 def test_box_hflip() -> None:
-    boxes = PascalBoxes(
+    boxes = Boxes(
         torch.tensor(
             [
                 [10, 10, 20, 30],
@@ -73,7 +73,7 @@ def test_box_hflip() -> None:
 
 
 def test_box_vflip() -> None:
-    boxes = PascalBoxes(
+    boxes = Boxes(
         torch.tensor(
             [
                 [10, 10, 20, 30],

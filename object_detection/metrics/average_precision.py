@@ -1,7 +1,7 @@
 import torch
 from typing import Set, Any, Tuple, List
 import numpy as np
-from object_detection.entities import PascalBoxes, Confidences
+from object_detection.entities import Boxes, Confidences
 from torchvision.ops.boxes import box_iou
 
 
@@ -36,9 +36,9 @@ class AveragePrecision:
 
     def add(
         self,
-        boxes: PascalBoxes,
+        boxes: Boxes,
         confidences: Confidences,
-        gt_boxes: PascalBoxes,
+        gt_boxes: Boxes,
     ) -> None:
 
         n_gt_box = len(gt_boxes)

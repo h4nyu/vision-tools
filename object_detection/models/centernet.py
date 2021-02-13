@@ -22,7 +22,7 @@ from object_detection.entities import (
     BoxMaps,
     YoloBoxes,
     Confidences,
-    PascalBoxes,
+    Boxes,
     yolo_to_pascal,
     pascal_to_yolo,
     yolo_to_coco,
@@ -49,7 +49,6 @@ from object_detection.entities import (
     ImageBatch,
     PredBoxes,
     Image,
-    TrainSample,
 )
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
@@ -59,28 +58,6 @@ from object_detection.model_loader import ModelLoader
 from pathlib import Path
 
 logger = getLogger(__name__)
-
-
-def collate_fn(
-    batch: List[TrainSample],
-) -> Tuple[List[ImageId], ImageBatch, List[YoloBoxes], List[Labels]]:
-    images: List[t.Any] = []
-    id_batch: List[ImageId] = []
-    box_batch: List[YoloBoxes] = []
-    label_batch: List[Labels] = []
-
-    for id, img, boxes, labels in batch:
-        images.append(img)
-        _, h, w = img.shape
-        box_batch.append(pascal_to_yolo(boxes, (w, h)))
-        id_batch.append(id)
-        label_batch.append(labels)
-    return (
-        id_batch,
-        ImageBatch(torch.stack(images)),
-        box_batch,
-        label_batch,
-    )
 
 
 class Head(nn.Module):
