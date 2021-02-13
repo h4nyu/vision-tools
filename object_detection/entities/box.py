@@ -1,5 +1,5 @@
 import torch
-from typing import NewType, Tuple, Callable, Union
+from typing import NewType, Callable, Union
 from torch import Tensor
 from torchvision.ops.boxes import box_iou, box_area
 from .image import ImageSize
@@ -22,8 +22,8 @@ AnchorMap = NewType("AnchorMap", Tensor)  # [N, [H, W]], H, W]
 Labels = NewType("Labels", Tensor)
 Confidences = NewType("Confidences", Tensor)
 
-PredBoxes = Tuple[CoCoBoxes, Confidences]
-LabelBoxes = Tuple[CoCoBoxes, Labels]
+PredBoxes = tuple[CoCoBoxes, Confidences]
+LabelBoxes = tuple[CoCoBoxes, Labels]
 
 YoloBoxBatch = NewType("YoloBoxBatch", Tensor)  # [B, N, 4]
 ConfidenceBatch = NewType("ConfidenceBatch", Tensor)  # [B, N] 0.0 ~ 1.0
@@ -37,7 +37,7 @@ def boxmaps_to_boxes(x: BoxMaps) -> YoloBoxes:
     return YoloBoxes(x.permute(3, 2, 0, 1).reshape(-1, 4))
 
 
-def resize(boxes: Boxes, scale: Tuple[float, float]) -> Boxes:
+def resize(boxes: Boxes, scale: tuple[float, float]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     wr, hr = scale
@@ -165,7 +165,7 @@ def box_clamp(boxes: Boxes, width: int, height: int) -> Boxes:
     return Boxes(torch.stack([x0, y0, x1, y1], dim=-1))
 
 
-def shift(boxes: Boxes, diff: Tuple[Nummber, Nummber]) -> Boxes:
+def shift(boxes: Boxes, diff: tuple[Nummber, Nummber]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     diff_x, diff_y = diff
@@ -174,7 +174,7 @@ def shift(boxes: Boxes, diff: Tuple[Nummber, Nummber]) -> Boxes:
     return Boxes(boxes)
 
 
-def filter_size(boxes: Boxes, cond: Callable[[Tensor], Tensor]) -> Tuple[Boxes, Tensor]:
+def filter_size(boxes: Boxes, cond: Callable[[Tensor], Tensor]) -> tuple[Boxes, Tensor]:
     if len(boxes) == 0:
         return boxes, torch.tensor([], dtype=torch.bool)
     x0, y0, x1, y1 = boxes.unbind(-1)
@@ -200,7 +200,7 @@ def box_in_area(
     return indices
 
 
-def box_hflip(boxes: Boxes, image_size: Tuple[Nummber, Nummber]) -> Boxes:
+def box_hflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
@@ -210,7 +210,7 @@ def box_hflip(boxes: Boxes, image_size: Tuple[Nummber, Nummber]) -> Boxes:
     return Boxes(boxes)
 
 
-def box_vflip(boxes: Boxes, image_size: Tuple[Nummber, Nummber]) -> Boxes:
+def box_vflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size

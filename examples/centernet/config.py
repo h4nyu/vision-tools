@@ -1,4 +1,3 @@
-from typing import Tuple
 from object_detection.models.mkmaps import (
     GaussianMapMode,
 )
@@ -16,7 +15,7 @@ batch_size = 8
 out_idx = 4
 channels = 128
 input_size = (256, 256)
-metric: Tuple[str, WatchMode] = ("score", "max")
+metric: tuple[str, WatchMode] = ("score", "max")
 
 heatmap_weight = 1.0
 box_weight = 5.0

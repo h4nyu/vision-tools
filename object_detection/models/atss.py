@@ -3,7 +3,6 @@ from torch import Tensor
 from .assign import ClosestAssign
 from torchvision.ops.boxes import box_iou
 from object_detection.entities import Boxes, AnchorMap
-import typing
 
 
 class ATSS:
@@ -14,10 +13,8 @@ class ATSS:
     def __init__(
         self,
         topk: int = 9,
-        pylamid_levels: typing.List[int] = [3, 4, 5, 6, 7],
     ) -> None:
         self.topk = topk
-        self.pylamid_levels = pylamid_levels
         self.assign = ClosestAssign(topk)
 
     def __call__(

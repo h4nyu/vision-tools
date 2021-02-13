@@ -1,6 +1,6 @@
 import albumentations as A
 import random
-from typing import Tuple, Dict, Any, List
+from typing import Any
 import numpy as np
 import cv2
 
@@ -10,7 +10,7 @@ class RandomLayout(A.DualTransform):
         self,
         width: int,
         height: int,
-        size_limit: Tuple[float, float] = (0.5, 1.0),
+        size_limit: tuple[float, float] = (0.5, 1.0),
         always_apply: bool = False,
         p: float = 1.0,
     ) -> None:
@@ -20,7 +20,7 @@ class RandomLayout(A.DualTransform):
         self.size_limit = size_limit
 
     def apply(
-        self, img: Any, size: Tuple[int, int], offset: Tuple[int, int], **params: Dict
+        self, img: Any, size: tuple[int, int], offset: tuple[int, int], **params: dict
     ) -> Any:
         width = self.width * size[0]
         height = self.height * size[1]
@@ -46,10 +46,10 @@ class RandomLayout(A.DualTransform):
     def apply_to_bbox(
         self,
         bbox: Any,
-        size: Tuple[float, float],
-        offset: Tuple[int, int],
-        **params: Dict
-    ) -> Tuple[float, float, float, float]:
+        size: tuple[float, float],
+        offset: tuple[int, int],
+        **params: dict
+    ) -> tuple[float, float, float, float]:
         x1, y1, x2, y2 = bbox
         x1 = x1 * size[0] + offset[0]
         y1 = y1 * size[1] + offset[1]
@@ -58,10 +58,10 @@ class RandomLayout(A.DualTransform):
         return x1, y1, x2, y2
 
     @property
-    def targets_as_params(self) -> List[str]:
+    def targets_as_params(self) -> list[str]:
         return ["image"]
 
-    def get_params_dependent_on_targets(self, params: Dict) -> Dict:
+    def get_params_dependent_on_targets(self, params: dict) -> dict:
         image = params["image"]
         scale = min(
             self.height / image.shape[0], self.width / image.shape[1]
@@ -75,8 +75,8 @@ class RandomLayout(A.DualTransform):
             "offset": (offset_x, offset_y),
         }
 
-    def get_params(self) -> Dict:
+    def get_params(self) -> dict:
         return {}
 
-    def get_transform_init_args_names(self) -> Tuple[str, str, str]:
+    def get_transform_init_args_names(self) -> tuple[str, str, str]:
         return ("width", "height", "size_limit")

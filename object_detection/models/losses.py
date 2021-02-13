@@ -9,8 +9,6 @@ from torchvision.ops.boxes import box_area
 import torch
 import torch.nn as nn
 
-from typing import Dict, Tuple
-
 Reduction = Literal["none", "mean", "sum"]
 
 
@@ -98,7 +96,7 @@ class FocalLoss:
 
 
 class IoU:
-    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> t.Tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> tuple[Tensor, Tensor]:
         area1 = box_area(boxes1)
         area2 = box_area(boxes2)
         lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
@@ -149,7 +147,7 @@ class IoULoss:
     def __init__(self, size_average: bool = True) -> None:
         self.size_average = size_average
 
-    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> t.Tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> tuple[Tensor, Tensor]:
         device = boxes1.device
         if len(boxes1) == 0 and len(boxes2) == 0:
             return torch.tensor(0.0, device=device), torch.zeros(0, device=device)

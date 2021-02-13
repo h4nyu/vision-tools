@@ -19,7 +19,7 @@ from object_detection.entities import (
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
 from object_detection.utils import DetectionPlot
-from typing import Any, List, Tuple, NewType, Callable
+from typing import Any, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
 from torchvision.ops import nms
@@ -43,7 +43,6 @@ from .modules import (
 )
 from .atss import ATSS
 from .anchors import Anchors
-from .tta import VFlipTTA, HFlipTTA
 
 logger = getLogger(__name__)
 
@@ -68,8 +67,8 @@ class Visualize:
     def __call__(
         self,
         image_batch: ImageBatch,
-        src: Tuple[List[Boxes], List[Confidences], List[Labels]],
-        tgt: Tuple[List[Boxes], List[Labels]],
+        src: tuple[list[Boxes], list[Confidences], list[Labels]],
+        tgt: tuple[list[Boxes], list[Labels]],
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
         gt_boxes, gt_labels = tgt
@@ -164,7 +163,7 @@ class RegressionModel(nn.Module):
 BoxDiff = NewType("BoxDiff", Tensor)
 BoxDiffs = NewType("BoxDiffs", Tensor)
 
-NetOutput = Tuple[List[Boxes], List[BoxDiffs], List[Tensor]]
+NetOutput = tuple[list[Boxes], list[BoxDiffs], list[Tensor]]
 
 
 def _init_weight(m: nn.Module) -> None:
@@ -181,7 +180,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         channels: int = 64,
-        out_ids: List[int] = [6, 7],
+        out_ids: list[int] = [6, 7],
         anchors: Anchors = Anchors(),
         fpn_depth: int = 1,
         box_depth: int = 1,
@@ -239,9 +238,9 @@ class Criterion:
         self,
         images: ImageBatch,
         net_output: NetOutput,
-        gt_boxes_list: List[Boxes],
-        gt_classes_list: List[Labels],
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+        gt_boxes_list: list[Boxes],
+        gt_classes_list: list[Labels],
+    ) -> tuple[Tensor, Tensor, Tensor]:
         (
             anchor_levels,
             box_reg_levels,
@@ -305,8 +304,8 @@ class PreProcess:
 
     def __call__(
         self,
-        batch: t.Tuple[ImageBatch, List[Boxes], List[Labels]],
-    ) -> t.Tuple[ImageBatch, List[Boxes], List[Labels]]:
+        batch: tuple[ImageBatch, list[Boxes], list[Labels]],
+    ) -> tuple[ImageBatch, list[Boxes], list[Labels]]:
         image_batch, boxes_batch, label_batch = batch
         return (
             ImageBatch(
@@ -348,7 +347,7 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, net_output: NetOutput
-    ) -> t.Tuple[List[Boxes], List[Confidences], List[Labels]]:
+    ) -> tuple[list[Boxes], list[Confidences], list[Labels]]:
         (
             anchor_levels,
             box_diff_levels,
@@ -369,9 +368,9 @@ class ToBoxes:
             boxes = boxes[filter_idx]
             unique_labels = labels.unique()
 
-            box_list: List[Tensor] = []
-            confidence_list: List[Tensor] = []
-            label_list: List[Tensor] = []
+            box_list: list[Tensor] = []
+            confidence_list: list[Tensor] = []
+            label_list: list[Tensor] = []
             for c in unique_labels:
                 cls_indices = labels == c
                 if cls_indices.sum() == 0:

@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from pathlib import Path
-from typing import List
 from object_detection.entities import (
     Boxes,
     ImageBatch,
@@ -35,8 +34,8 @@ from object_detection.utils import DetectionPlot
     ],
 )
 def test_anchors(
-    scales: List[float],
-    ratios: List[float],
+    scales: list[float],
+    ratios: list[float],
     size: int,
 ) -> None:
     original_w = 1024 + 512

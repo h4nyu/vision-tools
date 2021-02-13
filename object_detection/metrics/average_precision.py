@@ -1,5 +1,5 @@
 import torch
-from typing import Set, Any, Tuple, List
+from typing import Any
 import numpy as np
 from object_detection.entities import Boxes, Confidences
 from torchvision.ops.boxes import box_iou
@@ -25,8 +25,8 @@ class AveragePrecision:
     ) -> None:
         self.iou_threshold = iou_threshold
         self.eps = eps
-        self.tp_list: List[Any] = []
-        self.confidence_list: List[Any] = []
+        self.tp_list: list[Any] = []
+        self.confidence_list: list[Any] = []
         self.n_gt_box = 0
 
     def reset(self) -> None:
@@ -54,7 +54,7 @@ class AveragePrecision:
         sort_indecis = confidences.argsort(descending=True)
         iou_matrix = box_iou(boxes[sort_indecis], gt_boxes)
         ious, matched_cls_indices = torch.max(iou_matrix, dim=1)
-        matched: Set = set()
+        matched: set = set()
         for box_id, cls_id in enumerate(matched_cls_indices.to("cpu").numpy()):
             if ious[box_id] > self.iou_threshold and cls_id not in matched:
                 tp[box_id] = 1

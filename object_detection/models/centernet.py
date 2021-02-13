@@ -1,13 +1,10 @@
 import torch
 import numpy as np
 import math
-import typing as t
 import torch as tr
 import torch.nn.functional as F
 from functools import partial
 from typing import (
-    List,
-    Tuple,
     NewType,
     Union,
     Callable,
@@ -92,7 +89,7 @@ class Head(nn.Module):
         return x
 
 
-NetOutput = Tuple[Heatmaps, BoxMaps, BoxMap]  # label, pos, size, count
+NetOutput = tuple[Heatmaps, BoxMaps, BoxMap]  # label, pos, size, count
 
 
 class CenterNet(nn.Module):
@@ -196,9 +193,9 @@ class Criterion:
         self,
         images: ImageBatch,
         netout: NetOutput,
-        gt_box_batch: t.List[YoloBoxes],
-        gt_label_batch: t.List[Labels],
-    ) -> Tuple[Tensor, Tensor, Tensor, Heatmaps]:
+        gt_box_batch: list[YoloBoxes],
+        gt_label_batch: list[Labels],
+    ) -> tuple[Tensor, Tensor, Tensor, Heatmaps]:
         s_hm, s_bm, anchors = netout
         _, _, orig_h, orig_w = images.shape
         _, _, h, w = s_hm.shape
@@ -222,12 +219,12 @@ class BoxLoss:
     def __call__(
         self,
         preds: BoxMaps,
-        gt_box_batch: List[YoloBoxes],
+        gt_box_batch: list[YoloBoxes],
         anchormap: BoxMap,
     ) -> Tensor:
         device = preds.device
         _, _, h, w = preds.shape
-        box_losses: List[Tensor] = []
+        box_losses: list[Tensor] = []
         anchors = boxmap_to_boxes(anchormap)
         for diff_map, gt_boxes in zip(preds, gt_box_batch):
             if len(gt_boxes) == 0:
@@ -279,17 +276,16 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, inputs: NetOutput
-    ) -> t.Tuple[t.List[YoloBoxes], t.List[Confidences], t.List[Labels]]:
+    ) -> tuple[list[YoloBoxes], list[Confidences], list[Labels]]:
         heatmaps, boxmaps, anchormap = inputs
         device = heatmaps.device
         kpmaps = heatmaps * (
             (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
         )
         kpmaps, labelmaps = torch.max(kpmaps, dim=1)
-
-        box_batch: t.List[YoloBoxes] = []
-        confidence_batch: t.List[Confidences] = []
-        label_batch: t.List[Labels] = []
+        box_batch: list[YoloBoxes] = []
+        confidence_batch: list[Confidences] = []
+        label_batch: list[Labels] = []
         for km, lm, bm in zip(kpmaps, labelmaps, boxmaps):
             kp = torch.nonzero(km, as_tuple=False)
             pos_idx = (kp[:, 0], kp[:, 1])
@@ -304,9 +300,9 @@ class ToBoxes:
                 boxes = bm[:, pos_idx[0], pos_idx[1]].t()
 
             unique_labels = labels.unique()
-            box_list: List[Tensor] = []
-            confidence_list: List[Tensor] = []
-            label_list: List[Tensor] = []
+            box_list: list[Tensor] = []
+            confidence_list: list[Tensor] = []
+            label_list: list[Tensor] = []
 
             for c in unique_labels:
                 cls_indices = labels == c
@@ -358,7 +354,7 @@ class Visualize:
         limit: int = 1,
         use_alpha: bool = True,
         show_confidences: bool = True,
-        figsize: Tuple[int, int] = (10, 10),
+        figsize: tuple[int, int] = (10, 10),
         transforms: Any = None,
     ) -> None:
         self.prefix = prefix
@@ -373,11 +369,11 @@ class Visualize:
     def __call__(
         self,
         net_out: NetOutput,
-        box_batch: List[YoloBoxes],
-        confidence_batch: List[Confidences],
-        label_batch: List[Labels],
-        gt_box_batch: List[YoloBoxes],
-        gt_label_batch: List[Labels],
+        box_batch: list[YoloBoxes],
+        confidence_batch: list[Confidences],
+        label_batch: list[Labels],
+        gt_box_batch: list[YoloBoxes],
+        gt_label_batch: list[Labels],
         image_batch: ImageBatch,
         gt_hms: Heatmaps,
     ) -> None:

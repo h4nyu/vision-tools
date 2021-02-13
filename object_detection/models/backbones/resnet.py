@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import torchvision
 from torch import Tensor
-from typing import Dict, Tuple, Literal
+from typing import Literal
 from object_detection.entities import FP
 
-SideChannels = Tuple[int, int, int, int, int]
+SideChannels = tuple[int, int, int, int, int]
 ModelName = Literal[
     "resnet18",
     "resnet34",
@@ -14,7 +14,7 @@ ModelName = Literal[
     "resnet152",
 ]
 
-SIDEOUT: Dict[ModelName, SideChannels] = {
+SIDEOUT: dict[ModelName, SideChannels] = {
     "resnet18": (64, 64, 128, 256, 512),
     "resnet34": (64, 64, 128, 256, 512),
     "resnet50": (64, 256, 512, 1024, 2048),

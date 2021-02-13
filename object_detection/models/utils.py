@@ -1,12 +1,12 @@
 import torch
 import numpy as np
-import typing as t
+from typing import Optional, Any
 from functools import partial
 from torch import nn, Tensor
 from torchvision.ops.boxes import box_area
 
 
-def round_filters(filters: t.Any, global_params: t.Any) -> t.Any:
+def round_filters(filters: Any, global_params: Any) -> Any:
     """ Calculate and round number of filters based on depth multiplier. """
     multiplier = global_params.width_coefficient
     if not multiplier:
@@ -24,7 +24,7 @@ def round_filters(filters: t.Any, global_params: t.Any) -> t.Any:
     return int(new_filters)
 
 
-def box_iou(boxes1: Tensor, boxes2: Tensor) -> t.Tuple[Tensor, Tensor]:
+def box_iou(boxes1: Tensor, boxes2: Tensor) -> tuple[Tensor, Tensor]:
     area1 = box_area(boxes1)
     area2 = box_area(boxes2)
 
@@ -40,7 +40,7 @@ def box_iou(boxes1: Tensor, boxes2: Tensor) -> t.Tuple[Tensor, Tensor]:
     return iou, union
 
 
-def bias_init_with_prob(prior_prob: t.Any) -> t.Any:
+def bias_init_with_prob(prior_prob: Any) -> Any:
     """ initialize conv/fc bias value according to giving probablity"""
     bias_init = float(-np.log((1 - prior_prob) / prior_prob))
     return bias_init
@@ -98,22 +98,22 @@ class NestedTensor:
     def __init__(
         self,
         tensors: Tensor,
-        mask: t.Optional[Tensor] = None,
+        mask: Optional[Tensor] = None,
     ) -> None:
         self.tensors = tensors
         self.mask = mask
 
-    def to(self, device: t.Any) -> "NestedTensor":
+    def to(self, device: Any) -> "NestedTensor":
         cast_tensor = self.tensors.to(device)
         mask = self.mask
-        cast_mask: t.Optional[Tensor] = None
+        cast_mask: Optional[Tensor] = None
         if mask is not None:
             cast_mask = mask.to(device)
         return NestedTensor(cast_tensor, cast_mask)
 
     def decompose(
         self,
-    ) -> t.Tuple[Tensor, t.Optional[Tensor]]:
+    ) -> tuple[Tensor, Optional[Tensor]]:
         return self.tensors, self.mask
 
     def __repr__(self) -> str:

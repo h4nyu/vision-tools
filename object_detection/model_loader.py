@@ -1,11 +1,10 @@
 import torch
 from logging import getLogger
-from typing_extensions import Literal
+from typing import Literal
 import operator
 import math
 from torch import nn
 from pathlib import Path
-from typing import Dict, Tuple
 import json
 
 logger = getLogger(__name__)

@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import torch
-from typing import Any, Tuple, List
+from typing import Any
 from torch import Tensor
 from torch.utils.data import Dataset
 from object_detection.entities.image import RGB, Image
@@ -32,7 +32,7 @@ class PolyImage:
         self.width = width
         self.image = image
         self.boxes = Boxes(torch.empty((0, 4), dtype=torch.int32))
-        self.labels: List[int] = []
+        self.labels: list[int] = []
 
     def add_triangle(self, max_size: int = 128) -> None:
         base_x = np.random.randint(0, self.width - max_size)
@@ -79,7 +79,7 @@ class PolyImage:
             ]
         )(max_size)
 
-    def __call__(self) -> Tuple[Image, Boxes, Labels]:
+    def __call__(self) -> tuple[Image, Boxes, Labels]:
         img = torch.from_numpy(self.image).permute(2, 0, 1)  # [H, W]
         boxes = self.boxes
         labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
@@ -90,8 +90,8 @@ class TrainDataset(Dataset):
     def __init__(
         self,
         image_size: ImageSize,
-        object_size_range: Tuple[int, int],
-        object_count_range: Tuple[int, int] = (1, 10),
+        object_size_range: tuple[int, int],
+        object_count_range: tuple[int, int] = (1, 10),
         num_samples: int = 100,
     ) -> None:
         self.image_size = image_size
@@ -99,7 +99,7 @@ class TrainDataset(Dataset):
         self.object_count_range = object_count_range
         self.object_size_range = object_size_range
 
-    def __getitem__(self, idx: int) -> Tuple[str, Image, Boxes, Labels]:
+    def __getitem__(self, idx: int) -> tuple[str, Image, Boxes, Labels]:
         poly = PolyImage(
             width=self.image_size[0],
             height=self.image_size[1],

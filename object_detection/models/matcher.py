@@ -1,10 +1,8 @@
-import typing as t
 from torch import nn, Tensor
 import torch
 from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
 from typing_extensions import TypedDict
-from typing import Tuple, List
 from object_detection.entities import (
     YoloBoxBatch,
     ConfidenceBatch,
@@ -13,9 +11,9 @@ from object_detection.entities import (
 )
 
 
-Preds = Tuple[YoloBoxBatch, ConfidenceBatch]
-Targets = t.List[Tuple[List[YoloBoxes], List[Labels]]]
-MatchIndecies = t.List[t.Tuple[Tensor, Tensor]]
+Preds = tuple[YoloBoxBatch, ConfidenceBatch]
+Targets = list[tuple[list[YoloBoxes], list[Labels]]]
+MatchIndecies = list[tuple[Tensor, Tensor]]
 
 
 class NearnestMatcher:
@@ -23,8 +21,8 @@ class NearnestMatcher:
         self,
         pred: YoloBoxes,
         gt: YoloBoxes,
-        size: Tuple[int, int],
-    ) -> Tuple[Tensor, Tensor]:
+        size: tuple[int, int],
+    ) -> tuple[Tensor, Tensor]:
         w, h = size
         eps_dist = ((1 / w) ** 2 + (1 / w) ** 2) ** (1 / 2)
         pred_count = pred.shape[0]
@@ -51,8 +49,8 @@ class CenterMatcher:
         self,
         pred: YoloBoxes,
         gt: YoloBoxes,
-        size: Tuple[int, int],
-    ) -> Tuple[Tensor, Tensor]:
+        size: tuple[int, int],
+    ) -> tuple[Tensor, Tensor]:
         w, h = size
         pixcel_dist = ((1 / w) ** 2 + (1 / h) ** 2) ** (1 / 2) / 2
         pred_count = pred.shape[0]

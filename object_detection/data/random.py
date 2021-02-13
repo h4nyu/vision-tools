@@ -16,7 +16,7 @@ class RandomDataset(Dataset):
         self.image_size = image_size
         self.num_samples = num_samples
 
-    def __getitem__(self, idx: int) -> Tuple[str, Image, Boxes, Labels]:
+    def __getitem__(self, idx: int) -> tuple[str, Image, Boxes, Labels]:
         image = torch.rand((3, *self.image_size), dtype=torch.float32)
         boxes = torch.rand((random.randint(1, 9), 4), dtype=torch.float32).clamp(
             0, max(self.image_size)

@@ -22,7 +22,7 @@ def precition(iou_matrix: Tensor, threshold: float) -> float:
 class MeanPrecition:
     def __init__(
         self,
-        iou_thresholds: t.List[float] = [
+        iou_thresholds: list[float] = [
             0.5,
             0.55,
             0.6,

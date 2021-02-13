@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import typing as t
 import itertools
-from typing import Any, Dict, Tuple
+from typing import Any
 from torch import nn, Tensor
 from object_detection.entities import (
     Boxes,
@@ -19,8 +19,8 @@ class Anchors:
     def __init__(
         self,
         size: float = 1.0,
-        ratios: t.List[float] = [3 / 4, 1, 4 / 3],
-        scales: t.List[float] = [
+        ratios: list[float] = [3 / 4, 1, 4 / 3],
+        scales: list[float] = [
             1.0,
             (1 / 2) ** (1 / 2),
             2 ** (1 / 2),
@@ -34,7 +34,7 @@ class Anchors:
         self.scales = (
             pairs[:, 0].view(self.num_anchors, 1).expand((self.num_anchors, 2))
         ) * size
-        self.cache: Dict[Tuple[int, int], Boxes] = {}
+        self.cache: dict[tuple[int, int], Boxes] = {}
 
     @torch.no_grad()
     def __call__(self, images: ImageBatch, stride: int) -> Boxes:
@@ -79,7 +79,7 @@ class EmptyAnchors:
         use_cache: bool = True,
     ) -> None:
         self.use_cache = use_cache
-        self.cache: Dict[Tuple[int, int], BoxMap] = {}
+        self.cache: dict[tuple[int, int], BoxMap] = {}
 
     def __call__(self, ref_images: Tensor) -> BoxMap:
         h, w = ref_images.shape[-2:]

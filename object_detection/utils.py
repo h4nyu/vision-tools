@@ -6,7 +6,7 @@ import json
 import random
 import numpy as np
 import torch.nn.functional as F
-from typing import Dict, Optional
+from typing import Optional
 from torch import nn
 from pathlib import Path
 from torch import Tensor
