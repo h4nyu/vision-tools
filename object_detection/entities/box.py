@@ -239,7 +239,7 @@ def filter_limit(
         label_list.append(c_labels)
         conf_list.append(c_confidences)
     return (
-        Boxes(torch.cat(box_list)),
-        Confidences(torch.cat(conf_list)),
-        Labels(torch.cat(label_list)),
+        Boxes(torch.cat(box_list)) if len(box_list) > 0 else boxes,
+        Confidences(torch.cat(conf_list)) if len(conf_list) > 0 else confidences,
+        Labels(torch.cat(label_list)) if len(label_list) > 0 else labels,
     )
