@@ -1,5 +1,6 @@
 import albumentations as A
 import random
+from torchvision.transforms import Normalize
 from typing import Any
 import numpy as np
 import cv2
@@ -80,3 +81,13 @@ class RandomLayout(A.DualTransform):
 
     def get_transform_init_args_names(self) -> tuple[str, str, str]:
         return ("width", "height", "size_limit")
+
+
+normalize_mean = (0.485, 0.456, 0.406)
+normalize_std = (0.229, 0.224, 0.225)
+
+normalize = (Normalize(mean=normalize_mean, std=normalize_std),)
+inv_normalize = Normalize(
+    mean=[-m / s for m, s in zip(normalize_mean, normalize_std)],
+    std=[1 / s for s in normalize_std],
+)
