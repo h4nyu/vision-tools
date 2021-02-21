@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import torch
 from typing import Any
-from object_detection.models.centernet import (
+from object_detection.centernet import (
     CenterNet,
     ToBoxes,
     HMLoss,
@@ -17,7 +17,7 @@ from object_detection import (
 )
 from object_detection.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
-from object_detection.models.backbones.resnet import (
+from object_detection.backbones.resnet import (
     ResNetBackbone,
 )
 from torch.utils.data import DataLoader

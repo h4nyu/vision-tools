@@ -9,7 +9,7 @@ from object_detection import (
     YoloBoxes,
     pascal_to_yolo,
     filter_size,
-    RGB, 
+    RGB,
     Image,
     ImageSize,
     YoloBoxes,

@@ -18,7 +18,7 @@ from object_detection import (
 )
 from object_detection.model_loader import ModelLoader
 from object_detection.meters import MeanMeter
-from object_detection.utils import DetectionPlot
+from .utils import DetectionPlot
 from typing import Any, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader

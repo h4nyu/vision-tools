@@ -9,7 +9,7 @@ from object_detection import (
     Boxes,
     ImageBatch,
 )
-from object_detection.models.anchors import Anchors
+from object_detection.anchors import Anchors
 from object_detection.utils import DetectionPlot
 
 

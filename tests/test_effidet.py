@@ -3,7 +3,7 @@ import pytest
 from typing import Any
 from object_detection.image import ImageBatch
 from object_detection.box import Boxes, Labels
-from object_detection.models.effidet import (
+from object_detection.effidet import (
     RegressionModel,
     ClassificationModel,
     EfficientDet,
@@ -11,8 +11,8 @@ from object_detection.models.effidet import (
     BoxDiff,
     ToBoxes,
 )
-from object_detection.models.anchors import Anchors
-from object_detection.models.backbones.effnet import (
+from object_detection.anchors import Anchors
+from object_detection.backbones.effnet import (
     EfficientNetBackbone,
 )
 

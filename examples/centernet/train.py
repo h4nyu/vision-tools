@@ -4,7 +4,7 @@ from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from object_detection.meters import MeanMeter
-from object_detection.models.centernet import (
+from object_detection.centernet import (
     CenterNet,
     Visualize,
     Criterion,
@@ -14,11 +14,11 @@ from object_detection import (
     yolo_to_pascal,
 )
 import torch_optimizer as optim
-from object_detection.models.mkmaps import (
+from object_detection.mkmaps import (
     MkGaussianMaps,
     MkCenterBoxMaps,
 )
-from object_detection.models.backbones.resnet import (
+from object_detection.backbones.resnet import (
     ResNetBackbone,
 )
 from object_detection.model_loader import (

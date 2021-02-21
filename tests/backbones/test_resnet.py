@@ -2,7 +2,7 @@ import typing as t
 import pytest
 import numpy as np
 import torch
-from object_detection.models.backbones.resnet import (
+from object_detection.backbones.resnet import (
     ResNetBackbone,
     ModelName,
 )

@@ -2,7 +2,7 @@ import torch
 from typing import *
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
-from object_detection.models.backbones.effnet import (
+from object_detection.backbones.effnet import (
     EfficientNetBackbone,
 )
 from object_detection import (
@@ -14,7 +14,7 @@ from object_detection import (
 )
 from object_detection.metrics import MeanAveragePrecision
 from tqdm import tqdm
-from object_detection.models.effidet import (
+from object_detection.effidet import (
     EfficientDet,
     Criterion,
     Visualize,

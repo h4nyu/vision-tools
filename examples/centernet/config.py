@@ -1,4 +1,4 @@
-from object_detection.models.mkmaps import (
+from object_detection.mkmaps import (
     GaussianMapMode,
 )
 from object_detection.model_loader import WatchMode

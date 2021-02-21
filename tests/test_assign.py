@@ -1,6 +1,6 @@
 import torch
 from object_detection import Boxes
-from object_detection.models.assign import ClosestAssign
+from object_detection.assign import ClosestAssign
 
 
 def test_closest_assign() -> None:

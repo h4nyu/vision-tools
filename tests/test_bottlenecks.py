@@ -1,5 +1,5 @@
 import torch
-from object_detection.models.bottlenecks import (
+from object_detection.bottlenecks import (
     MobileV3,
     SENextBottleneck2d,
 )

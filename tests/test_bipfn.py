@@ -1,5 +1,5 @@
 import torch
-from object_detection.models.bifpn import BiFPN
+from object_detection.bifpn import BiFPN
 
 
 def test_bifpn() -> None:

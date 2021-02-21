@@ -2,7 +2,7 @@ import torch
 import pytest
 import typing as t
 import torch.nn.functional as F
-from object_detection.models.losses import (
+from object_detection.losses import (
     DIoU,
     GIoU,
     DIoULoss,
