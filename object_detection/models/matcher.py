@@ -3,7 +3,7 @@ import torch
 from scipy.optimize import linear_sum_assignment
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
 from typing_extensions import TypedDict
-from object_detection.entities import (
+from object_detection import (
     YoloBoxBatch,
     ConfidenceBatch,
     YoloBoxes,

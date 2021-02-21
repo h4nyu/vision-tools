@@ -1,7 +1,7 @@
 import torch.nn as nn
 from typing import *
 from ..modules import Conv2dStaticSamePadding
-from object_detection.entities import FP
+from object_detection import FP
 
 
 class BackboneConnector(nn.Module):

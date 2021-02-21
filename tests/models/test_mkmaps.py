@@ -1,6 +1,6 @@
 import pytest, torch
 from object_detection.utils import DetectionPlot
-from object_detection.entities.box import YoloBoxes, Labels, BoxMaps, yolo_to_pascal
+from object_detection import YoloBoxes, Labels, BoxMaps, yolo_to_pascal
 from object_detection.models.mkmaps import MkGaussianMaps
 from object_detection.models.anchors import EmptyAnchors
 from object_detection.models.centernet import (

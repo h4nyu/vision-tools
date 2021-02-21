@@ -1,5 +1,5 @@
 import torch
-from object_detection.entities.box import (
+from object_detection.box import (
     yolo_to_coco,
     YoloBoxes,
     yolo_to_pascal,

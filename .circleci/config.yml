@@ -10,7 +10,6 @@ jobs:
           name: Install Poetry
           command: |
             curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-            poetry config virtualenvs.create false
       - run:
           name: Install Package
           command: |

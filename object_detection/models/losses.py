@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from typing_extensions import Literal
 from torch import Tensor
-from object_detection.entities import Boxes
+from object_detection import Boxes
 from torchvision.ops.boxes import box_area
 import torch
 import torch.nn as nn

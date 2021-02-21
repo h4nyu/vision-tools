@@ -5,7 +5,7 @@ from torch.cuda.amp import GradScaler, autocast
 from object_detection.models.backbones.effnet import (
     EfficientNetBackbone,
 )
-from object_detection.entities import (
+from object_detection import (
     Image,
     ImageBatch,
     Boxes,

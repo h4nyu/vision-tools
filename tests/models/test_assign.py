@@ -1,5 +1,5 @@
 import torch
-from object_detection.entities import Boxes
+from object_detection import Boxes
 from object_detection.models.assign import ClosestAssign
 
 

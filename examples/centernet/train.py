@@ -10,7 +10,7 @@ from object_detection.models.centernet import (
     Criterion,
     ToBoxes,
 )
-from object_detection.entities import (
+from object_detection import (
     yolo_to_pascal,
 )
 import torch_optimizer as optim
@@ -25,7 +25,7 @@ from object_detection.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from object_detection.entities import (
+from object_detection import (
     Image,
     Boxes,
     Labels,

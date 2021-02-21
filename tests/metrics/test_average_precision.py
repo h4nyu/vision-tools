@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from object_detection.entities import Labels, Boxes, Confidences
+from object_detection import Labels, Boxes, Confidences
 from object_detection.metrics.average_precision import AveragePrecision, auc
 
 

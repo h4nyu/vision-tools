@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from pathlib import Path
-from object_detection.entities import (
+from object_detection import (
     Boxes,
     ImageBatch,
 )

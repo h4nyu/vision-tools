@@ -1,5 +1,5 @@
 import torch
-from object_detection.entities import (
+from object_detection import (
     YoloBoxBatch,
     ConfidenceBatch,
 )

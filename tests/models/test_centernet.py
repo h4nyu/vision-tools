@@ -9,13 +9,13 @@ from object_detection.models.centernet import (
     HMLoss,
     Visualize,
 )
-from object_detection.entities import (
+from object_detection import (
     YoloBoxes,
     Image,
     ImageSize,
     ImageBatch,
 )
-from object_detection.entities.box import yolo_to_coco
+from object_detection.box import yolo_to_coco
 from object_detection.utils import DetectionPlot
 from object_detection.models.backbones.resnet import (
     ResNetBackbone,

@@ -14,7 +14,7 @@ from torch import nn, Tensor
 from typing_extensions import Literal
 from logging import getLogger
 from tqdm import tqdm
-from object_detection.entities import (
+from object_detection import (
     BoxMap,
     BoxMaps,
     YoloBoxes,
@@ -25,6 +25,9 @@ from object_detection.entities import (
     yolo_to_coco,
     Labels,
     boxmap_to_boxes,
+    ImageBatch,
+    PredBoxes,
+    Image,
 )
 from object_detection.utils import DetectionPlot
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
@@ -41,11 +44,6 @@ from .losses import HuberLoss, DIoULoss
 from .anchors import EmptyAnchors
 from .matcher import NearnestMatcher, CenterMatcher
 from object_detection.meters import MeanMeter
-from object_detection.entities import (
-    ImageBatch,
-    PredBoxes,
-    Image,
-)
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
 from torch.utils.data import DataLoader

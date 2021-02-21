@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from object_detection.entities import (
+from object_detection import (
     CoCoBoxes,
     YoloBoxes,
     coco_to_pascal,

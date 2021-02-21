@@ -11,7 +11,7 @@ from torch import nn
 from pathlib import Path
 from torch import Tensor
 from logging import getLogger
-from .entities.box import (
+from .box import (
     CoCoBoxes,
     YoloBoxes,
     Boxes,

@@ -6,7 +6,7 @@ import math
 import torchvision
 
 from functools import partial
-from object_detection.entities import (
+from object_detection import (
     Image,
     Confidences,
     Labels,

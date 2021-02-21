@@ -1,1 +1,4 @@
-from .entities import *
+from .box import *
+from .image import *
+FP = tuple[Tensor, Tensor, Tensor, Tensor, Tensor]  # p3, p4, p5, p6, p7
+

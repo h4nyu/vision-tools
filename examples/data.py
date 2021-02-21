@@ -4,14 +4,12 @@ import torch
 from typing import Any
 from torch import Tensor
 from torch.utils.data import Dataset
-from object_detection.entities.image import RGB, Image
-from object_detection.entities.box import (
+from object_detection import (
     Boxes,
     YoloBoxes,
     pascal_to_yolo,
     filter_size,
-)
-from object_detection.entities import (
+    RGB, 
     Image,
     ImageSize,
     YoloBoxes,

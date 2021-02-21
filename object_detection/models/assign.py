@@ -1,7 +1,7 @@
 import torch
 import typing
 from torch import Tensor
-from object_detection.entities import Boxes
+from object_detection import Boxes
 
 
 class ClosestAssign:
