@@ -7,6 +7,7 @@ iou_threshold = 0.60
 batch_size = 8
 lr = 1e-3
 use_amp = True
+num_classes = 2
 
 # model
 num_classes = 2

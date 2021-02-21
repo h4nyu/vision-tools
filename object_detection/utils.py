@@ -11,13 +11,15 @@ from torch import nn
 from pathlib import Path
 from torch import Tensor
 from logging import getLogger
-from .box import (
+from object_detection import (
     CoCoBoxes,
     YoloBoxes,
     Boxes,
     Labels,
     yolo_to_coco,
     pascal_to_coco,
+    Number,
+    resize_points
 )
 from .point import Points
 from torchvision.utils import save_image
@@ -89,10 +91,12 @@ class DetectionPlot:
         confidences: Optional[Tensor] = None,
         labels: Optional[Tensor] = None,
         color: str = "red",
-        size=5,
+        size: Number = 5,
         line_width: int = 1,
     ) -> None:
         _labels = labels.tolist() if labels is not None else []
+
+        points = resize_points(points, scale_x=self.img.size[0], scale_y=self.img.size[1])
         for i, point in enumerate(points[: self.box_limit].tolist()):
             self.draw.ellipse(
                 (point[0] - 5, point[1] - 5, point[0] + 5, point[1] + 5), fill=color

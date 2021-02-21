@@ -28,7 +28,9 @@ from object_detection import (
     ImageBatch,
     PredBoxes,
     Image,
+    resize_points,
 )
+from object_detection.point import Points
 from object_detection.utils import DetectionPlot
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
 from .modules import (
@@ -366,32 +368,28 @@ class ToPoints:
 
     @torch.no_grad()
     def __call__(
-        self, inputs: NetOutput
-    ) -> tuple[list[YoloBoxes], list[Confidences], list[Labels]]:
-        heatmaps, boxmaps, anchormap = inputs
+        self,
+        heatmaps: Heatmaps,
+        w:int,
+        h:int,
+    ) -> tuple[list[Points], list[Confidences], list[Labels]]:
         device = heatmaps.device
         kpmaps = heatmaps * (
             (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
         )
         kpmaps, labelmaps = torch.max(kpmaps, dim=1)
-        box_batch: list[YoloBoxes] = []
+        point_batch: list[Points] = []
         confidence_batch: list[Confidences] = []
         label_batch: list[Labels] = []
-        for km, lm, bm in zip(kpmaps, labelmaps, boxmaps):
+        _, _, hm_h, hm_w = heatmaps.shape
+        for km, lm in zip(kpmaps, labelmaps):
             kp = torch.nonzero(km, as_tuple=False)
             pos_idx = (kp[:, 0], kp[:, 1])
             confidences = km[pos_idx]
             labels = lm[pos_idx]
-            if self.use_diff:
-                boxes = (
-                    anchormap[:, pos_idx[0], pos_idx[1]].t()
-                    + bm[:, pos_idx[0], pos_idx[1]].t()
-                )
-            else:
-                boxes = bm[:, pos_idx[0], pos_idx[1]].t()
-
+            points: Tensor = resize_points(Points(kp), scale_x=1/ hm_w, scale_y=1 / hm_h)
             unique_labels = labels.unique()
-            box_list: list[Tensor] = []
+            point_list: list[Tensor] = []
             confidence_list: list[Tensor] = []
             label_list: list[Tensor] = []
 
@@ -399,18 +397,13 @@ class ToPoints:
                 cls_indices = labels == c
                 if cls_indices.sum() == 0:
                     continue
-
-                c_boxes = boxes[cls_indices]
+                c_points = points[cls_indices]
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
-                nms_indices = nms(
-                    yolo_to_pascal(c_boxes, (1, 1)),
-                    c_confidences,
-                    self.iou_threshold,
-                )[: self.limit]
-                box_list.append(c_boxes[nms_indices])
-                confidence_list.append(c_confidences[nms_indices])
-                label_list.append(c_labels[nms_indices])
+                c_sort_indices = c_confidences.argsort(descending=True)
+                point_list.append(c_points[c_sort_indices])
+                confidence_list.append(c_confidences[c_sort_indices])
+                label_list.append(c_labels[c_sort_indices])
 
             if len(confidence_list) > 0:
                 confidences = torch.cat(confidence_list, dim=0)
@@ -418,23 +411,23 @@ class ToPoints:
                 confidences = torch.zeros(
                     0, device=confidences.device, dtype=confidences.dtype
                 )
-            if len(box_list) > 0:
-                boxes = torch.cat(box_list, dim=0)
+            if len(point_list) > 0:
+                points = torch.cat(point_list, dim=0)
             else:
-                boxes = torch.zeros(0, device=boxes.device, dtype=boxes.dtype)
+                points = torch.zeros(0, device=points.device, dtype=points.dtype)
             if len(label_list) > 0:
                 labels = torch.cat(label_list, dim=0)
             else:
                 labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
 
             sort_indices = confidences.argsort(descending=True)
-            boxes = boxes[sort_indices]
+            points = points[sort_indices]
             confidences = confidences[sort_indices]
             labels = labels[sort_indices]
-            box_batch.append(YoloBoxes(boxes))
+            point_batch.append(Points(points))
             confidence_batch.append(Confidences(confidences))
             label_batch.append(Labels(labels))
-        return box_batch, confidence_batch, label_batch
+        return point_batch, confidence_batch, label_batch
 
 
 class Visualize:

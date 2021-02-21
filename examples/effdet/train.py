@@ -26,7 +26,7 @@ from object_detection.model_loader import (
     BestWatcher,
 )
 from object_detection.meters import MeanMeter
-from examples.data import TrainDataset
+from examples.data import BoxDataset
 import torch_optimizer as optim
 from examples.effdet import config
 from logging import (
@@ -59,13 +59,13 @@ def collate_fn(
 
 def train(epochs: int) -> None:
     device = torch.device("cuda")
-    train_dataset = TrainDataset(
+    train_dataset = BoxDataset(
         config.input_size,
         object_count_range=config.object_count_range,
         object_size_range=config.object_size_range,
         num_samples=1024,
     )
-    test_dataset = TrainDataset(
+    test_dataset = BoxDataset(
         config.input_size,
         object_count_range=config.object_count_range,
         object_size_range=config.object_size_range,

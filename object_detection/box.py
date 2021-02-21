@@ -3,6 +3,7 @@ from typing import NewType, Callable, Union
 from torch import Tensor
 from torchvision.ops.boxes import box_iou, box_area
 from .image import ImageSize
+from .point import Points
 
 CoCoBoxes = NewType(
     "CoCoBoxes", Tensor
@@ -218,6 +219,22 @@ def box_vflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
     boxes[:, 1] = h - boxes[:, 1] - box_h
     boxes[:, 3] = h - boxes[:, 3] + box_h
     return Boxes(boxes)
+
+
+def to_center_points(boxes: Boxes) -> Points:
+    if len(boxes) == 0:
+        return Points(boxes)
+
+    x0, y0, x1, y1 = boxes.unbind(-1)
+    return Points(
+        torch.stack(
+            [
+                (x0 + x1) / 2,
+                (y0 + y1) / 2,
+            ],
+            dim=-1,
+        )
+    )
 
 
 def filter_limit(

@@ -2,7 +2,7 @@ from typing import Callable, NewType
 from torch import Tensor
 from typing_extensions import Literal
 import torch
-from object_detection import YoloBoxes, BoxMaps, Labels, Points
+from object_detection import YoloBoxes, BoxMaps, Labels, Points, Number, resize_points
 
 Heatmaps = NewType("Heatmaps", torch.Tensor)  # [B, C, H, W]
 MkMapsFn = Callable[
@@ -202,12 +202,10 @@ class MkPointMaps:
     def _mkmaps(
         self,
         points: Points,
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        h:int,
+        w:int,
     ) -> Heatmaps:
         device = points.device
-        h, w = hw
-        orig_h, orig_w = original_hw
         heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
         count = len(points)
         if count == 0:
@@ -233,14 +231,15 @@ class MkPointMaps:
         self,
         point_batch: list[Points],
         label_batch: list[Labels],
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        h: int,
+        w: int,
     ) -> Heatmaps:
         hms: list[torch.Tensor] = []
         for points, labels in zip(point_batch, label_batch):
+            points = resize_points(points, scale_x=w, scale_y=h)
             hm = torch.cat(
                 [
-                    self._mkmaps(Points(points[labels == i]), hw, original_hw)
+                    self._mkmaps(Points(points[labels == i]), h=h, w=w)
                     for i in range(self.num_classes)
                 ],
                 dim=1,

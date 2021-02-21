@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from object_detection import (
     Boxes,
     YoloBoxes,
+    Points,
     pascal_to_yolo,
     filter_size,
     RGB,
@@ -14,6 +15,8 @@ from object_detection import (
     ImageSize,
     YoloBoxes,
     Labels,
+    to_center_points,
+    resize_points,
 )
 import random
 
@@ -76,14 +79,60 @@ class PolyImage:
             ]
         )(max_size)
 
-    def __call__(self) -> tuple[Image, Boxes, Labels]:
+    def __call__(self) -> tuple[Image, Boxes, Points, Labels]:
         img = torch.from_numpy(self.image).permute(2, 0, 1) / 255  # [H, W]
         boxes = self.boxes
+        points = to_center_points(boxes)
+        points = resize_points(points, scale_x= 1/self.width, scale_y=1/self.height)
         labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
-        return Image(img.float()), boxes, labels
+        return Image(img.float()), boxes, points, labels
 
 
-class TrainDataset(Dataset):
+class PointDataset(Dataset):
+    def __init__(
+        self,
+        image_size: ImageSize,
+        object_size_range: tuple[int, int],
+        object_count_range: tuple[int, int] = (1, 10),
+        num_samples: int = 100,
+    ) -> None:
+        self.image_size = image_size
+        self.num_samples = num_samples
+        self.object_count_range = object_count_range
+        self.object_size_range = object_size_range
+
+    def __getitem__(self, idx: int) -> tuple[str, Image, Points, Labels]:
+        poly = PolyImage(
+            width=self.image_size[0],
+            height=self.image_size[1],
+        )
+        count = np.random.randint(
+            low=self.object_count_range[0],
+            high=self.object_count_range[1],
+        )
+        sizes = np.random.randint(
+            low=self.object_size_range[0],
+            high=self.object_size_range[1],
+            size=(count,),
+        )
+        for s in sizes:
+            poly.add(s)
+        image, boxes, points, labels = poly()
+        _, indices = filter_size(boxes, lambda x: x > 36)
+        points = Points(points[indices])
+        labels = Labels(labels[indices])
+        return (
+            "",
+            Image(image),
+            points,
+            labels,
+        )
+
+    def __len__(self) -> int:
+        return self.num_samples
+
+
+class BoxDataset(Dataset):
     def __init__(
         self,
         image_size: ImageSize,
@@ -112,7 +161,7 @@ class TrainDataset(Dataset):
         )
         for s in sizes:
             poly.add(s)
-        image, boxes, labels = poly()
+        image, boxes, _, labels = poly()
         boxes, indices = filter_size(boxes, lambda x: x > 36)
         labels = Labels(labels[indices])
         return (

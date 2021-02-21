@@ -33,7 +33,7 @@ from object_detection import (
     YoloBoxes,
     pascal_to_yolo,
 )
-from examples.data import TrainDataset
+from examples.data import BoxDataset
 from object_detection.metrics import MeanAveragePrecision
 from examples.centernet import config as cfg
 from logging import (
@@ -68,13 +68,13 @@ def collate_fn(
 def train(epochs: int) -> None:
     device = "cuda"
     use_amp = True
-    train_dataset = TrainDataset(
+    train_dataset = BoxDataset(
         cfg.input_size,
         object_count_range=cfg.object_count_range,
         object_size_range=cfg.object_size_range,
         num_samples=1024,
     )
-    test_dataset = TrainDataset(
+    test_dataset = BoxDataset(
         cfg.input_size,
         object_count_range=cfg.object_count_range,
         object_size_range=cfg.object_size_range,

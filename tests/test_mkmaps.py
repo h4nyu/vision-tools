@@ -43,14 +43,14 @@ def test_mk_point_maps() -> None:
     gt_points = Points(
         torch.tensor(
             [
-                [0.201 * w, 0.402 * h],
-                [0.301 * w, 0.402 * h],
+                [0.201, 0.402],
+                [0.301, 0.402],
             ]
         )
     )
     gt_labels = Labels(torch.tensor([1, 0]))
     mkmaps = MkPointMaps(sigma=20.0, num_classes=2)
-    hm = mkmaps([gt_points], [gt_labels], (h, w), (h * 10, w * 10))
+    hm = mkmaps([gt_points], [gt_labels], h, w)
     assert hm.shape == (1, 2, h, w)
     plot = DetectionPlot(hm[0, 0])
     plot.save(f"store/test_mk_point_maps.png")

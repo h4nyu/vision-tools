@@ -8,6 +8,7 @@ from object_detection.centernet import (
     ToBoxes,
     HMLoss,
     Visualize,
+    ToPoints,
 )
 from object_detection import (
     YoloBoxes,
@@ -85,3 +86,11 @@ def test_to_boxes() -> None:
     netout = (heatmap, sizemap, anchors)
     box_batch, conf_batch, label_batch = to_boxes(netout)
     assert len(box_batch) == len(conf_batch) == len(label_batch)
+
+
+def test_to_points() -> None:
+    h, w = (3, 3)
+    heatmaps: Any = torch.rand((1, 2, h, w))
+    to_points = ToPoints()
+    point_batch, conf_batch, label_batch = to_points(heatmaps, h, w)
+    assert len(point_batch) == len(conf_batch) == len(label_batch)
