@@ -137,8 +137,8 @@ def train(epochs: int) -> None:
                 ...
 
         plot = DetectionPlot(image)
-        plot.draw_points(points, color="blue")
-        plot.draw_points(gt_points, color="red")
+        plot.draw_points(points, color="blue", size=4)
+        plot.draw_points(gt_points, color="red", size=2)
         plot.save(f"{config.out_dir}/plot-points-.png")
 
         plot = DetectionPlot(torch.max(gt_hm, dim=0)[0])
