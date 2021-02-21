@@ -194,7 +194,7 @@ class MkPointMaps:
     def __init__(
         self,
         num_classes: int,
-        sigma: float = 0.5,
+        sigma: float = 0.3,
     ) -> None:
         self.num_classes = num_classes
         self.sigma = sigma
@@ -233,7 +233,6 @@ class MkPointMaps:
         self,
         point_batch: list[Points],
         label_batch: list[Labels],
-        heatmaps: Heatmaps,
         hw: tuple[int, int],
         original_hw: tuple[int, int],
     ) -> Heatmaps:

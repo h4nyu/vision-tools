@@ -1,7 +1,7 @@
 import pytest, torch
 from object_detection.utils import DetectionPlot
-from object_detection import YoloBoxes, Labels, BoxMaps, yolo_to_pascal
-from object_detection.mkmaps import MkGaussianMaps
+from object_detection import YoloBoxes, Labels, BoxMaps, yolo_to_pascal, Points
+from object_detection.mkmaps import MkGaussianMaps, MkPointMaps
 from object_detection.anchors import EmptyAnchors
 from object_detection.centernet import (
     Heatmaps,
@@ -36,3 +36,21 @@ def test_mkmaps() -> None:
     plot.draw_boxes(yolo_to_pascal(gt_boxes, (w, h)), color="blue")
     plot.draw_boxes(yolo_to_pascal(box_batch[0], (w, h)), color="red")
     plot.save(f"store/test-mk-gaussian-map.png")
+
+
+def test_mk_point_maps() -> None:
+    h, w = 1000, 1000
+    gt_points = Points(
+        torch.tensor(
+            [
+                [0.201 * w, 0.402 * h],
+                [0.301 * w, 0.402 * h],
+            ]
+        )
+    )
+    gt_labels = Labels(torch.tensor([1, 0]))
+    mkmaps = MkPointMaps(sigma=20.0, num_classes=2)
+    hm = mkmaps([gt_points], [gt_labels], (h, w), (h * 10, w * 10))
+    assert hm.shape == (1, 2, h, w)
+    plot = DetectionPlot(hm[0, 0])
+    plot.save(f"store/test_mk_point_maps.png")

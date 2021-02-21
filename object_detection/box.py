@@ -37,7 +37,7 @@ def boxmaps_to_boxes(x: BoxMaps) -> YoloBoxes:
     return YoloBoxes(x.permute(3, 2, 0, 1).reshape(-1, 4))
 
 
-def resize(boxes: Boxes, scale: tuple[float, float]) -> Boxes:
+def resize_boxes(boxes: Boxes, scale: tuple[float, float]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     wr, hr = scale
