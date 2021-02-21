@@ -19,6 +19,7 @@ from .box import (
     yolo_to_coco,
     pascal_to_coco,
 )
+from .point import Points
 from torchvision.utils import save_image
 from torch.nn.functional import interpolate
 
@@ -67,7 +68,7 @@ class DetectionPlot:
         boxes: Boxes,
         confidences: Optional[Tensor] = None,
         labels: Optional[Tensor] = None,
-        color: str = "white",
+        color: str = "red",
         line_width: int = 1,
     ) -> None:
         _labels = labels.tolist() if labels is not None else []
@@ -80,3 +81,26 @@ class DetectionPlot:
                 else ""
             )
             self.draw.text((box[0], box[1]), f"{label} {confidence}", fill=color)
+
+    @torch.no_grad()
+    def draw_points(
+        self,
+        points: Points,
+        confidences: Optional[Tensor] = None,
+        labels: Optional[Tensor] = None,
+        color: str = "red",
+        size=5,
+        line_width: int = 1,
+    ) -> None:
+        _labels = labels.tolist() if labels is not None else []
+        for i, point in enumerate(points[: self.box_limit].tolist()):
+            self.draw.ellipse(
+                (point[0] - 5, point[1] - 5, point[0] + 5, point[1] + 5), fill=color
+            )
+            label = "{}".format(labels[i]) if labels is not None else ""
+            confidence = (
+                "{:.3f}".format(float(confidences[i]))
+                if confidences is not None
+                else ""
+            )
+            self.draw.text((point[0], point[1]), f"{label} {confidence}", fill=color)

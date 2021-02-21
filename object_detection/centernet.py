@@ -343,6 +343,100 @@ class ToBoxes:
         return box_batch, confidence_batch, label_batch
 
 
+class ToPoints:
+    def __init__(
+        self,
+        threshold: float = 0.1,
+        iou_threshold: float = 0.5,
+        kernel_size: int = 3,
+        limit: int = 100,
+        use_diff: bool = True,
+    ) -> None:
+        self.limit = limit
+        self.threshold = threshold
+        self.kernel_size = kernel_size
+        self.iou_threshold = iou_threshold
+        self.use_diff = use_diff
+        self.max_pool = partial(
+            F.max_pool2d,
+            kernel_size=kernel_size,
+            padding=kernel_size // 2,
+            stride=1,
+        )
+
+    @torch.no_grad()
+    def __call__(
+        self, inputs: NetOutput
+    ) -> tuple[list[YoloBoxes], list[Confidences], list[Labels]]:
+        heatmaps, boxmaps, anchormap = inputs
+        device = heatmaps.device
+        kpmaps = heatmaps * (
+            (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
+        )
+        kpmaps, labelmaps = torch.max(kpmaps, dim=1)
+        box_batch: list[YoloBoxes] = []
+        confidence_batch: list[Confidences] = []
+        label_batch: list[Labels] = []
+        for km, lm, bm in zip(kpmaps, labelmaps, boxmaps):
+            kp = torch.nonzero(km, as_tuple=False)
+            pos_idx = (kp[:, 0], kp[:, 1])
+            confidences = km[pos_idx]
+            labels = lm[pos_idx]
+            if self.use_diff:
+                boxes = (
+                    anchormap[:, pos_idx[0], pos_idx[1]].t()
+                    + bm[:, pos_idx[0], pos_idx[1]].t()
+                )
+            else:
+                boxes = bm[:, pos_idx[0], pos_idx[1]].t()
+
+            unique_labels = labels.unique()
+            box_list: list[Tensor] = []
+            confidence_list: list[Tensor] = []
+            label_list: list[Tensor] = []
+
+            for c in unique_labels:
+                cls_indices = labels == c
+                if cls_indices.sum() == 0:
+                    continue
+
+                c_boxes = boxes[cls_indices]
+                c_confidences = confidences[cls_indices]
+                c_labels = labels[cls_indices]
+                nms_indices = nms(
+                    yolo_to_pascal(c_boxes, (1, 1)),
+                    c_confidences,
+                    self.iou_threshold,
+                )[: self.limit]
+                box_list.append(c_boxes[nms_indices])
+                confidence_list.append(c_confidences[nms_indices])
+                label_list.append(c_labels[nms_indices])
+
+            if len(confidence_list) > 0:
+                confidences = torch.cat(confidence_list, dim=0)
+            else:
+                confidences = torch.zeros(
+                    0, device=confidences.device, dtype=confidences.dtype
+                )
+            if len(box_list) > 0:
+                boxes = torch.cat(box_list, dim=0)
+            else:
+                boxes = torch.zeros(0, device=boxes.device, dtype=boxes.dtype)
+            if len(label_list) > 0:
+                labels = torch.cat(label_list, dim=0)
+            else:
+                labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
+
+            sort_indices = confidences.argsort(descending=True)
+            boxes = boxes[sort_indices]
+            confidences = confidences[sort_indices]
+            labels = labels[sort_indices]
+            box_batch.append(YoloBoxes(boxes))
+            confidence_batch.append(Confidences(confidences))
+            label_batch.append(Labels(labels))
+        return box_batch, confidence_batch, label_batch
+
+
 class Visualize:
     def __init__(
         self,
