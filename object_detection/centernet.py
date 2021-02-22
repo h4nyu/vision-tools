@@ -370,8 +370,8 @@ class ToPoints:
     def __call__(
         self,
         heatmaps: Heatmaps,
-        w:int,
-        h:int,
+        w: int,
+        h: int,
     ) -> tuple[list[Points], list[Confidences], list[Labels]]:
         device = heatmaps.device
         kpmaps = heatmaps * (
@@ -387,7 +387,11 @@ class ToPoints:
             pos_idx = (kp[:, 0], kp[:, 1])
             confidences = km[pos_idx]
             labels = lm[pos_idx]
-            points: Tensor = resize_points(Points(torch.stack([kp[:, 1], kp[:, 0]], dim=-1)), scale_x=1/ hm_w, scale_y=1 / hm_h)
+            points: Tensor = resize_points(
+                Points(torch.stack([kp[:, 1], kp[:, 0]], dim=-1)),
+                scale_x=1 / hm_w,
+                scale_y=1 / hm_h,
+            )
             unique_labels = labels.unique()
             point_list: list[Tensor] = []
             confidence_list: list[Tensor] = []

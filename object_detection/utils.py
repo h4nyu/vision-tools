@@ -19,7 +19,7 @@ from object_detection import (
     yolo_to_coco,
     pascal_to_coco,
     Number,
-    resize_points
+    resize_points,
 )
 from .point import Points
 from torchvision.utils import save_image
@@ -96,10 +96,13 @@ class DetectionPlot:
     ) -> None:
         _labels = labels.tolist() if labels is not None else []
 
-        points = resize_points(points, scale_x=self.img.size[0], scale_y=self.img.size[1])
+        points = resize_points(
+            points, scale_x=self.img.size[0], scale_y=self.img.size[1]
+        )
         for i, point in enumerate(points[: self.box_limit].tolist()):
             self.draw.ellipse(
-                (point[0] - size, point[1] - size, point[0] + size, point[1] + size), fill=color
+                (point[0] - size, point[1] - size, point[0] + size, point[1] + size),
+                fill=color,
             )
             label = "{}".format(labels[i]) if labels is not None else ""
             confidence = (

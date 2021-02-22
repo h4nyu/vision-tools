@@ -83,7 +83,7 @@ class PolyImage:
         img = torch.from_numpy(self.image).permute(2, 0, 1) / 255  # [H, W]
         boxes = self.boxes
         points = to_center_points(boxes)
-        points = resize_points(points, scale_x= 1/self.width, scale_y=1/self.height)
+        points = resize_points(points, scale_x=1 / self.width, scale_y=1 / self.height)
         labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
         return Image(img.float()), boxes, points, labels
 

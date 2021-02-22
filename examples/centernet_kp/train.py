@@ -128,11 +128,19 @@ def train(epochs: int) -> None:
                 netout,
                 gt_hms,
             )
-            point_batch, confidence_batch, label_batch = config.to_points(netout, h=h, w=w)
+            point_batch, confidence_batch, label_batch = config.to_points(
+                netout, h=h, w=w
+            )
 
             loss_meter.update(loss.item())
             for points, gt_points, labels, gt_labels, confidences, image, gt_hm in zip(
-                point_batch, gt_point_batch, label_batch, gt_label_batch, confidence_batch, image_batch, gt_hms
+                point_batch,
+                gt_point_batch,
+                label_batch,
+                gt_label_batch,
+                confidence_batch,
+                image_batch,
+                gt_hms,
             ):
                 ...
 
@@ -143,7 +151,6 @@ def train(epochs: int) -> None:
 
         plot = DetectionPlot(torch.max(gt_hm, dim=0)[0])
         plot.save(f"{config.out_dir}/gt-hm.png")
-
 
         logs["test_loss"] = loss_meter.get_value()
         # for k, v in scores.items():

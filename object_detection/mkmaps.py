@@ -202,8 +202,8 @@ class MkPointMaps:
     def _mkmaps(
         self,
         points: Points,
-        h:int,
-        w:int,
+        h: int,
+        w: int,
     ) -> Heatmaps:
         device = points.device
         heatmap = torch.zeros((1, 1, h, w), dtype=torch.float32).to(device)
