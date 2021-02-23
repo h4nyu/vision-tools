@@ -2,7 +2,7 @@ import torch
 from typing import Union, Optional, Callable
 from torch import nn, optim, Tensor
 
-from collections import Iterable
+from collections.abc import Iterable
 
 Parameter = Union[Iterable[Tensor], Iterable[dict]]
 
