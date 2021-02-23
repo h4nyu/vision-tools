@@ -7,7 +7,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-        keys:
+          keys:
           - deps-{{ checksum "poetry.lock" }}
       - run:
           name: Install Dependencies
