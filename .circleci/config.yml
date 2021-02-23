@@ -6,27 +6,33 @@ jobs:
       - image: circleci/python:3.9
     steps:
       - checkout
+      - restore_cache:
+        keys:
+          - deps-{{ checksum "poetry.lock" }}
       - run:
-          name: Install Poetry
-          command: |
-            curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-      - run:
-          name: Install Package
+          name: Install Dependencies
           command: |
             poetry install
+
+      - save_cache:
+          key: deps-{{ checksum "poetry.lock" }}
+          paths:
+            - /home/circleci/.cache/pypoetry/virtualenvs
+
+      # - run:
+      #     name: Install Poetry
+      #     command: |
+      #       curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+
       - run:
           name: Tpye check App
           command: |
-            mypy .
-      - run:
-          name: Lint App
-          command: |
-            black .
+            poetry run mypy
       - run:
           name: Test App
           command: |
             mkdir store
-            pytest -v --cov=object_detection
+            poetry run pytest -v --cov=object_detection
 
 workflows:
   main:
