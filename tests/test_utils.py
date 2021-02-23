@@ -32,4 +32,4 @@ def test_detection_plot() -> None:
         labels=labels,
         confidences=confidences,
     )
-    plot.save("/store/test-plot.jpg")
+    plot.save("store/test-plot.jpg")
