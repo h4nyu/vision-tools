@@ -7,7 +7,7 @@ from collections import Iterable
 Parameter = Union[Iterable[Tensor], Iterable[dict]]
 
 
-def unitwise_norm(x: torch.Tensor) -> torch.Tensor:
+def unitwise_norm(x: Tensor) -> Tensor:
     if x.ndim <= 1:
         dim: Union[int, list[int]] = 0
         keepdim = False
@@ -18,7 +18,7 @@ def unitwise_norm(x: torch.Tensor) -> torch.Tensor:
         dim = [1, 2, 3]
         keepdim = True
     else:
-        raise ValueError("Wrong input dimensions")
+        raise ValueError(f"Wrong input dimensions: {x.ndim}")
 
     return torch.sum(x ** 2, dim=dim, keepdim=keepdim) ** 0.5
 
