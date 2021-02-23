@@ -19,11 +19,6 @@ jobs:
           paths:
             - /home/circleci/.cache/pypoetry/virtualenvs
 
-      # - run:
-      #     name: Install Poetry
-      #     command: |
-      #       curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-
       - run:
           name: Tpye check App
           command: |
@@ -31,7 +26,7 @@ jobs:
       - run:
           name: Test App
           command: |
-            mkdir store
+            mkdir /store
             poetry run pytest -v --cov=object_detection
 
 workflows:
