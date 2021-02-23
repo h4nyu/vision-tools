@@ -1,6 +1,5 @@
 from torch import nn, Tensor
 import torch
-from scipy.optimize import linear_sum_assignment
 from typing_extensions import TypedDict
 from object_detection import (
     YoloBoxBatch,
