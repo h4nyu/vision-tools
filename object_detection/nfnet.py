@@ -301,28 +301,33 @@ class NFNet(nn.Module):
         for (block_width, stage_depth, expand_ratio, group_size, stride) in block_args:
             for block_index in range(stage_depth):
                 beta = 1.0 / expected_std
-
-                block_sd_rate = stochdepth_rate * index / num_blocks
                 out_channels = block_width
+                blocks.append(
+                    NFBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        stride=stride if block_index == 0 else 1,
+                        alpha=alpha,
+                        beta=beta,
+                        se_ratio=se_ratio,
+                        group_size=group_size,
+                        activation=activation,
+                    )
+                )
+                if block_index == 0:
+                    expected_std = 1.0
+                expected_std = (expected_std ** 2 + alpha ** 2) ** 0.5
+        self.body = nn.Sequential(*blocks)
+        final_conv_channels = 2 * in_channels
+        self.final_conv = WSConv2d(
+            in_channels=out_channels, out_channels=final_conv_channels, kernel_size=1
+        )
+        self.pool = nn.AvgPool2d(1)
+        self.linear = nn.Linear(final_conv_channels, num_classes)
 
-                # blocks.append(
-                #     NFBlock(
-                #         in_channels=in_channels,
-                #         out_channels=out_channels,
-                #         stride=stride if block_index == 0 else 1,
-                #         alpha=alpha,
-                #         beta=beta,
-                #         se_ratio=se_ratio,
-                #         group_size=group_size,
-                #         stochdepth_rate=block_sd_rate,
-                #         activation=activation,
-                #     )
-                # )
-
-                # in_channels = out_channels
-                # index += 1
-
-                # if block_index == 0:
-                #     expected_std = 1.0
-
-                # expected_std = (expected_std ** 2 + alpha ** 2) ** 0.5
+    def forward(self, x: Tensor) -> Tensor:
+        out = self.stem(x)
+        out = self.body(out)
+        out = self.activation(self.final_conv(out))
+        pool = torch.mean(out, dim=(2, 3))
+        return self.linear(pool)

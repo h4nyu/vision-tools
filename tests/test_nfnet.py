@@ -73,3 +73,7 @@ def test_nfblock_different_downsize() -> None:
     assert out.shape[1] == out_channels
     assert x.shape[2] // 2 == out.shape[2]
     assert x.shape[3] // 2 == out.shape[3]
+
+
+def test_nfnet() -> None:
+    ...
