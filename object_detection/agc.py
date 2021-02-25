@@ -1,10 +1,9 @@
 import torch
-from typing import Union, Optional, Callable
+from typing import Union, Optional, Callable, Any
 from torch import nn, optim, Tensor
+from torch.optim.optimizer import Optimizer, _params_t
 
 from collections.abc import Iterable
-
-Parameter = Union[Iterable[Tensor], Iterable[dict]]
 
 
 def unitwise_norm(x: Tensor) -> Tensor:
@@ -23,74 +22,104 @@ def unitwise_norm(x: Tensor) -> Tensor:
     return torch.sum(x ** 2, dim=dim, keepdim=keepdim) ** 0.5
 
 
-class AGC(optim.Optimizer):
+class SGD_AGC(Optimizer):
     def __init__(
         self,
-        params: Parameter,
-        optim: optim.Optimizer,
-        clipping: float = 1e-2,
+        named_params: _params_t,
+        lr: float,
+        momentum: float = 0.0,
+        dampening: float = 0.0,
+        weight_decay: float = 0.0,
+        nesterov: bool = False,
+        clipping: float = None,
         eps: float = 1e-3,
-        # model:nn.Module=None,
-        ignore_agc: list[str] = ["fc"],
-    ):
-        if clipping < 0.0:
-            raise ValueError("Invalid clipping value: {}".format(clipping))
-        if eps < 0.0:
-            raise ValueError("Invalid eps value: {}".format(eps))
+    ) -> None:
+        if lr < 0.0:
+            raise ValueError("Invalid learning rate: {}".format(lr))
+        if momentum < 0.0:
+            raise ValueError("Invalid momentum value: {}".format(momentum))
+        if weight_decay < 0.0:
+            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
-        self.optim = optim
+        defaults = dict(
+            lr=lr,
+            momentum=momentum,
+            dampening=dampening,
+            weight_decay=weight_decay,
+            nesterov=nesterov,
+            # Extra defaults
+            clipping=clipping,
+            eps=eps,
+        )
 
-        defaults = dict(clipping=clipping, eps=eps)
-        defaults = {**defaults, **optim.defaults}
+        if nesterov and (momentum <= 0 or dampening != 0):
+            raise ValueError("Nesterov momentum requires a momentum and zero dampening")
 
-        # if not isinstance(ignore_agc, Iterable):
-        #     ignore_agc = [ignore_agc]
+        # Put params in list so each one gets its own group
+        params = []
+        for name, param in named_params:
+            params.append({"params": param, "name": name})
 
-        # if model is not None:
-        #     assert ignore_agc not in [
-        #         None,
-        #         [],
-        #     ], "You must specify ignore_agc for AGC to ignore fc-like(or other) layers"
-        #     names = [name for name, module in model.named_modules()]
+        super(SGD_AGC, self).__init__(params, defaults)
 
-        #     for module_name in ignore_agc:
-        #         if module_name not in names:
-        #             raise ModuleNotFoundError(
-        #                 "Module name {} not found in the model".format(module_name)
-        #             )
-        #     parameters = [
-        #         {"params": module.parameters()}
-        #         for name, module in model.named_modules()
-        #         if name not in ignore_agc
-        #     ]
-
-        super().__init__(params, defaults)
+    def __setstate__(self, state: Any) -> None:
+        super(SGD_AGC, self).__setstate__(state)
+        for group in self.param_groups:
+            group.setdefault("nesterov", False)
 
     @torch.no_grad()
-    def step(self, closure: Optional[Callable[[], float]] = None) -> None:
-        """Performs a single optimization step.
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
+    def step(self, closure: Optional[Callable[[], float]] = None) -> Optional[float]:
         loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
 
         for group in self.param_groups:
+            weight_decay = group["weight_decay"]
+            momentum = group["momentum"]
+            dampening = group["dampening"]
+            nesterov = group["nesterov"]
+
+            # Extra values for clipping
+            clipping = group["clipping"]
+            eps = group["eps"]
+
             for p in group["params"]:
                 if p.grad is None:
                     continue
-                param_norm = torch.max(
-                    unitwise_norm(p.detach()), torch.tensor(group["eps"]).to(p.device)
-                )
-                grad_norm = unitwise_norm(p.grad.detach())
-                max_norm = param_norm * group["clipping"]
+                d_p = p.grad
 
-                trigger = grad_norm < max_norm
+                # =========================
+                # Gradient clipping
+                if clipping is not None:
+                    param_norm = torch.maximum(
+                        unitwise_norm(p), torch.tensor(eps).to(p.device)
+                    )
+                    grad_norm = unitwise_norm(d_p)
+                    max_norm = param_norm * group["clipping"]
 
-                clipped_grad = p.grad * (
-                    max_norm
-                    / torch.max(grad_norm, torch.tensor(1e-6).to(grad_norm.device))
-                )
-                p.grad.data.copy_(torch.where(trigger, clipped_grad, p.grad))
+                    trigger_mask = grad_norm > max_norm
+                    clipped_grad = p.grad * (
+                        max_norm
+                        / torch.maximum(grad_norm, torch.tensor(1e-6).to(p.device))
+                    )
+                    d_p = torch.where(trigger_mask, clipped_grad, d_p)
+                # =========================
 
-        self.optim.step(closure)
+                if weight_decay != 0:
+                    d_p = d_p.add(p, alpha=weight_decay)
+                if momentum != 0:
+                    param_state = self.state[p]
+                    if "momentum_buffer" not in param_state:
+                        buf = param_state["momentum_buffer"] = torch.clone(d_p).detach()
+                    else:
+                        buf = param_state["momentum_buffer"]
+                        buf.mul_(momentum).add_(d_p, alpha=1 - dampening)
+                    if nesterov:
+                        d_p = d_p.add(buf, alpha=momentum)
+                    else:
+                        d_p = buf
+
+                p.add_(d_p, alpha=-group["lr"])
+
+        return loss
