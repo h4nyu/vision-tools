@@ -1,6 +1,6 @@
 [tool.poetry]
-name = "object-detection"
-include = ["object-detection/py.typed"]
+name = "vnet"
+include = ["vnet/py.typed"]
 version = "0.1.5"
 description = ""
 authors = ["Xinyuan Yao <yao.ntno@gmail.com>"]
