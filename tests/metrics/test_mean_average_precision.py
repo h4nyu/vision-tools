@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from object_detection import Labels, Boxes, Confidences
-from object_detection.metrics.mean_average_precision import MeanAveragePrecision
+from vnet import Labels, Boxes, Confidences
+from vnet.metrics.mean_average_precision import MeanAveragePrecision
 
 
 def test_half() -> None:

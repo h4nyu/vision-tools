@@ -2,7 +2,7 @@
 #  import pytest
 #  import numpy as np
 #  import torch
-#  from object_detection.models.backbones import (
+#  from vnet.models.backbones import (
 #      ResNetBackbone,
 #      EfficientNetBackbone,
 #      ModelName,

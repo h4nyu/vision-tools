@@ -1,5 +1,5 @@
 import torch
-from object_detection.modules import (
+from vnet.modules import (
     Hswish,
     Hsigmoid,
     CSE2d,

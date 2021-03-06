@@ -2,30 +2,30 @@ import torch
 from typing import *
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
-from object_detection.backbones.effnet import (
+from vnet.backbones.effnet import (
     EfficientNetBackbone,
 )
-from object_detection import (
+from vnet import (
     Image,
     ImageBatch,
     Boxes,
     Labels,
     Boxes,
 )
-from object_detection.metrics import MeanAveragePrecision
+from vnet.metrics import MeanAveragePrecision
 from tqdm import tqdm
-from object_detection.effidet import (
+from vnet.effidet import (
     EfficientDet,
     Criterion,
     Visualize,
     ToBoxes,
     Anchors,
 )
-from object_detection.model_loader import (
+from vnet.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from object_detection.meters import MeanMeter
+from vnet.meters import MeanMeter
 from examples.data import BoxDataset
 import torch_optimizer as optim
 from examples.effdet import config

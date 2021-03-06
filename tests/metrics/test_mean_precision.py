@@ -1,12 +1,12 @@
 import torch
 import numpy as np
-from object_detection import (
+from vnet import (
     CoCoBoxes,
     YoloBoxes,
     coco_to_pascal,
     Confidences,
 )
-from object_detection.metrics import MeanPrecition
+from vnet.metrics import MeanPrecition
 
 gts = np.array(
     [

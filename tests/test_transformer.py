@@ -1,5 +1,5 @@
 import torch
-from object_detection.transformer import Transformer
+from vnet.transformer import Transformer
 from torch import nn
 
 

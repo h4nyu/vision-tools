@@ -2,7 +2,7 @@ import torch
 import pytest
 import typing as t
 import torch.nn.functional as F
-from object_detection.losses import (
+from vnet.losses import (
     DIoU,
     GIoU,
     DIoULoss,
@@ -10,7 +10,7 @@ from object_detection.losses import (
     FocalLoss,
     SigmoidFocalLoss,
 )
-from object_detection import Boxes
+from vnet import Boxes
 from torch import nn, Tensor
 
 

@@ -4,7 +4,7 @@ import typing as t
 import itertools
 from typing import Any
 from torch import nn, Tensor
-from object_detection import (
+from vnet import (
     Boxes,
     ImageBatch,
     boxmaps_to_boxes,

@@ -4,7 +4,7 @@ import torch
 from typing import Any
 from torch import Tensor
 from torch.utils.data import Dataset
-from object_detection import (
+from vnet import (
     Boxes,
     YoloBoxes,
     Points,

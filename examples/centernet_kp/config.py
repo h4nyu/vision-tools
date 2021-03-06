@@ -1,13 +1,13 @@
-from object_detection.centernet import ToPoints, HMLoss
-from object_detection.mkmaps import MkPointMaps
-from object_detection.backbones.resnet import (
+from vnet.centernet import ToPoints, HMLoss
+from vnet.mkmaps import MkPointMaps
+from vnet.backbones.resnet import (
     ResNetBackbone,
 )
-from object_detection.model_loader import (
+from vnet.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from object_detection.model_loader import WatchMode
+from vnet.model_loader import WatchMode
 from .model import Net
 
 num_classes = 2

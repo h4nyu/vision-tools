@@ -1,5 +1,5 @@
 import torch
-from object_detection.nfnet import WSConv2d, NFBlock
+from vnet.nfnet import WSConv2d, NFBlock
 
 
 def test_wsconv2d() -> None:

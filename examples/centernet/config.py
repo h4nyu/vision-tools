@@ -1,7 +1,7 @@
-from object_detection.mkmaps import (
+from vnet.mkmaps import (
     GaussianMapMode,
 )
-from object_detection.model_loader import WatchMode
+from vnet.model_loader import WatchMode
 
 num_classes = 2
 ## heatmap

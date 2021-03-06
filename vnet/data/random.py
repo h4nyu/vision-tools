@@ -1,7 +1,7 @@
 from typing import *
 import torch
 from torch.utils.data import Dataset
-from object_detection import (
+from vnet import (
     Image,
     ImageSize,
     Boxes,

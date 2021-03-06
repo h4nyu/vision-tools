@@ -1,6 +1,6 @@
 import numpy as np, torch
-from object_detection.metrics.average_precision import AveragePrecision
-from object_detection import Boxes, Labels, Confidences
+from vnet.metrics.average_precision import AveragePrecision
+from vnet import Boxes, Labels, Confidences
 
 
 class MeanAveragePrecision:

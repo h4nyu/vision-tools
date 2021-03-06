@@ -14,7 +14,7 @@ from torch import nn, Tensor
 from typing_extensions import Literal
 from logging import getLogger
 from tqdm import tqdm
-from object_detection import (
+from vnet import (
     BoxMap,
     BoxMaps,
     YoloBoxes,
@@ -30,8 +30,8 @@ from object_detection import (
     Image,
     resize_points,
 )
-from object_detection.point import Points
-from object_detection.utils import DetectionPlot
+from vnet.point import Points
+from vnet.utils import DetectionPlot
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
 from .modules import (
     FReLU,
@@ -45,11 +45,11 @@ from .bifpn import BiFPN, FP
 from .losses import HuberLoss, DIoULoss
 from .anchors import EmptyAnchors
 from .matcher import NearnestMatcher, CenterMatcher
-from object_detection.meters import MeanMeter
+from vnet.meters import MeanMeter
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
-from object_detection.model_loader import ModelLoader
+from vnet.model_loader import ModelLoader
 
 from pathlib import Path
 

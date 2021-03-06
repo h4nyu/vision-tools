@@ -1,5 +1,5 @@
 import torch
-from object_detection.bifpn import BiFPN
+from vnet.bifpn import BiFPN
 
 
 def test_bifpn() -> None:

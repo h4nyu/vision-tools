@@ -1,7 +1,7 @@
 import torch
 from typing import Any
 import numpy as np
-from object_detection import Boxes, Confidences
+from vnet import Boxes, Confidences
 from torchvision.ops.boxes import box_iou
 
 

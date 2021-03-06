@@ -1,5 +1,5 @@
 from typing import *
-from object_detection.model_loader import WatchMode
+from vnet.model_loader import WatchMode
 
 # train
 confidence_threshold = 0.01

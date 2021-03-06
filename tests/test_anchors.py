@@ -5,12 +5,12 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from pathlib import Path
-from object_detection import (
+from vnet import (
     Boxes,
     ImageBatch,
 )
-from object_detection.anchors import Anchors
-from object_detection.utils import DetectionPlot
+from vnet.anchors import Anchors
+from vnet.utils import DetectionPlot
 
 
 @pytest.mark.parametrize(

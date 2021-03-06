@@ -1,7 +1,7 @@
 from torch import nn, Tensor
 import torch
 from typing_extensions import TypedDict
-from object_detection import (
+from vnet import (
     YoloBoxBatch,
     ConfidenceBatch,
     YoloBoxes,

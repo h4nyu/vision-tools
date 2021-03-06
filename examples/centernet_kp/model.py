@@ -1,7 +1,7 @@
 from torch import nn, Tensor
-from object_detection.bifpn import BiFPN
-from object_detection.centernet import Head
-from object_detection.image import ImageBatch
+from vnet.bifpn import BiFPN
+from vnet.centernet import Head
+from vnet.image import ImageBatch
 
 
 class Net(nn.Module):

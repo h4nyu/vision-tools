@@ -1,5 +1,5 @@
 import torch
-from object_detection import (
+from vnet import (
     YoloBoxBatch,
     ConfidenceBatch,
 )

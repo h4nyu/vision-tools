@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision
 from torch import Tensor
 from typing import Literal
-from object_detection import FP
+from vnet import FP
 
 SideChannels = tuple[int, int, int, int, int]
 ModelName = Literal[

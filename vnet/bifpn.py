@@ -2,7 +2,7 @@ import torch
 from typing import *
 from torch import nn, Tensor
 import torch.nn.functional as F
-from object_detection import FP
+from vnet import FP
 from .bottlenecks import SENextBottleneck2d
 from .modules import (
     SeparableConvBR2d,
