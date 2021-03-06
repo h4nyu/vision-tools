@@ -7,7 +7,7 @@ authors = ["Xinyuan Yao <yao.ntno@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-torch = "^1.7.0"
+torch = "^1.8.0"
 tqdm = "^4.49.0"
 torchvision = "^0.9.0"
 efficientnet_pytorch = "^0.7.0"

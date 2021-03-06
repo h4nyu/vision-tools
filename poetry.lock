@@ -592,7 +592,7 @@ six = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "66b983bc1eacf123ed17a2122f4353ee1b31b72a62e318918dd4f497e9c461dc"
+content-hash = "b2cb48726cf889d59e9ee527f603f9335e178857fba3521c6085f851ac7f2dfd"
 
 [metadata.files]
 appdirs = [
