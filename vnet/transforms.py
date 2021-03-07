@@ -86,7 +86,7 @@ class RandomLayout(A.DualTransform):
 normalize_mean = (0.485, 0.456, 0.406)
 normalize_std = (0.229, 0.224, 0.225)
 
-normalize = Normalize(mean=normalize_mean, std=normalize_std)
+normalize = A.Normalize(mean=normalize_mean, std=normalize_std)
 inv_normalize = Normalize(
     mean=[-m / s for m, s in zip(normalize_mean, normalize_std)],
     std=[1 / s for s in normalize_std],
