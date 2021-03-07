@@ -70,10 +70,24 @@ def read_rows(root_dir: str) -> list[Row]:
     return rows
 
 
-bbox_params = dict(format="pascal_voc", label_fields=["labels"])
+bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
+
+train_transforms = A.Compose(
+    [
+        A.LongestMaxSize(max_size=config.image_size),
+        A.PadIfNeeded(min_height=config.image_size, min_width=config.image_size, border_mode=0),
+        A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
+        A.RandomCrop(config.image_size, config.image_size, p=1.0),
+        A.ToGray(),
+        normalize,
+        ToTensorV2(),
+    ],
+    bbox_params=bbox_params,
+)
 default_transforms = A.Compose(
     [
-        # A.LongestMaxSize(max_size=config.image_width),
+        A.LongestMaxSize(max_size=config.image_size),
+        A.PadIfNeeded(min_height=config.image_size, min_width=config.image_size, border_mode=0),
         normalize,
         ToTensorV2(),
     ],
@@ -90,7 +104,7 @@ class KuzushijiDataset(Dataset):
     ) -> None:
         self.rows = rows
         self.image_dir = image_dir
-        self.transforms = transforms or default_transforms
+        self.transforms = default_transforms if transforms is None else transforms
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -104,7 +118,6 @@ class KuzushijiDataset(Dataset):
             image=pil_img, bboxes=row["boxes"], labels=row["labels"]
         )
         img = Image(transformed["image"])
-        boxes = Boxes(transformed["bboxes"])
-        print(boxes)
+        boxes = Boxes(torch.tensor(transformed["bboxes"]))
         labels = Labels(transformed["labels"])
         return id, img, boxes, labels
