@@ -27,7 +27,7 @@ jobs:
           name: Test App
           command: |
             mkdir store
-            poetry run pytest -v --cov=object_detection
+            poetry run pytest -v --cov=vnet tests
 
 workflows:
   main:
