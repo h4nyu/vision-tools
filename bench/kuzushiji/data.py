@@ -75,7 +75,9 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 train_transforms = A.Compose(
     [
         A.LongestMaxSize(max_size=config.image_size),
-        A.PadIfNeeded(min_height=config.image_size, min_width=config.image_size, border_mode=0),
+        A.PadIfNeeded(
+            min_height=config.image_size, min_width=config.image_size, border_mode=0
+        ),
         A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
         A.RandomCrop(config.image_size, config.image_size, p=1.0),
         A.ToGray(),
@@ -87,7 +89,9 @@ train_transforms = A.Compose(
 default_transforms = A.Compose(
     [
         A.LongestMaxSize(max_size=config.image_size),
-        A.PadIfNeeded(min_height=config.image_size, min_width=config.image_size, border_mode=0),
+        A.PadIfNeeded(
+            min_height=config.image_size, min_width=config.image_size, border_mode=0
+        ),
         normalize,
         ToTensorV2(),
     ],
