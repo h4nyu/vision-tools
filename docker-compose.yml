@@ -16,4 +16,5 @@ services:
       - .:/srv
       - ./store:/store
       - ./.cache:/root/.cache
+      - ./kaggle.json:/root/.kaggle/kaggle.json
     runtime: nvidia

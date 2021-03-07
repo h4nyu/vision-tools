@@ -24,5 +24,5 @@ RUN apt-get update \
     && poetry config virtualenvs.create false
 
 WORKDIR /srv
-# COPY . .
-# RUN poetry install
+COPY . .
+RUN poetry install
