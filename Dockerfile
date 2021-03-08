@@ -20,7 +20,7 @@ RUN apt-get update \
 
 RUN apt-get update \ 
     && apt-get install -y --no-install-recommends \
-        cuda-cudart-11-1=11.2.146-1 \
+        cuda-cudart-11-1=11.1.74-1 \
         cuda-compat-11-1 \
     && ln -s cuda-11.2 /usr/local/cuda \
     && rm -rf /var/lib/apt/lists/*
