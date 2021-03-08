@@ -5,13 +5,14 @@ from vnet import Image, Boxes, Labels
 from dataclasses import dataclass
 from typing import Any, TypedDict
 import pandas as pd
-import cytoolz as tlz
+from toolz.curried import *
 from joblib import Memory
 import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from bench.kuzushiji import config
 from vnet.transforms import normalize, inv_normalize
+from sklearn.model_selection import StratifiedKFold
 
 location = "/tmp"
 memory = Memory(location, verbose=0)
@@ -68,6 +69,22 @@ def read_rows(root_dir: str) -> list[Row]:
         rows.append(row)
 
     return rows
+
+
+def kfold(
+    rows: list[Row], n_splits: int, fold_idx: int = 0
+) -> tuple[list[Row], list[Row]]:
+    skf = StratifiedKFold()
+    x = range(len(rows))
+    y = pipe(rows, map(lambda x: len(x["labels"])), list)
+    pair_list: tuple[list[int], list[int]] = []
+    for train_index, test_index in skf.split(x, y):
+        pair_list.append((train_index, test_index))
+    train_index, test_index = pair_list[fold_idx]
+    return (
+        [rows[i] for i in train_index],
+        [rows[i] for i in test_index],
+    )
 
 
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)

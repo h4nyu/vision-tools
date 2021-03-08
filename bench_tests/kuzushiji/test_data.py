@@ -4,6 +4,7 @@ from bench.kuzushiji.data import (
     KuzushijiDataset,
     inv_normalize,
     train_transforms,
+    kfold,
 )
 from vnet.utils import DetectionPlot
 from bench.kuzushiji import config
@@ -33,3 +34,8 @@ def test_aug() -> None:
         plot = DetectionPlot(inv_normalize(img))
         plot.draw_boxes(boxes)
         plot.save(os.path.join(config.root_dir, f"test_aug{i}.png"))
+
+
+def test_fold() -> None:
+    rows = read_rows(config.root_dir)
+    a, b = kfold(rows, n_splits=4)
