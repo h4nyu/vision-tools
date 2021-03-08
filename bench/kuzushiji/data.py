@@ -5,7 +5,7 @@ from vnet import Image, Boxes, Labels
 from dataclasses import dataclass
 from typing import Any, TypedDict
 import pandas as pd
-from toolz.curried import *
+from cytoolz.curried import pipe, partition, map, filter
 from joblib import Memory
 import torchvision.transforms as T
 import albumentations as A
@@ -50,7 +50,7 @@ def read_rows(root_dir: str) -> list[Row]:
         id = csv_row["image_id"]
         labels = []
         boxes = []
-        for code, x0, y0, w, h in tlz.partition(5, csv_row["labels"].split(" ")):
+        for code, x0, y0, w, h in partition(5, csv_row["labels"].split(" ")):
             labels.append(codes[code])
             boxes.append(
                 [
@@ -77,7 +77,7 @@ def kfold(
     skf = StratifiedKFold()
     x = range(len(rows))
     y = pipe(rows, map(lambda x: len(x["labels"])), list)
-    pair_list: tuple[list[int], list[int]] = []
+    pair_list: list[tuple[list[int], list[int]]] = []
     for train_index, test_index in skf.split(x, y):
         pair_list.append((train_index, test_index))
     train_index, test_index = pair_list[fold_idx]
@@ -140,5 +140,5 @@ class KuzushijiDataset(Dataset):
         )
         img = Image(transformed["image"])
         boxes = Boxes(torch.tensor(transformed["bboxes"]))
-        labels = Labels(transformed["labels"])
+        labels = Labels(torch.tensor(transformed["labels"]))
         return id, img, boxes, labels

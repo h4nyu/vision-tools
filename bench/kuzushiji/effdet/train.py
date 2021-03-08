@@ -5,7 +5,6 @@ from torch.cuda.amp import GradScaler, autocast
 from logging import (
     getLogger,
 )
-
 from vnet import (
     Image,
     ImageBatch,
@@ -16,7 +15,7 @@ from vnet import (
 from vnet.meters import MeanMeter
 import torch_optimizer as optim
 from bench.kuzushiji.effdet import config
-from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms
+from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms, kfold
 
 logger = getLogger(__name__)
 
@@ -45,12 +44,13 @@ def collate_fn(
 def train(epochs: int) -> None:
     device = config.device
     rows = read_rows(config.root_dir)
+    train_rows, test_rows = kfold(rows, config.n_splits)
     train_dataset = KuzushijiDataset(
-        rows=rows,
+        rows=train_rows,
         transforms=train_transforms,
     )
     test_dataset = KuzushijiDataset(
-        rows=rows,
+        rows=test_rows,
     )
     train_loader = DataLoader(
         train_dataset,
