@@ -5,7 +5,7 @@ from vnet import Image, Boxes, Labels
 from dataclasses import dataclass
 from typing import Any, TypedDict
 import pandas as pd
-from cytoolz import map, filter, pipe
+from toolz.curried import *
 from joblib import Memory
 import torchvision.transforms as T
 import albumentations as A
@@ -82,8 +82,8 @@ def kfold(
         pair_list.append((train_index, test_index))
     train_index, test_index = pair_list[fold_idx]
     return (
-        pipe(rows, filter(lambda x: x["id"] in train_index), list),
-        pipe(rows, filter(lambda x: x["id"] in test_index), list),
+        [rows[i] for i in train_index],
+        [rows[i] for i in test_index],
     )
 
 

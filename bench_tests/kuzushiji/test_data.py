@@ -38,4 +38,4 @@ def test_aug() -> None:
 
 def test_fold() -> None:
     rows = read_rows(config.root_dir)
-    kfold(rows, n_splits=4)
+    a, b = kfold(rows, n_splits=4)
