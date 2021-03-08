@@ -5,13 +5,14 @@ from vnet import Image, Boxes, Labels
 from dataclasses import dataclass
 from typing import Any, TypedDict
 import pandas as pd
-import cytoolz as tlz
+from cytoolz import map, filter, pipe
 from joblib import Memory
 import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from bench.kuzushiji import config
 from vnet.transforms import normalize, inv_normalize
+from sklearn.model_selection import StratifiedKFold
 
 location = "/tmp"
 memory = Memory(location, verbose=0)
@@ -70,12 +71,30 @@ def read_rows(root_dir: str) -> list[Row]:
     return rows
 
 
+def kfold(
+    rows: list[Row], n_splits: int, fold_idx: int = 0
+) -> tuple[list[Row], list[Row]]:
+    skf = StratifiedKFold()
+    x = range(len(rows))
+    y = pipe(rows, map(lambda x: len(x["labels"])), list)
+    pair_list: tuple[list[int], list[int]] = []
+    for train_index, test_index in skf.split(x, y):
+        pair_list.append((train_index, test_index))
+    train_index, test_index = pair_list[fold_idx]
+    return (
+        pipe(rows, filter(lambda x: x["id"] in train_index), list),
+        pipe(rows, filter(lambda x: x["id"] in test_index), list),
+    )
+
+
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
 
 train_transforms = A.Compose(
     [
         A.LongestMaxSize(max_size=config.image_size),
-        A.PadIfNeeded(min_height=config.image_size, min_width=config.image_size, border_mode=0),
+        A.PadIfNeeded(
+            min_height=config.image_size, min_width=config.image_size, border_mode=0
+        ),
         A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
         A.RandomCrop(config.image_size, config.image_size, p=1.0),
         A.ToGray(),
@@ -87,7 +106,9 @@ train_transforms = A.Compose(
 default_transforms = A.Compose(
     [
         A.LongestMaxSize(max_size=config.image_size),
-        A.PadIfNeeded(min_height=config.image_size, min_width=config.image_size, border_mode=0),
+        A.PadIfNeeded(
+            min_height=config.image_size, min_width=config.image_size, border_mode=0
+        ),
         normalize,
         ToTensorV2(),
     ],
