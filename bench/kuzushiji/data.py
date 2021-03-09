@@ -139,8 +139,10 @@ class KuzushijiDataset(Dataset):
 
         transformed = self.transforms(
             image=img_arr,
-            bboxes=torchvision.ops.clip_boxes_to_image(row['boxes'], (pil_img.height, pil_img.width)),
-            labels=row["labels"]
+            bboxes=torchvision.ops.clip_boxes_to_image(
+                row["boxes"], (pil_img.height, pil_img.width)
+            ),
+            labels=row["labels"],
         )
         img = Image(transformed["image"])
         boxes = Boxes(torch.tensor(transformed["bboxes"]))
