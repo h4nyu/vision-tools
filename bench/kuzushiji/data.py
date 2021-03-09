@@ -134,9 +134,13 @@ class KuzushijiDataset(Dataset):
         row = self.rows[idx]
         id = row["id"]
         image_path = os.path.join(self.image_dir, row["image_fname"])
-        pil_img = np.asarray(PIL.Image.open(image_path))
+        pil_img = PIL.Image.open(image_path)
+        img_arr = np.array(pil_img)
+
         transformed = self.transforms(
-            image=pil_img, bboxes=row["boxes"], labels=row["labels"]
+            image=img_arr,
+            bboxes=torchvision.ops.clip_boxes_to_image(row['boxes'], (pil_img.height, pil_img.width)),
+            labels=row["labels"]
         )
         img = Image(transformed["image"])
         boxes = Boxes(torch.tensor(transformed["bboxes"]))

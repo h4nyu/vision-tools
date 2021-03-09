@@ -16,7 +16,7 @@ from vnet.effidet import (
     Anchors,
 )
 
-batch_size = 10
+batch_size = 14
 use_amp = True
 
 out_ids = [5, 6]
