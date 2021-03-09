@@ -16,6 +16,7 @@ from vnet.meters import MeanMeter
 import torch_optimizer as optim
 from bench.kuzushiji.effdet import config
 from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms, kfold
+from bench.kuzushiji.metrics import Metrics
 
 logger = getLogger(__name__)
 
@@ -113,6 +114,7 @@ def train(epochs: int) -> None:
         loss_meter = MeanMeter()
         box_loss_meter = MeanMeter()
         label_loss_meter = MeanMeter()
+        metrics = Metrics()
         for image_batch, gt_box_batch, gt_label_batch, _ in tqdm(test_loader):
             image_batch = image_batch.to(device)
             gt_box_batch = [x.to(device) for x in gt_box_batch]
@@ -127,31 +129,26 @@ def train(epochs: int) -> None:
             box_loss_meter.update(box_loss.item())
             label_loss_meter.update(label_loss.item())
 
-            for boxes, gt_boxes, labels, gt_labels, confidences in zip(
-                box_batch, gt_box_batch, label_batch, gt_label_batch, confidence_batch
+            for boxes, gt_boxes, labels, gt_labels in zip(
+                box_batch, gt_box_batch, label_batch, gt_label_batch
             ):
-                ...
-                # metrics.add(
-                #     boxes=boxes,
-                #     confidences=confidences,
-                #     labels=labels,
-                #     gt_boxes=gt_boxes,
-                #     gt_labels=gt_labels,
-                # )
+                metrics.add(
+                    boxes=boxes,
+                    labels=labels,
+                    gt_boxes=gt_boxes,
+                    gt_labels=gt_labels,
+                )
 
-        # score, scores = metrics()
+        score = metrics()
         logs["test_loss"] = loss_meter.get_value()
         logs["test_box"] = box_loss_meter.get_value()
         logs["test_label"] = label_loss_meter.get_value()
-        # logs["score"] = score
-        # for k, v in scores.items():
-        #     logs[f"score-{k}"] = v
+        logs["score"] = score
 
-        # score, scores = metrics()
-        # model_loader.save_if_needed(
-        #     model,
-        #     score,
-        # )
+        model_loader.save_if_needed(
+            model,
+            score,
+        )
 
     def log() -> None:
         logger.info(",".join([f"{k}={v:.3f}" for k, v in logs.items()]))
