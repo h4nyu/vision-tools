@@ -1,4 +1,4 @@
-import torch, tqdm
+import torch, tqdm, os
 from typing import Any
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
@@ -57,15 +57,15 @@ def train(epochs: int) -> None:
         train_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size,
-        num_workers=config.batch_size,
+        num_workers=os.cpu_count() or config.batch_size,
         shuffle=True,
     )
     test_loader = DataLoader(
         test_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size * 2,
-        num_workers=config.batch_size,
-        shuffle=True,
+        num_workers=os.cpu_count() or config.batch_size,
+        shuffle=False,
     )
     optimizer = config.optimizer
     to_boxes = config.to_boxes
@@ -115,7 +115,7 @@ def train(epochs: int) -> None:
         box_loss_meter = MeanMeter()
         label_loss_meter = MeanMeter()
         metrics = Metrics()
-        for image_batch, gt_box_batch, gt_label_batch, _ in tqdm(test_loader):
+        for image_batch, gt_box_batch, gt_label_batch, _ in tqdm.tqdm(test_loader):
             image_batch = image_batch.to(device)
             gt_box_batch = [x.to(device) for x in gt_box_batch]
             gt_label_batch = [x.to(device) for x in gt_label_batch]
@@ -155,8 +155,8 @@ def train(epochs: int) -> None:
 
     model_loader.load_if_needed(model)
     for _ in range(epochs):
-        train_step()
         eval_step()
+        train_step()
         log()
 
 
