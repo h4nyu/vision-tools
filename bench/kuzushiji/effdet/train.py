@@ -1,9 +1,9 @@
-import torch
-from typing import *
+import torch, tqdm, os
+from typing import Any
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
-from vnet.backbones.effnet import (
-    EfficientNetBackbone,
+from logging import (
+    getLogger,
 )
 from vnet import (
     Image,
@@ -12,27 +12,11 @@ from vnet import (
     Labels,
     Boxes,
 )
-from vnet.metrics import MeanAveragePrecision
-from tqdm import tqdm
-from vnet.effidet import (
-    EfficientDet,
-    Criterion,
-    Visualize,
-    ToBoxes,
-    Anchors,
-)
-from vnet.model_loader import (
-    ModelLoader,
-    BestWatcher,
-)
-from vnet.utils import init_seed
 from vnet.meters import MeanMeter
-from examples.data import BoxDataset
 import torch_optimizer as optim
-from examples.effdet import config
-from logging import (
-    getLogger,
-)
+from bench.kuzushiji.effdet import config
+from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms, kfold
+from bench.kuzushiji.metrics import Metrics
 
 logger = getLogger(__name__)
 
@@ -59,77 +43,35 @@ def collate_fn(
 
 
 def train(epochs: int) -> None:
-    init_seed()
-    device = torch.device("cuda")
-    train_dataset = BoxDataset(
-        config.input_size,
-        object_count_range=config.object_count_range,
-        object_size_range=config.object_size_range,
-        num_samples=1024,
+    device = config.device
+    rows = read_rows(config.root_dir)
+    train_rows, test_rows = kfold(rows, config.n_splits)
+    train_dataset = KuzushijiDataset(
+        rows=train_rows,
+        transforms=train_transforms,
     )
-    test_dataset = BoxDataset(
-        config.input_size,
-        object_count_range=config.object_count_range,
-        object_size_range=config.object_size_range,
-        num_samples=256,
-    )
-    backbone = EfficientNetBackbone(
-        config.backbone_id,
-        out_channels=config.channels,
-        pretrained=True,
-    )
-    anchors = Anchors(
-        size=config.anchor_size,
-        ratios=config.anchor_ratios,
-        scales=config.anchor_scales,
-    )
-    model = EfficientDet(
-        num_classes=config.num_classes,
-        out_ids=config.out_ids,
-        channels=config.channels,
-        backbone=backbone,
-        anchors=anchors,
-        box_depth=config.box_depth,
-    ).to(device)
-    model_loader = ModelLoader(
-        out_dir=config.out_dir,
-        key=config.metric[0],
-        best_watcher=BestWatcher(mode=config.metric[1]),
-    )
-    criterion = Criterion(
-        topk=config.topk,
-        box_weight=config.box_weight,
-        cls_weight=config.cls_weight,
-    )
-    optimizer = optim.RAdam(
-        model.parameters(),
-        lr=config.lr,
-        betas=(0.9, 0.999),
-        eps=1e-16,
-        weight_decay=0,
-    )
-    visualize = Visualize(
-        "/store/efficientdet",
-        "test",
-        limit=config.batch_size,
-        box_limit=config.vis_box_limit,
-    )
-    to_boxes = ToBoxes(
-        confidence_threshold=config.confidence_threshold,
-        iou_threshold=config.iou_threshold,
+    test_dataset = KuzushijiDataset(
+        rows=test_rows,
     )
     train_loader = DataLoader(
         train_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size,
+        num_workers=os.cpu_count() or config.batch_size,
         shuffle=True,
     )
     test_loader = DataLoader(
         test_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size * 2,
-        shuffle=True,
+        num_workers=os.cpu_count() or config.batch_size,
+        shuffle=False,
     )
+    optimizer = config.optimizer
+    to_boxes = config.to_boxes
+    model = config.model
+    model_loader = config.model_loader
+    criterion = config.criterion
     scaler = GradScaler()
     logs: dict[str, float] = {}
 
@@ -143,7 +85,7 @@ def train(epochs: int) -> None:
             gt_box_batch,
             gt_label_batch,
             _,
-        ) in tqdm(train_loader):
+        ) in tqdm.tqdm(train_loader):
             image_batch = image_batch.to(device)
             gt_box_batch = [x.to(device) for x in gt_box_batch]
             gt_label_batch = [x.to(device) for x in gt_label_batch]
@@ -172,10 +114,8 @@ def train(epochs: int) -> None:
         loss_meter = MeanMeter()
         box_loss_meter = MeanMeter()
         label_loss_meter = MeanMeter()
-        metrics = MeanAveragePrecision(
-            iou_threshold=0.3, num_classes=config.num_classes
-        )
-        for image_batch, gt_box_batch, gt_label_batch, _ in tqdm(test_loader):
+        metrics = Metrics()
+        for image_batch, gt_box_batch, gt_label_batch, _ in tqdm.tqdm(test_loader):
             image_batch = image_batch.to(device)
             gt_box_batch = [x.to(device) for x in gt_box_batch]
             gt_label_batch = [x.to(device) for x in gt_label_batch]
@@ -189,31 +129,22 @@ def train(epochs: int) -> None:
             box_loss_meter.update(box_loss.item())
             label_loss_meter.update(label_loss.item())
 
-            for boxes, gt_boxes, labels, gt_labels, confidences in zip(
-                box_batch, gt_box_batch, label_batch, gt_label_batch, confidence_batch
+            for boxes, gt_boxes, labels, gt_labels in zip(
+                box_batch, gt_box_batch, label_batch, gt_label_batch
             ):
                 metrics.add(
                     boxes=boxes,
-                    confidences=confidences,
                     labels=labels,
                     gt_boxes=gt_boxes,
                     gt_labels=gt_labels,
                 )
 
-        score, scores = metrics()
+        score = metrics()
         logs["test_loss"] = loss_meter.get_value()
         logs["test_box"] = box_loss_meter.get_value()
         logs["test_label"] = label_loss_meter.get_value()
         logs["score"] = score
-        for k, v in scores.items():
-            logs[f"score-{k}"] = v
 
-        visualize(
-            image_batch,
-            (box_batch, confidence_batch, label_batch),
-            (gt_box_batch, gt_label_batch),
-        )
-        score, scores = metrics()
         model_loader.save_if_needed(
             model,
             score,
@@ -224,8 +155,8 @@ def train(epochs: int) -> None:
 
     model_loader.load_if_needed(model)
     for _ in range(epochs):
-        train_step()
         eval_step()
+        train_step()
         log()
 
 

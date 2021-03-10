@@ -8,26 +8,26 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-          - deps-{{ checksum "poetry.lock" }}
+          - deps-{{ checksum "setup.py" }}
       - run:
           name: Install Dependencies
           command: |
-            poetry install
+            pip install -e .[develop]
 
       - save_cache:
-          key: deps-{{ checksum "poetry.lock" }}
+          key: deps-{{ checksum "setup.py" }}
           paths:
-            - /home/circleci/.cache/pypoetry/virtualenvs
+            - /home/circleci/.cache/
 
       - run:
           name: Tpye check App
           command: |
-            poetry run mypy
+            mypy
       - run:
           name: Test App
           command: |
             mkdir store
-            poetry run pytest -v --cov=object_detection
+            pytest -v --cov=vnet tests
 
 workflows:
   main:

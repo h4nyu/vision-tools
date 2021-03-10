@@ -33,6 +33,8 @@ def init_seed(seed: int = 777) -> None:
     np.random.seed(seed)
     torch.manual_seed(seed)  # type: ignore
     torch.cuda.manual_seed(seed)  # type: ignore
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 colors = [
