@@ -48,8 +48,8 @@ class ModelLoader:
     def __init__(
         self,
         out_dir: str,
-        key: str,
         best_watcher: BestWatcher,
+        key: str='checkpoint',
     ) -> None:
         self.out_dir = Path(out_dir)
         self.key = key

@@ -58,14 +58,14 @@ def train(epochs: int) -> None:
         train_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size,
-        num_workers=os.cpu_count() or config.batch_size,
+        num_workers=min(os.cpu_count() or 1, config.batch_size),
         shuffle=True,
     )
     test_loader = DataLoader(
         test_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size * 2,
-        num_workers=os.cpu_count() or config.batch_size,
+        num_workers=min(os.cpu_count() or 1, config.batch_size * 2),
         shuffle=False,
     )
     optimizer = config.optimizer
@@ -141,7 +141,7 @@ def train(epochs: int) -> None:
                 )
             plot = DetectionPlot(inv_normalize(image))
             plot.draw_boxes(boxes, color="red")
-            plot.draw_boxes(gt_boxes, color="red")
+            plot.draw_boxes(gt_boxes, color="blue")
             plot.save(os.path.join(config.out_dir, "test.png"))
 
         score = metrics()
@@ -152,7 +152,7 @@ def train(epochs: int) -> None:
 
         model_loader.save_if_needed(
             model,
-            loss_meter.get_value(),
+            label_loss_meter.get_value(),
         )
 
     def log() -> None:
@@ -160,8 +160,8 @@ def train(epochs: int) -> None:
 
     model_loader.load_if_needed(model)
     for _ in range(epochs):
-        eval_step()
         train_step()
+        eval_step()
         log()
 
 

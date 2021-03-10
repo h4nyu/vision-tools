@@ -16,17 +16,17 @@ from vnet.effidet import (
     Anchors,
 )
 
-batch_size = 14
+batch_size = 6
 use_amp = True
 
 out_ids = [5, 6]
-lr = 5e-4
+lr = 1e-3
 channels = 128
 box_depth = 1
 backbone_id = 4
 confidence_threshold = 0.3
 iou_threshold = 0.5
-anchor_size = 1
+anchor_size = 2
 anchor_ratios = [1.0]
 anchor_scales = [1.0]
 
@@ -61,8 +61,7 @@ optimizer = optim.RAdam(
 
 model_loader = ModelLoader(
     out_dir=out_dir,
-    key="score",
-    best_watcher=BestWatcher(mode="max"),
+    best_watcher=BestWatcher(mode="min"),
 )
 
 
