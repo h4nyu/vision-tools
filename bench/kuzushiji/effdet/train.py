@@ -15,8 +15,9 @@ from vnet import (
 from vnet.meters import MeanMeter
 import torch_optimizer as optim
 from bench.kuzushiji.effdet import config
-from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms, kfold
+from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms, kfold, inv_normalize
 from bench.kuzushiji.metrics import Metrics
+from vnet.utils import DetectionPlot
 
 logger = getLogger(__name__)
 
@@ -129,8 +130,8 @@ def train(epochs: int) -> None:
             box_loss_meter.update(box_loss.item())
             label_loss_meter.update(label_loss.item())
 
-            for boxes, gt_boxes, labels, gt_labels in zip(
-                box_batch, gt_box_batch, label_batch, gt_label_batch
+            for boxes, gt_boxes, labels, gt_labels, image in zip(
+                box_batch, gt_box_batch, label_batch, gt_label_batch, image_batch
             ):
                 metrics.add(
                     boxes=boxes,
@@ -138,6 +139,10 @@ def train(epochs: int) -> None:
                     gt_boxes=gt_boxes,
                     gt_labels=gt_labels,
                 )
+            plot = DetectionPlot(inv_normalize(image))
+            plot.draw_boxes(boxes, color="red")
+            plot.draw_boxes(gt_boxes, color="red")
+            plot.save(os.path.join(config.out_dir, "test.png"))
 
         score = metrics()
         logs["test_loss"] = loss_meter.get_value()
@@ -147,7 +152,7 @@ def train(epochs: int) -> None:
 
         model_loader.save_if_needed(
             model,
-            score,
+            loss_meter.get_value(),
         )
 
     def log() -> None:
