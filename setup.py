@@ -20,6 +20,7 @@ setup(
             "kaggle",
             "pandas",
             "cytoolz",
+            "torch-optimizer",
             "albumentations",
             "scikit-learn",
         ]
