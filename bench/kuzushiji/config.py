@@ -7,3 +7,4 @@ image_dir = os.path.join(root_dir, "images")
 num_classes = 4787
 image_size = 512
 n_splits = 5
+log_path = os.path.join(image_dir, "app.log")

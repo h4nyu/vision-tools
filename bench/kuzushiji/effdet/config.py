@@ -20,13 +20,13 @@ batch_size = 14
 use_amp = True
 
 out_ids = [5, 6]
-lr = 0.001
+lr = 5e-4
 channels = 128
 box_depth = 1
 backbone_id = 4
 confidence_threshold = 0.3
 iou_threshold = 0.5
-anchor_size = 4
+anchor_size = 1
 anchor_ratios = [1.0]
 anchor_scales = [1.0]
 
@@ -72,7 +72,7 @@ to_boxes = ToBoxes(
 )
 
 criterion = Criterion(
-    topk=39,
+    topk=anchors.num_anchors * len(out_ids) * 10,
     box_weight=1,
     cls_weight=1,
 )
