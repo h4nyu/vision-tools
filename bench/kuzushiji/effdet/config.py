@@ -84,3 +84,6 @@ class Config(BaseConfig):
             box_weight=0.5,
             cls_weight=1,
         )
+
+    def load(self, path:str) -> None:
+        ...
