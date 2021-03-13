@@ -14,8 +14,14 @@ from vnet import (
 )
 from vnet.meters import MeanMeter
 import torch_optimizer as optim
-from bench.kuzushiji.effdet import config
-from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms, kfold, inv_normalize
+from bench.kuzushiji.effdet.config import Config
+from bench.kuzushiji.data import (
+    KuzushijiDataset,
+    read_rows,
+    train_transforms,
+    kfold,
+    inv_normalize,
+)
 from bench.kuzushiji.metrics import Metrics
 from vnet.utils import DetectionPlot
 
@@ -44,6 +50,7 @@ def collate_fn(
 
 
 def train(epochs: int) -> None:
+    config = Config()
     device = config.device
     rows = read_rows(config.root_dir)
     train_rows, test_rows = kfold(rows, config.n_splits)
@@ -133,6 +140,7 @@ def train(epochs: int) -> None:
             for boxes, gt_boxes, labels, gt_labels, image in zip(
                 box_batch, gt_box_batch, label_batch, gt_label_batch, image_batch
             ):
+                boxes = config.box_padding(boxes)
                 metrics.add(
                     boxes=boxes,
                     labels=labels,
@@ -140,8 +148,8 @@ def train(epochs: int) -> None:
                     gt_labels=gt_labels,
                 )
             plot = DetectionPlot(inv_normalize(image))
-            plot.draw_boxes(boxes, color="red")
             plot.draw_boxes(gt_boxes, color="blue")
+            plot.draw_boxes(boxes, color="red")
             plot.save(os.path.join(config.out_dir, "test.png"))
 
         score = metrics()
@@ -150,10 +158,7 @@ def train(epochs: int) -> None:
         logs["test_label"] = label_loss_meter.get_value()
         logs["score"] = score
 
-        model_loader.save_if_needed(
-            model,
-            label_loss_meter.get_value(),
-        )
+        model_loader.save_if_needed(model, logs[model_loader.key])
 
     def log() -> None:
         logger.info(",".join([f"{k}={v:.3f}" for k, v in logs.items()]))

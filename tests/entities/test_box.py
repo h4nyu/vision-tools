@@ -8,6 +8,7 @@ from vnet.box import (
     box_in_area,
     box_hflip,
     box_vflip,
+    box_padding,
     Boxes,
 )
 import torch.nn.functional as F
@@ -85,3 +86,15 @@ def test_box_vflip() -> None:
     assert res.tolist() == [[10, 70, 20, 90]]
     res = box_vflip(res, img_size)
     assert res.tolist() == boxes.tolist()
+
+
+def test_box_padding() -> None:
+    boxes = Boxes(
+        torch.tensor(
+            [
+                [10, 10, 20, 30],
+            ]
+        )
+    )
+    res = box_padding(boxes, 2)
+    assert res.tolist() == [[8, 8, 22, 32]]

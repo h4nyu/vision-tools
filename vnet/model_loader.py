@@ -49,7 +49,7 @@ class ModelLoader:
         self,
         out_dir: str,
         best_watcher: BestWatcher,
-        key: str='checkpoint',
+        key: str = "checkpoint",
     ) -> None:
         self.out_dir = Path(out_dir)
         self.key = key

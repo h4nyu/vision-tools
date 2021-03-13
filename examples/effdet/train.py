@@ -222,8 +222,8 @@ def train(epochs: int) -> None:
 
     model_loader.load_if_needed(model)
     for _ in range(epochs):
-        train_step()
         eval_step()
+        train_step()
         log()
 
 

@@ -7,7 +7,10 @@ from logging import (
     INFO,
     FileHandler,
 )
-from . import config
+from .config import Config
+
+config = Config()
+
 handler_format = Formatter("%(asctime)s,%(name)s,%(message)s")
 file_handler = FileHandler(config.log_path)
 

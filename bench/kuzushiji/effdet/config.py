@@ -1,6 +1,8 @@
-import os
-from bench.kuzushiji.config import *
+import os, vnet
+from bench.kuzushiji.config import Config as BaseConfig
+from typing import Any
 import torch_optimizer as optim
+import dataclasses
 from vnet.model_loader import (
     ModelLoader,
     BestWatcher,
@@ -16,62 +18,69 @@ from vnet.effidet import (
     Anchors,
 )
 
-batch_size = 6
-use_amp = True
 
-out_ids = [5, 6]
-lr = 1e-3
-channels = 128
-box_depth = 1
-backbone_id = 4
-confidence_threshold = 0.3
-iou_threshold = 0.5
-anchor_size = 2
-anchor_ratios = [1.0]
-anchor_scales = [1.0]
+@dataclasses.dataclass
+class Config(BaseConfig):
+    batch_size = 6
+    use_amp = True
+    out_ids = [5, 6]
+    lr = 1e-4
+    channels = 128
+    box_depth = 1
+    backbone_id = 4
+    confidence_threshold = 0.3
+    iou_threshold = 0.5
+    anchor_size = 2
+    anchor_ratios = [1.0]
+    anchor_scales = [1.0]
+    box_offset = -2
 
-out_dir = os.path.join(root_dir, "effidet")
+    def __post_init__(self) -> None:
+        self.out_dir = os.path.join(self.root_dir, "effidet")
 
-backbone = EfficientNetBackbone(
-    backbone_id,
-    out_channels=channels,
-    pretrained=True,
-)
-anchors = Anchors(
-    size=anchor_size,
-    ratios=anchor_ratios,
-    scales=anchor_scales,
-)
-model = EfficientDet(
-    num_classes=num_classes,
-    out_ids=out_ids,
-    channels=channels,
-    backbone=backbone,
-    anchors=anchors,
-    box_depth=box_depth,
-).to(device)
+        backbone = EfficientNetBackbone(
+            self.backbone_id,
+            out_channels=self.channels,
+            pretrained=True,
+        )
+        anchors = Anchors(
+            size=self.anchor_size,
+            ratios=self.anchor_ratios,
+            scales=self.anchor_scales,
+        )
+        self.model = EfficientDet(
+            num_classes=self.num_classes,
+            out_ids=self.out_ids,
+            channels=self.channels,
+            backbone=backbone,
+            anchors=anchors,
+            box_depth=self.box_depth,
+        ).to(self.device)
 
-optimizer = optim.RAdam(
-    model.parameters(),
-    lr=lr,
-    betas=(0.9, 0.999),
-    eps=1e-16,
-    weight_decay=0,
-)
+        self.optimizer = optim.RAdam(
+            self.model.parameters(),
+            lr=self.lr,
+            betas=(0.9, 0.999),
+            eps=1e-16,
+            weight_decay=0,
+        )
 
-model_loader = ModelLoader(
-    out_dir=out_dir,
-    best_watcher=BestWatcher(mode="min"),
-)
+        self.model_loader = ModelLoader(
+            out_dir=self.out_dir,
+            key="score",
+            best_watcher=BestWatcher(
+                # mode="min"
+                mode="max",
+            ),
+        )
 
-
-to_boxes = ToBoxes(
-    confidence_threshold=confidence_threshold,
-    iou_threshold=iou_threshold,
-)
-
-criterion = Criterion(
-    topk=anchors.num_anchors * len(out_ids) * 10,
-    box_weight=1,
-    cls_weight=1,
-)
+        self.to_boxes = ToBoxes(
+            confidence_threshold=self.confidence_threshold,
+            iou_threshold=self.iou_threshold,
+        )
+        self.box_padding = lambda b: vnet.box_padding(b, -6)
+        self.criterion = Criterion(
+            topk=anchors.num_anchors * len(self.out_ids) * 10,
+            box_weight=0.5,
+            cls_weight=1,
+        )

@@ -15,7 +15,7 @@ Boxes = NewType("Boxes", Tensor)  # [B, Pos] Pos:[x0, y0, x1, y1] original torch
 
 BoxMaps = NewType("BoxMaps", Tensor)  # [B, 4, H, W]
 BoxMap = NewType("BoxMap", Tensor)  # [4, H, W]
-Nummber = Union[float, int]
+Number = Union[float, int]
 
 
 AnchorMap = NewType("AnchorMap", Tensor)  # [N, [H, W]], H, W]
@@ -166,7 +166,7 @@ def box_clamp(boxes: Boxes, width: int, height: int) -> Boxes:
     return Boxes(torch.stack([x0, y0, x1, y1], dim=-1))
 
 
-def shift(boxes: Boxes, diff: tuple[Nummber, Nummber]) -> Boxes:
+def shift(boxes: Boxes, diff: tuple[Number, Number]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     diff_x, diff_y = diff
@@ -201,7 +201,7 @@ def box_in_area(
     return indices
 
 
-def box_hflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
+def box_hflip(boxes: Boxes, image_size: tuple[Number, Number]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
@@ -211,7 +211,7 @@ def box_hflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
     return Boxes(boxes)
 
 
-def box_vflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
+def box_vflip(boxes: Boxes, image_size: tuple[Number, Number]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
@@ -219,6 +219,18 @@ def box_vflip(boxes: Boxes, image_size: tuple[Nummber, Nummber]) -> Boxes:
     boxes[:, 1] = h - boxes[:, 1] - box_h
     boxes[:, 3] = h - boxes[:, 3] + box_h
     return Boxes(boxes)
+
+
+def box_padding(boxes: Boxes, offset: Number) -> Boxes:
+    if len(boxes) == 0:
+        return Boxes(boxes)
+    x0, y0, x1, y1 = boxes.unbind(-1)
+    return Boxes(
+        torch.stack(
+            [x0 - offset, y0 - offset, x1 + offset, y1 + offset],
+            dim=-1,
+        )
+    )
 
 
 def to_center_points(boxes: Boxes) -> Points:
