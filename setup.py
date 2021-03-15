@@ -10,6 +10,8 @@ setup(
         "torchvision",
         "torch",
     ],
+    packages=["vnet"],
+    package_data={"vnet": ["py.typed"]},
     extras_require={
         "develop": [
             "pytest",
