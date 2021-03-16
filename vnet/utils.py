@@ -97,10 +97,6 @@ class DetectionPlot:
         line_width: int = 1,
     ) -> None:
         _labels = labels.tolist() if labels is not None else []
-
-        points = resize_points(
-            points, scale_x=self.img.size[0], scale_y=self.img.size[1]
-        )
         for i, point in enumerate(points[: self.box_limit].tolist()):
             self.draw.ellipse(
                 (point[0] - size, point[1] - size, point[0] + size, point[1] + size),

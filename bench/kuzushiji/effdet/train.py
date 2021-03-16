@@ -148,8 +148,8 @@ def train(epochs: int) -> None:
                     gt_labels=gt_labels,
                 )
             plot = DetectionPlot(inv_normalize(image))
-            plot.draw_points(points, color="blue")
-            plot.draw_boxes(boxes, color="red")
+            plot.draw_points(points, color="red")
+            plot.draw_boxes(gt_boxes, color="blue")
             plot.save(os.path.join(config.out_dir, "test.png"))
 
         score = metrics()
