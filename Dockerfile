@@ -22,5 +22,5 @@ RUN apt-get update \
 
 WORKDIR /srv
 COPY . .
-RUN pip install torch==1.8.0+cu111 torchvision==0.9.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html \
-    && pip install -e .[develop]
+RUN pip install --no-cache-dir torch==1.8.0+cu111 torchvision==0.9.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip install --no-cache-dir -e .[develop]

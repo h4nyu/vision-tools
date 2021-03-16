@@ -14,37 +14,49 @@ from vnet import (
 )
 from vnet.meters import MeanMeter
 import torch_optimizer as optim
-from bench.kuzushiji.effdet import config
-from bench.kuzushiji.data import KuzushijiDataset, read_rows, train_transforms, kfold
+from bench.kuzushiji.effdet.config import Config
+from bench.kuzushiji.data import (
+    KuzushijiDataset,
+    read_train_rows,
+    train_transforms,
+    kfold,
+    inv_normalize,
+    Row,
+)
 from bench.kuzushiji.metrics import Metrics
+from vnet.utils import DetectionPlot
 
 logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: list[tuple[str, Image, Boxes, Labels]],
-) -> tuple[ImageBatch, list[Boxes], list[Labels], list[str]]:
+    batch: list[tuple[Image, Boxes, Labels, Image, Row]],
+) -> tuple[ImageBatch, list[Boxes], list[Labels], list[Image], list[Row]]:
     images: list[Any] = []
-    id_batch: list[str] = []
+    row_batch: list[Row] = []
+    original_img_list: list[Image] = []
     box_batch: list[Boxes] = []
     label_batch: list[Labels] = []
-    for id, img, boxes, labels in batch:
+    for img, boxes, labels, original_img, row in batch:
         c, h, w = img.shape
         images.append(img)
         box_batch.append(boxes)
-        id_batch.append(id)
+        original_img_list.append(original_img)
+        row_batch.append(row)
         label_batch.append(labels)
     return (
         ImageBatch(torch.stack(images)),
         box_batch,
         label_batch,
-        id_batch,
+        original_img_list,
+        row_batch,
     )
 
 
 def train(epochs: int) -> None:
+    config = Config()
     device = config.device
-    rows = read_rows(config.root_dir)
+    rows = read_train_rows(config.root_dir)
     train_rows, test_rows = kfold(rows, config.n_splits)
     train_dataset = KuzushijiDataset(
         rows=train_rows,
@@ -57,14 +69,14 @@ def train(epochs: int) -> None:
         train_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size,
-        num_workers=os.cpu_count() or config.batch_size,
+        num_workers=min(os.cpu_count() or 1, config.batch_size),
         shuffle=True,
     )
     test_loader = DataLoader(
         test_dataset,
         collate_fn=collate_fn,
         batch_size=config.batch_size * 2,
-        num_workers=os.cpu_count() or config.batch_size,
+        num_workers=min(os.cpu_count() or 1, config.batch_size * 2),
         shuffle=False,
     )
     optimizer = config.optimizer
@@ -129,15 +141,20 @@ def train(epochs: int) -> None:
             box_loss_meter.update(box_loss.item())
             label_loss_meter.update(label_loss.item())
 
-            for boxes, gt_boxes, labels, gt_labels in zip(
-                box_batch, gt_box_batch, label_batch, gt_label_batch
+            for boxes, gt_boxes, labels, gt_labels, image in zip(
+                box_batch, gt_box_batch, label_batch, gt_label_batch, image_batch
             ):
+                points = config.to_points(boxes)
                 metrics.add(
-                    boxes=boxes,
+                    points=points,
                     labels=labels,
                     gt_boxes=gt_boxes,
                     gt_labels=gt_labels,
                 )
+            plot = DetectionPlot(inv_normalize(image))
+            plot.draw_points(points, color="red")
+            plot.draw_boxes(gt_boxes, color="blue")
+            plot.save(os.path.join(config.out_dir, "test.png"))
 
         score = metrics()
         logs["test_loss"] = loss_meter.get_value()
@@ -145,18 +162,15 @@ def train(epochs: int) -> None:
         logs["test_label"] = label_loss_meter.get_value()
         logs["score"] = score
 
-        model_loader.save_if_needed(
-            model,
-            score,
-        )
+        model_loader.save_if_needed(model, logs[model_loader.key])
 
     def log() -> None:
         logger.info(",".join([f"{k}={v:.3f}" for k, v in logs.items()]))
 
     model_loader.load_if_needed(model)
     for _ in range(epochs):
-        eval_step()
         train_step()
+        eval_step()
         log()
 
 

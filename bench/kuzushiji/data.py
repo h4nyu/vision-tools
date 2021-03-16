@@ -12,6 +12,7 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from bench.kuzushiji import config
 from vnet.transforms import normalize, inv_normalize
+from vnet import Points
 from sklearn.model_selection import StratifiedKFold
 
 location = "/tmp"
@@ -22,11 +23,37 @@ Row = TypedDict(
     "Row",
     {
         "id": str,
-        "image_fname": str,
+        "image_path": str,
+        "width": int,
+        "height": int,
         "boxes": Boxes,
         "labels": Labels,
     },
 )
+
+SubRow = TypedDict(
+    "SubRow",
+    {
+        "id": str,
+        "points": Points,
+        "labels": Labels,
+    },
+)
+
+
+def save_submission(rows: list[SubRow], code_map: dict[str, int], fpath: str) -> None:
+    codes = list(code_map.keys())
+    csv_rows: list[tuple[str, str]] = []
+    for row in rows:
+        id = row["id"]
+        points = row["points"]
+        labels = row["labels"]
+        out_str = ""
+        for point, label in zip(points, labels):
+            out_str += f"{codes[label]} {int(point[0])} {int(point[1])} "
+        csv_rows.append((id, out_str))
+    df = pd.DataFrame(csv_rows, columns=["image_id", "labels"])
+    df.to_csv(fpath, index=False)
 
 
 def read_code_map(fp: str) -> dict[str, int]:
@@ -40,7 +67,7 @@ def read_code_map(fp: str) -> dict[str, int]:
 
 
 @memory.cache
-def read_rows(root_dir: str) -> list[Row]:
+def read_train_rows(root_dir: str) -> list[Row]:
     row_path = os.path.join(root_dir, "train.csv")
     code_path = os.path.join(root_dir, "unicode_translation.csv")
     codes = read_code_map(code_path)
@@ -60,14 +87,38 @@ def read_rows(root_dir: str) -> list[Row]:
                     float(y0) + float(h),
                 ]
             )
+        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        pil_img = PIL.Image.open(image_path)
         row: Row = dict(
             id=id,
-            image_fname=f"{id}.jpg",
+            image_path=image_path,
+            width=pil_img.width,
+            height=pil_img.height,
             boxes=Boxes(torch.tensor(boxes)),
             labels=Labels(torch.tensor(labels)),
         )
         rows.append(row)
+    return rows
 
+
+# @memory.cache
+def read_test_rows(root_dir: str) -> list[Row]:
+    row_path = os.path.join(root_dir, "sample_submission.csv")
+    df = pd.read_csv(row_path)
+    rows: list[Row] = []
+    for _, csv_row in df.iterrows():
+        id = csv_row["image_id"]
+        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        pil_img = PIL.Image.open(image_path)
+        row: Row = dict(
+            id=id,
+            image_path=image_path,
+            width=pil_img.width,
+            height=pil_img.height,
+            boxes=Boxes(torch.tensor([])),
+            labels=Labels(torch.tensor([])),
+        )
+        rows.append(row)
     return rows
 
 
@@ -120,23 +171,20 @@ class KuzushijiDataset(Dataset):
     def __init__(
         self,
         rows: list[Row],
-        image_dir: str = config.image_dir,
         transforms: Any = None,
     ) -> None:
         self.rows = rows
-        self.image_dir = image_dir
         self.transforms = default_transforms if transforms is None else transforms
 
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> tuple[str, Image, Boxes, Labels]:
+    def __getitem__(self, idx: int) -> tuple[Image, Boxes, Labels, Image, Row]:
         row = self.rows[idx]
         id = row["id"]
-        image_path = os.path.join(self.image_dir, row["image_fname"])
-        pil_img = PIL.Image.open(image_path)
+        pil_img = PIL.Image.open(row["image_path"])
         img_arr = np.array(pil_img)
-
+        original_img = Image(T.ToTensor()(img_arr))
         transformed = self.transforms(
             image=img_arr,
             bboxes=torchvision.ops.clip_boxes_to_image(
@@ -147,4 +195,4 @@ class KuzushijiDataset(Dataset):
         img = Image(transformed["image"])
         boxes = Boxes(torch.tensor(transformed["bboxes"]))
         labels = Labels(torch.tensor(transformed["labels"]))
-        return id, img, boxes, labels
+        return img, boxes, labels, original_img, row

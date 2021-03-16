@@ -1,23 +1,19 @@
 import torch
 from bench.kuzushiji.metrics import Metrics
-from vnet import Boxes, Labels
+from vnet import Boxes, Labels, Points
 
 
 def test_metrics() -> None:
-    boxes = Boxes(
+    points = Points(
         torch.tensor(
             [
                 [
-                    1,
-                    1,
-                    10,
-                    10,
+                    3,
+                    3,
                 ],
                 [
-                    20,
-                    20,
-                    30,
-                    30,
+                    24,
+                    25,
                 ],
             ]
         )
@@ -59,7 +55,7 @@ def test_metrics() -> None:
 
     metrics = Metrics()
     tp, fp, fn = metrics.add(
-        boxes=boxes, labels=labels, gt_boxes=gt_boxes, gt_labels=gt_labels
+        points=points, labels=labels, gt_boxes=gt_boxes, gt_labels=gt_labels
     )
     assert tp == 2
     assert fp == 0

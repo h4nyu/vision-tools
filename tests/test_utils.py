@@ -22,13 +22,13 @@ def test_detection_plot() -> None:
     labels = Labels(torch.tensor([10], dtype=torch.int32))
     confidences = Confidences(torch.tensor([0.5]))
     plot = DetectionPlot(img)
-    plot.draw_boxes(
-        boxes=boxes,
+    plot.draw_points(
+        points=points,
         labels=labels,
         confidences=confidences,
     )
-    plot.draw_points(
-        points=points,
+    plot.draw_boxes(
+        boxes=boxes,
         labels=labels,
         confidences=confidences,
     )

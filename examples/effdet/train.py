@@ -25,7 +25,6 @@ from vnet.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from vnet.utils import init_seed
 from vnet.meters import MeanMeter
 from examples.data import BoxDataset
 import torch_optimizer as optim
@@ -59,7 +58,6 @@ def collate_fn(
 
 
 def train(epochs: int) -> None:
-    init_seed()
     device = torch.device("cuda")
     train_dataset = BoxDataset(
         config.input_size,
@@ -224,8 +222,8 @@ def train(epochs: int) -> None:
 
     model_loader.load_if_needed(model)
     for _ in range(epochs):
-        train_step()
         eval_step()
+        train_step()
         log()
 
 
