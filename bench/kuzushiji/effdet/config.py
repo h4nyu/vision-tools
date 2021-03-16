@@ -56,6 +56,7 @@ class Config(BaseConfig):
             anchors=anchors,
             box_depth=self.box_depth,
         ).to(self.device)
+        self.to_points = vnet.to_center_points
 
         self.optimizer = optim.RAdam(
             self.model.parameters(),
@@ -85,5 +86,5 @@ class Config(BaseConfig):
             cls_weight=1,
         )
 
-    def load(self, path:str) -> None:
+    def load(self, path: str) -> None:
         ...

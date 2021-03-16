@@ -40,7 +40,7 @@ def read_code_map(fp: str) -> dict[str, int]:
 
 
 @memory.cache
-def read_rows(root_dir: str) -> list[Row]:
+def read_train_rows(root_dir: str) -> list[Row]:
     row_path = os.path.join(root_dir, "train.csv")
     code_path = os.path.join(root_dir, "unicode_translation.csv")
     codes = read_code_map(code_path)
@@ -67,7 +67,22 @@ def read_rows(root_dir: str) -> list[Row]:
             labels=Labels(torch.tensor(labels)),
         )
         rows.append(row)
+    return rows
 
+# @memory.cache
+def read_test_rows(root_dir: str) -> list[Row]:
+    row_path = os.path.join(root_dir, "sample_submission.csv")
+    df = pd.read_csv(row_path)
+    rows: list[Row] = []
+    for _, csv_row in df.iterrows():
+        id = csv_row["image_id"]
+        row: Row = dict(
+            id=id,
+            image_fname=f"{id}.jpg",
+            boxes=Boxes(torch.tensor([])),
+            labels=Labels(torch.tensor([])),
+        )
+        rows.append(row)
     return rows
 
 

@@ -1,5 +1,5 @@
 import torch
-from vnet import Boxes, Labels
+from vnet import Boxes, Labels, Points
 
 
 class Metrics:
@@ -10,7 +10,7 @@ class Metrics:
 
     def add(
         self,
-        boxes: Boxes,
+        points: Points,
         labels: Labels,
         gt_boxes: Boxes,
         gt_labels: Labels,
@@ -28,16 +28,16 @@ class Metrics:
         elif pred_count == 0 and gt_count > 0:
             fn = gt_count
             return tp, fp, fn
-        x0, y0, x1, y1 = boxes.unbind(-1)
-        preds_unused = torch.ones(pred_count, dtype=torch.bool, device=boxes.device)
+        x, y = points.unbind(-1)
+        preds_unused = torch.ones(pred_count, dtype=torch.bool, device=points.device)
 
         for gt_box, gt_label in zip(gt_boxes, gt_labels):
             gt_x0, gt_y0, gt_x1, gt_y1 = gt_box.unbind(-1)
             matched = (
-                (gt_x0 < x0)
-                * (gt_x1 > x1)
-                * (gt_y0 < y0)
-                * (gt_y1 > y1)
+                (gt_x0 < x)
+                * (gt_x1 > x)
+                * (gt_y0 < y)
+                * (gt_y1 > y)
                 * (gt_label == labels)
                 * preds_unused
             )

@@ -1,6 +1,7 @@
 import torchvision, os
 from bench.kuzushiji.data import (
-    read_rows,
+    read_train_rows,
+    read_test_rows,
     KuzushijiDataset,
     inv_normalize,
     train_transforms,
@@ -10,13 +11,17 @@ from vnet.utils import DetectionPlot
 from bench.kuzushiji import config
 
 
-def test_read_rows() -> None:
-    rows = read_rows(config.root_dir)
+def test_read_train_rows() -> None:
+    rows = read_train_rows(config.root_dir)
     assert len(rows) == 3605
+
+def test_read_test_rows() -> None:
+    rows = read_test_rows(config.root_dir)
+    assert len(rows) == 1730
 
 
 def test_dataset() -> None:
-    rows = read_rows(config.root_dir)
+    rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows)
     sample = dataset[0]
     id, img, boxes, labels = sample
@@ -26,7 +31,7 @@ def test_dataset() -> None:
 
 
 def test_aug() -> None:
-    rows = read_rows(config.root_dir)
+    rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transforms=train_transforms)
     for i in range(3):
         sample = dataset[100]
@@ -37,5 +42,5 @@ def test_aug() -> None:
 
 
 def test_fold() -> None:
-    rows = read_rows(config.root_dir)
+    rows = read_train_rows(config.root_dir)
     a, b = kfold(rows, n_splits=4)

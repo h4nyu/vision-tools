@@ -17,7 +17,7 @@ import torch_optimizer as optim
 from bench.kuzushiji.effdet.config import Config
 from bench.kuzushiji.data import (
     KuzushijiDataset,
-    read_rows,
+    read_train_rows,
     train_transforms,
     kfold,
     inv_normalize,
@@ -52,7 +52,7 @@ def collate_fn(
 def train(epochs: int) -> None:
     config = Config()
     device = config.device
-    rows = read_rows(config.root_dir)
+    rows = read_train_rows(config.root_dir)
     train_rows, test_rows = kfold(rows, config.n_splits)
     train_dataset = KuzushijiDataset(
         rows=train_rows,
@@ -140,15 +140,15 @@ def train(epochs: int) -> None:
             for boxes, gt_boxes, labels, gt_labels, image in zip(
                 box_batch, gt_box_batch, label_batch, gt_label_batch, image_batch
             ):
-                boxes = config.box_padding(boxes)
+                points = config.to_points(boxes)
                 metrics.add(
-                    boxes=boxes,
+                    points=points,
                     labels=labels,
                     gt_boxes=gt_boxes,
                     gt_labels=gt_labels,
                 )
             plot = DetectionPlot(inv_normalize(image))
-            plot.draw_boxes(gt_boxes, color="blue")
+            plot.draw_points(points, color="blue")
             plot.draw_boxes(boxes, color="red")
             plot.save(os.path.join(config.out_dir, "test.png"))
 
