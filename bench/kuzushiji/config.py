@@ -12,3 +12,6 @@ class Config:
     image_size = 512 + 256
     n_splits = 5
     log_path = os.path.join(root_dir, "app.log")
+
+    def __post_init__(self) -> None:
+        self.code_map_path = os.path.join(self.root_dir, "unicode_translation.csv")

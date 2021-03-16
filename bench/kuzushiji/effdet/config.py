@@ -36,7 +36,9 @@ class Config(BaseConfig):
     box_offset = -2
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self.out_dir = os.path.join(self.root_dir, "effidet")
+        self.submission_path = os.path.join(self.out_dir, "submission.csv")
 
         backbone = EfficientNetBackbone(
             self.backbone_id,

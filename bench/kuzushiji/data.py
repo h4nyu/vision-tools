@@ -12,6 +12,7 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from bench.kuzushiji import config
 from vnet.transforms import normalize, inv_normalize
+from vnet import Points
 from sklearn.model_selection import StratifiedKFold
 
 location = "/tmp"
@@ -29,6 +30,30 @@ Row = TypedDict(
         "labels": Labels,
     },
 )
+
+SubRow = TypedDict(
+    "SubRow",
+    {
+        "id": str,
+        "points": Points,
+        "labels": Labels,
+    },
+)
+
+
+def save_submission(rows: list[SubRow], code_map: dict[str, int], fpath: str) -> None:
+    codes = list(code_map.keys())
+    csv_rows: list[tuple[str, str]] = []
+    for row in rows:
+        id = row["id"]
+        points = row["points"]
+        labels = row["labels"]
+        out_str = ""
+        for point, label in zip(points, labels):
+            out_str += f"{codes[label]} {int(point[0])} {int(point[1])} "
+        csv_rows.append((id, out_str))
+    df = pd.DataFrame(csv_rows, columns=["image_id", "labels"])
+    df.to_csv(fpath, index=False)
 
 
 def read_code_map(fp: str) -> dict[str, int]:

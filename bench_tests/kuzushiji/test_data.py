@@ -1,4 +1,4 @@
-import torchvision, os
+import torchvision, os, torch
 from bench.kuzushiji.data import (
     read_train_rows,
     read_test_rows,
@@ -6,8 +6,12 @@ from bench.kuzushiji.data import (
     inv_normalize,
     train_transforms,
     kfold,
+    save_submission,
+    read_code_map,
+    SubRow,
 )
 from vnet.utils import DetectionPlot
+from vnet import Labels, Points
 from bench.kuzushiji import config
 
 
@@ -45,3 +49,19 @@ def test_aug() -> None:
 def test_fold() -> None:
     rows = read_train_rows(config.root_dir)
     a, b = kfold(rows, n_splits=4)
+
+
+def test_save_submission() -> None:
+    rows: list[SubRow] = [
+        {
+            "id": "aaaa",
+            "points": Points(torch.tensor([[10, 20]])),
+            "labels": Labels(torch.tensor([0])),
+        }
+    ]
+    code_map = read_code_map(os.path.join(config.root_dir, "unicode_translation.csv"))
+    save_submission(
+        rows,
+        code_map,
+        os.path.join(config.root_dir, f"test_sub.csv"),
+    )

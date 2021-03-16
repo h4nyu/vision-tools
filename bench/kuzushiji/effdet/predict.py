@@ -7,6 +7,9 @@ from bench.kuzushiji.data import (
     KuzushijiDataset,
     read_test_rows,
     inv_normalize,
+    save_submission,
+    read_code_map,
+    SubRow,
 )
 
 from vnet.utils import DetectionPlot
@@ -27,16 +30,19 @@ def predict() -> None:
     config.model_loader.load_if_needed(model)
     model.to(device)
     rows = read_test_rows(config.root_dir)
+    code_map = read_code_map(config.code_map_path)
     dataset = KuzushijiDataset(
         rows=rows,
     )
     loader = DataLoader(
         dataset,
         collate_fn=collate_fn,
-        batch_size=1,
-        num_workers=min(os.cpu_count() or 1, config.batch_size),
+        batch_size=config.batch_size * 2,
+        num_workers=min(os.cpu_count() or 1, config.batch_size * 2),
         shuffle=False,
     )
+
+    submissions:list[SubRow] = []
     for (
         image_batch,
         _,
@@ -58,9 +64,16 @@ def predict() -> None:
             scale, pad = vnet.inv_scale_and_pad(original, padded)
             points = vnet.shift_points(points, (-pad[0], -pad[1]))
             points = vnet.resize_points(points, scale, scale)
-            plot = DetectionPlot(original_img)
-            plot.draw_points(points, color="red")
-            plot.save(os.path.join(config.out_dir, f"{row['id']}.png"))
+            # plot = DetectionPlot(original_img)
+            # plot.draw_points(points, color="red")
+            # plot.save(os.path.join(config.out_dir, f"{row['id']}.png"))
+            submissions.append({
+                "id": row["id"],
+                "points": points,
+                "labels": labels,
+            })
+    save_submission(submissions, code_map, config.submission_path)
+
 
 
 if __name__ == "__main__":
