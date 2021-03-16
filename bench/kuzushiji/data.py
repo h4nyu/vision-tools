@@ -22,7 +22,9 @@ Row = TypedDict(
     "Row",
     {
         "id": str,
-        "image_fname": str,
+        "image_path": str,
+        "width": int,
+        "height": int,
         "boxes": Boxes,
         "labels": Labels,
     },
@@ -60,9 +62,13 @@ def read_train_rows(root_dir: str) -> list[Row]:
                     float(y0) + float(h),
                 ]
             )
+        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        pil_img = PIL.Image.open(image_path)
         row: Row = dict(
             id=id,
-            image_fname=f"{id}.jpg",
+            image_path=image_path,
+            width=pil_img.width,
+            height=pil_img.height,
             boxes=Boxes(torch.tensor(boxes)),
             labels=Labels(torch.tensor(labels)),
         )
@@ -77,9 +83,13 @@ def read_test_rows(root_dir: str) -> list[Row]:
     rows: list[Row] = []
     for _, csv_row in df.iterrows():
         id = csv_row["image_id"]
+        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        pil_img = PIL.Image.open(image_path)
         row: Row = dict(
             id=id,
-            image_fname=f"{id}.jpg",
+            image_path=image_path,
+            width=pil_img.width,
+            height=pil_img.height,
             boxes=Boxes(torch.tensor([])),
             labels=Labels(torch.tensor([])),
         )
@@ -136,23 +146,20 @@ class KuzushijiDataset(Dataset):
     def __init__(
         self,
         rows: list[Row],
-        image_dir: str = config.image_dir,
         transforms: Any = None,
     ) -> None:
         self.rows = rows
-        self.image_dir = image_dir
         self.transforms = default_transforms if transforms is None else transforms
 
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> tuple[str, Image, Boxes, Labels]:
+    def __getitem__(self, idx: int) -> tuple[Image, Boxes, Labels, Image, Row]:
         row = self.rows[idx]
         id = row["id"]
-        image_path = os.path.join(self.image_dir, row["image_fname"])
-        pil_img = PIL.Image.open(image_path)
+        pil_img = PIL.Image.open(row["image_path"])
         img_arr = np.array(pil_img)
-
+        original_img = Image(T.ToTensor()(img_arr))
         transformed = self.transforms(
             image=img_arr,
             bboxes=torchvision.ops.clip_boxes_to_image(
@@ -163,4 +170,4 @@ class KuzushijiDataset(Dataset):
         img = Image(transformed["image"])
         boxes = Boxes(torch.tensor(transformed["bboxes"]))
         labels = Labels(torch.tensor(transformed["labels"]))
-        return id, img, boxes, labels
+        return img, boxes, labels, original_img, row

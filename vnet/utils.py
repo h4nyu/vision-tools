@@ -93,13 +93,18 @@ class DetectionPlot:
         confidences: Optional[Tensor] = None,
         labels: Optional[Tensor] = None,
         color: str = "red",
-        size: Number = 5,
-        line_width: int = 1,
+        size: Optional[Number] = None,
     ) -> None:
         _labels = labels.tolist() if labels is not None else []
+        _size = size if size is not None else min(self.img.size) // 400
         for i, point in enumerate(points[: self.box_limit].tolist()):
             self.draw.ellipse(
-                (point[0] - size, point[1] - size, point[0] + size, point[1] + size),
+                (
+                    point[0] - _size,
+                    point[1] - _size,
+                    point[0] + _size,
+                    point[1] + _size,
+                ),
                 fill=color,
             )
             label = "{}".format(labels[i]) if labels is not None else ""

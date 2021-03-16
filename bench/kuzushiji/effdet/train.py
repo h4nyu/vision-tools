@@ -21,6 +21,7 @@ from bench.kuzushiji.data import (
     train_transforms,
     kfold,
     inv_normalize,
+    Row,
 )
 from bench.kuzushiji.metrics import Metrics
 from vnet.utils import DetectionPlot
@@ -29,23 +30,26 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: list[tuple[str, Image, Boxes, Labels]],
-) -> tuple[ImageBatch, list[Boxes], list[Labels], list[str]]:
+    batch: list[tuple[Image, Boxes, Labels, Image, Row]],
+) -> tuple[ImageBatch, list[Boxes], list[Labels], list[Image], list[Row]]:
     images: list[Any] = []
-    id_batch: list[str] = []
+    row_batch: list[Row] = []
+    original_img_list: list[Image] = []
     box_batch: list[Boxes] = []
     label_batch: list[Labels] = []
-    for id, img, boxes, labels in batch:
+    for img, boxes, labels, original_img, row in batch:
         c, h, w = img.shape
         images.append(img)
         box_batch.append(boxes)
-        id_batch.append(id)
+        original_img_list.append(original_img)
+        row_batch.append(row)
         label_batch.append(labels)
     return (
         ImageBatch(torch.stack(images)),
         box_batch,
         label_batch,
-        id_batch,
+        original_img_list,
+        row_batch,
     )
 
 

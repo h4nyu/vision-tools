@@ -25,7 +25,7 @@ def test_dataset() -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows)
     sample = dataset[0]
-    id, img, boxes, labels = sample
+    img, boxes, labels, _, _ = sample
     plot = DetectionPlot(inv_normalize(img))
     plot.draw_boxes(boxes)
     plot.save(os.path.join(config.root_dir, "test_dataset.png"))
@@ -36,7 +36,7 @@ def test_aug() -> None:
     dataset = KuzushijiDataset(rows, transforms=train_transforms)
     for i in range(3):
         sample = dataset[100]
-        id, img, boxes, labels = sample
+        img, boxes, labels, _, _ = sample
         plot = DetectionPlot(inv_normalize(img))
         plot.draw_boxes(boxes)
         plot.save(os.path.join(config.root_dir, f"test_aug{i}.png"))
