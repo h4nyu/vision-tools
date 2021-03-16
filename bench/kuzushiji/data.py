@@ -69,6 +69,7 @@ def read_train_rows(root_dir: str) -> list[Row]:
         rows.append(row)
     return rows
 
+
 # @memory.cache
 def read_test_rows(root_dir: str) -> list[Row]:
     row_path = os.path.join(root_dir, "sample_submission.csv")

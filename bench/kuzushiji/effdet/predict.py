@@ -3,6 +3,7 @@ from logging import (
 )
 
 from bench.kuzushiji.effdet.config import Config
+
 logger = getLogger(__name__)
 
 

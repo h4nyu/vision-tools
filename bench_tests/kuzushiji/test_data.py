@@ -15,6 +15,7 @@ def test_read_train_rows() -> None:
     rows = read_train_rows(config.root_dir)
     assert len(rows) == 3605
 
+
 def test_read_test_rows() -> None:
     rows = read_test_rows(config.root_dir)
     assert len(rows) == 1730
