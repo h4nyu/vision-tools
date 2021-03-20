@@ -5,7 +5,7 @@ from vnet import Image, Boxes, Labels
 from dataclasses import dataclass
 from typing import Any, TypedDict
 import pandas as pd
-from cytoolz.curried import pipe, partition, map, filter
+from toolz.curried import pipe, partition, map, filter
 from joblib import Memory
 import torchvision.transforms as T
 import albumentations as A

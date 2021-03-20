@@ -42,7 +42,7 @@ def predict() -> None:
         shuffle=False,
     )
 
-    submissions:list[SubRow] = []
+    submissions: list[SubRow] = []
     for (
         image_batch,
         _,
@@ -67,13 +67,14 @@ def predict() -> None:
             # plot = DetectionPlot(original_img)
             # plot.draw_points(points, color="red")
             # plot.save(os.path.join(config.out_dir, f"{row['id']}.png"))
-            submissions.append({
-                "id": row["id"],
-                "points": points,
-                "labels": labels,
-            })
+            submissions.append(
+                {
+                    "id": row["id"],
+                    "points": points,
+                    "labels": labels,
+                }
+            )
     save_submission(submissions, code_map, config.submission_path)
-
 
 
 if __name__ == "__main__":
