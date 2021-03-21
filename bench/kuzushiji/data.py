@@ -44,7 +44,7 @@ SubRow = TypedDict(
 
 
 def save_submission(rows: List[SubRow], code_map: Dict[str, int], fpath: str) -> None:
-    codes = List(code_map.keys())
+    codes = list(code_map.keys())
     csv_rows: List[Tuple[str, str]] = []
     for row in rows:
         id = row["id"]

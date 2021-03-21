@@ -256,19 +256,19 @@ def filter_limit(
     limit: int,
 ) -> Tuple[Boxes, Confidences, Labels]:
     unique_labels = torch.unique(labels)
-    box_List = []
-    label_List = []
-    conf_List = []
+    box_list = []
+    label_list = []
+    conf_list = []
     for c in unique_labels:
         c_indecies = labels == c
         c_boxes = boxes[c_indecies][:limit]
         c_labels = labels[c_indecies][:limit]
         c_confidences = confidences[c_indecies][:limit]
-        box_List.append(c_boxes)
-        label_List.append(c_labels)
-        conf_List.append(c_confidences)
+        box_list.append(c_boxes)
+        label_list.append(c_labels)
+        conf_list.append(c_confidences)
     return (
-        Boxes(torch.cat(box_List)) if len(box_List) > 0 else boxes,
-        Confidences(torch.cat(conf_List)) if len(conf_List) > 0 else confidences,
-        Labels(torch.cat(label_List)) if len(label_List) > 0 else labels,
+        Boxes(torch.cat(box_list)) if len(box_list) > 0 else boxes,
+        Confidences(torch.cat(conf_list)) if len(conf_list) > 0 else confidences,
+        Labels(torch.cat(label_list)) if len(label_list) > 0 else labels,
     )

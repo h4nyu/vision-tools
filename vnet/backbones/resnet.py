@@ -28,7 +28,7 @@ class ResNetBackbone(nn.Module):
         super().__init__()
         self.name = name
         self.backbone = getattr(torchvision.models, name)(pretrained=True)
-        self.layers = List(self.backbone.children())[:-2]
+        self.layers = list(self.backbone.children())[:-2]
         self.projects = nn.ModuleList(
             [
                 nn.Conv2d(
