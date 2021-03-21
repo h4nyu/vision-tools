@@ -284,7 +284,7 @@ class ToBoxes:
         confidence_batch: List[Confidences] = []
         label_batch: List[Labels] = []
         for km, lm, bm in zip(kpmaps, labelmaps, boxmaps):
-            kp = torch.nonzero(km, as_Tuple=False)  # type: ignore
+            kp = torch.nonzero(km, as_tuple=False)  # type: ignore
             pos_idx = (kp[:, 0], kp[:, 1])
             confidences = km[pos_idx]
             labels = lm[pos_idx]
@@ -381,7 +381,7 @@ class ToPoints:
         label_batch: List[Labels] = []
         _, _, hm_h, hm_w = heatmaps.shape
         for km, lm in zip(kpmaps, labelmaps):
-            kp = torch.nonzero(km, as_Tuple=False)  # type: ignore
+            kp = torch.nonzero(km, as_tuple=False)  # type: ignore
             pos_idx = (kp[:, 0], kp[:, 1])
             confidences = km[pos_idx]
             labels = lm[pos_idx]
