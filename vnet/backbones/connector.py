@@ -8,7 +8,7 @@ class BackboneConnector(nn.Module):
     def __init__(
         self,
         channels: int,
-        conv_channels: list[int],
+        conv_channels: List[int],
     ) -> None:
         super().__init__()
         assert len(conv_channels) == 5

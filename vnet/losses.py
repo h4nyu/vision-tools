@@ -1,13 +1,9 @@
-import typing as t
-import numpy as np
-import torch
-import torch.nn.functional as F
+import torch, numpy as np, torch.nn as nn, torch.nn.functional as F
 from typing_extensions import Literal
+from typing import *
 from torch import Tensor
 from vnet import Boxes
 from torchvision.ops.boxes import box_area
-import torch
-import torch.nn as nn
 
 Reduction = Literal["none", "mean", "sum"]
 
@@ -96,7 +92,7 @@ class FocalLoss:
 
 
 class IoU:
-    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> Tuple[Tensor, Tensor]:
         area1 = box_area(boxes1)
         area2 = box_area(boxes2)
         lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
@@ -147,7 +143,7 @@ class IoULoss:
     def __init__(self, size_average: bool = True) -> None:
         self.size_average = size_average
 
-    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> Tuple[Tensor, Tensor]:
         device = boxes1.device
         if len(boxes1) == 0 and len(boxes2) == 0:
             return torch.tensor(0.0, device=device), torch.zeros(0, device=device)

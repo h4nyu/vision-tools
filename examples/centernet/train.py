@@ -44,12 +44,12 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: list[tuple[str, Image, Boxes, Labels]],
-) -> tuple[list[str], ImageBatch, list[YoloBoxes], list[Labels]]:
-    images: list[Any] = []
-    id_batch: list[str] = []
-    box_batch: list[YoloBoxes] = []
-    label_batch: list[Labels] = []
+    batch: List[Tuple[str, Image, Boxes, Labels]],
+) -> Tuple[List[str], ImageBatch, List[YoloBoxes], List[Labels]]:
+    images: List[Any] = []
+    id_batch: List[str] = []
+    box_batch: List[YoloBoxes] = []
+    label_batch: List[Labels] = []
 
     for id, img, boxes, labels in batch:
         images.append(img)
@@ -116,7 +116,7 @@ def train(epochs: int) -> None:
     )
     visualize = Visualize(cfg.out_dir, "test", limit=cfg.batch_size)
     metrics = MeanAveragePrecision(iou_threshold=0.3, num_classes=cfg.num_classes)
-    logs: dict[str, float] = {}
+    logs: Dict[str, float] = {}
     model_loader = ModelLoader(
         out_dir=cfg.out_dir,
         key=cfg.metric[0],

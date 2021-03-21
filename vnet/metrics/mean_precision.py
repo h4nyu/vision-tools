@@ -1,4 +1,4 @@
-import typing as t
+from typing import *
 import torch
 import numpy as np
 from collections import defaultdict
@@ -22,7 +22,7 @@ def precition(iou_matrix: Tensor, threshold: float) -> float:
 class MeanPrecition:
     def __init__(
         self,
-        iou_thresholds: list[float] = [
+        iou_thresholds: List[float] = [
             0.5,
             0.55,
             0.6,

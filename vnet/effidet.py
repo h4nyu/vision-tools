@@ -1,5 +1,5 @@
+from typing import *
 import numpy as np
-import typing as t
 import torch
 import torch.nn.functional as F
 import math
@@ -69,8 +69,8 @@ class Visualize:
     def __call__(
         self,
         image_batch: ImageBatch,
-        src: tuple[list[Boxes], list[Confidences], list[Labels]],
-        tgt: tuple[list[Boxes], list[Labels]],
+        src: Tuple[List[Boxes], List[Confidences], List[Labels]],
+        tgt: Tuple[List[Boxes], List[Labels]],
     ) -> None:
         image_batch = ImageBatch(image_batch[: self.limit])
         gt_boxes, gt_labels = tgt
@@ -171,7 +171,7 @@ class RegressionModel(nn.Module):
 BoxDiff = NewType("BoxDiff", Tensor)
 BoxDiffs = NewType("BoxDiffs", Tensor)
 
-NetOutput = tuple[list[Boxes], list[BoxDiffs], list[Tensor]]
+NetOutput = Tuple[List[Boxes], List[BoxDiffs], List[Tensor]]
 
 
 def _init_weight(m: nn.Module) -> None:
@@ -188,7 +188,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: nn.Module,
         channels: int = 64,
-        out_ids: list[int] = [6, 7],
+        out_ids: List[int] = [6, 7],
         anchors: Anchors = Anchors(),
         fpn_depth: int = 1,
         box_depth: int = 1,
@@ -246,9 +246,9 @@ class Criterion:
         self,
         images: ImageBatch,
         net_output: NetOutput,
-        gt_boxes_list: list[Boxes],
-        gt_classes_list: list[Labels],
-    ) -> tuple[Tensor, Tensor, Tensor]:
+        gt_boxes_List: List[Boxes],
+        gt_classes_List: List[Labels],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         (
             anchor_levels,
             box_reg_levels,
@@ -265,8 +265,8 @@ class Criterion:
         cls_losses = torch.zeros(batch_size, device=device)
         for batch_id, (gt_boxes, gt_lables, box_pred, cls_pred,) in enumerate(
             zip(
-                gt_boxes_list,
-                gt_classes_list,
+                gt_boxes_List,
+                gt_classes_List,
                 box_preds,
                 cls_preds,
             )
@@ -305,15 +305,15 @@ class Criterion:
 
 
 class PreProcess:
-    def __init__(self, device: t.Any, non_blocking: bool = True) -> None:
+    def __init__(self, device: Any, non_blocking: bool = True) -> None:
         super().__init__()
         self.device = device
         self.non_blocking = non_blocking
 
     def __call__(
         self,
-        batch: tuple[ImageBatch, list[Boxes], list[Labels]],
-    ) -> tuple[ImageBatch, list[Boxes], list[Labels]]:
+        batch: Tuple[ImageBatch, List[Boxes], List[Labels]],
+    ) -> Tuple[ImageBatch, List[Boxes], List[Labels]]:
         image_batch, boxes_batch, label_batch = batch
         return (
             ImageBatch(
@@ -355,7 +355,7 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, net_output: NetOutput
-    ) -> tuple[list[Boxes], list[Confidences], list[Labels]]:
+    ) -> Tuple[List[Boxes], List[Confidences], List[Labels]]:
         (
             anchor_levels,
             box_diff_levels,
@@ -376,9 +376,9 @@ class ToBoxes:
             boxes = boxes[filter_idx]
             unique_labels = labels.unique()
 
-            box_list: list[Tensor] = []
-            confidence_list: list[Tensor] = []
-            label_list: list[Tensor] = []
+            box_List: List[Tensor] = []
+            confidence_List: List[Tensor] = []
+            label_List: List[Tensor] = []
             for c in unique_labels:
                 cls_indices = labels == c
                 if cls_indices.sum() == 0:
@@ -398,21 +398,21 @@ class ToBoxes:
                     c_confidences,
                     self.iou_threshold,
                 )
-                box_list.append(c_boxes[nms_indices])
-                confidence_list.append(c_confidences[nms_indices])
-                label_list.append(c_labels[nms_indices])
-            if len(confidence_list) > 0:
-                confidences = torch.cat(confidence_list, dim=0)
+                box_List.append(c_boxes[nms_indices])
+                confidence_List.append(c_confidences[nms_indices])
+                label_List.append(c_labels[nms_indices])
+            if len(confidence_List) > 0:
+                confidences = torch.cat(confidence_List, dim=0)
             else:
                 confidences = torch.zeros(
                     0, device=confidences.device, dtype=confidences.dtype
                 )
-            if len(box_list) > 0:
-                boxes = torch.cat(box_list, dim=0)
+            if len(box_List) > 0:
+                boxes = torch.cat(box_List, dim=0)
             else:
                 boxes = torch.zeros(0, device=boxes.device, dtype=boxes.dtype)
-            if len(label_list) > 0:
-                labels = torch.cat(label_list, dim=0)
+            if len(label_List) > 0:
+                labels = torch.cat(label_List, dim=0)
             else:
                 labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
             sort_indices = confidences.argsort(descending=True)

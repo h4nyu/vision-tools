@@ -1,21 +1,21 @@
-from typing import Callable, NewType
 from torch import Tensor
 from typing_extensions import Literal
+from typing import *
 import torch
 from vnet import YoloBoxes, BoxMaps, Labels, Points, Number, resize_points
 
 Heatmaps = NewType("Heatmaps", torch.Tensor)  # [B, C, H, W]
 MkMapsFn = Callable[
     [
-        list[YoloBoxes],
-        list[Labels],
-        tuple[int, int],
-        tuple[int, int],
+        List[YoloBoxes],
+        List[Labels],
+        Tuple[int, int],
+        Tuple[int, int],
     ],
     Heatmaps,
 ]
 
-MkBoxMapsFn = Callable[[list[YoloBoxes], Heatmaps], BoxMaps]
+MkBoxMapsFn = Callable[[List[YoloBoxes], Heatmaps], BoxMaps]
 
 
 class MkMapsBase:
@@ -24,20 +24,20 @@ class MkMapsBase:
     def _mkmaps(
         self,
         boxes: YoloBoxes,
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         ...
 
     @torch.no_grad()
     def __call__(
         self,
-        box_batch: list[YoloBoxes],
-        label_batch: list[Labels],
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        box_batch: List[YoloBoxes],
+        label_batch: List[Labels],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
-        hms: list[torch.Tensor] = []
+        hms: List[torch.Tensor] = []
         for boxes, labels in zip(box_batch, label_batch):
             hm = torch.cat(
                 [
@@ -67,8 +67,8 @@ class MkGaussianMaps(MkMapsBase):
     def _mkmaps(
         self,
         boxes: YoloBoxes,
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         device = boxes.device
         h, w = hw
@@ -116,8 +116,8 @@ class MkFillMaps(MkMapsBase):
     def _mkmaps(
         self,
         boxes: YoloBoxes,
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Heatmaps:
         device = boxes.device
         h, w = hw
@@ -178,10 +178,10 @@ class MkCenterBoxMaps:
     @torch.no_grad()
     def __call__(
         self,
-        box_batch: list[YoloBoxes],
+        box_batch: List[YoloBoxes],
         heatmaps: Heatmaps,
     ) -> BoxMaps:
-        bms: list[torch.Tensor] = []
+        bms: List[torch.Tensor] = []
         for boxes in box_batch:
             bms.append(self._mkmaps(boxes, heatmaps))
 
@@ -229,12 +229,12 @@ class MkPointMaps:
     @torch.no_grad()
     def __call__(
         self,
-        point_batch: list[Points],
-        label_batch: list[Labels],
+        point_batch: List[Points],
+        label_batch: List[Labels],
         h: int,
         w: int,
     ) -> Heatmaps:
-        hms: list[torch.Tensor] = []
+        hms: List[torch.Tensor] = []
         for points, labels in zip(point_batch, label_batch):
             points = resize_points(points, scale_x=w, scale_y=h)
             hm = torch.cat(

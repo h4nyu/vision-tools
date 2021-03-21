@@ -1,5 +1,5 @@
 import torch, tqdm, os
-from typing import Any
+from typing import *
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 from logging import (
@@ -30,25 +30,25 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: list[tuple[Image, Boxes, Labels, Image, Row]],
-) -> tuple[ImageBatch, list[Boxes], list[Labels], list[Image], list[Row]]:
-    images: list[Any] = []
-    row_batch: list[Row] = []
-    original_img_list: list[Image] = []
-    box_batch: list[Boxes] = []
-    label_batch: list[Labels] = []
+    batch: List[Tuple[Image, Boxes, Labels, Image, Row]],
+) -> Tuple[ImageBatch, List[Boxes], List[Labels], List[Image], List[Row]]:
+    images: List[Any] = []
+    row_batch: List[Row] = []
+    original_img_List: List[Image] = []
+    box_batch: List[Boxes] = []
+    label_batch: List[Labels] = []
     for img, boxes, labels, original_img, row in batch:
         c, h, w = img.shape
         images.append(img)
         box_batch.append(boxes)
-        original_img_list.append(original_img)
+        original_img_List.append(original_img)
         row_batch.append(row)
         label_batch.append(labels)
     return (
         ImageBatch(torch.stack(images)),
         box_batch,
         label_batch,
-        original_img_list,
+        original_img_List,
         row_batch,
     )
 
@@ -85,7 +85,7 @@ def train(epochs: int) -> None:
     model_loader = config.model_loader
     criterion = config.criterion
     scaler = GradScaler()
-    logs: dict[str, float] = {}
+    logs: Dict[str, float] = {}
 
     def train_step() -> None:
         model.train()

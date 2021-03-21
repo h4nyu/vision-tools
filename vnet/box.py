@@ -1,5 +1,5 @@
 import torch
-from typing import NewType, Callable, Union
+from typing import *
 from torch import Tensor
 from torchvision.ops.boxes import box_iou, box_area
 from .image import ImageSize
@@ -23,8 +23,8 @@ AnchorMap = NewType("AnchorMap", Tensor)  # [N, [H, W]], H, W]
 Labels = NewType("Labels", Tensor)
 Confidences = NewType("Confidences", Tensor)
 
-PredBoxes = tuple[CoCoBoxes, Confidences]
-LabelBoxes = tuple[CoCoBoxes, Labels]
+PredBoxes = Tuple[CoCoBoxes, Confidences]
+LabelBoxes = Tuple[CoCoBoxes, Labels]
 
 YoloBoxBatch = NewType("YoloBoxBatch", Tensor)  # [B, N, 4]
 ConfidenceBatch = NewType("ConfidenceBatch", Tensor)  # [B, N] 0.0 ~ 1.0
@@ -38,7 +38,7 @@ def boxmaps_to_boxes(x: BoxMaps) -> YoloBoxes:
     return YoloBoxes(x.permute(3, 2, 0, 1).reshape(-1, 4))
 
 
-def resize_boxes(boxes: Boxes, scale: tuple[float, float]) -> Boxes:
+def resize_boxes(boxes: Boxes, scale: Tuple[float, float]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     wr, hr = scale
@@ -166,7 +166,7 @@ def box_clamp(boxes: Boxes, width: int, height: int) -> Boxes:
     return Boxes(torch.stack([x0, y0, x1, y1], dim=-1))
 
 
-def shift(boxes: Boxes, diff: tuple[Number, Number]) -> Boxes:
+def shift(boxes: Boxes, diff: Tuple[Number, Number]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     diff_x, diff_y = diff
@@ -175,7 +175,7 @@ def shift(boxes: Boxes, diff: tuple[Number, Number]) -> Boxes:
     return Boxes(boxes)
 
 
-def filter_size(boxes: Boxes, cond: Callable[[Tensor], Tensor]) -> tuple[Boxes, Tensor]:
+def filter_size(boxes: Boxes, cond: Callable[[Tensor], Tensor]) -> Tuple[Boxes, Tensor]:
     if len(boxes) == 0:
         return boxes, torch.tensor([], dtype=torch.bool)
     x0, y0, x1, y1 = boxes.unbind(-1)
@@ -201,7 +201,7 @@ def box_in_area(
     return indices
 
 
-def box_hflip(boxes: Boxes, image_size: tuple[Number, Number]) -> Boxes:
+def box_hflip(boxes: Boxes, image_size: Tuple[Number, Number]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
@@ -211,7 +211,7 @@ def box_hflip(boxes: Boxes, image_size: tuple[Number, Number]) -> Boxes:
     return Boxes(boxes)
 
 
-def box_vflip(boxes: Boxes, image_size: tuple[Number, Number]) -> Boxes:
+def box_vflip(boxes: Boxes, image_size: Tuple[Number, Number]) -> Boxes:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
@@ -254,21 +254,21 @@ def filter_limit(
     confidences: Confidences,
     labels: Labels,
     limit: int,
-) -> tuple[Boxes, Confidences, Labels]:
+) -> Tuple[Boxes, Confidences, Labels]:
     unique_labels = torch.unique(labels)
-    box_list = []
-    label_list = []
-    conf_list = []
+    box_List = []
+    label_List = []
+    conf_List = []
     for c in unique_labels:
         c_indecies = labels == c
         c_boxes = boxes[c_indecies][:limit]
         c_labels = labels[c_indecies][:limit]
         c_confidences = confidences[c_indecies][:limit]
-        box_list.append(c_boxes)
-        label_list.append(c_labels)
-        conf_list.append(c_confidences)
+        box_List.append(c_boxes)
+        label_List.append(c_labels)
+        conf_List.append(c_confidences)
     return (
-        Boxes(torch.cat(box_list)) if len(box_list) > 0 else boxes,
-        Confidences(torch.cat(conf_list)) if len(conf_list) > 0 else confidences,
-        Labels(torch.cat(label_list)) if len(label_list) > 0 else labels,
+        Boxes(torch.cat(box_List)) if len(box_List) > 0 else boxes,
+        Confidences(torch.cat(conf_List)) if len(conf_List) > 0 else confidences,
+        Labels(torch.cat(label_List)) if len(label_List) > 0 else labels,
     )

@@ -1,3 +1,4 @@
+from typing import *
 import numpy as np, torch
 from vnet.metrics.average_precision import AveragePrecision
 from vnet import Boxes, Labels, Confidences
@@ -35,6 +36,6 @@ class MeanAveragePrecision:
             )
 
     @torch.no_grad()
-    def __call__(self) -> tuple[float, dict[int, float]]:
+    def __call__(self) -> Tuple[float, Dict[int, float]]:
         aps = {k: v() for k, v in self.aps.items()}
         return np.fromiter(aps.values(), dtype=float).mean(), aps

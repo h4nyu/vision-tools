@@ -1,20 +1,21 @@
 import torch
+from typing import *
+from typing_extensions import TypedDict
 from torch import nn, Tensor
 from torch.functional import F
-from typing import Callable, Optional, TypedDict
 
 NFNetParams = TypedDict(
     "NFNetParams",
     {
-        "width": list[int],
-        "depth": list[int],
+        "width": List[int],
+        "depth": List[int],
         "train_imsize": int,
         "test_imsize": int,
         "RA_level": str,
         "drop_rate": float,
     },
 )
-nfnet_params: dict[str, NFNetParams] = {
+nfnet_params: Dict[str, NFNetParams] = {
     "F0": {
         "width": [256, 512, 1536, 1536],
         "depth": [1, 2, 6, 3],
@@ -286,7 +287,7 @@ class NFNet(nn.Module):
 
         num_blocks, index = sum(block_params["depth"]), 0
 
-        blocks: list[NFBlock] = []
+        blocks: List[NFBlock] = []
         expected_std = 1.0
         in_channels = block_params["width"][0] // 2
 

@@ -1,9 +1,5 @@
-import torch
-import pytest
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-
+from typing import *
+import torch, pytest, numpy as np
 from pathlib import Path
 from vnet import (
     Boxes,
@@ -34,8 +30,8 @@ from vnet.utils import DetectionPlot
     ],
 )
 def test_anchors(
-    scales: list[float],
-    ratios: list[float],
+    scales: List[float],
+    ratios: List[float],
     size: int,
 ) -> None:
     original_w = 1024 + 512

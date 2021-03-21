@@ -1,3 +1,4 @@
+from typing import *
 import torchvision, os, torch
 from bench.kuzushiji.data import (
     read_train_rows,
@@ -52,7 +53,7 @@ def test_fold() -> None:
 
 
 def test_save_submission() -> None:
-    rows: list[SubRow] = [
+    rows: List[SubRow] = [
         {
             "id": "aaaa",
             "points": Points(torch.tensor([[10, 20]])),

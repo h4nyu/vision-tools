@@ -1,4 +1,5 @@
 import torch
+from typing import *
 from vnet import Boxes, Labels, Points
 
 
@@ -14,7 +15,7 @@ class Metrics:
         labels: Labels,
         gt_boxes: Boxes,
         gt_labels: Labels,
-    ) -> tuple[int, int, int]:  # tp, fp, fn
+    ) -> Tuple[int, int, int]:  # tp, fp, fn
         gt_count = len(gt_labels)
         pred_count = len(labels)
         tp = 0

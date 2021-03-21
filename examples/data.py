@@ -1,7 +1,5 @@
-import numpy as np
-import cv2
-import torch
-from typing import Any
+import numpy as np, cv2, torch
+from typing import *
 from torch import Tensor
 from torch.utils.data import Dataset
 from vnet import (
@@ -32,7 +30,7 @@ class PolyImage:
         self.width = width
         self.image = image
         self.boxes = Boxes(torch.empty((0, 4), dtype=torch.int32))
-        self.labels: list[int] = []
+        self.labels: List[int] = []
 
     def add_triangle(self, max_size: int = 128) -> None:
         base_x = np.random.randint(0, self.width - max_size)
@@ -79,7 +77,7 @@ class PolyImage:
             ]
         )(max_size)
 
-    def __call__(self) -> tuple[Image, Boxes, Points, Labels]:
+    def __call__(self) -> Tuple[Image, Boxes, Points, Labels]:
         img = torch.from_numpy(self.image).permute(2, 0, 1) / 255  # [H, W]
         boxes = self.boxes
         points = to_center_points(boxes)
@@ -92,8 +90,8 @@ class PointDataset(Dataset):
     def __init__(
         self,
         image_size: ImageSize,
-        object_size_range: tuple[int, int],
-        object_count_range: tuple[int, int] = (1, 10),
+        object_size_range: Tuple[int, int],
+        object_count_range: Tuple[int, int] = (1, 10),
         num_samples: int = 100,
     ) -> None:
         self.image_size = image_size
@@ -101,7 +99,7 @@ class PointDataset(Dataset):
         self.object_count_range = object_count_range
         self.object_size_range = object_size_range
 
-    def __getitem__(self, idx: int) -> tuple[str, Image, Points, Labels]:
+    def __getitem__(self, idx: int) -> Tuple[str, Image, Points, Labels]:
         poly = PolyImage(
             width=self.image_size[0],
             height=self.image_size[1],
@@ -136,8 +134,8 @@ class BoxDataset(Dataset):
     def __init__(
         self,
         image_size: ImageSize,
-        object_size_range: tuple[int, int],
-        object_count_range: tuple[int, int] = (1, 10),
+        object_size_range: Tuple[int, int],
+        object_count_range: Tuple[int, int] = (1, 10),
         num_samples: int = 100,
     ) -> None:
         self.image_size = image_size
@@ -145,7 +143,7 @@ class BoxDataset(Dataset):
         self.object_count_range = object_count_range
         self.object_size_range = object_size_range
 
-    def __getitem__(self, idx: int) -> tuple[str, Image, Boxes, Labels]:
+    def __getitem__(self, idx: int) -> Tuple[str, Image, Boxes, Labels]:
         poly = PolyImage(
             width=self.image_size[0],
             height=self.image_size[1],

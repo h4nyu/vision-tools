@@ -1,11 +1,11 @@
-import torch
+import torch, torchvision
 import torch.nn as nn
-import torchvision
 from torch import Tensor
-from typing import Literal
+from typing import *
+from typing_extensions import Literal
 from vnet import FP
 
-SideChannels = tuple[int, int, int, int, int]
+SideChannels = Tuple[int, int, int, int, int]
 ModelName = Literal[
     "resnet18",
     "resnet34",
@@ -14,7 +14,7 @@ ModelName = Literal[
     "resnet152",
 ]
 
-SIDEOUT: dict[ModelName, SideChannels] = {
+SIDEOUT: Dict[ModelName, SideChannels] = {
     "resnet18": (64, 64, 128, 256, 512),
     "resnet34": (64, 64, 128, 256, 512),
     "resnet50": (64, 256, 512, 1024, 2048),
@@ -28,7 +28,7 @@ class ResNetBackbone(nn.Module):
         super().__init__()
         self.name = name
         self.backbone = getattr(torchvision.models, name)(pretrained=True)
-        self.layers = list(self.backbone.children())[:-2]
+        self.layers = List(self.backbone.children())[:-2]
         self.projects = nn.ModuleList(
             [
                 nn.Conv2d(

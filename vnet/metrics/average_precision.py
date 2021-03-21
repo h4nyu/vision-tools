@@ -1,5 +1,5 @@
 import torch
-from typing import Any
+from typing import *
 import numpy as np
 from vnet import Boxes, Confidences
 from torchvision.ops.boxes import box_iou
@@ -25,14 +25,14 @@ class AveragePrecision:
     ) -> None:
         self.iou_threshold = iou_threshold
         self.eps = eps
-        self.tp_list: list[Any] = []
-        self.confidence_list: list[Any] = []
+        self.tp_List: List[Any] = []
+        self.confidence_List: List[Any] = []
         self.n_gt_box = 0
 
     def reset(self) -> None:
         self.n_gt_box = 0
-        self.confidence_list = []
-        self.tp_list = []
+        self.confidence_List = []
+        self.tp_List = []
 
     def add(
         self,
@@ -47,8 +47,8 @@ class AveragePrecision:
             return
         tp = np.zeros(n_box)
         if n_box == 0 or n_gt_box == 0:
-            self.tp_list.append(tp)
-            self.confidence_list.append(confidences.to("cpu").numpy())
+            self.tp_List.append(tp)
+            self.confidence_List.append(confidences.to("cpu").numpy())
             return
 
         sort_indecis = confidences.argsort(descending=True)
@@ -59,15 +59,15 @@ class AveragePrecision:
             if ious[box_id] > self.iou_threshold and cls_id not in matched:
                 tp[box_id] = 1
                 matched.add(cls_id)
-        self.tp_list.append(tp)
-        self.confidence_list.append(confidences.to("cpu").numpy())
+        self.tp_List.append(tp)
+        self.confidence_List.append(confidences.to("cpu").numpy())
         self.n_gt_box += n_gt_box
 
     def __call__(self) -> float:
-        if self.n_gt_box == len(self.tp_list) == 0:
+        if self.n_gt_box == len(self.tp_List) == 0:
             return 1.0
-        sort_indices = np.argsort(-np.concatenate(self.confidence_list))
-        tp = np.concatenate(self.tp_list)[sort_indices]
+        sort_indices = np.argsort(-np.concatenate(self.confidence_List))
+        tp = np.concatenate(self.tp_List)[sort_indices]
         tpc = tp.cumsum()
         fpc = (1 - tp).cumsum()
         recall = tpc / (self.n_gt_box + self.eps)

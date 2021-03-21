@@ -1,3 +1,4 @@
+from typing import *
 from logging import (
     getLogger,
 )
@@ -42,13 +43,13 @@ def predict() -> None:
         shuffle=False,
     )
 
-    submissions: list[SubRow] = []
+    submissions: List[SubRow] = []
     for (
         image_batch,
         _,
         _,
-        original_img_list,
-        row_list,
+        original_img_List,
+        row_List,
     ) in tqdm.tqdm(loader):
         image_batch = image_batch.to(device)
         netout = model(image_batch)
@@ -56,7 +57,7 @@ def predict() -> None:
         _, _, h, w = image_batch.shape
 
         for boxes, labels, img, original_img, row in zip(
-            box_batch, label_batch, image_batch, original_img_list, row_list
+            box_batch, label_batch, image_batch, original_img_List, row_List
         ):
             original = (row["width"], row["height"])
             padded = (w, h)

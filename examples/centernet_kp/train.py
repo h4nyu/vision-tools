@@ -26,12 +26,12 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: list[tuple[str, Image, Points, Labels]],
-) -> tuple[list[str], ImageBatch, list[Points], list[Labels]]:
-    images: list[Any] = []
-    id_batch: list[str] = []
-    point_batch: list[Points] = []
-    label_batch: list[Labels] = []
+    batch: List[Tuple[str, Image, Points, Labels]],
+) -> Tuple[List[str], ImageBatch, List[Points], List[Labels]]:
+    images: List[Any] = []
+    id_batch: List[str] = []
+    point_batch: List[Points] = []
+    label_batch: List[Labels] = []
 
     for id, img, points, labels in batch:
         images.append(img)
@@ -83,7 +83,7 @@ def train(epochs: int) -> None:
         eps=1e-8,
         weight_decay=0,
     )
-    logs: dict[str, float] = {}
+    logs: Dict[str, float] = {}
     scaler = GradScaler()
 
     def train_step() -> None:

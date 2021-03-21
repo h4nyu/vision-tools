@@ -1,5 +1,5 @@
 import torch
-from typing import Union, Optional, Callable, Any
+from typing import *
 from torch import nn, optim, Tensor
 from torch.optim.optimizer import Optimizer, _params_t
 
@@ -8,7 +8,7 @@ from collections.abc import Iterable
 
 def unitwise_norm(x: Tensor) -> Tensor:
     if x.ndim <= 1:
-        dim: Union[int, list[int]] = 0
+        dim: Union[int, List[int]] = 0
         keepdim = False
     elif x.ndim in [2, 3]:
         dim = 0
@@ -55,7 +55,7 @@ class SGD_AGC(Optimizer):
         if nesterov and (momentum <= 0 or dampening != 0):
             raise ValueError("Nesterov momentum requires a momentum and zero dampening")
 
-        # Put params in list so each one gets its own group
+        # Put params in List so each one gets its own group
         params = []
         for name, param in named_params:
             params.append({"params": param, "name": name})
