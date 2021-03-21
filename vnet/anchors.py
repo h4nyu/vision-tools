@@ -26,7 +26,7 @@ class Anchors:
         use_cache: bool = True,
     ) -> None:
         self.use_cache = use_cache
-        pairs = torch.tensor(List(itertools.product(scales, ratios)))
+        pairs = torch.tensor(list(itertools.product(scales, ratios)))
         self.num_anchors = len(pairs)
         self.ratios = torch.stack([pairs[:, 1], 1 / pairs[:, 1]]).t()
         self.scales = (
