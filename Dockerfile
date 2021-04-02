@@ -9,7 +9,7 @@ ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV NVIDIA_REQUIRE_CUDA "cuda>=11.1 brand=tesla,driver>=418,driver<419 brand=tesla,driver>=440,driver<441 driver>=450,driver<451"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends gnupg2 libc-dev curl ca-certificates gcc python3 python3-pip python3-setuptools python3-opencv \ 
+    && apt-get install -y --no-install-recommends gnupg2 libc-dev curl ca-certificates gcc python3 python3-dev python3-pip python3-setuptools build-essential \ 
     && curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub | apt-key add - \
     && echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64 /" > /etc/apt/sources.list.d/cuda.list \
     && echo "deb https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu2004/x86_64 /" > /etc/apt/sources.list.d/nvidia-ml.list \
@@ -30,4 +30,5 @@ RUN cd /usr/bin \
 RUN pip install --no-cache-dir torch==1.8.0+cu111 torchvision==0.9.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 WORKDIR /srv
 COPY . .
-RUN pip install --no-cache-dir -e .[develop]
+RUN pip install --no-cache-dir scikit-build \
+    && pip install --no-cache-dir -e .[develop]
