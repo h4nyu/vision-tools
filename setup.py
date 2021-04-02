@@ -20,7 +20,7 @@ setup(
             "mypy",
             "kaggle",
             "pandas",
-            "toolz",
+            "cytoolz",
             "torch-optimizer",
             "albumentations",
             "scikit-learn",

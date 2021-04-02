@@ -7,8 +7,8 @@ services:
     environment:
       - http_proxy
       - https_proxy
-    # volumes:
-    #   - .:/srv
-    #   - ./store:/store
-    #   - ./kaggle.json:/root/.kaggle/kaggle.json
+    volumes:
+      - .:/srv
+      - ./store:/store
+      - ./kaggle.json:/root/.kaggle/kaggle.json
     runtime: nvidia
