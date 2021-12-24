@@ -3,6 +3,7 @@ from typing import Literal
 from torch import Tensor
 import torch.nn.functional as F
 from functools import partial
+from torchvision.ops import box_convert
 from typing import (
     NewType,
     Union,
@@ -13,9 +14,6 @@ from torch import nn, Tensor
 from logging import getLogger
 from tqdm import tqdm
 from vision_tools import (
-    yolo_to_pascal,
-    pascal_to_yolo,
-    yolo_to_coco,
     boxmap_to_boxes,
     resize_points,
 )
@@ -227,8 +225,8 @@ class BoxLoss:
                 matched_pred_boxes = anchors[positive_indices] + matched_pred_boxes
             box_losses.append(
                 self.loss(
-                    yolo_to_pascal(matched_pred_boxes, (1, 1)),
-                    yolo_to_pascal(matched_gt_boxes, (1, 1)),
+                    box_convert(matched_pred_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
+                    box_convert(matched_gt_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
                 )
             )
         if len(box_losses) == 0:
@@ -297,7 +295,7 @@ class ToBoxes:
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
                 nms_indices = nms(
-                    yolo_to_pascal(c_boxes, (1, 1)),
+                    box_convert(c_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
                     c_confidences,
                     self.iou_threshold,
                 )[: self.limit]

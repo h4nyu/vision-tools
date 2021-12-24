@@ -30,12 +30,14 @@ def test_dataset() -> None:
     sample = dataset[0]
     img, boxes, labels, _, _ = sample
 
+
 def test_aug() -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transforms=train_transforms)
     for i in range(3):
         sample = dataset[100]
         img, boxes, labels, _, _ = sample
+
 
 def test_fold() -> None:
     rows = read_train_rows(config.root_dir)

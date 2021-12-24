@@ -10,7 +10,6 @@ from vision_tools.centernet import (
     HMLoss,
     ToPoints,
 )
-from vision_tools.box import yolo_to_coco
 from vision_tools.backbones.resnet import (
     ResNetBackbone,
 )

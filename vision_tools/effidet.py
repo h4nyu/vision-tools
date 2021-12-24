@@ -9,8 +9,6 @@ import torchvision
 
 from functools import partial
 from vision_tools import (
-    yolo_to_pascal,
-    yolo_clamp,
     filter_limit,
 )
 from vision_tools.model_loader import ModelLoader

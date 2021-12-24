@@ -28,78 +28,6 @@ def resize_boxes(boxes: Tensor, scale: tuple[float, float]) -> Tensor:
     return Tensor(torch.stack(b, dim=-1))
 
 
-def coco_to_yolo(coco: Tensor, size: tuple[int, int]) -> Tensor:
-    if len(coco) == 0:
-        return Tensor(coco)
-    size_w, size_h = size
-    x0, y0, x1, y1 = coco_to_pascal(coco).float().unbind(-1)
-    b = [
-        (x0 + x1) / 2 / size_w,
-        (y0 + y1) / 2 / size_h,
-        (x1 - x0) / size_w,
-        (y1 - y0) / size_h,
-    ]
-    return Tensor(torch.stack(b, dim=-1))
-
-
-def coco_to_pascal(coco: Tensor) -> Tensor:
-    if len(coco) == 0:
-        return Tensor(coco)
-    x0, y0, w, h = coco.unbind(-1)
-    b = [x0, y0, x0 + w, y0 + h]
-    return Tensor(torch.stack(b, dim=-1))
-
-
-def yolo_to_pascal(yolo: Tensor, wh: tuple[int, int]) -> Tensor:
-    if len(yolo) == 0:
-        return Tensor(yolo)
-    image_w, image_h = wh
-    cx, cy, w, h = yolo.unbind(-1)
-    size_w, size_h = wh
-    b = [
-        ((cx - 0.5 * w) * size_w),
-        ((cy - 0.5 * h) * size_h),
-        ((cx + 0.5 * w) * size_w),
-        ((cy + 0.5 * h) * size_h),
-    ]
-    return Tensor(torch.stack(b, dim=-1))
-
-
-def yolo_to_coco(yolo: Tensor, size: tuple[int, int]) -> Tensor:
-    if len(yolo) == 0:
-        return yolo
-    x0, y0, x1, y1 = yolo_to_pascal(yolo, size).unbind(-1)
-    b = torch.stack([x0, y0, x1 - x0, y1 - y0], dim=-1)
-    return b
-
-
-def pascal_to_yolo(pascal: Tensor, size: tuple[int, int]) -> Tensor:
-    if len(pascal) == 0:
-        return Tensor(pascal)
-    x0, y0, x1, y1 = pascal.float().unbind(-1)
-    size_w, size_h = size
-    b = [
-        (x0 + x1) / 2 / size_w,
-        (y0 + y1) / 2 / size_h,
-        (x1 - x0) / size_w,
-        (y1 - y0) / size_h,
-    ]
-    return Tensor(torch.stack(b, dim=-1))
-
-
-def pascal_to_coco(pascal: Tensor) -> Tensor:
-    if len(pascal) == 0:
-        return pascal
-    x0, y0, x1, y1 = pascal.unbind(-1)
-    b = [
-        x0,
-        y0,
-        (x1 - x0),
-        (y1 - y0),
-    ]
-    return torch.stack(b, dim=-1)
-
-
 def yolo_hflip(yolo: Tensor) -> Tensor:
     if len(yolo) == 0:
         return yolo
@@ -122,24 +50,6 @@ def yolo_vflip(yolo: Tensor) -> Tensor:
         h,
     ]
     return Tensor(torch.stack(b, dim=-1))
-
-
-def yolo_clamp(yolo: Tensor) -> Tensor:
-    return pascal_to_yolo(
-        Tensor(yolo_to_pascal(yolo, (1, 1)).clamp(min=0.0, max=1.0)),
-        (1, 1),
-    )
-
-
-def box_clamp(boxes: Tensor, width: int, height: int) -> Tensor:
-    if len(boxes) == 0:
-        return boxes
-    x0, y0, x1, y1 = boxes.clamp(min=0).unbind(-1)
-    x0 = x0.clamp(max=width)
-    x1 = x1.clamp(max=width)
-    y0 = y0.clamp(max=height)
-    y1 = y1.clamp(max=height)
-    return Tensor(torch.stack([x0, y0, x1, y1], dim=-1))
 
 
 def shift(boxes: Tensor, diff: tuple[Number, Number]) -> Tensor:

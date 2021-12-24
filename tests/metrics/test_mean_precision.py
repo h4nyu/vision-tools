@@ -1,9 +1,7 @@
 import torch
 import numpy as np
-from vision_tools import (
-    coco_to_pascal,
-)
 from vision_tools.metrics import MeanPrecition
+from torchvision.ops import box_convert
 
 gts = np.array(
     [
@@ -96,8 +94,8 @@ scores = np.array(
 
 
 def test_mean_precision() -> None:
-    pred_boxes = coco_to_pascal(torch.from_numpy(preds))
-    gt_boxes = coco_to_pascal(torch.from_numpy(gts))
+    pred_boxes = box_convert(torch.from_numpy(preds), in_fmt="cxcywh", out_fmt="xyxy")
+    gt_boxes = box_convert(torch.from_numpy(gts), in_fmt="cxcywh", out_fmt="xyxy")
     fn = MeanPrecition()
     res = fn(pred_boxes, gt_boxes)
     assert res < 0.37

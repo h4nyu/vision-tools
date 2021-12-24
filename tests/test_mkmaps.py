@@ -1,5 +1,4 @@
 import pytest, torch
-from vision_tools import yolo_to_pascal
 from vision_tools.mkmaps import MkGaussianMaps, MkPointMaps
 from vision_tools.anchors import EmptyAnchors
 from vision_tools.centernet import (

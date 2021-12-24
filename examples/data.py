@@ -2,7 +2,6 @@ import numpy as np, cv2, torch
 from torch import Tensor
 from torch.utils.data import Dataset
 from vision_tools import (
-    pascal_to_yolo,
     filter_size,
     RGB,
     to_center_points,

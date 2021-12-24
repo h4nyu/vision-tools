@@ -3,9 +3,8 @@ import itertools
 from torch import nn, Tensor
 from vision_tools import (
     boxmaps_to_boxes,
-    yolo_clamp,
-    box_clamp,
 )
+from torchvision.ops import box_convert, clip_boxes_to_image
 
 
 class Anchors:
@@ -60,7 +59,14 @@ class Anchors:
             .contiguous()
             .view(-1, 4)
         )
-        boxes = box_clamp(boxes, width=w * stride, height=h * stride)
+        boxes = box_convert(
+            clip_boxes_to_image(
+                box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy"),
+                size=(h * stride, w * stride),
+            ),
+            in_fmt="xyxy",
+            out_fmt="cxcywh",
+        )
         if self.use_cache:
             self.cache[(h, w)] = boxes
         return boxes

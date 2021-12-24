@@ -12,8 +12,6 @@ from pathlib import Path
 from torch import Tensor
 from logging import getLogger
 from vision_tools import (
-    yolo_to_coco,
-    pascal_to_coco,
     Number,
     resize_points,
 )

@@ -5,13 +5,11 @@ from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from vision_tools.meters import MeanMeter
+from torchvision.ops import box_convert
 from vision_tools.centernet import (
     CenterNet,
     Criterion,
     ToBoxes,
-)
-from vision_tools import (
-    yolo_to_pascal,
 )
 import torch_optimizer as optim
 from vision_tools.mkmaps import (
@@ -24,9 +22,6 @@ from vision_tools.backbones.resnet import (
 from vision_tools.model_loader import (
     ModelLoader,
     BestWatcher,
-)
-from vision_tools import (
-    pascal_to_yolo,
 )
 from examples.data import BoxDataset
 from vision_tools.metrics import MeanAveragePrecision
@@ -49,7 +44,7 @@ def collate_fn(
     for id, img, boxes, labels in batch:
         images.append(img)
         _, h, w = img.shape
-        box_batch.append(pascal_to_yolo(boxes, (w, h)))
+        box_batch.append(box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy"))
         id_batch.append(id)
         label_batch.append(labels)
     return (
@@ -170,10 +165,10 @@ def train(epochs: int) -> None:
                 box_batch, gt_box_batch, label_batch, gt_label_batch, confidence_batch
             ):
                 metrics.add(
-                    boxes=yolo_to_pascal(boxes, (w, h)),
+                    boxes=box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy"),
                     confidences=confidences,
                     labels=labels,
-                    gt_boxes=yolo_to_pascal(gt_boxes, (w, h)),
+                    gt_boxes=box_convert(gt_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
                     gt_labels=gt_labels,
                 )
 
