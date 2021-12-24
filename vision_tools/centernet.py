@@ -12,7 +12,7 @@ from torch import nn, Tensor
 from typing_extensions import Literal
 from logging import getLogger
 from tqdm import tqdm
-from vnet import (
+from vision_tools import (
     BoxMap,
     BoxMaps,
     YoloBoxes,
@@ -28,8 +28,8 @@ from vnet import (
     Image,
     resize_points,
 )
-from vnet.point import Points
-from vnet.utils import DetectionPlot
+from vision_tools.point import Points
+from vision_tools.utils import DetectionPlot
 from .mkmaps import Heatmaps, MkMapsFn, MkBoxMapsFn
 from .modules import (
     FReLU,
@@ -43,11 +43,11 @@ from .bifpn import BiFPN, FP
 from .losses import HuberLoss, DIoULoss
 from .anchors import EmptyAnchors
 from .matcher import NearnestMatcher, CenterMatcher
-from vnet.meters import MeanMeter
+from vision_tools.meters import MeanMeter
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
-from vnet.model_loader import ModelLoader
+from vision_tools.model_loader import ModelLoader
 
 from pathlib import Path
 

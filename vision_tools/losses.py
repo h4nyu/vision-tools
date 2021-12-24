@@ -2,7 +2,7 @@ import torch, numpy as np, torch.nn as nn, torch.nn.functional as F
 from typing_extensions import Literal
 from typing import *
 from torch import Tensor
-from vnet import Boxes
+from vision_tools import Boxes
 from torchvision.ops.boxes import box_area
 
 Reduction = Literal["none", "mean", "sum"]

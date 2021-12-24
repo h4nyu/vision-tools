@@ -1,7 +1,7 @@
 from torch import nn, Tensor
-from vnet.bifpn import BiFPN
-from vnet.centernet import Head
-from vnet.image import ImageBatch
+from vision_tools.bifpn import BiFPN
+from vision_tools.centernet import Head
+from vision_tools.image import ImageBatch
 
 
 class Net(nn.Module):

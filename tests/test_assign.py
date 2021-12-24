@@ -1,6 +1,6 @@
 import torch
-from vnet import Boxes
-from vnet.assign import ClosestAssign
+from vision_tools import Boxes
+from vision_tools.assign import ClosestAssign
 
 
 def test_closest_assign() -> None:

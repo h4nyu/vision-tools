@@ -2,7 +2,7 @@ import numpy as np, cv2, torch
 from typing import *
 from torch import Tensor
 from torch.utils.data import Dataset
-from vnet import (
+from vision_tools import (
     Boxes,
     YoloBoxes,
     Points,

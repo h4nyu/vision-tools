@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 from .assign import ClosestAssign
 from torchvision.ops.boxes import box_iou
-from vnet import Boxes, AnchorMap
+from vision_tools import Boxes, AnchorMap
 
 
 class ATSS:

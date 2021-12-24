@@ -6,7 +6,7 @@ import math
 import torchvision
 
 from functools import partial
-from vnet import (
+from vision_tools import (
     Image,
     Confidences,
     Labels,
@@ -16,8 +16,8 @@ from vnet import (
     yolo_clamp,
     filter_limit,
 )
-from vnet.model_loader import ModelLoader
-from vnet.meters import MeanMeter
+from vision_tools.model_loader import ModelLoader
+from vision_tools.meters import MeanMeter
 from .utils import DetectionPlot
 from typing import Any, NewType, Callable
 from torchvision.ops.boxes import box_iou

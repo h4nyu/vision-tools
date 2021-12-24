@@ -1,5 +1,5 @@
 import torch
-from vnet import (
+from vision_tools import (
     YoloBoxBatch,
     ConfidenceBatch,
 )

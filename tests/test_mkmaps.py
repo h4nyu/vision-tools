@@ -1,9 +1,9 @@
 import pytest, torch
-from vnet.utils import DetectionPlot
-from vnet import YoloBoxes, Labels, BoxMaps, yolo_to_pascal, Points
-from vnet.mkmaps import MkGaussianMaps, MkPointMaps
-from vnet.anchors import EmptyAnchors
-from vnet.centernet import (
+from vision_tools.utils import DetectionPlot
+from vision_tools import YoloBoxes, Labels, BoxMaps, yolo_to_pascal, Points
+from vision_tools.mkmaps import MkGaussianMaps, MkPointMaps
+from vision_tools.anchors import EmptyAnchors
+from vision_tools.centernet import (
     Heatmaps,
     ToBoxes,
 )

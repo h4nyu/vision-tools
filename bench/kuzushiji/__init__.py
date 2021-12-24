@@ -1,4 +1,4 @@
-from vnet.utils import init_seed
+from vision_tools.utils import init_seed
 import os
 from logging import (
     getLogger,

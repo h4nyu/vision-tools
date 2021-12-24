@@ -1,5 +1,5 @@
 from typing import *
-from vnet.model_loader import WatchMode
+from vision_tools.model_loader import WatchMode
 
 # train
 confidence_threshold = 0.01

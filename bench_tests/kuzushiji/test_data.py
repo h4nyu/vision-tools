@@ -11,8 +11,8 @@ from bench.kuzushiji.data import (
     read_code_map,
     SubRow,
 )
-from vnet.utils import DetectionPlot
-from vnet import Labels, Points
+from vision_tools.utils import DetectionPlot
+from vision_tools import Labels, Points
 from bench.kuzushiji import config
 
 

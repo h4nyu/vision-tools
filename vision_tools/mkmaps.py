@@ -2,7 +2,7 @@ from torch import Tensor
 from typing_extensions import Literal
 from typing import *
 import torch
-from vnet import YoloBoxes, BoxMaps, Labels, Points, Number, resize_points
+from vision_tools import YoloBoxes, BoxMaps, Labels, Points, Number, resize_points
 
 Heatmaps = NewType("Heatmaps", torch.Tensor)  # [B, C, H, W]
 MkMapsFn = Callable[

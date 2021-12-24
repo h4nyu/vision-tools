@@ -1,6 +1,6 @@
 import torch
 from bench.kuzushiji.metrics import Metrics
-from vnet import Boxes, Labels, Points
+from vision_tools import Boxes, Labels, Points
 
 
 def test_metrics() -> None:

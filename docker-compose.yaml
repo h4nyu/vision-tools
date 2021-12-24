@@ -1,0 +1,14 @@
+version: '2.4'
+
+services:
+  app:
+    shm_size: '30gb'
+    build: 
+      context: .
+    volumes:
+      - .:/app
+      - ./store:/store
+      - ./.cache:/root/.cache
+    environment:
+      KAGGLE_USERNAME:
+      KAGGLE_KEY:

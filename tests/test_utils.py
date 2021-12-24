@@ -1,6 +1,6 @@
 import torch
-from vnet.utils import DetectionPlot
-from vnet import Boxes, Labels, Confidences, Points, resize_points
+from vision_tools.utils import DetectionPlot
+from vision_tools import Boxes, Labels, Confidences, Points, resize_points
 
 
 def test_detection_plot() -> None:

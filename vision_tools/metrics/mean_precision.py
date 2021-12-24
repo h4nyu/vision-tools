@@ -4,7 +4,7 @@ import numpy as np
 from collections import defaultdict
 from torch import Tensor
 from torchvision.ops.boxes import box_iou
-from vnet import (
+from vision_tools import (
     Boxes,
 )
 

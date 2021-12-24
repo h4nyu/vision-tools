@@ -2,7 +2,7 @@ from typing import *
 from logging import (
     getLogger,
 )
-import os, torch, tqdm, vnet
+import os, torch, tqdm, vision_tools
 
 from bench.kuzushiji.data import (
     KuzushijiDataset,
@@ -13,7 +13,7 @@ from bench.kuzushiji.data import (
     SubRow,
 )
 
-from vnet.utils import DetectionPlot
+from vision_tools.utils import DetectionPlot
 from torch.utils.data import DataLoader
 from bench.kuzushiji.effdet.config import Config
 from bench.kuzushiji.effdet.train import collate_fn
@@ -62,9 +62,9 @@ def predict() -> None:
             original = (row["width"], row["height"])
             padded = (w, h)
             points = to_points(boxes)
-            scale, pad = vnet.inv_scale_and_pad(original, padded)
-            points = vnet.shift_points(points, (-pad[0], -pad[1]))
-            points = vnet.resize_points(points, scale, scale)
+            scale, pad = vision_tools.inv_scale_and_pad(original, padded)
+            points = vision_tools.shift_points(points, (-pad[0], -pad[1]))
+            points = vision_tools.resize_points(points, scale, scale)
             # plot = DetectionPlot(original_img)
             # plot.draw_points(points, color="red")
             # plot.save(os.path.join(config.out_dir, f"{row['id']}.png"))

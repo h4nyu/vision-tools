@@ -1,6 +1,6 @@
 import torch
 from typing import *
-from vnet import Boxes, Labels, Points
+from vision_tools import Boxes, Labels, Points
 
 
 class Metrics:

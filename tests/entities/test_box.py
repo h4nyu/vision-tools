@@ -1,5 +1,5 @@
 import torch
-from vnet.box import (
+from vision_tools.box import (
     yolo_to_coco,
     YoloBoxes,
     yolo_to_pascal,
@@ -12,7 +12,7 @@ from vnet.box import (
     Boxes,
 )
 import torch.nn.functional as F
-from vnet.utils import DetectionPlot
+from vision_tools.utils import DetectionPlot
 
 
 def test_yolo_to_coco() -> None:

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from vnet import Labels, Boxes, Confidences
-from vnet.metrics.average_precision import AveragePrecision, auc
+from vision_tools import Labels, Boxes, Confidences
+from vision_tools.metrics.average_precision import AveragePrecision, auc
 
 
 def test_average_precision() -> None:

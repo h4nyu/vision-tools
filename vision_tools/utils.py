@@ -11,7 +11,7 @@ from torch import nn
 from pathlib import Path
 from torch import Tensor
 from logging import getLogger
-from vnet import (
+from vision_tools import (
     CoCoBoxes,
     YoloBoxes,
     Boxes,

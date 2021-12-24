@@ -2,7 +2,7 @@ from torch import nn, Tensor
 import torch
 from typing_extensions import TypedDict
 from typing import *
-from vnet import (
+from vision_tools import (
     YoloBoxBatch,
     ConfidenceBatch,
     YoloBoxes,

@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name="vnet",
+    name="vision_tools",
     version="0.1.5",
     install_requires=[
         "tqdm",
@@ -9,10 +9,10 @@ setup(
         "torchvision",
         "torch",
     ],
-    packages=["vnet"],
-    package_data={"vnet": ["py.typed"]},
+    packages=["vision_tools"],
+    package_data={"vision_tools": ["py.typed"]},
     extras_require={
-        "develop": [
+        "dev": [
             "pytest",
             "black",
             "pytest-cov",

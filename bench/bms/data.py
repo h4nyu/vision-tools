@@ -4,7 +4,7 @@ import pandas as pd
 from bench.bms.config import Config
 from torch.utils.data import Dataset
 from typing import *
-from vnet import Image
+from vision_tools import Image
 from bench.bms.config import Config
 from joblib import Memory
 

@@ -1,7 +1,7 @@
 from typing import *
 import numpy as np, torch
-from vnet.metrics.average_precision import AveragePrecision
-from vnet import Boxes, Labels, Confidences
+from vision_tools.metrics.average_precision import AveragePrecision
+from vision_tools import Boxes, Labels, Confidences
 
 
 class MeanAveragePrecision:

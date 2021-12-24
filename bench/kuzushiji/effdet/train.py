@@ -5,14 +5,14 @@ from torch.cuda.amp import GradScaler, autocast
 from logging import (
     getLogger,
 )
-from vnet import (
+from vision_tools import (
     Image,
     ImageBatch,
     Boxes,
     Labels,
     Boxes,
 )
-from vnet.meters import MeanMeter
+from vision_tools.meters import MeanMeter
 import torch_optimizer as optim
 from bench.kuzushiji.effdet.config import Config
 from bench.kuzushiji.data import (
@@ -24,7 +24,7 @@ from bench.kuzushiji.data import (
     Row,
 )
 from bench.kuzushiji.metrics import Metrics
-from vnet.utils import DetectionPlot
+from vision_tools.utils import DetectionPlot
 
 logger = getLogger(__name__)
 

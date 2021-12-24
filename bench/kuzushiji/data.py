@@ -4,7 +4,7 @@ from typing_extensions import TypedDict
 import torch, os, torchvision, PIL
 import numpy as np
 from torch.utils.data import Dataset
-from vnet import Image, Boxes, Labels
+from vision_tools import Image, Boxes, Labels
 from dataclasses import dataclass
 import pandas as pd
 from toolz.curried import pipe, partition, map, filter
@@ -13,8 +13,8 @@ import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from bench.kuzushiji import config
-from vnet.transforms import normalize, inv_normalize
-from vnet import Points
+from vision_tools.transforms import normalize, inv_normalize
+from vision_tools import Points
 from sklearn.model_selection import StratifiedKFold
 
 location = "/tmp"

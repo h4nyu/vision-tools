@@ -1,12 +1,12 @@
 from typing import *
 import torch, pytest, numpy as np
 from pathlib import Path
-from vnet import (
+from vision_tools import (
     Boxes,
     ImageBatch,
 )
-from vnet.anchors import Anchors
-from vnet.utils import DetectionPlot
+from vision_tools.anchors import Anchors
+from vision_tools.utils import DetectionPlot
 
 
 @pytest.mark.parametrize(

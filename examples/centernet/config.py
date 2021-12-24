@@ -1,8 +1,8 @@
 from typing import *
-from vnet.mkmaps import (
+from vision_tools.mkmaps import (
     GaussianMapMode,
 )
-from vnet.model_loader import WatchMode
+from vision_tools.model_loader import WatchMode
 
 num_classes = 2
 ## heatmap

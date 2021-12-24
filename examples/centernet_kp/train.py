@@ -3,10 +3,10 @@ from typing import *
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
-from vnet.meters import MeanMeter
-from vnet.utils import DetectionPlot
+from vision_tools.meters import MeanMeter
+from vision_tools.utils import DetectionPlot
 import torch_optimizer as optim
-from vnet import (
+from vision_tools import (
     Image,
     Points,
     Labels,
@@ -16,7 +16,7 @@ from vnet import (
     resize_points,
 )
 from examples.data import PointDataset
-from vnet.metrics import MeanAveragePrecision
+from vision_tools.metrics import MeanAveragePrecision
 from examples.centernet_kp import config
 from logging import (
     getLogger,

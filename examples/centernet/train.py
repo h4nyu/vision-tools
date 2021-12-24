@@ -3,29 +3,29 @@ from typing import *
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
-from vnet.meters import MeanMeter
-from vnet.centernet import (
+from vision_tools.meters import MeanMeter
+from vision_tools.centernet import (
     CenterNet,
     Visualize,
     Criterion,
     ToBoxes,
 )
-from vnet import (
+from vision_tools import (
     yolo_to_pascal,
 )
 import torch_optimizer as optim
-from vnet.mkmaps import (
+from vision_tools.mkmaps import (
     MkGaussianMaps,
     MkCenterBoxMaps,
 )
-from vnet.backbones.resnet import (
+from vision_tools.backbones.resnet import (
     ResNetBackbone,
 )
-from vnet.model_loader import (
+from vision_tools.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from vnet import (
+from vision_tools import (
     Image,
     Boxes,
     Labels,
@@ -34,7 +34,7 @@ from vnet import (
     pascal_to_yolo,
 )
 from examples.data import BoxDataset
-from vnet.metrics import MeanAveragePrecision
+from vision_tools.metrics import MeanAveragePrecision
 from examples.centernet import config as cfg
 from logging import (
     getLogger,

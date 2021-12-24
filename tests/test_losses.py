@@ -2,7 +2,7 @@ import torch
 import pytest
 import typing as t
 import torch.nn.functional as F
-from vnet.losses import (
+from vision_tools.losses import (
     DIoU,
     GIoU,
     DIoULoss,
@@ -10,7 +10,7 @@ from vnet.losses import (
     FocalLoss,
     SigmoidFocalLoss,
 )
-from vnet import Boxes
+from vision_tools import Boxes
 from torch import nn, Tensor
 
 

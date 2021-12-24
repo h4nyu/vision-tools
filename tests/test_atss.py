@@ -1,7 +1,7 @@
 import typing
 import torch
-from vnet import Boxes
-from vnet.atss import ATSS
+from vision_tools import Boxes
+from vision_tools.atss import ATSS
 
 
 def test_atss_bench(benchmark: typing.Any) -> None:

@@ -1,9 +1,9 @@
 import torch
 import pytest
 from typing import Any
-from vnet.image import ImageBatch
-from vnet.box import Boxes, Labels
-from vnet.effidet import (
+from vision_tools.image import ImageBatch
+from vision_tools.box import Boxes, Labels
+from vision_tools.effidet import (
     RegressionModel,
     ClassificationModel,
     EfficientDet,
@@ -11,8 +11,8 @@ from vnet.effidet import (
     BoxDiff,
     ToBoxes,
 )
-from vnet.anchors import Anchors
-from vnet.backbones.effnet import (
+from vision_tools.anchors import Anchors
+from vision_tools.backbones.effnet import (
     EfficientNetBackbone,
 )
 

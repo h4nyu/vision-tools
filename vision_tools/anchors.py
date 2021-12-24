@@ -2,7 +2,7 @@ import torch, numpy as np
 import itertools
 from typing import *
 from torch import nn, Tensor
-from vnet import (
+from vision_tools import (
     Boxes,
     ImageBatch,
     boxmaps_to_boxes,

@@ -1,5 +1,5 @@
 import torch
-from vnet.modules import (
+from vision_tools.modules import (
     Hswish,
     Hsigmoid,
     CSE2d,

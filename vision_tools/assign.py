@@ -1,7 +1,7 @@
 import torch
 import typing
 from torch import Tensor
-from vnet import Boxes
+from vision_tools import Boxes
 
 
 class ClosestAssign:

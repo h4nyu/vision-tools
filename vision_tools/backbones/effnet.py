@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 from torch import Tensor
-from vnet import FP
+from vision_tools import FP
 from efficientnet_pytorch.model import EfficientNet
 from typing_extensions import Literal
 from typing import Any
