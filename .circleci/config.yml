@@ -23,11 +23,11 @@ jobs:
           name: Tpye check App
           command: |
             mypy
-      - run:
-          name: Test App
-          command: |
-            mkdir store
-            pytest -v --cov=vnet tests
+      # - run:
+      #     name: Test App
+      #     command: |
+      #       mkdir store
+      #       pytest -v --cov=vnet tests
 
 workflows:
   main:
