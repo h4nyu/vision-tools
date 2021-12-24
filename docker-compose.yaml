@@ -1,14 +1,29 @@
 version: '2.4'
 
+x-env:
+  TENSORBOARD_PORT: ${TENSORBOARD_PORT:?}
+
+x-app: &app
+  shm_size: '30gb'
+  build: 
+    context: .
+  volumes:
+    - .:/app
+    - ./store:/store
+    - ./.cache:/root/.cache
+
+
 services:
   app:
-    shm_size: '30gb'
-    build: 
-      context: .
-    volumes:
-      - .:/app
-      - ./store:/store
-      - ./.cache:/root/.cache
+    <<: *app
     environment:
       KAGGLE_USERNAME:
       KAGGLE_KEY:
+
+  tensorboard:
+    <<: *app
+    command: tensorboard --logdir=runs --host 0.0.0.0 --port=${TENSORBOARD_PORT}
+    ports:
+      - "${TENSORBOARD_PORT}:${TENSORBOARD_PORT}"
+
+
