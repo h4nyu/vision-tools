@@ -7,6 +7,7 @@ setup(
         "tqdm",
         "efficientnet_pytorch",
         "torchvision",
+        "omegaconf",
         "torch",
     ],
     packages=["vision_tools"],
