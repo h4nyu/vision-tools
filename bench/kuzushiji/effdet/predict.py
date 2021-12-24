@@ -13,7 +13,6 @@ from bench.kuzushiji.data import (
     SubRow,
 )
 
-from vision_tools.utils import DetectionPlot
 from torch.utils.data import DataLoader
 from bench.kuzushiji.effdet.config import Config
 from bench.kuzushiji.effdet.train import collate_fn
@@ -65,9 +64,6 @@ def predict() -> None:
             scale, pad = vision_tools.inv_scale_and_pad(original, padded)
             points = vision_tools.shift_points(points, (-pad[0], -pad[1]))
             points = vision_tools.resize_points(points, scale, scale)
-            # plot = DetectionPlot(original_img)
-            # plot.draw_points(points, color="red")
-            # plot.save(os.path.join(config.out_dir, f"{row['id']}.png"))
             submissions.append(
                 {
                     "id": row["id"],

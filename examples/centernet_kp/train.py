@@ -3,16 +3,10 @@ from typing import *
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
+from torch import Tensor
 from vision_tools.meters import MeanMeter
-from vision_tools.utils import DetectionPlot
 import torch_optimizer as optim
 from vision_tools import (
-    Image,
-    Points,
-    Labels,
-    ImageBatch,
-    Points,
-    pascal_to_yolo,
     resize_points,
 )
 from examples.data import PointDataset
@@ -26,12 +20,12 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: List[Tuple[str, Image, Points, Labels]],
-) -> Tuple[List[str], ImageBatch, List[Points], List[Labels]]:
-    images: List[Any] = []
-    id_batch: List[str] = []
-    point_batch: List[Points] = []
-    label_batch: List[Labels] = []
+    batch: list[tuple[str, Tensor, Tensor, Tensor]],
+) -> tuple[list[str], Tensor, list[Tensor], list[Tensor]]:
+    images: list[Any] = []
+    id_batch: list[str] = []
+    point_batch: list[Tensor] = []
+    label_batch: list[Tensor] = []
 
     for id, img, points, labels in batch:
         images.append(img)
@@ -41,7 +35,7 @@ def collate_fn(
         label_batch.append(labels)
     return (
         id_batch,
-        ImageBatch(torch.stack(images)),
+        torch.stack(images),
         point_batch,
         label_batch,
     )
@@ -143,14 +137,6 @@ def train(epochs: int) -> None:
                 gt_hms,
             ):
                 ...
-
-        plot = DetectionPlot(image)
-        plot.draw_points(points, color="blue", size=4)
-        plot.draw_points(gt_points, color="red", size=2)
-        plot.save(f"{config.out_dir}/plot-points-.png")
-
-        plot = DetectionPlot(torch.max(gt_hm, dim=0)[0])
-        plot.save(f"{config.out_dir}/gt-hm.png")
 
         logs["test_loss"] = loss_meter.get_value()
         # for k, v in scores.items():

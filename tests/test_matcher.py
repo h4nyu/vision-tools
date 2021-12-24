@@ -1,8 +1,4 @@
 import torch
-from vision_tools import (
-    YoloBoxBatch,
-    ConfidenceBatch,
-)
 
 
 #      targets: Targets = [

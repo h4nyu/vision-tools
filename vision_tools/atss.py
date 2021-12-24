@@ -2,7 +2,6 @@ import torch
 from torch import Tensor
 from .assign import ClosestAssign
 from torchvision.ops.boxes import box_iou
-from vision_tools import Boxes, AnchorMap
 
 
 class ATSS:
@@ -19,8 +18,8 @@ class ATSS:
 
     def __call__(
         self,
-        anchors: Boxes,
-        gt: Boxes,
+        anchors: Tensor,
+        gt: Tensor,
     ) -> Tensor:
         device = anchors.device
         matched_ids = self.assign(anchors, gt)

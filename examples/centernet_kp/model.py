@@ -1,7 +1,6 @@
 from torch import nn, Tensor
 from vision_tools.bifpn import BiFPN
 from vision_tools.centernet import Head
-from vision_tools.image import ImageBatch
 
 
 class Net(nn.Module):
@@ -28,7 +27,7 @@ class Net(nn.Module):
             nn.Sigmoid(),
         )
 
-    def forward(self, x: ImageBatch) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         fp = self.backbone(x)
         fp = self.fpn(fp)
         heatmaps = self.hm_reg(fp[self.out_idx])

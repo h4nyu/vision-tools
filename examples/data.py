@@ -1,18 +1,10 @@
 import numpy as np, cv2, torch
-from typing import *
 from torch import Tensor
 from torch.utils.data import Dataset
 from vision_tools import (
-    Boxes,
-    YoloBoxes,
-    Points,
     pascal_to_yolo,
     filter_size,
     RGB,
-    Image,
-    ImageSize,
-    YoloBoxes,
-    Labels,
     to_center_points,
     resize_points,
 )
@@ -29,8 +21,8 @@ class PolyImage:
         self.height = height
         self.width = width
         self.image = image
-        self.boxes = Boxes(torch.empty((0, 4), dtype=torch.int32))
-        self.labels: List[int] = []
+        self.boxes = torch.empty((0, 4), dtype=torch.int32)
+        self.labels: list[int] = []
 
     def add_triangle(self, max_size: int = 128) -> None:
         base_x = np.random.randint(0, self.width - max_size)
@@ -52,7 +44,7 @@ class PolyImage:
         x1 = np.max(pts[:, :, 0])
         y1 = np.max(pts[:, :, 1])
         boxes = torch.tensor([[x0, y0, x1, y1]], dtype=torch.int32)
-        self.boxes = Boxes(torch.cat([self.boxes, boxes]))
+        self.boxes = torch.cat([self.boxes, boxes])
         self.labels.append(0)
 
     def add_circle(self, max_size: int = 128) -> None:
@@ -66,7 +58,7 @@ class PolyImage:
         x1 = cx + radius
         y1 = cy + radius
         boxes = torch.tensor([[x0, y0, x1, y1]], dtype=torch.int32)
-        self.boxes = Boxes(torch.cat([self.boxes, boxes]))
+        self.boxes = torch.cat([self.boxes, boxes])
         self.labels.append(1)
 
     def add(self, max_size: int) -> None:
@@ -77,21 +69,21 @@ class PolyImage:
             ]
         )(max_size)
 
-    def __call__(self) -> Tuple[Image, Boxes, Points, Labels]:
+    def __call__(self) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         img = torch.from_numpy(self.image).permute(2, 0, 1) / 255  # [H, W]
         boxes = self.boxes
         points = to_center_points(boxes)
         points = resize_points(points, scale_x=1 / self.width, scale_y=1 / self.height)
-        labels = Labels(torch.tensor(self.labels, dtype=torch.int32))
-        return Image(img.float()), boxes, points, labels
+        labels = torch.tensor(self.labels, dtype=torch.int32)
+        return img.float(), boxes, points, labels
 
 
 class PointDataset(Dataset):
     def __init__(
         self,
-        image_size: ImageSize,
-        object_size_range: Tuple[int, int],
-        object_count_range: Tuple[int, int] = (1, 10),
+        image_size: tuple[int, int],
+        object_size_range: tuple[int, int],
+        object_count_range: tuple[int, int] = (1, 10),
         num_samples: int = 100,
     ) -> None:
         self.image_size = image_size
@@ -99,7 +91,7 @@ class PointDataset(Dataset):
         self.object_count_range = object_count_range
         self.object_size_range = object_size_range
 
-    def __getitem__(self, idx: int) -> Tuple[str, Image, Points, Labels]:
+    def __getitem__(self, idx: int) -> tuple[str, Tensor, Tensor, Tensor]:
         poly = PolyImage(
             width=self.image_size[0],
             height=self.image_size[1],
@@ -117,11 +109,11 @@ class PointDataset(Dataset):
             poly.add(s)
         image, boxes, points, labels = poly()
         _, indices = filter_size(boxes, lambda x: x > 36)
-        points = Points(points[indices])
-        labels = Labels(labels[indices])
+        points = points[indices]
+        labels = labels[indices]
         return (
             "",
-            Image(image),
+            image,
             points,
             labels,
         )
@@ -133,9 +125,9 @@ class PointDataset(Dataset):
 class BoxDataset(Dataset):
     def __init__(
         self,
-        image_size: ImageSize,
-        object_size_range: Tuple[int, int],
-        object_count_range: Tuple[int, int] = (1, 10),
+        image_size: tuple[int, int],
+        object_size_range: tuple[int, int],
+        object_count_range: tuple[int, int] = (1, 10),
         num_samples: int = 100,
     ) -> None:
         self.image_size = image_size
@@ -143,7 +135,7 @@ class BoxDataset(Dataset):
         self.object_count_range = object_count_range
         self.object_size_range = object_size_range
 
-    def __getitem__(self, idx: int) -> Tuple[str, Image, Boxes, Labels]:
+    def __getitem__(self, idx: int) -> tuple[str, Tensor, Tensor, Tensor]:
         poly = PolyImage(
             width=self.image_size[0],
             height=self.image_size[1],
@@ -161,11 +153,11 @@ class BoxDataset(Dataset):
             poly.add(s)
         image, boxes, _, labels = poly()
         boxes, indices = filter_size(boxes, lambda x: x > 36)
-        labels = Labels(labels[indices])
+        labels = labels[indices]
         return (
             "",
-            Image(image),
-            Boxes(boxes.float()),
+            image,
+            boxes.float(),
             labels,
         )
 

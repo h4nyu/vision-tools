@@ -1,16 +1,10 @@
 import torch, tqdm, os
 from typing import *
+from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 from logging import (
     getLogger,
-)
-from vision_tools import (
-    Image,
-    ImageBatch,
-    Boxes,
-    Labels,
-    Boxes,
 )
 from vision_tools.meters import MeanMeter
 import torch_optimizer as optim
@@ -24,31 +18,30 @@ from bench.kuzushiji.data import (
     Row,
 )
 from bench.kuzushiji.metrics import Metrics
-from vision_tools.utils import DetectionPlot
 
 logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: List[Tuple[Image, Boxes, Labels, Image, Row]],
-) -> Tuple[ImageBatch, List[Boxes], List[Labels], List[Image], List[Row]]:
-    images: List[Any] = []
-    row_batch: List[Row] = []
-    original_img_List: List[Image] = []
-    box_batch: List[Boxes] = []
-    label_batch: List[Labels] = []
+    batch: list[tuple[Tensor, Tensor, Tensor, Tensor, Row]],
+) -> tuple[Tensor, list[Tensor], list[Tensor], list[Tensor], list[Row]]:
+    images: list[Any] = []
+    row_batch: list[Row] = []
+    original_img_list: list[Tensor] = []
+    box_batch: list[Tensor] = []
+    label_batch: list[Tensor] = []
     for img, boxes, labels, original_img, row in batch:
         c, h, w = img.shape
         images.append(img)
         box_batch.append(boxes)
-        original_img_List.append(original_img)
+        original_img_list.append(original_img)
         row_batch.append(row)
         label_batch.append(labels)
     return (
-        ImageBatch(torch.stack(images)),
+        torch.stack(images),
         box_batch,
         label_batch,
-        original_img_List,
+        original_img_list,
         row_batch,
     )
 
@@ -151,10 +144,6 @@ def train(epochs: int) -> None:
                     gt_boxes=gt_boxes,
                     gt_labels=gt_labels,
                 )
-            plot = DetectionPlot(inv_normalize(image))
-            plot.draw_points(points, color="red")
-            plot.draw_boxes(gt_boxes, color="blue")
-            plot.save(os.path.join(config.out_dir, "test.png"))
 
         score = metrics()
         logs["test_loss"] = loss_meter.get_value()

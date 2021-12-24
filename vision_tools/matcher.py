@@ -1,27 +1,19 @@
 from torch import nn, Tensor
 import torch
-from typing_extensions import TypedDict
-from typing import *
-from vision_tools import (
-    YoloBoxBatch,
-    ConfidenceBatch,
-    YoloBoxes,
-    Labels,
-)
 
 
-Preds = Tuple[YoloBoxBatch, ConfidenceBatch]
-Targets = List[Tuple[List[YoloBoxes], List[Labels]]]
-MatchIndecies = List[Tuple[Tensor, Tensor]]
+Preds = tuple[Tensor, Tensor]
+Targets = list[tuple[list[Tensor], list[Tensor]]]
+MatchIndecies = list[tuple[Tensor, Tensor]]
 
 
 class NearnestMatcher:
     def __call__(
         self,
-        pred: YoloBoxes,
-        gt: YoloBoxes,
-        size: Tuple[int, int],
-    ) -> Tuple[Tensor, Tensor]:
+        pred: Tensor,
+        gt: Tensor,
+        size: tuple[int, int],
+    ) -> tuple[Tensor, Tensor]:
         w, h = size
         eps_dist = ((1 / w) ** 2 + (1 / w) ** 2) ** (1 / 2)
         pred_count = pred.shape[0]
@@ -46,10 +38,10 @@ class NearnestMatcher:
 class CenterMatcher:
     def __call__(
         self,
-        pred: YoloBoxes,
-        gt: YoloBoxes,
-        size: Tuple[int, int],
-    ) -> Tuple[Tensor, Tensor]:
+        pred: Tensor,
+        gt: Tensor,
+        size: tuple[int, int],
+    ) -> tuple[Tensor, Tensor]:
         w, h = size
         pixcel_dist = ((1 / w) ** 2 + (1 / h) ** 2) ** (1 / 2) / 2
         pred_count = pred.shape[0]

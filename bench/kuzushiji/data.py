@@ -1,10 +1,9 @@
-from typing import *
-from typing_extensions import TypedDict
+from typing import Any, TypedDict
+from torch import Tensor
 
 import torch, os, torchvision, PIL
 import numpy as np
 from torch.utils.data import Dataset
-from vision_tools import Image, Boxes, Labels
 from dataclasses import dataclass
 import pandas as pd
 from toolz.curried import pipe, partition, map, filter
@@ -14,7 +13,6 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from bench.kuzushiji import config
 from vision_tools.transforms import normalize, inv_normalize
-from vision_tools import Points
 from sklearn.model_selection import StratifiedKFold
 
 location = "/tmp"
@@ -28,8 +26,8 @@ Row = TypedDict(
         "image_path": str,
         "width": int,
         "height": int,
-        "boxes": Boxes,
-        "labels": Labels,
+        "boxes": Tensor,
+        "labels": Tensor,
     },
 )
 
@@ -37,15 +35,15 @@ SubRow = TypedDict(
     "SubRow",
     {
         "id": str,
-        "points": Points,
-        "labels": Labels,
+        "points": Tensor,
+        "labels": Tensor,
     },
 )
 
 
-def save_submission(rows: List[SubRow], code_map: Dict[str, int], fpath: str) -> None:
+def save_submission(rows: list[SubRow], code_map: dict[str, int], fpath: str) -> None:
     codes = list(code_map.keys())
-    csv_rows: List[Tuple[str, str]] = []
+    csv_rows: list[tuple[str, str]] = []
     for row in rows:
         id = row["id"]
         points = row["points"]
@@ -58,9 +56,9 @@ def save_submission(rows: List[SubRow], code_map: Dict[str, int], fpath: str) ->
     df.to_csv(fpath, index=False)
 
 
-def read_code_map(fp: str) -> Dict[str, int]:
+def read_code_map(fp: str) -> dict[str, int]:
     df = pd.read_csv(fp)
-    label_map: Dict[str, int] = Dict()
+    label_map: dict[str, int] = dict()
     for id, csv_row in df.iterrows():
         code, value = csv_row
         label_map[code] = id
@@ -69,12 +67,12 @@ def read_code_map(fp: str) -> Dict[str, int]:
 
 
 @memory.cache
-def read_train_rows(root_dir: str) -> List[Row]:
+def read_train_rows(root_dir: str) -> list[Row]:
     row_path = os.path.join(root_dir, "train.csv")
     code_path = os.path.join(root_dir, "unicode_translation.csv")
     codes = read_code_map(code_path)
     df = pd.read_csv(row_path)
-    rows: List[Row] = []
+    rows: list[Row] = []
     for _, csv_row in df.iterrows():
         id = csv_row["image_id"]
         labels = []
@@ -91,49 +89,49 @@ def read_train_rows(root_dir: str) -> List[Row]:
             )
         image_path = os.path.join(root_dir, "images", f"{id}.jpg")
         pil_img = PIL.Image.open(image_path)
-        row: Row = Dict(
+        row: Row = dict(
             id=id,
             image_path=image_path,
             width=pil_img.width,
             height=pil_img.height,
-            boxes=Boxes(torch.tensor(boxes)),
-            labels=Labels(torch.tensor(labels)),
+            boxes=torch.tensor(boxes),
+            labels=torch.tensor(labels),
         )
         rows.append(row)
     return rows
 
 
 # @memory.cache
-def read_test_rows(root_dir: str) -> List[Row]:
+def read_test_rows(root_dir: str) -> list[Row]:
     row_path = os.path.join(root_dir, "sample_submission.csv")
     df = pd.read_csv(row_path)
-    rows: List[Row] = []
+    rows: list[Row] = []
     for _, csv_row in df.iterrows():
         id = csv_row["image_id"]
         image_path = os.path.join(root_dir, "images", f"{id}.jpg")
         pil_img = PIL.Image.open(image_path)
-        row: Row = Dict(
+        row: Row = dict(
             id=id,
             image_path=image_path,
             width=pil_img.width,
             height=pil_img.height,
-            boxes=Boxes(torch.tensor([])),
-            labels=Labels(torch.tensor([])),
+            boxes=torch.tensor([]),
+            labels=torch.tensor([]),
         )
         rows.append(row)
     return rows
 
 
 def kfold(
-    rows: List[Row], n_splits: int, fold_idx: int = 0
-) -> Tuple[List[Row], List[Row]]:
+    rows: list[Row], n_splits: int, fold_idx: int = 0
+) -> tuple[list[Row], list[Row]]:
     skf = StratifiedKFold()
     x = range(len(rows))
-    y = pipe(rows, map(lambda x: len(x["labels"])), List)
-    pair_List: List[Tuple[List[int], List[int]]] = []
+    y = pipe(rows, map(lambda x: len(x["labels"])), list)
+    pair_list: list[tuple[list[int], list[int]]] = []
     for train_index, test_index in skf.split(x, y):
-        pair_List.append((train_index, test_index))
-    train_index, test_index = pair_List[fold_idx]
+        pair_list.append((train_index, test_index))
+    train_index, test_index = pair_list[fold_idx]
     return (
         [rows[i] for i in train_index],
         [rows[i] for i in test_index],
@@ -172,7 +170,7 @@ default_transforms = A.Compose(
 class KuzushijiDataset(Dataset):
     def __init__(
         self,
-        rows: List[Row],
+        rows: list[Row],
         transforms: Any = None,
     ) -> None:
         self.rows = rows
@@ -181,12 +179,12 @@ class KuzushijiDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> Tuple[Image, Boxes, Labels, Image, Row]:
+    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor, Tensor, Tensor, Row]:
         row = self.rows[idx]
         id = row["id"]
         pil_img = PIL.Image.open(row["image_path"])
         img_arr = np.array(pil_img)
-        original_img = Image(T.ToTensor()(img_arr))
+        original_img = T.ToTensor()(img_arr)
         transformed = self.transforms(
             image=img_arr,
             bboxes=torchvision.ops.clip_boxes_to_image(
@@ -194,7 +192,7 @@ class KuzushijiDataset(Dataset):
             ),
             labels=row["labels"],
         )
-        img = Image(transformed["image"])
-        boxes = Boxes(torch.tensor(transformed["bboxes"]))
-        labels = Labels(torch.tensor(transformed["labels"]))
+        img = transformed["image"]
+        boxes = torch.tensor(transformed["bboxes"])
+        labels = torch.tensor(transformed["labels"])
         return img, boxes, labels, original_img, row

@@ -1,12 +1,7 @@
 from typing import *
 import torch, pytest, numpy as np
 from pathlib import Path
-from vision_tools import (
-    Boxes,
-    ImageBatch,
-)
 from vision_tools.anchors import Anchors
-from vision_tools.utils import DetectionPlot
 
 
 @pytest.mark.parametrize(
@@ -39,16 +34,10 @@ def test_anchors(
     stride = 2 ** 7
     h = original_h // stride
     w = original_w // stride
-    images = ImageBatch(torch.zeros((1, 3, h, w), dtype=torch.float32))
+    images = torch.zeros((1, 3, h, w), dtype=torch.float32)
     fn = Anchors(size=size, scales=scales, ratios=ratios)
     res = fn(images, stride)
     num_anchors = len(scales) * len(ratios)
     anchor_count = w * h * num_anchors
     assert res.shape == (anchor_count, 4)
     assert 0 == res.min()
-    plot = DetectionPlot(torch.ones((3, original_h, original_w)))
-    plot.draw_boxes(boxes=Boxes(res[3:4]), color="red")
-    plot.draw_boxes(boxes=Boxes(res[-4:-3]), color="blue")
-    plot.save(
-        f"store/test-anchors-{size}-{stride}-{'-'.join([str(x) for x in  scales])}-{num_anchors}.png"
-    )

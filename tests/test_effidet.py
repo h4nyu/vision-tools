@@ -1,14 +1,11 @@
 import torch
 import pytest
 from typing import Any
-from vision_tools.image import ImageBatch
-from vision_tools.box import Boxes, Labels
 from vision_tools.effidet import (
     RegressionModel,
     ClassificationModel,
     EfficientDet,
     Criterion,
-    BoxDiff,
     ToBoxes,
 )
 from vision_tools.anchors import Anchors
@@ -34,7 +31,7 @@ def test_classification_model() -> None:
 
 
 def test_effdet_to_box() -> None:
-    images = ImageBatch(torch.ones((1, 3, 512, 512)))
+    images = torch.ones((1, 3, 512, 512))
     annotations = torch.ones((1, 10, 5))
     channels = 32
     to_boxes = ToBoxes()

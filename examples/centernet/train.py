@@ -1,12 +1,12 @@
 import torch
 from typing import *
+from torch import Tensor
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from vision_tools.meters import MeanMeter
 from vision_tools.centernet import (
     CenterNet,
-    Visualize,
     Criterion,
     ToBoxes,
 )
@@ -26,11 +26,6 @@ from vision_tools.model_loader import (
     BestWatcher,
 )
 from vision_tools import (
-    Image,
-    Boxes,
-    Labels,
-    ImageBatch,
-    YoloBoxes,
     pascal_to_yolo,
 )
 from examples.data import BoxDataset
@@ -44,12 +39,12 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: List[Tuple[str, Image, Boxes, Labels]],
-) -> Tuple[List[str], ImageBatch, List[YoloBoxes], List[Labels]]:
+    batch: List[tuple[str, Tensor, Tensor, Tensor]],
+) -> tuple[List[str], Tensor, List[Tensor], List[Tensor]]:
     images: List[Any] = []
     id_batch: List[str] = []
-    box_batch: List[YoloBoxes] = []
-    label_batch: List[Labels] = []
+    box_batch: List[Tensor] = []
+    label_batch: List[Tensor] = []
 
     for id, img, boxes, labels in batch:
         images.append(img)
@@ -59,7 +54,7 @@ def collate_fn(
         label_batch.append(labels)
     return (
         id_batch,
-        ImageBatch(torch.stack(images)),
+        torch.stack(images),
         box_batch,
         label_batch,
     )
@@ -114,7 +109,6 @@ def train(epochs: int) -> None:
         eps=1e-8,
         weight_decay=0,
     )
-    visualize = Visualize(cfg.out_dir, "test", limit=cfg.batch_size)
     metrics = MeanAveragePrecision(iou_threshold=0.3, num_classes=cfg.num_classes)
     logs: Dict[str, float] = {}
     model_loader = ModelLoader(
@@ -183,16 +177,6 @@ def train(epochs: int) -> None:
                     gt_labels=gt_labels,
                 )
 
-        visualize(
-            netout,
-            box_batch,
-            confidence_batch,
-            label_batch,
-            gt_box_batch,
-            gt_label_batch,
-            image_batch,
-            gt_hms,
-        )
         score, scores = metrics()
         logs["test_loss"] = loss_meter.get_value()
         logs["test_box"] = box_loss_meter.get_value()

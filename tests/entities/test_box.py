@@ -1,7 +1,6 @@
 import torch
 from vision_tools.box import (
     yolo_to_coco,
-    YoloBoxes,
     yolo_to_pascal,
     yolo_hflip,
     yolo_vflip,
@@ -9,21 +8,17 @@ from vision_tools.box import (
     box_hflip,
     box_vflip,
     box_padding,
-    Boxes,
 )
 import torch.nn.functional as F
-from vision_tools.utils import DetectionPlot
 
 
 def test_yolo_to_coco() -> None:
     w = 100
     h = 200
-    yolo = YoloBoxes(
-        torch.tensor(
-            [
-                [0.4, 0.5, 0.2, 0.6],
-            ]
-        )
+    yolo = torch.tensor(
+        [
+            [0.4, 0.5, 0.2, 0.6],
+        ]
     )
     coco = yolo_to_coco(yolo, (w, h))
 
@@ -31,26 +26,22 @@ def test_yolo_to_coco() -> None:
 def test_yolo_to_pascal() -> None:
     w = 100
     h = 200
-    yolo = YoloBoxes(
-        torch.tensor(
-            [
-                [0.4, 0.5, 0.2, 0.6],
-            ]
-        )
+    yolo = torch.tensor(
+        [
+            [0.4, 0.5, 0.2, 0.6],
+        ]
     )
     pascal = yolo_to_pascal(yolo, (w, h))
     assert (pascal - torch.tensor([[30, 40, 50, 160]])).abs().sum() < 1e-5
 
 
 def test_box_in_area() -> None:
-    boxes = Boxes(
-        torch.tensor(
-            [
-                [10, 10, 20, 30],
-                [20, 20, 30, 30],
-                [10, 40, 20, 50],
-            ]
-        )
+    boxes = torch.tensor(
+        [
+            [10, 10, 20, 30],
+            [20, 20, 30, 30],
+            [10, 40, 20, 50],
+        ]
     )
     area = torch.tensor([11, 0, 40, 40])
     res = box_in_area(boxes, area)
@@ -58,13 +49,11 @@ def test_box_in_area() -> None:
 
 
 def test_box_hflip() -> None:
-    boxes = Boxes(
-        torch.tensor(
-            [
-                [10, 10, 20, 30],
-                [80, 20, 90, 30],
-            ]
-        )
+    boxes = torch.tensor(
+        [
+            [10, 10, 20, 30],
+            [80, 20, 90, 30],
+        ]
     )
     img_size = (100, 100)
     res = box_hflip(boxes, img_size)
@@ -74,12 +63,10 @@ def test_box_hflip() -> None:
 
 
 def test_box_vflip() -> None:
-    boxes = Boxes(
-        torch.tensor(
-            [
-                [10, 10, 20, 30],
-            ]
-        )
+    boxes = torch.tensor(
+        [
+            [10, 10, 20, 30],
+        ]
     )
     img_size = (100, 100)
     res = box_vflip(boxes, img_size)
@@ -89,12 +76,10 @@ def test_box_vflip() -> None:
 
 
 def test_box_padding() -> None:
-    boxes = Boxes(
-        torch.tensor(
-            [
-                [10, 10, 20, 30],
-            ]
-        )
+    boxes = torch.tensor(
+        [
+            [10, 10, 20, 30],
+        ]
     )
     res = box_padding(boxes, 2)
     assert res.tolist() == [[8, 8, 22, 32]]

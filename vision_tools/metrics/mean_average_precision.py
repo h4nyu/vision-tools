@@ -1,7 +1,6 @@
-from typing import *
+from torch import Tensor
 import numpy as np, torch
 from vision_tools.metrics.average_precision import AveragePrecision
-from vision_tools import Boxes, Labels, Confidences
 
 
 class MeanAveragePrecision:
@@ -19,23 +18,23 @@ class MeanAveragePrecision:
     @torch.no_grad()
     def add(
         self,
-        boxes: Boxes,
-        confidences: Confidences,
-        labels: Labels,
-        gt_boxes: Boxes,
-        gt_labels: Labels,
+        boxes: Tensor,
+        confidences: Tensor,
+        labels: Tensor,
+        gt_boxes: Tensor,
+        gt_labels: Tensor,
     ) -> None:
         unique_gt_labels = set(np.unique(gt_labels.to("cpu").numpy()))
         unique_labels = set(np.unique(labels.to("cpu").numpy()))
         for k in unique_labels | unique_gt_labels:
             ap = self.aps[k]
             ap.add(
-                boxes=Boxes(boxes[labels == k]),
-                confidences=Confidences(confidences[labels == k]),
-                gt_boxes=Boxes(gt_boxes[gt_labels == k]),
+                boxes=boxes[labels == k],
+                confidences=confidences[labels == k],
+                gt_boxes=gt_boxes[gt_labels == k],
             )
 
     @torch.no_grad()
-    def __call__(self) -> Tuple[float, Dict[int, float]]:
+    def __call__(self) -> tuple[float, dict[int, float]]:
         aps = {k: v() for k, v in self.aps.items()}
         return np.fromiter(aps.values(), dtype=float).mean(), aps

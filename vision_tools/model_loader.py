@@ -1,7 +1,6 @@
 import torch
 from logging import getLogger
-from typing import *
-from typing_extensions import Literal
+from typing import Literal
 import operator
 import math
 from torch import nn

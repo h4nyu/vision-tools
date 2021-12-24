@@ -11,8 +11,6 @@ from bench.kuzushiji.data import (
     read_code_map,
     SubRow,
 )
-from vision_tools.utils import DetectionPlot
-from vision_tools import Labels, Points
 from bench.kuzushiji import config
 
 
@@ -31,10 +29,6 @@ def test_dataset() -> None:
     dataset = KuzushijiDataset(rows)
     sample = dataset[0]
     img, boxes, labels, _, _ = sample
-    plot = DetectionPlot(inv_normalize(img))
-    plot.draw_boxes(boxes)
-    plot.save(os.path.join(config.root_dir, "test_dataset.png"))
-
 
 def test_aug() -> None:
     rows = read_train_rows(config.root_dir)
@@ -42,10 +36,6 @@ def test_aug() -> None:
     for i in range(3):
         sample = dataset[100]
         img, boxes, labels, _, _ = sample
-        plot = DetectionPlot(inv_normalize(img))
-        plot.draw_boxes(boxes)
-        plot.save(os.path.join(config.root_dir, f"test_aug{i}.png"))
-
 
 def test_fold() -> None:
     rows = read_train_rows(config.root_dir)
@@ -53,11 +43,11 @@ def test_fold() -> None:
 
 
 def test_save_submission() -> None:
-    rows: List[SubRow] = [
+    rows: list[SubRow] = [
         {
             "id": "aaaa",
-            "points": Points(torch.tensor([[10, 20]])),
-            "labels": Labels(torch.tensor([0])),
+            "points": torch.tensor([[10, 20]]),
+            "labels": torch.tensor([0]),
         }
     ]
     code_map = read_code_map(os.path.join(config.root_dir, "unicode_translation.csv"))

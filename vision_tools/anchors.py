@@ -1,13 +1,8 @@
 import torch, numpy as np
 import itertools
-from typing import *
 from torch import nn, Tensor
 from vision_tools import (
-    Boxes,
-    ImageBatch,
     boxmaps_to_boxes,
-    BoxMaps,
-    BoxMap,
     yolo_clamp,
     box_clamp,
 )
@@ -17,8 +12,8 @@ class Anchors:
     def __init__(
         self,
         size: float = 1.0,
-        ratios: List[float] = [3 / 4, 1, 4 / 3],
-        scales: List[float] = [
+        ratios: list[float] = [3 / 4, 1, 4 / 3],
+        scales: list[float] = [
             1.0,
             (1 / 2) ** (1 / 2),
             2 ** (1 / 2),
@@ -32,10 +27,10 @@ class Anchors:
         self.scales = (
             pairs[:, 0].view(self.num_anchors, 1).expand((self.num_anchors, 2))
         ) * size
-        self.cache: Dict[Tuple[int, int], Boxes] = {}
+        self.cache: dict[tuple[int, int], Tensor] = {}
 
     @torch.no_grad()
-    def __call__(self, images: ImageBatch, stride: int) -> Boxes:
+    def __call__(self, images: Tensor, stride: int) -> Tensor:
         h, w = images.shape[2:]
         device = images.device
         if self.use_cache and (h, w) in self.cache:
@@ -65,7 +60,7 @@ class Anchors:
             .contiguous()
             .view(-1, 4)
         )
-        boxes = box_clamp(Boxes(boxes), width=w * stride, height=h * stride)
+        boxes = box_clamp(boxes, width=w * stride, height=h * stride)
         if self.use_cache:
             self.cache[(h, w)] = boxes
         return boxes
@@ -77,9 +72,9 @@ class EmptyAnchors:
         use_cache: bool = True,
     ) -> None:
         self.use_cache = use_cache
-        self.cache: Dict[Tuple[int, int], BoxMap] = {}
+        self.cache: dict[tuple[int, int], Tensor] = {}
 
-    def __call__(self, ref_images: Tensor) -> BoxMap:
+    def __call__(self, ref_images: Tensor) -> Tensor:
         h, w = ref_images.shape[-2:]
         if self.use_cache:
             if (h, w) in self.cache:
@@ -91,7 +86,7 @@ class EmptyAnchors:
         )
         box_h = torch.zeros((h, w))
         box_w = torch.zeros((h, w))
-        boxmap = BoxMap(torch.stack([grid_x, grid_y, box_w, box_h]).to(device))
+        boxmap = torch.stack([grid_x, grid_y, box_w, box_h]).to(device)
         if self.use_cache:
             self.cache[(h, w)] = boxmap
         return boxmap

@@ -3,10 +3,10 @@ from albumentations.pytorch.transforms import ToTensorV2
 import pandas as pd
 from bench.bms.config import Config
 from torch.utils.data import Dataset
-from typing import *
-from vision_tools import Image
 from bench.bms.config import Config
 from joblib import Memory
+from typing import Optional, Any
+from torch import Tensor
 
 memory = Memory("/tmp", verbose=0)
 
@@ -21,9 +21,8 @@ class InChI:
         self.value = self.value.lstrip(INCHI_PREFIX)
         layers = self.value.split("/")
         self.name = layers[1]
-        self.connections = layers[2].split(',')
+        self.connections = layers[2].split(",")
         self.num_layers = len(layers)
-
 
 
 @dataclasses.dataclass
@@ -44,9 +43,9 @@ class Row:
 
 
 @memory.cache
-def read_train_rows(config: Config, nrows: Optional[int] = None) -> List[Row]:
+def read_train_rows(config: Config, nrows: Optional[int] = None) -> list[Row]:
     df = pd.read_csv(config.train_csv_path, nrows=nrows)
-    rows: List[Row] = []
+    rows: list[Row] = []
     for (_, csv_row) in df.iterrows():
         row = Row(
             id=csv_row["image_id"],
@@ -60,7 +59,7 @@ def read_train_rows(config: Config, nrows: Optional[int] = None) -> List[Row]:
 class BMSDataset(Dataset):
     def __init__(
         self,
-        rows: List[Row],
+        rows: list[Row],
         transforms: Any,
     ) -> None:
         self.rows = rows
@@ -71,7 +70,7 @@ class BMSDataset(Dataset):
 
     def __getitem__(
         self, idx: int
-    ) -> Tuple[Image,]:
+    ) -> tuple[Tensor,]:
         ...
         # row = self.rows[idx]
         # pil_img = PIL.Image.open(row.image_path)

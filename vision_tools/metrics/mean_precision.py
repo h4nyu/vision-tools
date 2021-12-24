@@ -4,9 +4,6 @@ import numpy as np
 from collections import defaultdict
 from torch import Tensor
 from torchvision.ops.boxes import box_iou
-from vision_tools import (
-    Boxes,
-)
 
 
 def precition(iou_matrix: Tensor, threshold: float) -> float:
@@ -34,7 +31,7 @@ class MeanPrecition:
         self.iou_thresholds = iou_thresholds
 
     @torch.no_grad()
-    def __call__(self, pred_boxes: Boxes, gt_boxes: Boxes) -> float:
+    def __call__(self, pred_boxes: Tensor, gt_boxes: Tensor) -> float:
         if len(gt_boxes) == 0:
             return 1.0 if len(pred_boxes) == 0 else 0.0
         if len(pred_boxes) == 0:
