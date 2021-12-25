@@ -1,5 +1,3 @@
-some object detection code
-
 [![circleci](https://circleci.com/gh/h4nyu/vision-tools.svg?style=svg)](https://app.circleci.com/pipelines/github/h4nyu/vision-tools?filter=all)
 
 
