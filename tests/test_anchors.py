@@ -39,6 +39,5 @@ def test_anchors(
     res = fn(images, stride)
     num_anchors = len(scales) * len(ratios)
     anchor_count = w * h * num_anchors
-    print(res)
     assert res.shape == (anchor_count, 4)
     # assert 0 == res.min() // TODO

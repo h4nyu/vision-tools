@@ -7,11 +7,11 @@ Number = Union[float, int]
 
 
 def boxmap_to_boxes(x: Tensor) -> Tensor:
-    return Tensor(x.permute(2, 1, 0).reshape(-1, 4))
+    return x.permute(2, 1, 0).reshape(-1, 4)
 
 
 def boxmaps_to_boxes(x: Tensor) -> Tensor:
-    return Tensor(x.permute(3, 2, 0, 1).reshape(-1, 4))
+    return x.permute(3, 2, 0, 1).reshape(-1, 4)
 
 
 def resize_boxes(boxes: Tensor, scale: tuple[float, float]) -> Tensor:
@@ -25,7 +25,7 @@ def resize_boxes(boxes: Tensor, scale: tuple[float, float]) -> Tensor:
         x1 * wr,
         y1 * hr,
     ]
-    return Tensor(torch.stack(b, dim=-1))
+    return torch.stack(b, dim=-1)
 
 
 def yolo_hflip(yolo: Tensor) -> Tensor:
@@ -38,7 +38,7 @@ def yolo_hflip(yolo: Tensor) -> Tensor:
         w,
         h,
     ]
-    return Tensor(torch.stack(b, dim=-1))
+    return torch.stack(b, dim=-1)
 
 
 def yolo_vflip(yolo: Tensor) -> Tensor:
@@ -49,7 +49,7 @@ def yolo_vflip(yolo: Tensor) -> Tensor:
         w,
         h,
     ]
-    return Tensor(torch.stack(b, dim=-1))
+    return torch.stack(b, dim=-1)
 
 
 def shift(boxes: Tensor, diff: tuple[Number, Number]) -> Tensor:
@@ -58,7 +58,7 @@ def shift(boxes: Tensor, diff: tuple[Number, Number]) -> Tensor:
     diff_x, diff_y = diff
     boxes[:, [0, 2]] = boxes[:, [0, 2]] + diff_x
     boxes[:, [1, 3]] = boxes[:, [1, 3]] + diff_y
-    return Tensor(boxes)
+    return boxes
 
 
 def filter_size(
@@ -69,7 +69,7 @@ def filter_size(
     x0, y0, x1, y1 = boxes.unbind(-1)
     area = (x1 - x0) * (y1 - y0)
     indices = cond(area)
-    return Tensor(boxes[indices]), indices
+    return boxes[indices], indices
 
 
 def box_in_area(
@@ -96,7 +96,7 @@ def box_hflip(boxes: Tensor, image_size: tuple[Number, Number]) -> Tensor:
     box_w = boxes[:, 2] - boxes[:, 0]
     boxes[:, 0] = w - boxes[:, 0] - box_w
     boxes[:, 2] = w - boxes[:, 2] + box_w
-    return Tensor(boxes)
+    return boxes
 
 
 def box_vflip(boxes: Tensor, image_size: tuple[Number, Number]) -> Tensor:
@@ -106,18 +106,16 @@ def box_vflip(boxes: Tensor, image_size: tuple[Number, Number]) -> Tensor:
     box_h = boxes[:, 3] - boxes[:, 1]
     boxes[:, 1] = h - boxes[:, 1] - box_h
     boxes[:, 3] = h - boxes[:, 3] + box_h
-    return Tensor(boxes)
+    return boxes
 
 
 def box_padding(boxes: Tensor, offset: Number) -> Tensor:
     if len(boxes) == 0:
-        return Tensor(boxes)
+        return boxes
     x0, y0, x1, y1 = boxes.unbind(-1)
-    return Tensor(
-        torch.stack(
+    return torch.stack(
             [x0 - offset, y0 - offset, x1 + offset, y1 + offset],
             dim=-1,
-        )
     )
 
 
