@@ -27,7 +27,7 @@ jobs:
               docker load < image.tar
             else
               docker-compose build app
-              docker save cellseg > image.tar
+              docker save vision-tools-dev > image.tar
             fi
 
       - save_cache:
@@ -38,7 +38,10 @@ jobs:
       - run:
           name: Test
           command: |
-            docker-compose run --rm app pytest
+            docker-compose run --rm app pytest --cov-report=html:test-reports
+      - store_artifacts:
+          path: test-reports/
+          destination: circleci-docs
             
 workflows:
   version: 2

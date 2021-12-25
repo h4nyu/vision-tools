@@ -5,6 +5,8 @@ x-env:
 
 x-app: &app
   shm_size: '30gb'
+  image: "vision-tools-dev"
+
   build: 
     context: .
   volumes:
