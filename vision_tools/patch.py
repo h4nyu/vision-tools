@@ -3,10 +3,9 @@ import torch
 from torch import Tensor
 from typing import Callable, Optional
 
+
 @torch.no_grad()
-def grid(
-    h: int, w: int, dtype: Optional[torch.dtype] = None
-) -> tuple[Tensor, Tensor]:
+def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, Tensor]:
     grid_y, grid_x = torch.meshgrid(  # type:ignore
         torch.arange(h, dtype=dtype),
         torch.arange(w, dtype=dtype),
@@ -52,6 +51,7 @@ class ToPatches:
         ).to(device)
         patch_grid = index.permute([2, 1, 0]).contiguous().view(-1, 2) * self.patch_size
         return images, patches, patch_grid
+
 
 class MergePatchedMasks:
     def __init__(
