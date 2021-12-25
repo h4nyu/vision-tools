@@ -25,7 +25,8 @@ setup(
             "torch-optimizer",
             "albumentations",
             "scikit-learn",
-            "tensorboard"
+            "tensorboard",
+            "codecov",
         ]
     },
 )
