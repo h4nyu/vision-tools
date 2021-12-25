@@ -1,0 +1,19 @@
+version: 2
+mergeable:
+  - when: pull_request.*, pull_request_review.*
+    validate:
+      - do: assignee
+        max:
+          count: 1
+        min:
+          count: 1
+      - do: title
+        must_exclude:
+          regex: ^\[WIP\]
+          message: This is work in progress. Do not merge yet.
+      - do: description
+        no_empty:
+          enabled: true
+      - do: label
+        no_empty:
+          enabled: false
