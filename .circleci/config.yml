@@ -15,6 +15,7 @@ jobs:
           name: "Setup environment variables"
           command: |
             echo 'export COMPOSE_FILE=docker-compose.yaml' >> $BASH_ENV
+            echo 'export TENSORBOARD_PORT=8008' >> $BASH_ENV
 
       - restore_cache:
           keys:
