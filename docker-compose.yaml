@@ -1,7 +1,11 @@
 version: '2.4'
 
-x-env:
+x-env: &env
   TENSORBOARD_PORT: ${TENSORBOARD_PORT:?}
+  CODECOV_TOKEN: &CODECOV_TOKEN ${CODECOV_TOKEN}
+  KAGGLE_USERNAME: &KAGGLE_USERNAME ${KAGGLE_USERNAME}
+  KAGGLE_KEY: &KAGGLE_KEY ${KAGGLE_KEY}
+  
 
 x-app: &app
   shm_size: '30gb'
@@ -19,8 +23,9 @@ services:
   app:
     <<: *app
     environment:
-      KAGGLE_USERNAME:
-      KAGGLE_KEY:
+      KAGGLE_USERNAME: *KAGGLE_USERNAME
+      KAGGLE_KEY: *KAGGLE_KEY
+      CODECOV_TOKEN: *CODECOV_TOKEN
 
   tensorboard:
     <<: *app
