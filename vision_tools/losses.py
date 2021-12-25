@@ -1,8 +1,6 @@
 import torch, numpy as np, torch.nn as nn, torch.nn.functional as F
-from typing_extensions import Literal
-from typing import *
+from typing import Literal
 from torch import Tensor
-from vnet import Boxes
 from torchvision.ops.boxes import box_area
 
 Reduction = Literal["none", "mean", "sum"]
@@ -13,7 +11,7 @@ class HuberLoss:
         self.delta = delta
         self.size_average = size_average
 
-    def __call__(self, src: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
+    def __call__(self, src: Tensor, tgt: Tensor) -> Tensor:
         err = src - tgt
         abs_err = err.abs()
         quadratic = torch.clamp(abs_err, max=self.delta)
@@ -92,7 +90,7 @@ class FocalLoss:
 
 
 class IoU:
-    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> Tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Tensor, boxes2: Tensor) -> tuple[Tensor, Tensor]:
         area1 = box_area(boxes1)
         area2 = box_area(boxes2)
         lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
@@ -111,7 +109,7 @@ class GIoU:
     def __init__(self) -> None:
         self.iou = IoU()
 
-    def __call__(self, src: Boxes, tgt: Boxes) -> Tensor:
+    def __call__(self, src: Tensor, tgt: Tensor) -> Tensor:
         iou, union = self.iou(src, tgt)
         lt = torch.min(src[:, None, :2], tgt[:, :2])
         rb = torch.max(src[:, None, 2:], tgt[:, 2:])  # [N,M,2]
@@ -125,7 +123,7 @@ class DIoU:
         self.iou = IoU()
         self.eps = 1e-4
 
-    def __call__(self, src: Boxes, tgt: Boxes) -> Tensor:
+    def __call__(self, src: Tensor, tgt: Tensor) -> Tensor:
         iou, _ = self.iou(src, tgt)
         s_ctr = (src[:, None, :2] + src[:, None, 2:]) / 2
         t_ctr = (tgt[:, :2] + tgt[:, 2:]) / 2
@@ -143,7 +141,7 @@ class IoULoss:
     def __init__(self, size_average: bool = True) -> None:
         self.size_average = size_average
 
-    def __call__(self, boxes1: Boxes, boxes2: Boxes) -> Tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Tensor, boxes2: Tensor) -> tuple[Tensor, Tensor]:
         device = boxes1.device
         if len(boxes1) == 0 and len(boxes2) == 0:
             return torch.tensor(0.0, device=device), torch.zeros(0, device=device)
@@ -169,7 +167,7 @@ class DIoULoss:
         self.iouloss = IoULoss(size_average=size_average)
         self.size_average = size_average
 
-    def __call__(self, src: Boxes, tgt: Boxes) -> Tensor:
+    def __call__(self, src: Tensor, tgt: Tensor) -> Tensor:
         device = src.device
         if len(src) == 0 and len(tgt) == 0:
             if self.size_average:

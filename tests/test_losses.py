@@ -2,7 +2,7 @@ import torch
 import pytest
 import typing as t
 import torch.nn.functional as F
-from vnet.losses import (
+from vision_tools.losses import (
     DIoU,
     GIoU,
     DIoULoss,
@@ -10,14 +10,13 @@ from vnet.losses import (
     FocalLoss,
     SigmoidFocalLoss,
 )
-from vnet import Boxes
 from torch import nn, Tensor
 
 
 def test_iouloss() -> None:
     fn = IoULoss()
-    pred_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.25, 0.25], [0.2, 0.2, 0.3, 0.3]]))
-    tgt_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
+    pred_boxes = torch.tensor([[0.2, 0.2, 0.25, 0.25], [0.2, 0.2, 0.3, 0.3]])
+    tgt_boxes = torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
     iouloss, union = fn(
         pred_boxes,
         tgt_boxes,
@@ -27,15 +26,13 @@ def test_iouloss() -> None:
 
 def test_diouloss() -> None:
     fn = DIoULoss()
-    pred_boxes = Boxes(
-        torch.tensor(
-            [
-                [0.2, 0.2, 0.3, 0.3],
-                [0.2, 0.2, 0.3, 0.3],
-            ]
-        )
+    pred_boxes = torch.tensor(
+        [
+            [0.2, 0.2, 0.3, 0.3],
+            [0.2, 0.2, 0.3, 0.3],
+        ]
     )
-    tgt_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]]))
+    tgt_boxes = torch.tensor([[0.2, 0.2, 0.3, 0.3], [0.2, 0.2, 0.3, 0.3]])
     res = fn(
         pred_boxes,
         tgt_boxes,
@@ -45,15 +42,13 @@ def test_diouloss() -> None:
 
 def test_giou() -> None:
     fn = GIoU()
-    pred_boxes = Boxes(
-        torch.tensor(
-            [
-                [0.1, 0.1, 0.2, 0.2],
-                [0.2, 0.2, 0.3, 0.3],
-            ]
-        )
+    pred_boxes = torch.tensor(
+        [
+            [0.1, 0.1, 0.2, 0.2],
+            [0.2, 0.2, 0.3, 0.3],
+        ]
     )
-    tgt_boxes = Boxes(torch.tensor([[0.2, 0.2, 0.3, 0.3]]))
+    tgt_boxes = torch.tensor([[0.2, 0.2, 0.3, 0.3]])
     res = fn(
         pred_boxes,
         tgt_boxes,

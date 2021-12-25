@@ -2,7 +2,7 @@ import typing as t
 import pytest
 import numpy as np
 import torch
-from vnet.backbones.resnet import (
+from vision_tools.backbones.resnet import (
     ResNetBackbone,
     ModelName,
 )

@@ -1,31 +1,25 @@
 import torch
+from torch import Tensor
 from typing import *
 from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
-from vnet.backbones.effnet import (
+from vision_tools.backbones.effnet import (
     EfficientNetBackbone,
 )
-from vnet import (
-    Image,
-    ImageBatch,
-    Boxes,
-    Labels,
-    Boxes,
-)
-from vnet.metrics import MeanAveragePrecision
+from vision_tools.metrics import MeanAveragePrecision
 from tqdm import tqdm
-from vnet.effidet import (
+from vision_tools.effidet import (
     EfficientDet,
     Criterion,
     Visualize,
     ToBoxes,
     Anchors,
 )
-from vnet.model_loader import (
+from vision_tools.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from vnet.meters import MeanMeter
+from vision_tools.meters import MeanMeter
 from examples.data import BoxDataset
 import torch_optimizer as optim
 from examples.effdet import config
@@ -37,12 +31,12 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: List[Tuple[str, Image, Boxes, Labels]],
-) -> Tuple[ImageBatch, List[Boxes], List[Labels], List[str]]:
+    batch: List[tuple[str, Tensor, Tensor, Tensor]],
+) -> tuple[Tensor, List[Tensor], List[Tensor], List[str]]:
     images: List[Any] = []
     id_batch: List[str] = []
-    box_batch: List[Boxes] = []
-    label_batch: List[Labels] = []
+    box_batch: List[Tensor] = []
+    label_batch: List[Tensor] = []
     for id, img, boxes, labels in batch:
         c, h, w = img.shape
         images.append(img)
@@ -50,7 +44,7 @@ def collate_fn(
         id_batch.append(id)
         label_batch.append(labels)
     return (
-        ImageBatch(torch.stack(images)),
+        torch.stack(images),
         box_batch,
         label_batch,
         id_batch,
@@ -129,7 +123,7 @@ def train(epochs: int) -> None:
         shuffle=True,
     )
     scaler = GradScaler()
-    logs: Dict[str, float] = {}
+    logs: dict[str, float] = {}
 
     def train_step() -> None:
         model.train()

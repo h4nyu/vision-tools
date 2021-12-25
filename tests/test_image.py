@@ -1,4 +1,4 @@
-from vnet import inv_scale_and_pad
+from vision_tools import inv_scale_and_pad
 
 
 def test_inv_scale_and_pad() -> None:

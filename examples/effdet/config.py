@@ -1,5 +1,5 @@
 from typing import *
-from vnet.model_loader import WatchMode
+from vision_tools.model_loader import WatchMode
 
 # train
 confidence_threshold = 0.01
@@ -24,7 +24,7 @@ input_size = (256, 256)
 object_count_range = (0, 32)
 object_size_range = (32, 64)
 out_dir = "/store/efficientdet"
-metric: Tuple[str, WatchMode] = ("score", "min")
+metric: tuple[str, WatchMode] = ("score", "min")
 pretrained = True
 
 # criterion

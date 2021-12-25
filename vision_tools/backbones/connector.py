@@ -1,7 +1,7 @@
 import torch.nn as nn
 from typing import *
 from ..modules import Conv2dStaticSamePadding
-from vnet import FP
+from vision_tools import FP
 
 
 class BackboneConnector(nn.Module):

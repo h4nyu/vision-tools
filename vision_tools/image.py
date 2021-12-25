@@ -1,15 +1,11 @@
-from typing import *
 from torch import Tensor, ByteTensor, FloatTensor
 
-Image = NewType("Image", Tensor)  # [C, H, W] dtype
-ImageBatch = NewType("ImageBatch", Tensor)  # [B, C, H, W]
-ImageSize = Tuple[int, int]  # W, H
-RGB = Tuple[int, int, int]
+RGB = tuple[int, int, int]
 
 
 def inv_scale_and_pad(
-    original: Tuple[int, int], padded: Tuple[int, int]
-) -> Tuple[float, Tuple[float, float]]:
+    original: tuple[int, int], padded: tuple[int, int]
+) -> tuple[float, tuple[float, float]]:
     original_w, original_h = original
     padded_w, padded_h = padded
     original_longest = max(original)

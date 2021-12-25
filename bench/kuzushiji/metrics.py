@@ -1,6 +1,5 @@
 import torch
-from typing import *
-from vnet import Boxes, Labels, Points
+from torch import Tensor
 
 
 class Metrics:
@@ -11,11 +10,11 @@ class Metrics:
 
     def add(
         self,
-        points: Points,
-        labels: Labels,
-        gt_boxes: Boxes,
-        gt_labels: Labels,
-    ) -> Tuple[int, int, int]:  # tp, fp, fn
+        points: Tensor,
+        labels: Tensor,
+        gt_boxes: Tensor,
+        gt_labels: Tensor,
+    ) -> tuple[int, int, int]:  # tp, fp, fn
         gt_count = len(gt_labels)
         pred_count = len(labels)
         tp = 0

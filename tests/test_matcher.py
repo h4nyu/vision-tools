@@ -1,8 +1,4 @@
 import torch
-from vnet import (
-    YoloBoxBatch,
-    ConfidenceBatch,
-)
 
 
 #      targets: Targets = [

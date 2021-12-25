@@ -1,4 +1,4 @@
-from vnet.utils import init_seed
+from vision_tools.utils import seed_everything
 import os
 from logging import (
     getLogger,
@@ -23,4 +23,4 @@ file_handler.setFormatter(handler_format)
 
 logger.addHandler(stream_handler)
 logger.addHandler(file_handler)
-init_seed()
+seed_everything(10)

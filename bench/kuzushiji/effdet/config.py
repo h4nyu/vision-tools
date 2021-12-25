@@ -1,16 +1,16 @@
-import os, vnet
+import os, vision_tools
 from bench.kuzushiji.config import Config as BaseConfig
 from typing import Any
 import torch_optimizer as optim
 import dataclasses
-from vnet.model_loader import (
+from vision_tools.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from vnet.backbones.effnet import (
+from vision_tools.backbones.effnet import (
     EfficientNetBackbone,
 )
-from vnet.effidet import (
+from vision_tools.effidet import (
     EfficientDet,
     Criterion,
     Visualize,
@@ -58,7 +58,7 @@ class Config(BaseConfig):
             anchors=anchors,
             box_depth=self.box_depth,
         ).to(self.device)
-        self.to_points = vnet.to_center_points
+        self.to_points = vision_tools.to_center_points
 
         self.optimizer = optim.RAdam(
             self.model.parameters(),
@@ -81,7 +81,7 @@ class Config(BaseConfig):
             confidence_threshold=self.confidence_threshold,
             iou_threshold=self.iou_threshold,
         )
-        self.box_padding = lambda b: vnet.box_padding(b, -6)
+        self.box_padding = lambda b: vision_tools.box_padding(b, -6)
         self.criterion = Criterion(
             topk=anchors.num_anchors * len(self.out_ids) * 10,
             box_weight=0.5,

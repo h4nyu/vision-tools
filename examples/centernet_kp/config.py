@@ -1,14 +1,14 @@
 from typing import *
-from vnet.centernet import ToPoints, HMLoss
-from vnet.mkmaps import MkPointMaps
-from vnet.backbones.resnet import (
+from vision_tools.centernet import ToPoints, HMLoss
+from vision_tools.mkmaps import MkPointMaps
+from vision_tools.backbones.resnet import (
     ResNetBackbone,
 )
-from vnet.model_loader import (
+from vision_tools.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from vnet.model_loader import WatchMode
+from vision_tools.model_loader import WatchMode
 from .model import Net
 
 num_classes = 2
@@ -22,7 +22,7 @@ batch_size = 8
 out_idx = 4
 channels = 128
 input_size = (512, 512)
-metric: Tuple[str, WatchMode] = ("score", "max")
+metric: tuple[str, WatchMode] = ("score", "max")
 
 heatmap_weight = 1.0
 box_weight = 5.0

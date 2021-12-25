@@ -1,18 +1,15 @@
 import torch
 import pytest
 from typing import Any
-from vnet.image import ImageBatch
-from vnet.box import Boxes, Labels
-from vnet.effidet import (
+from vision_tools.effidet import (
     RegressionModel,
     ClassificationModel,
     EfficientDet,
     Criterion,
-    BoxDiff,
     ToBoxes,
 )
-from vnet.anchors import Anchors
-from vnet.backbones.effnet import (
+from vision_tools.anchors import Anchors
+from vision_tools.backbones.effnet import (
     EfficientNetBackbone,
 )
 
@@ -34,7 +31,7 @@ def test_classification_model() -> None:
 
 
 def test_effdet_to_box() -> None:
-    images = ImageBatch(torch.ones((1, 3, 512, 512)))
+    images = torch.ones((1, 3, 512, 512))
     annotations = torch.ones((1, 10, 5))
     channels = 32
     to_boxes = ToBoxes()

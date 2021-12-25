@@ -3,22 +3,14 @@ import pytest
 import numpy as np
 import torch
 from typing import Any
-from vnet.centernet import (
+from torch import Tensor
+from vision_tools.centernet import (
     CenterNet,
     ToBoxes,
     HMLoss,
-    Visualize,
     ToPoints,
 )
-from vnet import (
-    YoloBoxes,
-    Image,
-    ImageSize,
-    ImageBatch,
-)
-from vnet.box import yolo_to_coco
-from vnet.utils import DetectionPlot
-from vnet.backbones.resnet import (
+from vision_tools.backbones.resnet import (
     ResNetBackbone,
 )
 from torch.utils.data import DataLoader

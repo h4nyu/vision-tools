@@ -1,5 +1,5 @@
 import torch
-from vnet.bottlenecks import (
+from vision_tools.bottlenecks import (
     MobileV3,
     SENextBottleneck2d,
 )

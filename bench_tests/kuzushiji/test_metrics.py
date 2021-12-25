@@ -1,56 +1,47 @@
 import torch
 from bench.kuzushiji.metrics import Metrics
-from vnet import Boxes, Labels, Points
 
 
 def test_metrics() -> None:
-    points = Points(
-        torch.tensor(
+    points = torch.tensor(
+        [
             [
-                [
-                    3,
-                    3,
-                ],
-                [
-                    24,
-                    25,
-                ],
-            ]
-        )
+                3,
+                3,
+            ],
+            [
+                24,
+                25,
+            ],
+        ]
     )
-    labels = Labels(
-        torch.tensor(
+    labels = torch.tensor(
+        [
+            0,
+            1,
+        ]
+    )
+    gt_boxes = torch.tensor(
+        [
             [
                 0,
-                1,
-            ]
-        )
-    )
-    gt_boxes = Boxes(
-        torch.tensor(
-            [
-                [
-                    0,
-                    0,
-                    11,
-                    11,
-                ],
-                [
-                    19,
-                    19,
-                    31,
-                    31,
-                ],
-            ]
-        )
-    )
-    gt_labels = Labels(
-        torch.tensor(
-            [
                 0,
-                1,
-            ]
-        )
+                11,
+                11,
+            ],
+            [
+                19,
+                19,
+                31,
+                31,
+            ],
+        ]
+    )
+    gt_labels = torch.tensor(
+        [
+            0,
+            1,
+        ]
     )
 
     metrics = Metrics()

@@ -1,11 +1,10 @@
 import torch, torchvision
 import torch.nn as nn
 from torch import Tensor
-from typing import *
-from typing_extensions import Literal
-from vnet import FP
+from typing import Literal
+from vision_tools import FP
 
-SideChannels = Tuple[int, int, int, int, int]
+SideChannels = tuple[int, int, int, int, int]
 ModelName = Literal[
     "resnet18",
     "resnet34",
@@ -14,7 +13,7 @@ ModelName = Literal[
     "resnet152",
 ]
 
-SIDEOUT: Dict[ModelName, SideChannels] = {
+SIDEOUT: dict[ModelName, SideChannels] = {
     "resnet18": (64, 64, 128, 256, 512),
     "resnet34": (64, 64, 128, 256, 512),
     "resnet50": (64, 256, 512, 1024, 2048),

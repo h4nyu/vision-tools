@@ -1,40 +1,30 @@
 import torch
 from typing import *
+from torch import Tensor
 from tqdm import tqdm
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
-from vnet.meters import MeanMeter
-from vnet.centernet import (
+from vision_tools.meters import MeanMeter
+from torchvision.ops import box_convert
+from vision_tools.centernet import (
     CenterNet,
-    Visualize,
     Criterion,
     ToBoxes,
 )
-from vnet import (
-    yolo_to_pascal,
-)
 import torch_optimizer as optim
-from vnet.mkmaps import (
+from vision_tools.mkmaps import (
     MkGaussianMaps,
     MkCenterBoxMaps,
 )
-from vnet.backbones.resnet import (
+from vision_tools.backbones.resnet import (
     ResNetBackbone,
 )
-from vnet.model_loader import (
+from vision_tools.model_loader import (
     ModelLoader,
     BestWatcher,
 )
-from vnet import (
-    Image,
-    Boxes,
-    Labels,
-    ImageBatch,
-    YoloBoxes,
-    pascal_to_yolo,
-)
 from examples.data import BoxDataset
-from vnet.metrics import MeanAveragePrecision
+from vision_tools.metrics import MeanAveragePrecision
 from examples.centernet import config as cfg
 from logging import (
     getLogger,
@@ -44,22 +34,22 @@ logger = getLogger(__name__)
 
 
 def collate_fn(
-    batch: List[Tuple[str, Image, Boxes, Labels]],
-) -> Tuple[List[str], ImageBatch, List[YoloBoxes], List[Labels]]:
+    batch: List[tuple[str, Tensor, Tensor, Tensor]],
+) -> tuple[List[str], Tensor, List[Tensor], List[Tensor]]:
     images: List[Any] = []
     id_batch: List[str] = []
-    box_batch: List[YoloBoxes] = []
-    label_batch: List[Labels] = []
+    box_batch: List[Tensor] = []
+    label_batch: List[Tensor] = []
 
     for id, img, boxes, labels in batch:
         images.append(img)
         _, h, w = img.shape
-        box_batch.append(pascal_to_yolo(boxes, (w, h)))
+        box_batch.append(box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy"))
         id_batch.append(id)
         label_batch.append(labels)
     return (
         id_batch,
-        ImageBatch(torch.stack(images)),
+        torch.stack(images),
         box_batch,
         label_batch,
     )
@@ -114,7 +104,6 @@ def train(epochs: int) -> None:
         eps=1e-8,
         weight_decay=0,
     )
-    visualize = Visualize(cfg.out_dir, "test", limit=cfg.batch_size)
     metrics = MeanAveragePrecision(iou_threshold=0.3, num_classes=cfg.num_classes)
     logs: Dict[str, float] = {}
     model_loader = ModelLoader(
@@ -176,23 +165,13 @@ def train(epochs: int) -> None:
                 box_batch, gt_box_batch, label_batch, gt_label_batch, confidence_batch
             ):
                 metrics.add(
-                    boxes=yolo_to_pascal(boxes, (w, h)),
+                    boxes=box_convert(boxes, in_fmt="cxcywh", out_fmt="xyxy"),
                     confidences=confidences,
                     labels=labels,
-                    gt_boxes=yolo_to_pascal(gt_boxes, (w, h)),
+                    gt_boxes=box_convert(gt_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
                     gt_labels=gt_labels,
                 )
 
-        visualize(
-            netout,
-            box_batch,
-            confidence_batch,
-            label_batch,
-            gt_box_batch,
-            gt_label_batch,
-            image_batch,
-            gt_hms,
-        )
         score, scores = metrics()
         logs["test_loss"] = loss_meter.get_value()
         logs["test_box"] = box_loss_meter.get_value()
