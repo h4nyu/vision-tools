@@ -14,7 +14,7 @@ jobs:
       - run:
           name: "Setup environment variables"
           command: |
-            echo 'export COMPOSE_FILE=docker-compose.yml' >> $BASH_ENV
+            echo 'export COMPOSE_FILE=docker-compose.yaml' >> $BASH_ENV
 
       - restore_cache:
           keys:
