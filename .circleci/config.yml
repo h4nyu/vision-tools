@@ -39,7 +39,7 @@ jobs:
       - run:
           name: Test
           command: |
-            docker-compose run --rm app pytest --cov-report=html:test-reports
+            docker-compose run --rm app pytest --cov=vision_tools --cov-report=html:test-reports
       - store_artifacts:
           path: test-reports/
           destination: circleci-docs
