@@ -4,7 +4,6 @@ from torch import Tensor
 from torchvision.ops.boxes import box_iou
 
 
-
 class ClosestAssign:
     """
     select k anchors whose center are closest to

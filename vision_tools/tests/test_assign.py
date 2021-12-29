@@ -25,6 +25,7 @@ def test_closest_assign() -> None:
     matched_ids = fn(anchor, gt)
     assert matched_ids.tolist() == [[1, 0], [2, 1], [3, 2]]
 
+
 def test_simota() -> None:
     anchor_points = torch.zeros(4, 2)
     anchor_points[0] = torch.tensor([5, 5])
