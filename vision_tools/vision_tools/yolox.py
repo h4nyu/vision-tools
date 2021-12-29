@@ -101,17 +101,27 @@ class YOLOXHead(nn.Module):
     def __init__(
         self,
         in_channels: list[int],
+        hidden_channels: int,
         num_classes: int = 1,
-        reid_dim: int = 0,
-        width: float = 1.0,
         depthwise: bool = False,
         act: Callable = DefaultActivation,
     ) -> None:
         super().__init__()
-        Conv = DWConv if depthwise else ConvBnAct
-        self.stems = nn.ModuleList()
+        self.heads = nn.ModuleList(
+            [
+                DecoupledHead(
+                    in_channels=c,
+                    num_classes=num_classes,
+                    hidden_channels=hidden_channels,
+                    act=act,
+                )
+                for c in in_channels
+            ]
+        )
 
     def forward(self, feats: list[Tensor]) -> list[Tensor]:
+        return [m(x) for m, x in zip(self.heads, feats)]
+
         ...
         # outputs = []
         # for k, (cls_conv, reg_conv, x) in enumerate(zip(self.cls_convs, self.reg_convs, feats)):
