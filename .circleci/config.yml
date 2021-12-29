@@ -7,7 +7,6 @@ jobs:
       resource_class: large 
       docker_layer_caching: true
 
-    working_directory: ~/repo
     steps:
       - checkout
 
