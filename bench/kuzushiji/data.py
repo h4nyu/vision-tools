@@ -167,6 +167,7 @@ default_transforms = A.Compose(
 )
 
 
+
 class KuzushijiDataset(Dataset):
     def __init__(
         self,
