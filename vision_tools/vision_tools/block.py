@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from torch import Tensor
 from typing import Callable
@@ -73,3 +74,19 @@ class DWConv(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         x = self.dconv(x)
         return self.pconv(x)
+
+
+class SPP(nn.Module):
+    """SpatialPyramidPooling"""
+
+    def __init__(self, kernel_sizes: list[int] = [5, 9, 13]) -> None:
+        super().__init__()
+        self.pools = nn.ModuleList(
+            [
+                nn.MaxPool2d(kernel_size=ks, stride=1, padding=ks // 2)
+                for ks in kernel_sizes
+            ]
+        )
+
+    def forward(self, x: torch.Tensor):
+        return torch.cat([x] + [pool(x) for pool in self.pools], dim=1)
