@@ -17,3 +17,8 @@ TENSORBOARD_PORT=8008
 ```
 docker-compose build app
 ```
+
+| Packages                                   | Description  |
+| :-                                         | :-           |
+| **[vision_tools](./vision_tools)**         | lib          |
+| **[kuzushiji_bench](./kuzushiji_bench)**   | kuzushiji    |
