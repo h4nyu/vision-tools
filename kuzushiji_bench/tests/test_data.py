@@ -15,9 +15,11 @@ from kuzushiji_bench.data import (
     # SubRow,
 )
 
+
 @pytest.fixture
 def config() -> Any:
-    return OmegaConf.load('/app/kuzushiji_bench/config/dataset.yaml')
+    return OmegaConf.load("/app/kuzushiji_bench/config/dataset.yaml")
+
 
 # def test_read_train_rows(config:Any) -> None:
 #     rows = read_train_rows(config.root_dir)

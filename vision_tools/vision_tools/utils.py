@@ -101,5 +101,3 @@ def draw_save(
     else:
         plot = image
     save_image(plot, path)
-
-

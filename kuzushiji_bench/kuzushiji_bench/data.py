@@ -166,7 +166,6 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 # )
 
 
-
 class KuzushijiDataset(Dataset):
     def __init__(
         self,
