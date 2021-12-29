@@ -18,6 +18,7 @@ setup(
             "black",
             "pytest-cov",
             "pytest-benchmark",
+            "pytest-mypy",
             "mypy",
             "kaggle",
             "pandas",

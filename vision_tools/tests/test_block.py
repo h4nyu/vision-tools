@@ -10,6 +10,7 @@ def test_conv_bn_act() -> None:
     res = b(inputs)
     assert res.shape == (2, out_channels, 32, 32)
 
+
 def test_dwconv() -> None:
     in_channels = 32
     out_channels = 24
