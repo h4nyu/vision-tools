@@ -39,3 +39,37 @@ class ConvBnAct(nn.Module):
 
     def fuseforward(self, x: Tensor) -> Tensor:
         return self.act(self.conv(x))
+
+
+class DWConv(nn.Module):
+    """Depthwise Conv + Conv"""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int = 1,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        self.dconv = ConvBnAct(
+            in_channels=in_channels,
+            out_channels=in_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            groups=in_channels,
+            act=act,
+        )
+        self.pconv = ConvBnAct(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            groups=1,
+            act=act,
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.dconv(x)
+        return self.pconv(x)
