@@ -17,4 +17,3 @@ TENSORBOARD_PORT=8008
 ```
 docker-compose build app
 ```
-
