@@ -121,25 +121,3 @@ class YOLOXHead(nn.Module):
 
     def forward(self, feats: list[Tensor]) -> list[Tensor]:
         return [m(x) for m, x in zip(self.heads, feats)]
-
-        ...
-        # outputs = []
-        # for k, (cls_conv, reg_conv, x) in enumerate(zip(self.cls_convs, self.reg_convs, feats)):
-        #     x = self.stems[k](x)
-
-        #     # classify
-        #     cls_feat = cls_conv(x)
-        #     cls_output = self.cls_preds[k](cls_feat)
-
-        #     # regress, object, (reid)
-        #     reg_feat = reg_conv(x)
-        #     reg_output = self.reg_preds[k](reg_feat)
-        #     obj_output = self.obj_preds[k](reg_feat)
-        #     if self.reid_dim > 0:
-        #         reid_output = self.reid_preds[k](reg_feat)
-        #         output = torch.cat([reg_output, obj_output, cls_output, reid_output], 1)
-        #     else:
-        #         output = torch.cat([reg_output, obj_output, cls_output], 1)
-        #     outputs.append(output)
-
-        # return outputs
