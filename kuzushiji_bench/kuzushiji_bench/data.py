@@ -11,7 +11,6 @@ from joblib import Memory
 import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
-from bench.kuzushiji import config
 from vision_tools.transforms import normalize, inv_normalize
 from sklearn.model_selection import StratifiedKFold
 
@@ -140,41 +139,42 @@ def kfold(
 
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
 
-train_transforms = A.Compose(
-    [
-        A.LongestMaxSize(max_size=config.image_size),
-        A.PadIfNeeded(
-            min_height=config.image_size, min_width=config.image_size, border_mode=0
-        ),
-        A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
-        A.RandomCrop(config.image_size, config.image_size, p=1.0),
-        A.ToGray(),
-        normalize,
-        ToTensorV2(),
-    ],
-    bbox_params=bbox_params,
-)
-default_transforms = A.Compose(
-    [
-        A.LongestMaxSize(max_size=config.image_size),
-        A.PadIfNeeded(
-            min_height=config.image_size, min_width=config.image_size, border_mode=0
-        ),
-        normalize,
-        ToTensorV2(),
-    ],
-    bbox_params=bbox_params,
-)
+# train_transforms = A.Compose(
+#     [
+#         A.LongestMaxSize(max_size=config.image_size),
+#         A.PadIfNeeded(
+#             min_height=config.image_size, min_width=config.image_size, border_mode=0
+#         ),
+#         A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
+#         A.RandomCrop(config.image_size, config.image_size, p=1.0),
+#         A.ToGray(),
+#         normalize,
+#         ToTensorV2(),
+#     ],
+#     bbox_params=bbox_params,
+# )
+# default_transforms = A.Compose(
+#     [
+#         A.LongestMaxSize(max_size=config.image_size),
+#         A.PadIfNeeded(
+#             min_height=config.image_size, min_width=config.image_size, border_mode=0
+#         ),
+#         normalize,
+#         ToTensorV2(),
+#     ],
+#     bbox_params=bbox_params,
+# )
+
 
 
 class KuzushijiDataset(Dataset):
     def __init__(
         self,
         rows: list[Row],
-        transforms: Any = None,
+        transforms: Any,
     ) -> None:
         self.rows = rows
-        self.transforms = default_transforms if transforms is None else transforms
+        self.transforms = transforms
 
     def __len__(self) -> int:
         return len(self.rows)

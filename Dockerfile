@@ -42,4 +42,5 @@ RUN cd /usr/bin \
 
 WORKDIR /app
 COPY . .
-RUN pip install -e .[dev]
+RUN pip install -e vision_tools[dev] \
+    && pip install -e kuzushiji_bench
