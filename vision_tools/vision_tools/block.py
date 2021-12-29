@@ -88,5 +88,83 @@ class SPP(nn.Module):
             ]
         )
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor) -> Tensor:
         return torch.cat([x] + [pool(x) for pool in self.pools], dim=1)
+
+
+class ResBlock(nn.Module):
+    """Standard bottleneck"""
+
+    def __init__(
+        self,
+        in_channels: int,
+        expansion: float = 0.5,
+        depthwise: bool = False,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        hidden_channels = int(in_channels * expansion)
+        Conv = DWConv if depthwise else ConvBnAct
+        self.conv = nn.Sequential(
+            ConvBnAct(
+                in_channels=in_channels,
+                out_channels=hidden_channels,
+                kernel_size=1,
+                stride=1,
+                act=act,
+            ),
+            Conv(
+                in_channels=hidden_channels,
+                out_channels=in_channels,
+                kernel_size=3,
+                stride=1,
+                act=act,
+            ),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        out = self.conv(x)
+        return out + x
+
+
+class CSP(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        depth: int = 1,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        hidden_channels = out_channels // 2  # hidden channels
+
+        self.main = nn.Sequential(
+            ConvBnAct(
+                in_channels=in_channels,
+                out_channels=hidden_channels,
+                kernel_size=1,
+                act=act,
+            ),
+            *[
+                ResBlock(in_channels=hidden_channels, expansion=1.0, act=act)
+                for _ in range(depth)
+            ]
+        )
+        self.bypass = ConvBnAct(
+            in_channels=in_channels,
+            out_channels=hidden_channels,
+            kernel_size=1,
+            act=act,
+        )
+        self.out = ConvBnAct(
+            in_channels=hidden_channels * 2,
+            out_channels=out_channels,
+            kernel_size=1,
+            act=act,
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        main = self.main(x)
+        bypass = self.bypass(x)
+        merged = torch.cat([main, bypass], dim=1)
+        return self.out(merged)
