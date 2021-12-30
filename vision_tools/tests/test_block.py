@@ -45,11 +45,10 @@ def test_cps() -> None:
     assert res.size() == (2, out_channels, 32, 32)
 
 
-
 def test_focus() -> None:
     in_channels = 32
     out_channels = 48
     b = Focus(in_channels=in_channels, out_channels=out_channels)
-    inputs = torch.rand(2, in_channels, 32, 32)
+    inputs = torch.rand(2, in_channels, 32, 48)
     res = b(inputs)
-    assert res.size() == (2, out_channels, 16, 16)
+    assert res.size() == (2, out_channels, 32 // 2, 48 // 2)
