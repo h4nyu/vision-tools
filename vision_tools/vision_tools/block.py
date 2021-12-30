@@ -168,3 +168,41 @@ class CSP(nn.Module):
         bypass = self.bypass(x)
         merged = torch.cat([main, bypass], dim=1)
         return self.out(merged)
+
+
+class Focus(nn.Module):
+    """Focus width and height information into channel space."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 1,
+        stride: int = 1,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        self.conv = ConvBnAct(
+            in_channels=in_channels * 4,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            act=act,
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        # shape of x (b,c,w,h) -> y(b,4c,w/2,h/2)
+        patch_top_left = x[..., ::2, ::2]
+        patch_top_right = x[..., ::2, 1::2]
+        patch_bot_left = x[..., 1::2, ::2]
+        patch_bot_right = x[..., 1::2, 1::2]
+        x = torch.cat(
+            (
+                patch_top_left,
+                patch_bot_left,
+                patch_top_right,
+                patch_bot_right,
+            ),
+            dim=1,
+        )
+        return self.conv(x)

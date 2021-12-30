@@ -1,5 +1,5 @@
 import torch
-from vision_tools.block import ConvBnAct, DWConv, SPP, ResBlock, CSP
+from vision_tools.block import ConvBnAct, DWConv, SPP, ResBlock, CSP, Focus
 
 
 def test_conv_bn_act() -> None:
@@ -43,3 +43,13 @@ def test_cps() -> None:
     inputs = torch.rand(2, in_channels, 32, 32)
     res = b(inputs)
     assert res.size() == (2, out_channels, 32, 32)
+
+
+
+def test_focus() -> None:
+    in_channels = 32
+    out_channels = 48
+    b = Focus(in_channels=in_channels, out_channels=out_channels)
+    inputs = torch.rand(2, in_channels, 32, 32)
+    res = b(inputs)
+    assert res.size() == (2, out_channels, 16, 16)
