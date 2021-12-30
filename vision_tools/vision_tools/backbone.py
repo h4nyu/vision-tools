@@ -1,5 +1,4 @@
-from torch import nn
-from torch import Tensor
+from torch import nn, Tensor
 from typing import Callable
 from .block import DefaultActivation, DWConv, ConvBnAct, Focus, CSP, SPP
 
