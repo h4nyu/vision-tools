@@ -79,17 +79,41 @@ class DWConv(nn.Module):
 class SPP(nn.Module):
     """SpatialPyramidPooling"""
 
-    def __init__(self, kernel_sizes: list[int] = [5, 9, 13]) -> None:
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_sizes: list[int] = [5, 9, 13],
+        act: Callable = DefaultActivation,
+    ) -> None:
         super().__init__()
+        hidden_channels = in_channels // 2
+        self.in_conv = ConvBnAct(
+            in_channels=in_channels,
+            out_channels=hidden_channels,
+            kernel_size=1,
+            stride=1,
+            act=act,
+        )
         self.pools = nn.ModuleList(
             [
                 nn.MaxPool2d(kernel_size=ks, stride=1, padding=ks // 2)
                 for ks in kernel_sizes
             ]
         )
+        self.out_conv = ConvBnAct(
+            in_channels=hidden_channels * (len(kernel_sizes) + 1),
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            act=act,
+        )
 
     def forward(self, x: Tensor) -> Tensor:
-        return torch.cat([x] + [pool(x) for pool in self.pools], dim=1)
+        x = self.in_conv(x)
+        x = torch.cat([x] + [pool(x) for pool in self.pools], dim=1)
+        x = self.out_conv(x)
+        return x
 
 
 class ResBlock(nn.Module):
