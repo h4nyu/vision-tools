@@ -2,7 +2,7 @@ import torch
 import pytest
 import typing as t
 import torch.nn.functional as F
-from vision_tools.losses import (
+from vision_tools.loss import (
     DIoU,
     GIoU,
     DIoULoss,

@@ -26,7 +26,7 @@ from torch.cuda.amp import GradScaler, autocast
 
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
-from .losses import DIoU, HuberLoss, DIoULoss, FocalLoss
+from .loss import DIoU, HuberLoss, DIoULoss, FocalLoss
 from .modules import (
     ConvBR2d,
     SeparableConv2d,

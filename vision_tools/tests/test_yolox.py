@@ -1,6 +1,57 @@
+from torch import Tensor
 import pytest
 import torch
-from vision_tools.yolox import YOLOXHead, DecoupledHead
+from vision_tools.yolox import (
+    YOLOXHead,
+    DecoupledHead,
+    YOLOX,
+    Criterion,
+    CriterionInput,
+)
+from vision_tools.backbone import CSPDarknet
+from vision_tools.neck import CSPPAFPN
+from vision_tools.assign import SimOTA
+
+
+@pytest.fixture
+def model() -> YOLOX:
+    backbone = CSPDarknet()
+    num_classes = 2
+    box_feat_range = (2, 7)
+    patch_size = 128
+    neck = CSPPAFPN(
+        in_channels=backbone.channels,
+        strides=backbone.strides,
+    )
+    return YOLOX(
+        backbone=backbone,
+        neck=neck,
+        hidden_channels=64,
+        num_classes=num_classes,
+        box_feat_range=box_feat_range,
+        patch_size=patch_size,
+        box_iou_threshold=0.1,
+        score_threshold=0.0,
+    )
+
+
+@pytest.fixture
+def assign() -> SimOTA:
+    return SimOTA(topk=10)
+
+
+@pytest.fixture
+def inputs() -> CriterionInput:
+    image_batch = torch.rand(1, 3, 128, 128)
+    gt_box_batch = [
+        torch.tensor([[10, 10, 20, 20]]),
+    ]
+    gt_label_batch = [torch.zeros(len(m)).long() for m in gt_box_batch]
+    return CriterionInput(
+        image_batch=image_batch,
+        gt_box_batch=gt_box_batch,
+        gt_label_batch=gt_label_batch,
+    )
 
 
 def test_yoloxhead() -> None:
@@ -37,3 +88,22 @@ def test_decoupled_head(depthwise: bool) -> None:
     feat = torch.rand(2, in_channels, 32, 32)
     res = head(feat)
     assert res.size() == (2, 4 + 1 + num_classes, 32, 32)
+
+
+def test_box_branch(model: YOLOX) -> None:
+    image_size = 256
+    images = torch.rand(2, 3, image_size, image_size)
+    feats = model.feats(images)
+    box_feats = model.box_feats(feats)
+    yolo_batch = model.box_branch(box_feats)
+    assert yolo_batch.shape[0] == 2
+    assert yolo_batch.shape[2] == 5 + model.num_classes + 3
+
+
+def test_criterion(
+    model: YOLOX,
+    assign: SimOTA,
+    inputs: CriterionInput,
+) -> None:
+    criterion = Criterion(model=model, assign=assign)
+    criterion(inputs)
