@@ -36,9 +36,9 @@ from .modules import (
 )
 from .atss import ATSS
 from .anchors import Anchors
+from .interface import BackboneLike
 
 logger = getLogger(__name__)
-
 
 class Visualize:
     def __init__(
@@ -168,7 +168,7 @@ class EfficientDet(nn.Module):
     def __init__(
         self,
         num_classes: int,
-        backbone: nn.Module,
+        backbone: BackboneLike,
         channels: int = 64,
         out_ids: list[int] = [6, 7],
         anchors: Anchors = Anchors(),

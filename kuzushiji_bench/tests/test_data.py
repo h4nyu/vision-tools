@@ -1,12 +1,14 @@
 import pytest
 from omegaconf import OmegaConf
 from typing import Any
+import os
 
 # import torchvision, os, torch
 from kuzushiji_bench.data import (
     read_train_rows,
-    # read_test_rows,
-    # KuzushijiDataset,
+    read_test_rows,
+    KuzushijiDataset,
+    Transfrom,
     # inv_normalize,
     # train_transforms,
     # kfold,
@@ -14,28 +16,40 @@ from kuzushiji_bench.data import (
     # read_code_map,
     # SubRow,
 )
+from vision_tools.utils import draw_save
+config = OmegaConf.load("/app/kuzushiji_bench/config/dataset.yaml")
+
+no_volume = not os.path.exists(config.root_dir)
+reason = "no data volume"
 
 
 @pytest.fixture
-def config() -> Any:
-    return OmegaConf.load("/app/kuzushiji_bench/config/dataset.yaml")
+def transforms() -> Any:
+    return Transfrom(512)
+
+@pytest.mark.skipif(no_volume, reason=reason)
+def test_read_train_rows() -> None:
+    rows = read_train_rows(config.root_dir)
+    assert len(rows) == 3605
 
 
-# def test_read_train_rows(config:Any) -> None:
-#     rows = read_train_rows(config.root_dir)
-#     assert len(rows) == 3605
+@pytest.mark.skipif(no_volume, reason=reason)
+def test_read_test_rows() -> None:
+    rows = read_test_rows(config.root_dir)
+    assert len(rows) == 1730
 
 
-# def test_read_test_rows() -> None:
-#     rows = read_test_rows(config.root_dir)
-#     assert len(rows) == 1730
-
-
-# def test_dataset() -> None:
-#     rows = read_train_rows(config.root_dir)
-#     dataset = KuzushijiDataset(rows)
-#     sample = dataset[0]
-#     img, boxes, labels, _, _ = sample
+@pytest.mark.skipif(no_volume, reason=reason)
+def test_dataset(transforms:Any) -> None:
+    rows = read_train_rows(config.root_dir)
+    dataset = KuzushijiDataset(rows, transforms=transforms)
+    sample = dataset[0]
+    img, boxes, labels, _, _ = sample
+    draw_save(
+        "/app/test_outputs/test-kuzushiji.png",
+        image=img,
+        boxes=boxes,
+    )
 
 
 # def test_aug() -> None:

@@ -86,7 +86,7 @@ def read_train_rows(root_dir: str) -> list[Row]:
                     float(y0) + float(h),
                 ]
             )
-        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        image_path = os.path.join(root_dir, f"{id}.jpg")
         pil_img = PIL.Image.open(image_path)
         row: Row = dict(
             id=id,
@@ -107,7 +107,7 @@ def read_test_rows(root_dir: str) -> list[Row]:
     rows: list[Row] = []
     for _, csv_row in df.iterrows():
         id = csv_row["image_id"]
-        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        image_path = os.path.join(root_dir, f"{id}.jpg")
         pil_img = PIL.Image.open(image_path)
         row: Row = dict(
             id=id,
@@ -153,17 +153,16 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 #     ],
 #     bbox_params=bbox_params,
 # )
-# default_transforms = A.Compose(
-#     [
-#         A.LongestMaxSize(max_size=config.image_size),
-#         A.PadIfNeeded(
-#             min_height=config.image_size, min_width=config.image_size, border_mode=0
-#         ),
-#         normalize,
-#         ToTensorV2(),
-#     ],
-#     bbox_params=bbox_params,
-# )
+Transfrom = lambda image_size: A.Compose(
+    [
+        A.LongestMaxSize(max_size=image_size),
+        A.PadIfNeeded(
+            min_height=image_size, min_width=image_size, border_mode=0
+        ),
+        ToTensorV2(),
+    ],
+    bbox_params=bbox_params,
+)
 
 
 class KuzushijiDataset(Dataset):
@@ -191,7 +190,7 @@ class KuzushijiDataset(Dataset):
             ),
             labels=row["labels"],
         )
-        img = transformed["image"]
+        img = transformed["image"] / 255
         boxes = torch.tensor(transformed["bboxes"])
         labels = torch.tensor(transformed["labels"])
         return img, boxes, labels, original_img, row
