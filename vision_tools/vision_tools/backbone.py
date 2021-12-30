@@ -27,27 +27,31 @@ class CSPDarknet(nn.Module):
         for i in range(height):
             prev_ch = base_channels * 2 ** i
             next_ch = base_channels * 2 ** (i + 1)
-            blocks = [
-                Conv(
-                    in_channels=prev_ch,
-                    out_channels=next_ch,
-                    kernel_size=3,
-                    stride=2,
-                    act=act,
-                ),
-                SPP(
-                    in_channels=next_ch,
-                    out_channels=next_ch,
-                )
-            ] if i == height - 1 else [
-                Conv(
-                    in_channels=prev_ch,
-                    out_channels=next_ch,
-                    kernel_size=3,
-                    stride=2,
-                    act=act,
-                ),
-            ]
+            blocks = (
+                [
+                    Conv(
+                        in_channels=prev_ch,
+                        out_channels=next_ch,
+                        kernel_size=3,
+                        stride=2,
+                        act=act,
+                    ),
+                    SPP(
+                        in_channels=next_ch,
+                        out_channels=next_ch,
+                    ),
+                ]
+                if i == height - 1
+                else [
+                    Conv(
+                        in_channels=prev_ch,
+                        out_channels=next_ch,
+                        kernel_size=3,
+                        stride=2,
+                        act=act,
+                    ),
+                ]
+            )
             blocks.append(
                 CSP(
                     in_channels=next_ch,
@@ -55,11 +59,7 @@ class CSPDarknet(nn.Module):
                     depth=base_depth,
                 ),
             )
-            self.darks.append(
-                nn.Sequential(
-                    *blocks
-                )
-            )
+            self.darks.append(nn.Sequential(*blocks))
 
             self.channels.append(next_ch)
             self.strides.append(2 ** i)
