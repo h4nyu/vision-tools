@@ -376,7 +376,7 @@ class TrainStep:
         self.use_amp = use_amp
         self.scaler = GradScaler()
 
-    def __call__(self, batch: TrainBatch) -> dict[str, float]:
+    def __call__(self, batch: TrainBatch) -> TrainLog:
         self.criterion.model.train()
         self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
