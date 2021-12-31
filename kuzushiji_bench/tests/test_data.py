@@ -9,6 +9,7 @@ from kuzushiji_bench.data import (
     read_test_rows,
     KuzushijiDataset,
     Transfrom,
+    TrainTransfom,
     # inv_normalize,
     # train_transforms,
     # kfold,
@@ -25,8 +26,12 @@ reason = "no data volume"
 
 
 @pytest.fixture
-def transforms() -> Any:
+def transform() -> Any:
     return Transfrom(512)
+
+@pytest.fixture
+def train_transform() -> Any:
+    return TrainTransfom(512)
 
 
 @pytest.mark.skipif(no_volume, reason=reason)
@@ -42,9 +47,9 @@ def test_read_test_rows() -> None:
 
 
 @pytest.mark.skipif(no_volume, reason=reason)
-def test_dataset(transforms: Any) -> None:
+def test_dataset(transform: Any) -> None:
     rows = read_train_rows(config.root_dir)
-    dataset = KuzushijiDataset(rows, transforms=transforms)
+    dataset = KuzushijiDataset(rows, transform=transform)
     sample = dataset[0]
     draw_save(
         "/app/test_outputs/test-kuzushiji.png",
@@ -53,12 +58,16 @@ def test_dataset(transforms: Any) -> None:
     )
 
 
-# def test_aug() -> None:
-#     rows = read_train_rows(config.root_dir)
-#     dataset = KuzushijiDataset(rows, transforms=train_transforms)
-#     for i in range(3):
-#         sample = dataset[100]
-#         img, boxes, labels, _, _ = sample
+def test_aug(train_transform:Any) -> None:
+    rows = read_train_rows(config.root_dir)
+    dataset = KuzushijiDataset(rows, transform=train_transform)
+    for i in range(3):
+        sample = dataset[100]
+        draw_save(
+            f"/app/test_outputs/test-kuzushiji-aug-{i}.png",
+            image=sample["image"],
+            boxes=sample["boxes"],
+        )
 
 
 # def test_fold() -> None:

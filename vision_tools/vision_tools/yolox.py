@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from torch import Tensor
-from typing import Callable, TypedDict
+from typing import Callable, TypedDict, Any
+from torch.cuda.amp import GradScaler, autocast
 import math
 from torchvision.ops import box_convert, batched_nms
 import torch.nn.functional as F
@@ -10,6 +11,7 @@ from .block import DefaultActivation, DWConv, ConvBnAct
 from .interface import FPNLike, BackboneLike
 from .assign import SimOTA
 from .loss import CIoULoss, FocalLoss
+from toolz import valmap
 
 
 class DecoupledHead(nn.Module):
@@ -238,8 +240,8 @@ CriterionOutput = TypedDict(
     {"loss": Tensor, "obj_loss": Tensor, "box_loss": Tensor, "cls_loss": Tensor},
 )
 
-CriterionInput = TypedDict(
-    "CriterionInput",
+TrainBatch = TypedDict(
+    "TrainBatch",
     {
         "image_batch": Tensor,
         "gt_box_batch": list[Tensor],
@@ -273,7 +275,7 @@ class Criterion:
 
     def __call__(
         self,
-        inputs: CriterionInput,
+        inputs: TrainBatch,
     ) -> CriterionOutput:
         images = inputs["image_batch"]
         gt_box_batch = inputs["gt_box_batch"]
@@ -354,3 +356,32 @@ class Criterion:
 
         pos_idx = gt_yolo_batch[..., 4] == 1.0
         return gt_yolo_batch, pos_idx
+
+
+
+TrainLog = TypedDict(
+    "TrainLog",
+    {"loss": float, "obj_loss": float, "box_loss": float, "cls_loss": float},
+)
+class TrainStep:
+    def __init__(
+        self,
+        criterion: Criterion,
+        optimizer: Any,
+        use_amp: bool = True,
+    ) -> None:
+        self.criterion = criterion
+        self.optimizer = optimizer
+        self.use_amp = use_amp
+        self.scaler = GradScaler()
+
+    def __call__(self, batch: TrainBatch) -> dict[str, float]:
+        self.criterion.model.train()
+        self.optimizer.zero_grad()
+        with autocast(enabled=self.use_amp):
+            losses = self.criterion(batch)
+            self.scaler.scale(losses['loss']).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+
+        return valmap(lambda x: x.item(), losses)

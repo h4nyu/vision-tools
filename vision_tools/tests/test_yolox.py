@@ -6,7 +6,7 @@ from vision_tools.yolox import (
     DecoupledHead,
     YOLOX,
     Criterion,
-    CriterionInput,
+    TrainBatch,
 )
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
@@ -41,13 +41,13 @@ def assign() -> SimOTA:
 
 
 @pytest.fixture
-def inputs() -> CriterionInput:
+def inputs() -> TrainBatch:
     image_batch = torch.rand(1, 3, 128, 128)
     gt_box_batch = [
         torch.tensor([[10, 10, 20, 20]]),
     ]
     gt_label_batch = [torch.zeros(len(m)).long() for m in gt_box_batch]
-    return CriterionInput(
+    return TrainBatch(
         image_batch=image_batch,
         gt_box_batch=gt_box_batch,
         gt_label_batch=gt_label_batch,
@@ -103,7 +103,7 @@ def test_box_branch(model: YOLOX) -> None:
 def test_criterion(
     model: YOLOX,
     assign: SimOTA,
-    inputs: CriterionInput,
+    inputs: TrainBatch,
 ) -> None:
     criterion = Criterion(model=model, assign=assign)
     criterion(inputs)
