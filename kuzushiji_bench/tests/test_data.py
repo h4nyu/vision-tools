@@ -29,6 +29,7 @@ reason = "no data volume"
 def transform() -> Any:
     return Transfrom(512)
 
+
 @pytest.fixture
 def train_transform() -> Any:
     return TrainTransfom(512)
@@ -58,7 +59,7 @@ def test_dataset(transform: Any) -> None:
     )
 
 
-def test_aug(train_transform:Any) -> None:
+def test_aug(train_transform: Any) -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transform=train_transform)
     for i in range(3):

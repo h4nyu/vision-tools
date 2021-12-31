@@ -358,11 +358,12 @@ class Criterion:
         return gt_yolo_batch, pos_idx
 
 
-
 TrainLog = TypedDict(
     "TrainLog",
     {"loss": float, "obj_loss": float, "box_loss": float, "cls_loss": float},
 )
+
+
 class TrainStep:
     def __init__(
         self,
@@ -380,7 +381,7 @@ class TrainStep:
         self.optimizer.zero_grad()
         with autocast(enabled=self.use_amp):
             losses = self.criterion(batch)
-            self.scaler.scale(losses['loss']).backward()
+            self.scaler.scale(losses["loss"]).backward()
             self.scaler.step(self.optimizer)
             self.scaler.update()
 
