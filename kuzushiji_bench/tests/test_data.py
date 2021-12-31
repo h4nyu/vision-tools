@@ -17,6 +17,7 @@ from kuzushiji_bench.data import (
     # SubRow,
 )
 from vision_tools.utils import draw_save
+
 config = OmegaConf.load("/app/kuzushiji_bench/config/dataset.yaml")
 
 no_volume = not os.path.exists(config.root_dir)
@@ -26,6 +27,7 @@ reason = "no data volume"
 @pytest.fixture
 def transforms() -> Any:
     return Transfrom(512)
+
 
 @pytest.mark.skipif(no_volume, reason=reason)
 def test_read_train_rows() -> None:
@@ -40,15 +42,14 @@ def test_read_test_rows() -> None:
 
 
 @pytest.mark.skipif(no_volume, reason=reason)
-def test_dataset(transforms:Any) -> None:
+def test_dataset(transforms: Any) -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transforms=transforms)
     sample = dataset[0]
-    img, boxes, labels, _, _ = sample
     draw_save(
         "/app/test_outputs/test-kuzushiji.png",
-        image=img,
-        boxes=boxes,
+        image=sample["image"],
+        boxes=sample["boxes"],
     )
 
 

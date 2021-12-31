@@ -40,6 +40,7 @@ from .interface import BackboneLike
 
 logger = getLogger(__name__)
 
+
 class Visualize:
     def __init__(
         self,

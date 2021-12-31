@@ -156,12 +156,21 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 Transfrom = lambda image_size: A.Compose(
     [
         A.LongestMaxSize(max_size=image_size),
-        A.PadIfNeeded(
-            min_height=image_size, min_width=image_size, border_mode=0
-        ),
+        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
+)
+
+
+TrainSample = TypedDict(
+    "TrainSample",
+    {
+        "id": str,
+        "image": Tensor,
+        "boxes": Tensor,
+        "labels": Tensor,
+    },
 )
 
 
@@ -177,7 +186,7 @@ class KuzushijiDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor, Tensor, Tensor, Row]:
+    def __getitem__(self, idx: int) -> TrainSample:
         row = self.rows[idx]
         id = row["id"]
         pil_img = PIL.Image.open(row["image_path"])
@@ -190,7 +199,12 @@ class KuzushijiDataset(Dataset):
             ),
             labels=row["labels"],
         )
-        img = transformed["image"] / 255
+        image = transformed["image"] / 255
         boxes = torch.tensor(transformed["bboxes"])
         labels = torch.tensor(transformed["labels"])
-        return img, boxes, labels, original_img, row
+        return TrainSample(
+            id=id,
+            image=image,
+            boxes=boxes,
+            labels=labels,
+        )
