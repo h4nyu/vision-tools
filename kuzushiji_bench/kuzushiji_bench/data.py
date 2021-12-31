@@ -12,6 +12,7 @@ import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from vision_tools.transforms import normalize, inv_normalize
+from vision_tools.interface import TrainSample
 from sklearn.model_selection import StratifiedKFold
 
 location = "/tmp"
@@ -139,7 +140,7 @@ def kfold(
 
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
 
-TrainTransfom = lambda image_size: A.Compose(
+TrainTransform = lambda image_size: A.Compose(
     [
         A.LongestMaxSize(max_size=image_size),
         A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
@@ -150,24 +151,13 @@ TrainTransfom = lambda image_size: A.Compose(
     ],
     bbox_params=bbox_params,
 )
-Transfrom = lambda image_size: A.Compose(
+Transform = lambda image_size: A.Compose(
     [
         A.LongestMaxSize(max_size=image_size),
         A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
-)
-
-
-TrainSample = TypedDict(
-    "TrainSample",
-    {
-        "id": str,
-        "image": Tensor,
-        "boxes": Tensor,
-        "labels": Tensor,
-    },
 )
 
 
@@ -196,9 +186,9 @@ class KuzushijiDataset(Dataset):
             ),
             labels=row["labels"],
         )
-        image = transformed["image"] / 255
-        boxes = torch.tensor(transformed["bboxes"])
-        labels = torch.tensor(transformed["labels"])
+        image = (transformed["image"] / 255).float()
+        boxes = torch.tensor(transformed["bboxes"]).float()
+        labels = torch.zeros(len(boxes)).long()
         return TrainSample(
             id=id,
             image=image,

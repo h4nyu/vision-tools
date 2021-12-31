@@ -61,7 +61,7 @@ class CSPDarknet(nn.Module):
             self.darks.append(nn.Sequential(*blocks))
 
             self.channels.append(next_ch)
-            self.strides.append(2 ** i)
+            self.strides.append(2 ** (i + 2))
 
     def forward(self, x: Tensor) -> list[Tensor]:
         feats = []

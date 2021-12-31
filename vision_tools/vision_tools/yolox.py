@@ -8,7 +8,7 @@ from torchvision.ops import box_convert, batched_nms
 import torch.nn.functional as F
 
 from .block import DefaultActivation, DWConv, ConvBnAct
-from .interface import FPNLike, BackboneLike
+from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
 from .loss import CIoULoss, FocalLoss
 from toolz import valmap
@@ -138,7 +138,6 @@ class YOLOX(nn.Module):
         neck: FPNLike,
         hidden_channels: int,
         num_classes: int,
-        patch_size: int,
         box_limit: int = 1000,
         box_iou_threshold: float = 0.5,
         score_threshold: float = 0.5,
@@ -147,7 +146,6 @@ class YOLOX(nn.Module):
         super().__init__()
         self.backbone = backbone
         self.neck = neck
-        self.patch_size = patch_size
         self.box_feat_range = box_feat_range
         self.num_classes = num_classes
         self.box_limit = box_limit
@@ -170,7 +168,7 @@ class YOLOX(nn.Module):
             batch_size, num_outputs, rows, cols = pred.shape
             grid = (
                 torch.stack(
-                    torch.meshgrid([torch.arange(cols), torch.arange(rows)])[::-1],
+                    torch.meshgrid([torch.arange(rows), torch.arange(cols)])[::-1],
                     dim=2,
                 )
                 .reshape(rows * cols, 2)
@@ -240,15 +238,6 @@ CriterionOutput = TypedDict(
     {"loss": Tensor, "obj_loss": Tensor, "box_loss": Tensor, "cls_loss": Tensor},
 )
 
-TrainBatch = TypedDict(
-    "TrainBatch",
-    {
-        "image_batch": Tensor,
-        "gt_box_batch": list[Tensor],
-        "gt_label_batch": list[Tensor],
-    },
-)
-
 
 class Criterion:
     def __init__(
@@ -258,7 +247,6 @@ class Criterion:
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
         cate_weight: float = 1.0,
-        assign_topk: int = 9,
         assign_radius: float = 2.0,
         assign_center_wight: float = 1.0,
     ) -> None:
@@ -278,8 +266,8 @@ class Criterion:
         inputs: TrainBatch,
     ) -> CriterionOutput:
         images = inputs["image_batch"]
-        gt_box_batch = inputs["gt_box_batch"]
-        gt_label_batch = inputs["gt_label_batch"]
+        gt_box_batch = inputs["box_batch"]
+        gt_label_batch = inputs["label_batch"]
         device = images.device
         num_classes = self.model.num_classes
         feats = self.model.feats(images)

@@ -20,8 +20,7 @@ from vision_tools.utils import ToDevice
 def model() -> YOLOX:
     backbone = CSPDarknet()
     num_classes = 2
-    box_feat_range = (2, 7)
-    patch_size = 128
+    box_feat_range = (3, 6)
     neck = CSPPAFPN(
         in_channels=backbone.channels,
         strides=backbone.strides,
@@ -32,7 +31,6 @@ def model() -> YOLOX:
         hidden_channels=64,
         num_classes=num_classes,
         box_feat_range=box_feat_range,
-        patch_size=patch_size,
         box_iou_threshold=0.1,
         score_threshold=0.0,
     )
@@ -51,14 +49,14 @@ def criterion(assign: SimOTA, model: YOLOX) -> Criterion:
 @pytest.fixture
 def inputs() -> TrainBatch:
     image_batch = torch.rand(1, 3, 128, 128)
-    gt_box_batch = [
+    box_batch = [
         torch.tensor([[10, 10, 20, 20]]),
     ]
-    gt_label_batch = [torch.zeros(len(m)).long() for m in gt_box_batch]
+    label_batch = [torch.zeros(len(m)).long() for m in box_batch]
     return TrainBatch(
         image_batch=image_batch,
-        gt_box_batch=gt_box_batch,
-        gt_label_batch=gt_label_batch,
+        box_batch=box_batch,
+        label_batch=label_batch,
     )
 
 

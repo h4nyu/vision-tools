@@ -1,0 +1,30 @@
+name: kuzushiji-yolox
+
+device: cuda
+use_amp: true
+num_epochs: 100
+root_dir: /store/kuzushiji-recognition
+num_classes: 1
+box_feat_range: [3, 5]
+box_iou_threshold: 0.5
+score_threshold: 0.5
+image_size: 1024
+
+assign:
+  topk: 10
+  radius: 2.0
+  center_weight: 0.5
+  obj_weight: 1.0
+  box_weight: 1.5
+
+optimizer:
+  lr: 1e-2
+
+criterion:
+  box_weight: 1.0
+
+train_loader:
+  batch_size: 3
+  shuffle: true
+  num_workers: 3
+  drop_last: true

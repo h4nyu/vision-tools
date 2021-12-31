@@ -24,7 +24,7 @@ from omegaconf import OmegaConf
 logger = getLogger(__name__)
 
 
-def seed_everything(seed: int) -> None:
+def seed_everything(seed: int = 777) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -38,10 +38,14 @@ class ToDevice:
     ) -> None:
         self.device = device
 
-    def __call__(self, *args: Union[Tensor, list[Tensor]], **kargs:Union[Tensor, list[Tensor]]) -> Any:
+    def __call__(
+        self, *args: Union[Tensor, list[Tensor]], **kargs: Union[Tensor, list[Tensor]]
+    ) -> Any:
         if kargs is not None:
             return {
-                k: [i.to(self.device) for i in v] if isinstance(v, list) else v.to(self.device)
+                k: [i.to(self.device) for i in v]
+                if isinstance(v, list)
+                else v.to(self.device)
                 for k, v in kargs.items()
             }
         return tuple(

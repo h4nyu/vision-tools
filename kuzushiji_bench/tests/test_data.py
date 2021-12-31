@@ -8,8 +8,8 @@ from kuzushiji_bench.data import (
     read_train_rows,
     read_test_rows,
     KuzushijiDataset,
-    Transfrom,
-    TrainTransfom,
+    Transform,
+    TrainTransform,
     # inv_normalize,
     # train_transforms,
     # kfold,
@@ -27,12 +27,12 @@ reason = "no data volume"
 
 @pytest.fixture
 def transform() -> Any:
-    return Transfrom(512)
+    return Transform(512)
 
 
 @pytest.fixture
 def train_transform() -> Any:
-    return TrainTransfom(512)
+    return TrainTransform(512)
 
 
 @pytest.mark.skipif(no_volume, reason=reason)
