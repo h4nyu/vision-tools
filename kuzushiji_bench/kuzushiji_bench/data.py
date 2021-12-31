@@ -146,7 +146,6 @@ TrainTransfom = lambda image_size: A.Compose(
         A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
         A.RandomCrop(image_size, image_size, p=1.0),
         A.ToGray(),
-        normalize,
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
