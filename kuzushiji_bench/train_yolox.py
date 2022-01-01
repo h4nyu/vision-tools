@@ -6,13 +6,14 @@ from torch.utils.tensorboard import SummaryWriter
 from omegaconf import OmegaConf
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
-from vision_tools.yolox import YOLOX, Criterion, TrainStep
+from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.interface import TrainBatch, TrainSample
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.assign import SimOTA
 from vision_tools.meter import MeanReduceDict
 from kuzushiji_bench.data import KuzushijiDataset, TrainTransform, read_train_rows
+from tqdm import tqdm
 
 
 def collate_fn(
@@ -34,7 +35,6 @@ def collate_fn(
 
 def main() -> None:
     seed_everything()
-    # logger = getLogger(cfg.name)
     cfg = OmegaConf.load(os.path.join(os.path.dirname(__file__), "config/yolox.yaml"))
     writer = SummaryWriter(os.path.join("runs", cfg.name))
     checkpoint = Checkpoint[YOLOX](
@@ -49,7 +49,7 @@ def main() -> None:
     model = YOLOX(
         backbone=backbone,
         neck=neck,
-        hidden_channels=64,
+        hidden_channels=cfg.hidden_channels,
         num_classes=cfg.num_classes,
         box_feat_range=cfg.box_feat_range,
         box_iou_threshold=cfg.box_iou_threshold,
@@ -58,13 +58,13 @@ def main() -> None:
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
     assign = SimOTA(**cfg.assign)
-    criterion = Criterion(model=model, assign=assign, **cfg.criterion)
+    criterion = Criterion(assign=assign, **cfg.criterion)
     optimizer = optim.AdaBound(model.parameters(), **cfg.optimizer)
-    train_step = TrainStep(
-        optimizer=optimizer,
-        criterion=criterion,
-        use_amp=cfg.use_amp,
-    )
+    # train_step = TrainStep(
+    #     optimizer=optimizer,
+    #     criterion=criterion,
+    #     use_amp=cfg.use_amp,
+    # )
     # validation_step = ValidationStep(
     #     criterion=criterion,
     # )
@@ -91,21 +91,22 @@ def main() -> None:
     # )
     to_device = ToDevice(cfg.device)
 
-    for _ in range(cfg.num_epochs):
-        train_reduer = MeanReduceDict()
-        for batch in train_loader:
-            batch = to_device(**batch)
-            train_log = train_step(batch)
-            train_reduer.accumulate(train_log)
-        writer.add_scalars("loss", train_reduer.value)
-    #     mask_ap = MaskAP(**cfg.mask_ap)
-    #     for batch in val_loader:
-    #         batch = to_device(*batch)
-    #         validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
-    #     if score < mask_ap.value:
-    #         score = checkpoint.save(model, mask_ap.value)
-    #         logger.info(f"save checkpoint")
-    #     logger.info(f"epoch eval {score=} {mask_ap.value=}")
+
+#     for epoch in range(cfg.num_epochs):
+#         train_reduer = MeanReduceDict()
+#         for batch in tqdm(train_loader, total=len(train_loader)):
+#             batch = to_device(**batch)
+#             train_log = train_step(batch)
+#             train_reduer.accumulate(train_log)
+#         writer.add_scalars("loss", train_reduer.value, epoch)
+#     mask_ap = MaskAP(**cfg.mask_ap)
+#     for batch in val_loader:
+#         batch = to_device(*batch)
+#         validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
+#     if score < mask_ap.value:
+#         score = checkpoint.save(model, mask_ap.value)
+#         logger.info(f"save checkpoint")
+#     logger.info(f"epoch eval {score=} {mask_ap.value=}")
 
 
 if __name__ == "__main__":

@@ -233,16 +233,9 @@ class YOLOX(nn.Module):
         return score_batch, box_batch, lable_batch
 
 
-CriterionOutput = TypedDict(
-    "CriterionOutput",
-    {"loss": Tensor, "obj_loss": Tensor, "box_loss": Tensor, "cls_loss": Tensor},
-)
-
-
 class Criterion:
     def __init__(
         self,
-        model: YOLOX,
         assign: SimOTA,
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
@@ -253,8 +246,6 @@ class Criterion:
         self.box_weight = box_weight
         self.cate_weight = cate_weight
         self.obj_weight = obj_weight
-        self.model = model
-        self.strides = self.model.strides
         self.assign = assign
 
         self.box_loss = CIoULoss()
@@ -263,18 +254,19 @@ class Criterion:
 
     def __call__(
         self,
+        model: YOLOX,
         inputs: TrainBatch,
-    ) -> CriterionOutput:
+    ) -> tuple[Tensor, dict[str, Tensor]]:
         images = inputs["image_batch"]
         gt_box_batch = inputs["box_batch"]
         gt_label_batch = inputs["label_batch"]
         device = images.device
-        num_classes = self.model.num_classes
-        feats = self.model.feats(images)
-        box_feats = self.model.box_feats(feats)
-        pred_yolo_batch = self.model.box_branch(box_feats)
+        num_classes = model.num_classes
+        feats = model.feats(images)
+        box_feats = model.box_feats(feats)
+        pred_yolo_batch = model.box_branch(box_feats)
         gt_yolo_batch, pos_idx = self.prepeare_box_gt(
-            gt_box_batch, gt_label_batch, pred_yolo_batch
+            model.num_classes, gt_box_batch, gt_label_batch, pred_yolo_batch
         )
 
         # 1-stage
@@ -304,19 +296,20 @@ class Criterion:
             + self.obj_weight * obj_loss
             + self.cate_weight * cls_loss
         )
-        return CriterionOutput(
-            loss=loss, obj_loss=obj_loss, box_loss=box_loss, cls_loss=cls_loss
+        return (
+            loss,
+            dict(loss=loss, obj_loss=obj_loss, box_loss=box_loss, cls_loss=cls_loss),
         )
 
     @torch.no_grad()
     def prepeare_box_gt(
         self,
+        num_classes: int,
         gt_boxes_batch: list[Tensor],
         gt_label_batch: list[Tensor],
         pred_yolo_batch: Tensor,
     ) -> tuple[Tensor, Tensor]:
         device = pred_yolo_batch.device
-        num_classes = self.model.num_classes
         gt_yolo_batch = torch.zeros(
             pred_yolo_batch.shape,
             dtype=pred_yolo_batch.dtype,
@@ -350,27 +343,3 @@ TrainLog = TypedDict(
     "TrainLog",
     {"loss": float, "obj_loss": float, "box_loss": float, "cls_loss": float},
 )
-
-
-class TrainStep:
-    def __init__(
-        self,
-        criterion: Criterion,
-        optimizer: Any,
-        use_amp: bool = True,
-    ) -> None:
-        self.criterion = criterion
-        self.optimizer = optimizer
-        self.use_amp = use_amp
-        self.scaler = GradScaler()
-
-    def __call__(self, batch: TrainBatch) -> TrainLog:
-        self.criterion.model.train()
-        self.optimizer.zero_grad()
-        with autocast(enabled=self.use_amp):
-            losses = self.criterion(batch)
-            self.scaler.scale(losses["loss"]).backward()
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-
-        return valmap(lambda x: x.item(), losses)

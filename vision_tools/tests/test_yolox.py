@@ -1,4 +1,4 @@
-from torch import Tensor
+from typing import Iterator
 import pytest
 import torch
 from torch import optim
@@ -8,12 +8,12 @@ from vision_tools.yolox import (
     YOLOX,
     Criterion,
     TrainBatch,
-    TrainStep,
 )
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.assign import SimOTA
 from vision_tools.utils import ToDevice
+from vision_tools.step import TrainStep
 
 
 @pytest.fixture
@@ -42,8 +42,8 @@ def assign() -> SimOTA:
 
 
 @pytest.fixture
-def criterion(assign: SimOTA, model: YOLOX) -> Criterion:
-    return Criterion(model=model, assign=assign)
+def criterion(assign: SimOTA) -> Criterion:
+    return Criterion(assign=assign)
 
 
 @pytest.fixture
@@ -109,8 +109,9 @@ def test_box_branch(model: YOLOX) -> None:
 def test_criterion(
     criterion: Criterion,
     inputs: TrainBatch,
+    model: YOLOX,
 ) -> None:
-    criterion(inputs)
+    criterion(model, inputs)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda")
@@ -120,7 +121,15 @@ def test_train_step(
     inputs: TrainBatch,
 ) -> None:
     model.to("cuda")
-    inputs = ToDevice("cuda")(**inputs)
     optimizer = optim.Adam(model.parameters())
-    train_step = TrainStep(criterion=criterion, optimizer=optimizer, use_amp=False)
-    train_step(inputs)
+
+    def loader() -> Iterator[TrainBatch]:
+        yield inputs
+
+    train_step = TrainStep[YOLOX, TrainBatch](
+        to_device=ToDevice("cuda"),
+        criterion=criterion,
+        optimizer=optimizer,
+        loader=loader(),
+    )
+    train_step(model)
