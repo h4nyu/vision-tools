@@ -19,7 +19,7 @@ from kuzushiji_bench.data import (
 )
 from vision_tools.utils import draw_save
 
-config = OmegaConf.load("/app/kuzushiji_bench/config/dataset.yaml")
+config = OmegaConf.load("/app/kuzushiji_bench/config/yolo.yaml")
 
 no_volume = not os.path.exists(config.root_dir)
 reason = "no data volume"
