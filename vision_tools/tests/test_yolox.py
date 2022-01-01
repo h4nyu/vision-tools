@@ -1,6 +1,7 @@
 from typing import Iterator
 import pytest
 import torch
+from typing import Any
 from torch import optim
 from vision_tools.yolox import (
     YOLOXHead,
@@ -9,11 +10,13 @@ from vision_tools.yolox import (
     Criterion,
     TrainBatch,
 )
+from torch.utils.tensorboard import SummaryWriter
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.assign import SimOTA
 from vision_tools.utils import ToDevice
 from vision_tools.step import TrainStep
+from vision_tools.meter import MeanReduceDict
 
 
 @pytest.fixture
@@ -122,14 +125,19 @@ def test_train_step(
 ) -> None:
     model.to("cuda")
     optimizer = optim.Adam(model.parameters())
+    writer = SummaryWriter()
 
-    def loader() -> Iterator[TrainBatch]:
+    def _loader() -> Iterator[TrainBatch]:
         yield inputs
+
+    loader:Any = _loader()
 
     train_step = TrainStep[YOLOX, TrainBatch](
         to_device=ToDevice("cuda"),
         criterion=criterion,
         optimizer=optimizer,
-        loader=loader(),
+        loader=loader,
+        meter=MeanReduceDict(),
+        writer=writer,
     )
     train_step(model)

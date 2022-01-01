@@ -18,6 +18,18 @@ class FPNLike(Protocol):
         ...
 
 
+class MeterLike(Protocol):
+    @property
+    def value(self) -> dict[str, float]:
+        ...
+
+    def accumulate(self, log: Any) -> None:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
 TrainBatch = TypedDict(
     "TrainBatch",
     {

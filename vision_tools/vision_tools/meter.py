@@ -11,6 +11,10 @@ class MeanReduceDict:
             self.running[k] = self.running.get(k, 0) + log.get(k, 0)
         self.num_samples += 1
 
+    def reset(self) -> None:
+        self.running = {}
+        self.num_samples = 0
+
     @property
     def value(self) -> dict[str, float]:
         return {

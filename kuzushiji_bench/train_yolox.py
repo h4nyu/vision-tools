@@ -12,6 +12,7 @@ from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.assign import SimOTA
 from vision_tools.meter import MeanReduceDict
+from vision_tools.step import TrainStep
 from kuzushiji_bench.data import KuzushijiDataset, TrainTransform, read_train_rows
 from tqdm import tqdm
 
@@ -91,13 +92,18 @@ def main() -> None:
     # )
     to_device = ToDevice(cfg.device)
 
+    train_step = TrainStep[YOLOX, TrainBatch](
+        to_device=to_device,
+        criterion=criterion,
+        optimizer=optimizer,
+        loader=train_loader,
+        meter=MeanReduceDict(),
+        writer=writer,
+    )
 
-#     for epoch in range(cfg.num_epochs):
-#         train_reduer = MeanReduceDict()
-#         for batch in tqdm(train_loader, total=len(train_loader)):
-#             batch = to_device(**batch)
-#             train_log = train_step(batch)
-#             train_reduer.accumulate(train_log)
+
+    for epoch in range(cfg.num_epochs):
+        train_step(model, epoch)
 #         writer.add_scalars("loss", train_reduer.value, epoch)
 #     mask_ap = MaskAP(**cfg.mask_ap)
 #     for batch in val_loader:
