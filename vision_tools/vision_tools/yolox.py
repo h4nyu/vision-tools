@@ -141,21 +141,21 @@ class YOLOX(nn.Module):
         box_limit: int = 1000,
         box_iou_threshold: float = 0.5,
         score_threshold: float = 0.5,
-        box_feat_range: tuple[int, int] = (3, 7),
+        feat_range: tuple[int, int] = (3, 7),
     ) -> None:
         super().__init__()
         self.backbone = backbone
         self.neck = neck
-        self.box_feat_range = box_feat_range
+        self.feat_range = feat_range
         self.num_classes = num_classes
         self.box_limit = box_limit
-        self.strides = self.neck.strides
-        self.box_strides = self.strides[self.box_feat_range[0] : self.box_feat_range[1]]
+        self.strides = self.backbone.strides
+        self.box_strides = self.strides[self.feat_range[0] : self.feat_range[1]]
         self.box_iou_threshold = box_iou_threshold
         self.score_threshold = score_threshold
 
         self.box_head = YOLOXHead(
-            in_channels=neck.channels[self.box_feat_range[0] : self.box_feat_range[1]],
+            in_channels=backbone.channels[self.feat_range[0] : self.feat_range[1]],
             num_classes=num_classes,
             hidden_channels=hidden_channels,
         )
@@ -197,10 +197,9 @@ class YOLOX(nn.Module):
 
     def feats(self, x: Tensor) -> list[Tensor]:
         feats = self.backbone(x)
+        feats = feats[self.feat_range[0]: self.feat_range[1]]
         return self.neck(feats)
 
-    def box_feats(self, x: list[Tensor]) -> list[Tensor]:
-        return x[self.box_feat_range[0] : self.box_feat_range[1]]
 
     @torch.no_grad()
     def to_boxes(
@@ -234,8 +233,7 @@ class YOLOX(nn.Module):
 
     def forward(self, image_batch: Tensor) -> TrainBatch:
         feats = self.feats(image_batch)
-        box_feats = self.box_feats(feats)
-        yolo_batch = self.box_branch(box_feats)
+        yolo_batch = self.box_branch(feats)
         score_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
         return dict(
             image_batch=image_batch,
@@ -274,8 +272,7 @@ class Criterion:
         device = images.device
         num_classes = model.num_classes
         feats = model.feats(images)
-        box_feats = model.box_feats(feats)
-        pred_yolo_batch = model.box_branch(box_feats)
+        pred_yolo_batch = model.box_branch(feats)
         gt_yolo_batch, pos_idx = self.prepeare_box_gt(
             model.num_classes, gt_box_batch, gt_label_batch, pred_yolo_batch
         )

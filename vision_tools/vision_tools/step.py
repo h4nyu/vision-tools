@@ -49,6 +49,7 @@ class TrainStep(Generic[T, B]):
                 if other is not None:
                     self.meter.accumulate(valmap(lambda x: x.item(), other))
             self.writer.add_scalars("train", self.meter.value, epoch)
+            print(self.meter.value)
             self.meter.reset()
 
 
@@ -83,4 +84,5 @@ class EvalStep(Generic[T, B]):
         score, other = self.metric.value
         self.writer.add_scalar("eval/score", score, epoch)
         self.writer.add_scalars("eval", other, epoch)
+        print(other)
         self.metric.reset()

@@ -5,6 +5,7 @@ use_amp: true
 num_epochs: 100
 hidden_channels: 32
 root_dir: /store/kuzushiji-recognition
+depth: 1
 num_classes: 1
 box_feat_range: [3, 5]
 box_iou_threshold: 0.5
@@ -19,22 +20,22 @@ assign:
   box_weight: 1.5
 
 optimizer:
-  lr: 1e-2
+  lr: 1e-3
 
 criterion:
   box_weight: 1.0
 
 train_loader:
-  batch_size: 6
+  batch_size: 8
   shuffle: true
   num_workers: 6
   drop_last: true
 
 val_loader:
-  batch_size: 6
+  batch_size: 8
   shuffle: false
   num_workers: 6
 
 fold:
-  n_splits: 6
+  n_splits: 5
   fold_idx: 1

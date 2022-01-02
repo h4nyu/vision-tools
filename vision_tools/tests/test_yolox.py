@@ -24,17 +24,17 @@ from vision_tools.meter import MeanReduceDict
 def model() -> YOLOX:
     backbone = CSPDarknet()
     num_classes = 2
-    box_feat_range = (3, 6)
+    feat_range = (3, 6)
     neck = CSPPAFPN(
-        in_channels=backbone.channels,
-        strides=backbone.strides,
+        in_channels=backbone.channels[feat_range[0]: feat_range[1]],
+        strides=backbone.strides[feat_range[0]:feat_range[1]],
     )
     return YOLOX(
         backbone=backbone,
         neck=neck,
         hidden_channels=64,
         num_classes=num_classes,
-        box_feat_range=box_feat_range,
+        feat_range=feat_range,
         box_iou_threshold=0.1,
         score_threshold=0.0,
     )
@@ -114,8 +114,7 @@ def test_box_branch(model: YOLOX) -> None:
     image_size = 256
     images = torch.rand(2, 3, image_size, image_size)
     feats = model.feats(images)
-    box_feats = model.box_feats(feats)
-    yolo_batch = model.box_branch(box_feats)
+    yolo_batch = model.box_branch(feats)
     assert yolo_batch.shape[0] == 2
     assert yolo_batch.shape[2] == 5 + model.num_classes + 3
 

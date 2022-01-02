@@ -34,17 +34,20 @@ def main() -> None:
         default_score=0.0,
         comparator=lambda a, b: a < b,
     )
-    backbone = CSPDarknet()
+    backbone = CSPDarknet(
+        depth=cfg.depth,
+        hidden_channels=cfg.hidden_channels,
+    )
     neck = CSPPAFPN(
-        in_channels=backbone.channels,
-        strides=backbone.strides,
+        in_channels=backbone.channels[cfg.feat_range[0]:cfg.feat_range[1]],
+        strides=backbone.strides[cfg.feat_range[0]:cfg.feat_range[1]],
     )
     model = YOLOX(
         backbone=backbone,
         neck=neck,
         hidden_channels=cfg.hidden_channels,
         num_classes=cfg.num_classes,
-        box_feat_range=cfg.box_feat_range,
+        feat_range=cfg.feat_range,
         box_iou_threshold=cfg.box_iou_threshold,
         score_threshold=cfg.score_threshold,
     )

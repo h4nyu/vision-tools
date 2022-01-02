@@ -7,16 +7,15 @@ class CSPDarknet(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
-        depthwise: bool = False,
-        width: float = 1.0,
-        depth: float = 1.0,
+        hidden_channels: int = 64,
+        depth: int = 3,
         height: int = 4,
+        depthwise: bool = False,
         act: Callable = DefaultActivation,
     ) -> None:
         super().__init__()
         Conv = DWConv if depthwise else ConvBnAct
-        base_channels = int(64 * width)
-        base_depth = max(round(depth * 3), 1)  # 3
+        base_channels = hidden_channels
         self.stem = Focus(
             in_channels=in_channels, out_channels=base_channels, kernel_size=3, act=act
         )
@@ -55,7 +54,7 @@ class CSPDarknet(nn.Module):
                 CSP(
                     in_channels=next_ch,
                     out_channels=next_ch,
-                    depth=base_depth,
+                    depth=depth,
                 ),
             )
             self.darks.append(nn.Sequential(*blocks))
