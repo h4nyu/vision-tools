@@ -65,6 +65,7 @@ def test_dataset(transform: Any) -> None:
     writer.flush()
 
 
+@pytest.mark.skipif(no_volume, reason=reason)
 def test_aug(train_transform: Any) -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transform=train_transform)

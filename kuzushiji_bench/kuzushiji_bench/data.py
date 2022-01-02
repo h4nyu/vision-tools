@@ -132,6 +132,7 @@ def kfold(
     pair_list: list[tuple[list[int], list[int]]] = []
     for train_index, test_index in skf.split(x, y):
         pair_list.append((train_index, test_index))
+    print(fold_idx)
     train_index, test_index = pair_list[fold_idx]
     return (
         [rows[i] for i in train_index],

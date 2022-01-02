@@ -31,5 +31,5 @@ train_loader:
   drop_last: true
 
 fold:
-  n_splits: 6,
-  fold_idx: 1,
+  n_splits: 6
+  fold_idx: 1
