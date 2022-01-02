@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from omegaconf import OmegaConf
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
-from vision_tools.yolox import YOLOX, Criterion
+from vision_tools.yolox import YOLOX, Criterion, Inference
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.assign import SimOTA
@@ -21,6 +21,7 @@ from kuzushiji_bench.data import (
     collate_fn,
     kfold,
 )
+from kuzushiji_bench.metric import Metric
 from tqdm import tqdm
 
 
@@ -90,27 +91,19 @@ def main() -> None:
         meter=MeanReduceDict(),
         writer=writer,
     )
+    metric = Metric()
 
-    # eval_step = EvalStep[YOLOX, TrainBatch](
-    #     to_device=to_device,
-    #     loader=val_loader,
-    #     meter=MeanReduceDict(),
-    #     writer=writer,
-    # )
+    eval_step = EvalStep[YOLOX, TrainBatch](
+        to_device=to_device,
+        loader=val_loader,
+        metric=metric,
+        writer=writer,
+        inference=Inference(),
+    )
 
     for epoch in range(cfg.num_epochs):
         train_step(model, epoch)
-
-
-#         writer.add_scalars("loss", train_reduer.value, epoch)
-#     mask_ap = MaskAP(**cfg.mask_ap)
-#     for batch in val_loader:
-#         batch = to_device(*batch)
-#         validation_log = validation_step(batch, on_end=mask_ap.accumulate_batch)
-#     if score < mask_ap.value:
-#         score = checkpoint.save(model, mask_ap.value)
-#         logger.info(f"save checkpoint")
-#     logger.info(f"epoch eval {score=} {mask_ap.value=}")
+        eval_step(model, epoch)
 
 
 if __name__ == "__main__":

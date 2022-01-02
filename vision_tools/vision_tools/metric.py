@@ -145,6 +145,10 @@ class BoxMAP:
         self.num_samples = 0
         self.running = {k: 0.0 for k in thresholds}
 
+    def reset(self) -> None:
+        self.running = {k: 0.0 for k in self.thresholds}
+        self.num_samples = 0
+
     @property
     def value(self) -> tuple[float, dict[str, float]]:
         res = {}
