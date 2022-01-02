@@ -79,7 +79,7 @@ def main() -> None:
     val_loader = DataLoader(
         val_dataset,
         collate_fn=collate_fn,
-        **cfg.validation_loader,
+        **cfg.val_loader,
     )
     to_device = ToDevice(cfg.device)
 
