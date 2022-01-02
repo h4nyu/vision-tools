@@ -10,12 +10,13 @@ from vision_tools.yolox import (
     Criterion,
     TrainBatch,
 )
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.assign import SimOTA
 from vision_tools.utils import ToDevice
-from vision_tools.step import TrainStep
+from vision_tools.step import TrainStep, EvalStep
 from vision_tools.meter import MeanReduceDict
 
 
@@ -47,6 +48,16 @@ def assign() -> SimOTA:
 @pytest.fixture
 def criterion(assign: SimOTA) -> Criterion:
     return Criterion(assign=assign)
+
+
+@pytest.fixture
+def loader(inputs: TrainBatch) -> Any:
+    return [inputs]
+
+
+@pytest.fixture
+def writer() -> SummaryWriter:
+    return SummaryWriter()
 
 
 @pytest.fixture
@@ -122,16 +133,11 @@ def test_train_step(
     criterion: Criterion,
     model: YOLOX,
     inputs: TrainBatch,
+    loader: DataLoader[TrainBatch],
 ) -> None:
     model.to("cuda")
     optimizer = optim.Adam(model.parameters())
     writer = SummaryWriter()
-
-    def _loader() -> Iterator[TrainBatch]:
-        yield inputs
-
-    loader:Any = _loader()
-
     train_step = TrainStep[YOLOX, TrainBatch](
         to_device=ToDevice("cuda"),
         criterion=criterion,
@@ -141,3 +147,40 @@ def test_train_step(
         writer=writer,
     )
     train_step(model)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda")
+def test_eval_step(
+    model: YOLOX,
+    inputs: TrainBatch,
+    loader: DataLoader[TrainBatch],
+) -> None:
+    model.to("cuda")
+    optimizer = optim.Adam(model.parameters())
+    writer = SummaryWriter()
+
+    class Metric:
+        def reset(self) -> None:
+            ...
+
+        def accumulate(self, pred: TrainBatch, gt: TrainBatch) -> None:
+            ...
+
+        @property
+        def value(self) -> tuple[float, dict[str, float]]:
+            return 0.99, {
+                "0.5": 0.99,
+            }
+
+    class InferenceFn:
+        def __call__(self, m: YOLOX, batch: TrainBatch) -> TrainBatch:
+            return batch
+
+    eval_step = EvalStep[YOLOX, TrainBatch](
+        to_device=ToDevice("cuda"),
+        metric=Metric(),
+        inference=InferenceFn(),
+        loader=loader,
+        writer=writer,
+    )
+    eval_step(model)

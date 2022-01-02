@@ -14,6 +14,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from vision_tools.transforms import normalize, inv_normalize
 from vision_tools.interface import TrainSample
 from sklearn.model_selection import StratifiedKFold
+from vision_tools.interface import TrainBatch, TrainSample
 
 location = "/tmp"
 memory = Memory(location, verbose=0)
@@ -195,3 +196,20 @@ class KuzushijiDataset(Dataset):
             boxes=boxes,
             labels=labels,
         )
+
+
+def collate_fn(
+    batch: list[TrainSample],
+) -> TrainBatch:
+    images: list[Tensor] = []
+    box_batch: list[Tensor] = []
+    label_batch: list[Tensor] = []
+    for row in batch:
+        images.append(row["image"])
+        box_batch.append(row["boxes"])
+        label_batch.append(row["labels"])
+    return TrainBatch(
+        image_batch=torch.stack(images),
+        box_batch=box_batch,
+        label_batch=label_batch,
+    )

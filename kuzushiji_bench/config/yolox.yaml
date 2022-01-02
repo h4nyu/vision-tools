@@ -29,3 +29,7 @@ train_loader:
   shuffle: true
   num_workers: 6
   drop_last: true
+
+fold:
+  n_splits: 6,
+  fold_idx: 1,

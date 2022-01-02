@@ -1,3 +1,4 @@
+import torch
 from torch import nn, Tensor
 from typing import Optional, Callable, Mapping, Any, TypeVar, Generic, Iterator
 from torch.utils.data import Subset, DataLoader
@@ -5,8 +6,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from .utils import ToDevice
-from .interface import MeterLike
+from .utils import ToDevice, Checkpoint
+from .interface import MeterLike, MetricLike
 from toolz import valmap
 
 
@@ -50,3 +51,36 @@ class TrainStep(Generic[T, B]):
             self.writer.add_scalars("train", self.meter.value, epoch)
             self.meter.reset()
 
+
+EvaluateFn = Callable[[B, B], tuple[float, Mapping[str, float]]]
+InferenceFn = Callable[[T, B], B]
+
+
+class EvalStep(Generic[T, B]):
+    def __init__(
+        self,
+        writer: SummaryWriter,
+        inference: InferenceFn,
+        to_device: ToDevice,
+        loader: DataLoader[B],
+        metric: MetricLike[B],
+        checkpoint: Optional[Checkpoint[T]] = None,
+    ) -> None:
+        self.to_device = to_device
+        self.loader = loader
+        self.writer = writer
+        self.metric = metric
+        self.inference = inference
+        self.checkpoint = checkpoint
+
+    @torch.no_grad()
+    def __call__(self, model: T, epoch: Optional[int] = None) -> None:
+        model.eval()
+        for batch in tqdm(self.loader, total=len(self.loader)):
+            batch = self.to_device(**batch)
+            pred_batch = self.inference(model, batch)
+            self.metric.accumulate(pred_batch, batch)
+        score, other = self.metric.value
+        self.writer.add_scalar("eval/score", score, epoch)
+        self.writer.add_scalars("eval", other, epoch)
+        self.metric.reset()

@@ -1,5 +1,5 @@
 from torch import Tensor
-from typing import Protocol, Callable, Any, TypedDict
+from typing import Protocol, Callable, Any, TypedDict, TypeVar, Generic
 
 
 class BackboneLike(Protocol):
@@ -24,6 +24,21 @@ class MeterLike(Protocol):
         ...
 
     def accumulate(self, log: Any) -> None:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
+B = TypeVar("B", contravariant=True)
+
+
+class MetricLike(Protocol[B]):
+    @property
+    def value(self) -> tuple[float, dict[str, float]]:
+        ...
+
+    def accumulate(self, pred: B, gt: B) -> None:
         ...
 
     def reset(self) -> None:

@@ -232,6 +232,17 @@ class YOLOX(nn.Module):
             lable_batch.append(lables[nms_index])
         return score_batch, box_batch, lable_batch
 
+    def forward(self, image_batch: Tensor) -> TrainBatch:
+        feats = self.feats(image_batch)
+        box_feats = self.box_feats(feats)
+        yolo_batch = self.box_branch(box_feats)
+        score_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
+        return dict(
+            image_batch=image_batch,
+            box_batch=box_batch,
+            label_batch=label_batch,
+        )
+
 
 class Criterion:
     def __init__(
@@ -339,7 +350,10 @@ class Criterion:
         return gt_yolo_batch, pos_idx
 
 
-TrainLog = TypedDict(
-    "TrainLog",
-    {"loss": float, "obj_loss": float, "box_loss": float, "cls_loss": float},
-)
+class Inference:
+    def __call__(
+        self,
+        model: YOLOX,
+        inputs: TrainBatch,
+    ) -> TrainBatch:
+        return model(inputs["image_batch"])

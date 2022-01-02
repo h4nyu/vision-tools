@@ -3,6 +3,8 @@ from omegaconf import OmegaConf
 from typing import Any
 import os
 
+from torch.utils.data import DataLoader
+
 # import torchvision, os, torch
 from kuzushiji_bench.data import (
     read_train_rows,
@@ -10,6 +12,7 @@ from kuzushiji_bench.data import (
     KuzushijiDataset,
     Transform,
     TrainTransform,
+    collate_fn,
     # inv_normalize,
     # train_transforms,
     # kfold,
@@ -17,9 +20,11 @@ from kuzushiji_bench.data import (
     # read_code_map,
     # SubRow,
 )
-from vision_tools.utils import draw_save
+from vision_tools.utils import batch_draw, draw
+from torch.utils.tensorboard import SummaryWriter
 
-config = OmegaConf.load("/app/kuzushiji_bench/config/yolo.yaml")
+config = OmegaConf.load("/app/kuzushiji_bench/config/yolox.yaml")
+writer = SummaryWriter("/app/runs/test-kuzushiji_bench")
 
 no_volume = not os.path.exists(config.root_dir)
 reason = "no data volume"
@@ -52,23 +57,22 @@ def test_dataset(transform: Any) -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transform=transform)
     sample = dataset[0]
-    draw_save(
-        "/app/test_outputs/test-kuzushiji.png",
+    plot = draw(
         image=sample["image"],
         boxes=sample["boxes"],
     )
+    writer.add_image("image", plot, 1)
+    writer.flush()
 
 
 def test_aug(train_transform: Any) -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transform=train_transform)
-    for i in range(3):
-        sample = dataset[100]
-        draw_save(
-            f"/app/test_outputs/test-kuzushiji-aug-{i}.png",
-            image=sample["image"],
-            boxes=sample["boxes"],
-        )
+    loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
+    batch = next(loader_iter)
+    plot = batch_draw(**batch)
+    writer.add_image("aug", plot, 0)
+    writer.flush()
 
 
 # def test_fold() -> None:

@@ -7,31 +7,21 @@ from omegaconf import OmegaConf
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
 from vision_tools.yolox import YOLOX, Criterion
-from vision_tools.interface import TrainBatch, TrainSample
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.assign import SimOTA
 from vision_tools.meter import MeanReduceDict
-from vision_tools.step import TrainStep
-from kuzushiji_bench.data import KuzushijiDataset, TrainTransform, read_train_rows
+from vision_tools.step import TrainStep, EvalStep
+from vision_tools.interface import TrainBatch
+from kuzushiji_bench.data import (
+    KuzushijiDataset,
+    TrainTransform,
+    Transform,
+    read_train_rows,
+    collate_fn,
+    kfold,
+)
 from tqdm import tqdm
-
-
-def collate_fn(
-    batch: list[TrainSample],
-) -> TrainBatch:
-    images: list[Tensor] = []
-    box_batch: list[Tensor] = []
-    label_batch: list[Tensor] = []
-    for row in batch:
-        images.append(row["image"])
-        box_batch.append(row["boxes"])
-        label_batch.append(row["labels"])
-    return TrainBatch(
-        image_batch=torch.stack(images),
-        box_batch=box_batch,
-        label_batch=label_batch,
-    )
 
 
 def main() -> None:
@@ -41,6 +31,7 @@ def main() -> None:
     checkpoint = Checkpoint[YOLOX](
         root_path=os.path.join(cfg.root_dir, cfg.name),
         default_score=0.0,
+        comparator=lambda a, b: a < b,
     )
     backbone = CSPDarknet()
     neck = CSPPAFPN(
@@ -69,27 +60,26 @@ def main() -> None:
     # validation_step = ValidationStep(
     #     criterion=criterion,
     # )
+    annotations = read_train_rows(cfg.root_dir)
+    train_rows, validation_rows = kfold(annotations, **cfg.fold)
     train_dataset = KuzushijiDataset(
-        read_train_rows(cfg.root_dir),
+        train_rows,
         transform=TrainTransform(cfg.image_size),
     )
-    # val_dataset = CellTrainDataset(
-    #     **cfg.dataset,
-    #     transform=Tranform(
-    #         size=cfg.patch_size,
-    #     ),
-    # )
-    # train_indecies, validation_indecies = get_fold_indices(train_dataset, **cfg.fold)
+    val_dataset = KuzushijiDataset(
+        validation_rows,
+        transform=Transform(cfg.image_size),
+    )
     train_loader = DataLoader(
         train_dataset,
         collate_fn=collate_fn,
         **cfg.train_loader,
     )
-    # val_loader = DataLoader(
-    #     Subset(val_dataset, validation_indecies),
-    #     collate_fn=collate_fn,
-    #     **cfg.validation_loader,
-    # )
+    val_loader = DataLoader(
+        val_dataset,
+        collate_fn=collate_fn,
+        **cfg.validation_loader,
+    )
     to_device = ToDevice(cfg.device)
 
     train_step = TrainStep[YOLOX, TrainBatch](
@@ -101,9 +91,17 @@ def main() -> None:
         writer=writer,
     )
 
+    # eval_step = EvalStep[YOLOX, TrainBatch](
+    #     to_device=to_device,
+    #     loader=val_loader,
+    #     meter=MeanReduceDict(),
+    #     writer=writer,
+    # )
 
     for epoch in range(cfg.num_epochs):
         train_step(model, epoch)
+
+
 #         writer.add_scalars("loss", train_reduer.value, epoch)
 #     mask_ap = MaskAP(**cfg.mask_ap)
 #     for batch in val_loader:
