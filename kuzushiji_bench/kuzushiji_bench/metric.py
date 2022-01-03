@@ -3,8 +3,8 @@ from vision_tools.interface import TrainBatch
 
 
 class Metric:
-    def __init__(self) -> None:
-        self.map = BoxMAP()
+    def __init__(self, thresholds:list[float]=[0.7]) -> None:
+        self.map = BoxMAP(thresholds)
 
     @property
     def value(self) -> tuple[float, dict[str, float]]:

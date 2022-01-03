@@ -3,11 +3,11 @@ name: kuzushiji-yolox
 device: cuda
 use_amp: true
 num_epochs: 100
-hidden_channels: 32
+hidden_channels: 64
 root_dir: /store/kuzushiji-recognition
 depth: 1
 num_classes: 1
-box_feat_range: [3, 5]
+feat_range: [3, 5]
 box_iou_threshold: 0.5
 score_threshold: 0.5
 image_size: 512
@@ -24,6 +24,7 @@ optimizer:
 
 criterion:
   box_weight: 1.0
+  cls_weight: 0.0
 
 train_loader:
   batch_size: 8

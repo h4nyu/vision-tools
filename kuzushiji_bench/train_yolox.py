@@ -56,14 +56,6 @@ def main() -> None:
     assign = SimOTA(**cfg.assign)
     criterion = Criterion(assign=assign, **cfg.criterion)
     optimizer = optim.AdaBound(model.parameters(), **cfg.optimizer)
-    # train_step = TrainStep(
-    #     optimizer=optimizer,
-    #     criterion=criterion,
-    #     use_amp=cfg.use_amp,
-    # )
-    # validation_step = ValidationStep(
-    #     criterion=criterion,
-    # )
     annotations = read_train_rows(cfg.root_dir)
     train_rows, validation_rows = kfold(annotations, **cfg.fold)
     train_dataset = KuzushijiDataset(

@@ -138,7 +138,7 @@ class YOLOX(nn.Module):
         neck: FPNLike,
         hidden_channels: int,
         num_classes: int,
-        box_limit: int = 1000,
+        box_limit: int = 300,
         box_iou_threshold: float = 0.5,
         score_threshold: float = 0.5,
         feat_range: tuple[int, int] = (3, 7),
@@ -248,18 +248,18 @@ class Criterion:
         assign: SimOTA,
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
-        cate_weight: float = 1.0,
+        cls_weight: float = 1.0,
         assign_radius: float = 2.0,
         assign_center_wight: float = 1.0,
     ) -> None:
         self.box_weight = box_weight
-        self.cate_weight = cate_weight
+        self.cls_weight = cls_weight
         self.obj_weight = obj_weight
         self.assign = assign
 
         self.box_loss = CIoULoss()
         self.obj_loss = F.binary_cross_entropy_with_logits
-        self.cate_loss = F.binary_cross_entropy_with_logits
+        self.cls_loss = F.binary_cross_entropy_with_logits
 
     def __call__(
         self,
@@ -294,15 +294,16 @@ class Criterion:
                     gt_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
                 ),
             )
-            cls_loss += self.cate_loss(
-                pred_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
-                gt_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
-            )
+            if(self.cls_weight != 0):
+                cls_loss += self.cls_loss(
+                    pred_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
+                    gt_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
+                )
 
         loss = (
             self.box_weight * box_loss
             + self.obj_weight * obj_loss
-            + self.cate_weight * cls_loss
+            + self.cls_weight * cls_loss
         )
         return (
             loss,
