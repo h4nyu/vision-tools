@@ -1,3 +1,4 @@
+import torch
 import pytest
 from omegaconf import OmegaConf
 from typing import Any
@@ -16,9 +17,9 @@ from kuzushiji_bench.data import (
     # inv_normalize,
     # train_transforms,
     # kfold,
-    # save_submission,
-    # read_code_map,
-    # SubRow,
+    save_submission,
+    read_code_map,
+    SubRow,
 )
 from vision_tools.utils import batch_draw, draw
 from torch.utils.tensorboard import SummaryWriter
@@ -76,22 +77,19 @@ def test_aug(train_transform: Any) -> None:
     writer.flush()
 
 
-# def test_fold() -> None:
-#     rows = read_train_rows(config.root_dir)
-#     a, b = kfold(rows, n_splits=4)
 
 
-# def test_save_submission() -> None:
-#     rows: list[SubRow] = [
-#         {
-#             "id": "aaaa",
-#             "points": torch.tensor([[10, 20]]),
-#             "labels": torch.tensor([0]),
-#         }
-#     ]
-#     code_map = read_code_map(os.path.join(config.root_dir, "unicode_translation.csv"))
-#     save_submission(
-#         rows,
-#         code_map,
-#         os.path.join(config.root_dir, f"test_sub.csv"),
-#     )
+def test_save_submission() -> None:
+    rows: list[SubRow] = [
+        {
+            "id": "aaaa",
+            "points": torch.tensor([[10, 20]]),
+            "labels": torch.tensor([0]),
+        }
+    ]
+    code_map = read_code_map(os.path.join(config.root_dir, "unicode_translation.csv"))
+    save_submission(
+        rows,
+        code_map,
+        os.path.join(config.root_dir, f"test_sub.csv"),
+    )

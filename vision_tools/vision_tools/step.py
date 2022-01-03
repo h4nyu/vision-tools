@@ -84,5 +84,6 @@ class EvalStep(Generic[T, B]):
         score, other = self.metric.value
         self.writer.add_scalar("eval/score", score, epoch)
         self.writer.add_scalars("eval", other, epoch)
-        print(other)
         self.metric.reset()
+        if self.checkpoint is not None:
+            self.checkpoint.save_if_needed(model, score)
