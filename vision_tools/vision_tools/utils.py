@@ -78,7 +78,7 @@ class Checkpoint(Generic[T]):
         self,
         root_path: str,
         default_score: float,
-        comparator: Comparator = lambda p, n: p < n,
+        comparator: Comparator = lambda p, n: p <= n,
     ) -> None:
         self.root_path = Path(root_path)
         self.model_path = self.root_path.joinpath("checkpoint.pth")
@@ -102,6 +102,7 @@ class Checkpoint(Generic[T]):
         if self.comparator(self.score, score):
             torch.save(model.state_dict(), self.model_path)  # type: ignore
             OmegaConf.save(config=dict(score=score), f=self.checkpoint_path)
+            self.score == score
 
 
 @torch.no_grad()
