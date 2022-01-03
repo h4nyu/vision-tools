@@ -60,6 +60,21 @@ class DecoupledHead(nn.Module):
                 act=act,
             ),
         )
+
+        self.obj_branch = nn.Sequential(
+            Conv(
+                in_channels=hidden_channels,
+                out_channels=hidden_channels,
+                kernel_size=3,
+                act=act,
+            ),
+            Conv(
+                in_channels=hidden_channels,
+                out_channels=hidden_channels,
+                kernel_size=3,
+                act=act,
+            ),
+        )
         self.cls_out = nn.Conv2d(
             in_channels=hidden_channels,
             out_channels=num_classes,
@@ -99,8 +114,9 @@ class DecoupledHead(nn.Module):
         stem = self.stem(x)
         reg_feat = self.reg_branch(stem)
         cls_feat = self.cls_branch(stem)
+        obj_feat = self.cls_branch(stem)
         reg_out = self.reg_out(reg_feat)
-        obj_out = self.obj_out(reg_feat)
+        obj_out = self.obj_out(obj_feat)
         cls_out = self.cls_out(cls_feat)
         return torch.cat([reg_out, obj_out, cls_out], dim=1)
 

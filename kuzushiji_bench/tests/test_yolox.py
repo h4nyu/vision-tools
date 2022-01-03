@@ -26,7 +26,7 @@ reason = "no data volume"
 
 @pytest.fixture
 def model() -> YOLOX:
-    cfg.score_threshold = 0.1
+    cfg.score_threshold = 0.4
     m = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
     m, _ = checkpoint.load_if_exists(m)
