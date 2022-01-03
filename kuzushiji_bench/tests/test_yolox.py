@@ -23,13 +23,16 @@ writer = SummaryWriter("/app/runs/test-kuzushiji_bench")
 no_volume = not os.path.exists(cfg.root_dir)
 reason = "no data volume"
 
+
 @pytest.fixture
 def model() -> YOLOX:
     return get_model(cfg)
 
+
 @pytest.fixture
 def criterion() -> Criterion:
     return get_criterion(cfg)
+
 
 @pytest.fixture
 def batch() -> TrainBatch:
@@ -41,17 +44,18 @@ def batch() -> TrainBatch:
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
     return next(loader_iter)
 
+
 @pytest.mark.skipif(no_volume, reason=reason)
 def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
-    image_batch = batch['image_batch']
+    image_batch = batch["image_batch"]
     feats = model.feats(image_batch)
     pred_yolo_batch = model.box_branch(feats)
     gt_yolo_batch, pos_idx = criterion.prepeare_box_gt(
         model.num_classes, gt_box_batch, gt_label_batch, pred_yolo_batch
     )
-    boxes=box_convert(
+    boxes = box_convert(
         pred_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
     )
     plot = draw(image=image_batch[0], boxes=gt_box_batch[0])

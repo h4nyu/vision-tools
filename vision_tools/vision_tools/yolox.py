@@ -197,9 +197,8 @@ class YOLOX(nn.Module):
 
     def feats(self, x: Tensor) -> list[Tensor]:
         feats = self.backbone(x)
-        feats = feats[self.feat_range[0]: self.feat_range[1]]
+        feats = feats[self.feat_range[0] : self.feat_range[1]]
         return self.neck(feats)
-
 
     @torch.no_grad()
     def to_boxes(
@@ -294,7 +293,7 @@ class Criterion:
                     gt_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
                 ),
             )
-            if(self.cls_weight != 0):
+            if self.cls_weight != 0:
                 cls_loss += self.cls_loss(
                     pred_yolo_batch[..., 5 : 5 + num_classes][pos_idx],
                     gt_yolo_batch[..., 5 : 5 + num_classes][pos_idx],

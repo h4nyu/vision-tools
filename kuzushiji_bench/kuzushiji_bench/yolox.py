@@ -6,14 +6,14 @@ from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
 
 
-def get_model(cfg:Any) -> YOLOX:
+def get_model(cfg: Any) -> YOLOX:
     backbone = CSPDarknet(
         depth=cfg.depth,
         hidden_channels=cfg.hidden_channels,
     )
     neck = CSPPAFPN(
-        in_channels=backbone.channels[cfg.feat_range[0]:cfg.feat_range[1]],
-        strides=backbone.strides[cfg.feat_range[0]:cfg.feat_range[1]],
+        in_channels=backbone.channels[cfg.feat_range[0] : cfg.feat_range[1]],
+        strides=backbone.strides[cfg.feat_range[0] : cfg.feat_range[1]],
     )
     model = YOLOX(
         backbone=backbone,
@@ -26,7 +26,8 @@ def get_model(cfg:Any) -> YOLOX:
     )
     return model
 
-def get_criterion(cfg:Any) -> Criterion:
+
+def get_criterion(cfg: Any) -> Criterion:
     assign = SimOTA(**cfg.assign)
     criterion = Criterion(assign=assign, **cfg.criterion)
     return criterion

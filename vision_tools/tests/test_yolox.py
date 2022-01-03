@@ -26,8 +26,8 @@ def model() -> YOLOX:
     num_classes = 2
     feat_range = (3, 6)
     neck = CSPPAFPN(
-        in_channels=backbone.channels[feat_range[0]: feat_range[1]],
-        strides=backbone.strides[feat_range[0]:feat_range[1]],
+        in_channels=backbone.channels[feat_range[0] : feat_range[1]],
+        strides=backbone.strides[feat_range[0] : feat_range[1]],
     )
     return YOLOX(
         backbone=backbone,

@@ -77,8 +77,6 @@ def test_aug(train_transform: Any) -> None:
     writer.flush()
 
 
-
-
 def test_save_submission() -> None:
     rows: list[SubRow] = [
         {
