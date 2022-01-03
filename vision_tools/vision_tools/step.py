@@ -48,8 +48,8 @@ class TrainStep(Generic[T, B]):
                 self.scaler.update()
                 if other is not None:
                     self.meter.accumulate(valmap(lambda x: x.item(), other))
-            self.writer.add_scalars("train", self.meter.value, epoch)
-            print(self.meter.value)
+            for k, v in self.meter.value.items():
+                self.writer.add_scalar(f"train/{k}", v, epoch)
             self.meter.reset()
 
 
@@ -83,7 +83,8 @@ class EvalStep(Generic[T, B]):
             self.metric.accumulate(pred_batch, batch)
         score, other = self.metric.value
         self.writer.add_scalar("eval/score", score, epoch)
-        self.writer.add_scalars("eval", other, epoch)
+        for k, v in other.items():
+            self.writer.add_scalar(f"eval/{k}", v, epoch)
         self.metric.reset()
         if self.checkpoint is not None:
             self.checkpoint.save_if_needed(model, score)

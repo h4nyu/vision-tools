@@ -20,7 +20,8 @@ assign:
   box_weight: 1.5
 
 optimizer:
-  lr: 2e-3
+  # lr: 2e-3
+  lr: 1e-3
 
 criterion:
   box_weight: 0.5
