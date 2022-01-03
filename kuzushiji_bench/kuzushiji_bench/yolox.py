@@ -1,9 +1,11 @@
+import os
 from typing import Any
 from omegaconf import OmegaConf
 from vision_tools.backbone import CSPDarknet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
+from vision_tools.utils import Checkpoint
 
 
 def get_model(cfg: Any) -> YOLOX:
@@ -31,3 +33,10 @@ def get_criterion(cfg: Any) -> Criterion:
     assign = SimOTA(**cfg.assign)
     criterion = Criterion(assign=assign, **cfg.criterion)
     return criterion
+
+
+def get_checkpoint(cfg: Any) -> Checkpoint:
+    return Checkpoint[YOLOX](
+        root_path=os.path.join(cfg.root_dir, cfg.name),
+        default_score=0.0,
+    )

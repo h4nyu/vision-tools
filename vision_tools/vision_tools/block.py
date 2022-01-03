@@ -17,7 +17,6 @@ class ConvBnAct(nn.Module):
         stride: int = 1,
         dilation: int = 1,
         groups: int = 1,
-        bias: bool = False,
         act: Callable[[Tensor], Tensor] = DefaultActivation,
     ) -> None:
         super().__init__()
@@ -30,7 +29,7 @@ class ConvBnAct(nn.Module):
             stride=stride,
             padding=pad,
             groups=groups,
-            bias=bias,
+            bias=False,
         )
         self.bn = nn.BatchNorm2d(out_channels)
         self.act = act

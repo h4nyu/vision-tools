@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from .block import DefaultActivation, DWConv, ConvBnAct
 from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
-from .loss import CIoULoss, FocalLoss
+from .loss import CIoULoss, FocalLoss, DIoULoss
 from toolz import valmap
 
 
@@ -184,7 +184,7 @@ class YOLOX(nn.Module):
             yolo_boxes = torch.cat(
                 [
                     (yolo_boxes[..., 0:2] + 0.5 + grid) * strides,
-                    yolo_boxes[..., 2:4].exp() * strides,
+                    yolo_boxes[..., 2:4] ** 2 * strides,
                     yolo_boxes[..., 4:],
                     strides,
                     anchor_points,
@@ -207,18 +207,15 @@ class YOLOX(nn.Module):
         score_batch, box_batch, lable_batch = [], [], []
         device = yolo_batch.device
         num_classes = self.num_classes
-        batch = torch.zeros((*yolo_batch.shape[:2], 6)).to(device)
-        batch[..., :4] = box_convert(
-            yolo_batch[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
-        )
-        batch[..., 4] = yolo_batch[..., 4].sigmoid()
-        batch[..., 5] = yolo_batch[..., 5 : 5 + num_classes].argmax(-1)
-        for r in batch:
-            th_filter = r[..., 4] > self.score_threshold
+        for r in yolo_batch:
+            scores = r[:, 4].sigmoid()
+            th_filter = scores > self.score_threshold
             r = r[th_filter]
-            boxes = r[..., :4]
-            scores = r[..., 4]
-            lables = r[..., 5].long()
+            scores = scores[th_filter]
+            boxes = box_convert(
+                r[:, :4], in_fmt="cxcywh", out_fmt="xyxy"
+            )
+            lables = r[:, 5 : 5 + num_classes].argmax(-1).long()
             nms_index = batched_nms(
                 boxes=boxes,
                 scores=scores,
@@ -256,7 +253,8 @@ class Criterion:
         self.obj_weight = obj_weight
         self.assign = assign
 
-        self.box_loss = CIoULoss()
+        self.box_loss = DIoULoss()
+        # self.box_loss = nn.L1Loss()
         self.obj_loss = F.binary_cross_entropy_with_logits
         self.cls_loss = F.binary_cross_entropy_with_logits
 

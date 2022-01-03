@@ -4,7 +4,7 @@ import os
 from omegaconf import OmegaConf
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.ops import box_convert
-from kuzushiji_bench.yolox import get_model, get_criterion
+from kuzushiji_bench.yolox import get_model, get_criterion, get_checkpoint
 from vision_tools.assign import SimOTA
 from torch.utils.data import DataLoader
 from vision_tools.yolox import YOLOX, Criterion
@@ -26,7 +26,11 @@ reason = "no data volume"
 
 @pytest.fixture
 def model() -> YOLOX:
-    return get_model(cfg)
+    cfg.score_threshold = 0.1
+    m = get_model(cfg)
+    checkpoint = get_checkpoint(cfg)
+    m, _ = checkpoint.load_if_exists(m)
+    return m
 
 
 @pytest.fixture
@@ -62,19 +66,9 @@ def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
     writer.add_image("assign", plot, 0)
     plot = draw(image=image_batch[0], boxes=boxes)
     writer.add_image("assign", plot, 1)
-    writer.flush()
 
-    # draw_save(
-    #     "/app/test_outputs/yolox-assign-anchor.png",
-    #     images[0],
-    #     boxes=box_convert(
-    #         pred_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
-    #     ),
-    # )
-    # draw_save(
-    #     "/app/test_outputs/yolox-assign-gt.png",
-    #     images[0],
-    #     boxes=box_convert(
-    #         gt_yolo_batch[..., :4][pos_idx], in_fmt="cxcywh", out_fmt="xyxy"
-    #     ),
-    # )
+    score_batch, box_batch, label_batch = model.to_boxes(pred_yolo_batch)
+    # print(score_batch)
+    plot = draw(image=image_batch[0], boxes=box_batch[0])
+    writer.add_image("assign", plot, 2)
+    writer.flush()

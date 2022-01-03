@@ -7,7 +7,7 @@ from omegaconf import OmegaConf
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
 from vision_tools.yolox import YOLOX, Criterion, Inference
-from kuzushiji_bench.yolox import get_model, get_criterion
+from kuzushiji_bench.yolox import get_model, get_criterion, get_checkpoint
 from vision_tools.meter import MeanReduceDict
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch
@@ -27,10 +27,7 @@ def main() -> None:
     seed_everything()
     cfg = OmegaConf.load(os.path.join(os.path.dirname(__file__), "config/yolox.yaml"))
     writer = SummaryWriter(os.path.join("runs", cfg.name))
-    checkpoint = Checkpoint[YOLOX](
-        root_path=os.path.join(cfg.root_dir, cfg.name),
-        default_score=0.0,
-    )
+    checkpoint = get_checkpoint(cfg)
     model = get_model(cfg)
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
@@ -39,7 +36,7 @@ def main() -> None:
     annotations = read_train_rows(cfg.root_dir)
     train_rows, validation_rows = kfold(annotations, **cfg.fold)
     train_dataset = KuzushijiDataset(
-        train_rows[:200],
+        train_rows[:400],
         transform=TrainTransform(cfg.image_size),
     )
     val_dataset = KuzushijiDataset(

@@ -106,7 +106,7 @@ class SimOTA:
         )
         topk = min(self.topk, pred_count)
         topk_ious, _ = torch.topk(iou_matrix, topk, dim=1)
-        dynamic_ks = topk_ious.sum(1).int().clamp(min=1)
+        dynamic_ks = (topk_ious.sum(1) * 1.3).int().clamp(min=1)
         matching_matrix = torch.zeros((gt_count, pred_count), dtype=torch.long)
         candidate_idx = candidates.nonzero().view(-1)
         for (row, dynamic_topk, matching_row) in zip(
