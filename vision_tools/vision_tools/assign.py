@@ -97,14 +97,14 @@ class SimOTA:
         pred_boxes = pred_boxes[fg_mask]
 
         num_fg = pred_objs.size(0)
-        obj_matrix = -F.binary_cross_entropy_with_logits(
+        obj_matrix = F.binary_cross_entropy_with_logits(
             pred_objs,
             torch.ones(num_fg).to(device),
             reduction="none",
         )
         iou_matrix = box_iou(gt_boxes, pred_boxes)
         matrix = (
-            obj_matrix
+            -obj_matrix
             + self.box_weight * torch.log(iou_matrix + 1e-8)
             + center_mask * 10000
         )
