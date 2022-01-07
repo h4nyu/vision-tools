@@ -24,7 +24,7 @@ from kuzushiji_bench.data import (
 from vision_tools.utils import batch_draw, draw
 from torch.utils.tensorboard import SummaryWriter
 
-cfg = OmegaConf.load("/app/kuzushiji_bench/cfg/yolox.yaml")
+cfg = OmegaConf.load("/app/kuzushiji_bench/config/yolox.yaml")
 writer = SummaryWriter("/app/runs/test-kuzushiji_bench")
 
 no_volume = not os.path.exists(cfg.root_dir)
