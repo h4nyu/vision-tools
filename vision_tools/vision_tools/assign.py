@@ -55,7 +55,7 @@ class SimOTA:
         gt_boxes = gt_boxes.unsqueeze(1)
         gt_centers = (gt_boxes[:, :, 0:2] + gt_boxes[:, :, 2:4]) / 2.0
 
-        is_in_box = (  # grid cell inside gt-box
+        is_in_box = (
             (gt_boxes[:, :, 0] <= anchor_points[:, 0])
             & (anchor_points[:, 0] <= gt_boxes[:, :, 2])
             & (gt_boxes[:, :, 1] <= anchor_points[:, 1])
@@ -70,18 +70,16 @@ class SimOTA:
             & (gt_center_lbound[:, :, 1] <= anchor_points[:, 1])
             & (anchor_points[:, 1] <= gt_center_ubound[:, :, 1])
         )  # [num_gts, num_proposals]
-        candidates = (is_in_box | is_in_center).any(dim=0)
-        center_matrix = (is_in_box & is_in_center)[
-            :, candidates
-        ]  # [num_gts, num_fg_candidates]
-        return candidates, center_matrix
+        fg_mask = is_in_box.any(dim=0) | is_in_center.any(dim=0)
+        center_mask = is_in_box[:, fg_mask] & is_in_center[:, fg_mask]
+        return fg_mask, center_mask
 
     @torch.no_grad()
     def __call__(
         self,
         anchor_points: Tensor,
         pred_boxes: Tensor,
-        pred_scores: Tensor,
+        pred_objs: Tensor,  # logit
         gt_boxes: Tensor,
         strides: Tensor,
     ) -> Tensor:  # [gt_index, pred_index]
@@ -90,27 +88,34 @@ class SimOTA:
         pred_count = len(pred_boxes)
         if gt_count == 0 or pred_count == 0:
             return torch.zeros(0, 2).to(device)
-        candidates, center_matrix = self.candidates(
+        fg_mask, center_mask = self.candidates(
             anchor_points=anchor_points,
             gt_boxes=gt_boxes,
             strides=strides,
         )
-        with torch.cuda.amp.autocast(enabled=False):
-            score_matrix = -F.binary_cross_entropy(
-                pred_scores[candidates],
-                torch.ones(int(candidates.sum())).to(device),
-                reduction="none",
-            ).expand(gt_count, -1)
-        iou_matrix = box_iou(gt_boxes, pred_boxes[candidates])
-        matrix = score_matrix + self.box_weight * iou_matrix + center_matrix * 10000
-        topk = min(self.topk, pred_count)
+        pred_objs = pred_objs[fg_mask]
+        pred_boxes = pred_boxes[fg_mask]
+
+        num_fg = pred_objs.size(0)
+        obj_matrix = -F.binary_cross_entropy_with_logits(
+            pred_objs,
+            torch.ones(num_fg).to(device),
+            reduction="none",
+        )
+        iou_matrix = box_iou(gt_boxes, pred_boxes)
+        matrix = (
+            obj_matrix
+            + self.box_weight * torch.log(iou_matrix + 1e-8)
+            + center_mask * 10000
+        )
+        topk = min(self.topk, iou_matrix.size(1))
         topk_ious, _ = torch.topk(iou_matrix, topk, dim=1)
         dynamic_ks = topk_ious.sum(1).int().clamp(min=1)
         matching_matrix = torch.zeros((gt_count, pred_count), dtype=torch.long)
-        candidate_idx = candidates.nonzero().view(-1)
+        fg_mask_idx = fg_mask.nonzero().view(-1)
         for (row, dynamic_topk, matching_row) in zip(
             matrix, dynamic_ks, matching_matrix
         ):
             _, pos_idx = torch.topk(row, k=dynamic_topk)
-            matching_row[candidate_idx[pos_idx]] = 1
+            matching_row[fg_mask_idx[pos_idx]] = 1
         return matching_matrix.nonzero()

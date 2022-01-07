@@ -330,11 +330,11 @@ class Criterion:
             matched = self.assign(
                 gt_boxes=gt_boxes,
                 pred_boxes=box_convert(
-                    pred_yolo[..., :4], in_fmt="cxcywh", out_fmt="xyxy"
+                    pred_yolo[:, :4], in_fmt="cxcywh", out_fmt="xyxy"
                 ),
-                pred_scores=pred_yolo[..., 4].sigmoid(),
-                strides=pred_yolo[..., 5 + num_classes],
-                anchor_points=pred_yolo[..., 6 + num_classes : 6 + num_classes + 2],
+                pred_objs=pred_yolo[:, 4],
+                strides=pred_yolo[:, 5 + num_classes],
+                anchor_points=pred_yolo[:, 6 + num_classes : 6 + num_classes + 2],
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
