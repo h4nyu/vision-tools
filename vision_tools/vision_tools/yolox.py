@@ -61,20 +61,6 @@ class DecoupledHead(nn.Module):
             ),
         )
 
-        self.obj_branch = nn.Sequential(
-            Conv(
-                in_channels=hidden_channels,
-                out_channels=hidden_channels,
-                kernel_size=3,
-                act=act,
-            ),
-            Conv(
-                in_channels=hidden_channels,
-                out_channels=hidden_channels,
-                kernel_size=3,
-                act=act,
-            ),
-        )
         self.cls_out = nn.Conv2d(
             in_channels=hidden_channels,
             out_channels=num_classes,
@@ -114,9 +100,8 @@ class DecoupledHead(nn.Module):
         stem = self.stem(x)
         reg_feat = self.reg_branch(stem)
         cls_feat = self.cls_branch(stem)
-        obj_feat = self.cls_branch(stem)
         reg_out = self.reg_out(reg_feat)
-        obj_out = self.obj_out(obj_feat)
+        obj_out = self.obj_out(reg_feat)
         cls_out = self.cls_out(cls_feat)
         return torch.cat([reg_out, obj_out, cls_out], dim=1)
 
@@ -184,23 +169,23 @@ class YOLOX(nn.Module):
             batch_size, num_outputs, rows, cols = pred.shape
             grid = (
                 torch.stack(
-                    torch.meshgrid([torch.arange(rows), torch.arange(cols)])[::-1],
+                    torch.meshgrid([torch.arange(rows), torch.arange(cols)]),
                     dim=2,
                 )
-                .reshape(rows * cols, 2)
+                .view(rows * cols, 2)
                 .to(device)
             )
             strides = torch.full((batch_size, len(grid), 1), stride).to(device)
             anchor_points = (grid + 0.5) * strides
             yolo_boxes = (
-                pred.permute(0, 2, 3, 1)
+                pred.permute(0, 3, 2, 1)
                 .reshape(batch_size, rows * cols, num_outputs)
                 .float()
             )
             yolo_boxes = torch.cat(
                 [
                     (yolo_boxes[..., 0:2] + 0.5 + grid) * strides,
-                    yolo_boxes[..., 2:4] ** 2 * strides,
+                    (yolo_boxes[..., 2:4].exp()) * strides,
                     yolo_boxes[..., 4:],
                     strides,
                     anchor_points,
@@ -228,9 +213,7 @@ class YOLOX(nn.Module):
             th_filter = scores > self.score_threshold
             r = r[th_filter]
             scores = scores[th_filter]
-            boxes = box_convert(
-                r[:, :4], in_fmt="cxcywh", out_fmt="xyxy"
-            )
+            boxes = box_convert(r[:, :4], in_fmt="cxcywh", out_fmt="xyxy")
             lables = r[:, 5 : 5 + num_classes].argmax(-1).long()
             nms_index = batched_nms(
                 boxes=boxes,
@@ -269,9 +252,8 @@ class Criterion:
         self.obj_weight = obj_weight
         self.assign = assign
 
-        self.box_loss = DIoULoss()
-        # self.box_loss = nn.L1Loss()
-        self.obj_loss = F.binary_cross_entropy_with_logits
+        self.box_loss = CIoULoss()
+        self.obj_loss = nn.BCEWithLogitsLoss(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
 
     def __call__(
@@ -289,15 +271,18 @@ class Criterion:
         gt_yolo_batch, pos_idx = self.prepeare_box_gt(
             model.num_classes, gt_box_batch, gt_label_batch, pred_yolo_batch
         )
+        matched_count = pos_idx.sum()
 
         # 1-stage
-        obj_loss = self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
+        obj_loss = (
+            self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
+            / matched_count
+        )
 
         box_loss, cls_loss = (
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
         )
-        matched_count = pos_idx.sum()
         if matched_count > 0:
             box_loss += self.box_loss(
                 box_convert(

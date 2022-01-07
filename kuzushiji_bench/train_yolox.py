@@ -2,12 +2,16 @@ import os
 import torch_optimizer as optim
 import torch
 from torch import Tensor
-from torch.utils.tensorboard import SummaryWriter
 from omegaconf import OmegaConf
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
 from vision_tools.yolox import YOLOX, Criterion, Inference
-from kuzushiji_bench.yolox import get_model, get_criterion, get_checkpoint
+from kuzushiji_bench.yolox import (
+    get_model,
+    get_criterion,
+    get_checkpoint,
+    get_writer,
+)
 from vision_tools.meter import MeanReduceDict
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch
@@ -26,13 +30,13 @@ from tqdm import tqdm
 def main() -> None:
     seed_everything()
     cfg = OmegaConf.load(os.path.join(os.path.dirname(__file__), "config/yolox.yaml"))
-    writer = SummaryWriter(os.path.join("runs", cfg.name))
     checkpoint = get_checkpoint(cfg)
+    writer = get_writer(cfg)
     model = get_model(cfg)
     model, score = checkpoint.load_if_exists(model)
     model = model.to(cfg.device)
     criterion = get_criterion(cfg)
-    optimizer = optim.AdaBound(model.parameters(), **cfg.optimizer)
+    optimizer = torch.optim.SGD(model.parameters(), **cfg.optimizer)
     annotations = read_train_rows(cfg.root_dir)
     train_rows, validation_rows = kfold(annotations, **cfg.fold)
     train_dataset = KuzushijiDataset(

@@ -6,6 +6,13 @@ from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
 from vision_tools.utils import Checkpoint
+from torch.utils.tensorboard import SummaryWriter
+
+
+def get_writer(cfg: Any) -> SummaryWriter:
+    return SummaryWriter(
+        f"runs/{cfg.name}-lr_{cfg.optimizer.lr}-box_w_{cfg.criterion.box_weight}-radius_{cfg.assign.radius}"
+    )
 
 
 def get_model(cfg: Any) -> YOLOX:

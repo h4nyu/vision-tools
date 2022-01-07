@@ -30,6 +30,10 @@ writer = SummaryWriter("/app/runs/test-kuzushiji_bench")
 no_volume = not os.path.exists(config.root_dir)
 reason = "no data volume"
 
+no_volume = not os.path.exists(cfg.root_dir)
+if no_volume:
+    pytestmark = pytest.mark.skip("no data volume")
+
 
 @pytest.fixture
 def transform() -> Any:
@@ -41,19 +45,16 @@ def train_transform() -> Any:
     return TrainTransform(512)
 
 
-@pytest.mark.skipif(no_volume, reason=reason)
 def test_read_train_rows() -> None:
     rows = read_train_rows(config.root_dir)
     assert len(rows) == 3605
 
 
-@pytest.mark.skipif(no_volume, reason=reason)
 def test_read_test_rows() -> None:
     rows = read_test_rows(config.root_dir)
     assert len(rows) == 1730
 
 
-@pytest.mark.skipif(no_volume, reason=reason)
 def test_dataset(transform: Any) -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transform=transform)
@@ -66,7 +67,6 @@ def test_dataset(transform: Any) -> None:
     writer.flush()
 
 
-@pytest.mark.skipif(no_volume, reason=reason)
 def test_aug(train_transform: Any) -> None:
     rows = read_train_rows(config.root_dir)
     dataset = KuzushijiDataset(rows, transform=train_transform)

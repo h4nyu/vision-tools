@@ -17,7 +17,11 @@ class CSPDarknet(nn.Module):
         Conv = DWConv if depthwise else ConvBnAct
         base_channels = hidden_channels
         self.stem = Conv(
-            in_channels=in_channels, out_channels=base_channels, kernel_size=6, stride=2, act=act
+            in_channels=in_channels,
+            out_channels=base_channels,
+            kernel_size=6,
+            stride=2,
+            act=act,
         )
         self.darks = nn.ModuleList()
         self.channels = [in_channels, base_channels]

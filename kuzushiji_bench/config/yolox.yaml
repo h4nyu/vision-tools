@@ -1,27 +1,26 @@
-name: kuzushiji-yolox
+name: kuzushiji-yolox-3-5-128-2
 
 device: cuda
 use_amp: false
-num_epochs: 100
-hidden_channels: 64
+num_epochs: 999
+hidden_channels: 128
 root_dir: /store/kuzushiji-recognition
 depth: 1
 num_classes: 1
-feat_range: [4, 6]
-box_iou_threshold: 0.5
+feat_range: [3, 5]
+box_iou_threshold: 0.3
 score_threshold: 0.5
 image_size: 512
 
 assign:
-  topk: 10
-  radius: 2.0
-  center_weight: 0.5
-  obj_weight: 1.0
-  box_weight: 1.5
+  topk: 9
+  radius: 2.5
+  box_weight: 3.0
 
 optimizer:
-  # lr: 2e-3
-  lr: 1e-3
+  lr: 5.0e-4
+  momentum: 0.95
+  nesterov: false
 
 criterion:
   box_weight: 0.5

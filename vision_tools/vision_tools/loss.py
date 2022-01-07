@@ -21,7 +21,7 @@ class HuberLoss:
         return loss.mean() if self.size_average else loss.sum()
 
 
-class SigmoidFocalLoss:
+class FocalLossWithLogit:
     def __init__(
         self,
         gamma: float = 2.0,

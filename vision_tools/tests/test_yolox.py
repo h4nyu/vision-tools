@@ -62,7 +62,7 @@ def writer() -> SummaryWriter:
 
 @pytest.fixture
 def inputs() -> TrainBatch:
-    image_batch = torch.rand(1, 3, 128, 128)
+    image_batch = torch.rand(1, 3, 128, 128 * 2)
     box_batch = [
         torch.tensor([[10, 10, 20, 20]]),
     ]
@@ -111,8 +111,8 @@ def test_decoupled_head(depthwise: bool) -> None:
 
 
 def test_box_branch(model: YOLOX) -> None:
-    image_size = 256
-    images = torch.rand(2, 3, image_size, image_size)
+    image_size = 128
+    images = torch.rand(2, 3, image_size * 2, image_size)
     feats = model.feats(images)
     yolo_batch = model.box_branch(feats)
     assert yolo_batch.shape[0] == 2

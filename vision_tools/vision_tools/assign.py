@@ -2,6 +2,7 @@ import torch
 import typing
 from torch import Tensor
 from torchvision.ops.boxes import box_iou
+import torch.nn.functional as F
 
 
 class ClosestAssign:
@@ -38,16 +39,12 @@ class SimOTA:
     def __init__(
         self,
         topk: int,
-        radius: float = 1.5,
-        obj_weight: float = 1.0,
-        box_weight: float = 1.0,
-        center_weight: float = 1.0,
+        radius: float = 2.5,
+        box_weight: float = 3.0,
     ) -> None:
         self.topk = topk
         self.radius = radius
-        self.obj_weight = obj_weight
         self.box_weight = box_weight
-        self.center_weight = center_weight
 
     def candidates(
         self,
@@ -60,18 +57,18 @@ class SimOTA:
 
         is_in_box = (  # grid cell inside gt-box
             (gt_boxes[:, :, 0] <= anchor_points[:, 0])
-            & (anchor_points[:, 0] < gt_boxes[:, :, 2])
+            & (anchor_points[:, 0] <= gt_boxes[:, :, 2])
             & (gt_boxes[:, :, 1] <= anchor_points[:, 1])
-            & (anchor_points[:, 1] < gt_boxes[:, :, 3])
+            & (anchor_points[:, 1] <= gt_boxes[:, :, 3])
         )  # [num_gts, num_proposals]
         gt_center_lbound = gt_centers - self.radius * strides.unsqueeze(1)
         gt_center_ubound = gt_centers + self.radius * strides.unsqueeze(1)
 
         is_in_center = (  # grid cell near gt-box center
             (gt_center_lbound[:, :, 0] <= anchor_points[:, 0])
-            & (anchor_points[:, 0] < gt_center_ubound[:, :, 0])
+            & (anchor_points[:, 0] <= gt_center_ubound[:, :, 0])
             & (gt_center_lbound[:, :, 1] <= anchor_points[:, 1])
-            & (anchor_points[:, 1] < gt_center_ubound[:, :, 1])
+            & (anchor_points[:, 1] <= gt_center_ubound[:, :, 1])
         )  # [num_gts, num_proposals]
         candidates = (is_in_box | is_in_center).any(dim=0)
         center_matrix = (is_in_box & is_in_center)[
@@ -79,6 +76,7 @@ class SimOTA:
         ]  # [num_gts, num_fg_candidates]
         return candidates, center_matrix
 
+    @torch.no_grad()
     def __call__(
         self,
         anchor_points: Tensor,
@@ -97,13 +95,14 @@ class SimOTA:
             gt_boxes=gt_boxes,
             strides=strides,
         )
-        score_matrix = pred_scores[candidates].expand(gt_count, -1)
+        with torch.cuda.amp.autocast(enabled=False):
+            score_matrix = -F.binary_cross_entropy(
+                pred_scores[candidates],
+                torch.ones(int(candidates.sum())).to(device),
+                reduction="none",
+            ).expand(gt_count, -1)
         iou_matrix = box_iou(gt_boxes, pred_boxes[candidates])
-        matrix = (
-            self.obj_weight * score_matrix
-            + self.box_weight * iou_matrix
-            + center_matrix * self.center_weight
-        )
+        matrix = score_matrix + self.box_weight * iou_matrix + center_matrix * 10000
         topk = min(self.topk, pred_count)
         topk_ious, _ = torch.topk(iou_matrix, topk, dim=1)
         dynamic_ks = topk_ious.sum(1).int().clamp(min=1)

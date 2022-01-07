@@ -158,7 +158,7 @@ class BoxMAP:
                 if self.num_samples != 0
                 else 0.0
             )
-        mean = sum(self.running.values()) / len(self.running.keys())
+        mean = sum(res.values()) / len(res.values())
         return mean, res
 
     def precision_at(
