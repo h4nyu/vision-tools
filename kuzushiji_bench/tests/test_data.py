@@ -24,10 +24,10 @@ from kuzushiji_bench.data import (
 from vision_tools.utils import batch_draw, draw
 from torch.utils.tensorboard import SummaryWriter
 
-config = OmegaConf.load("/app/kuzushiji_bench/config/yolox.yaml")
+cfg = OmegaConf.load("/app/kuzushiji_bench/cfg/yolox.yaml")
 writer = SummaryWriter("/app/runs/test-kuzushiji_bench")
 
-no_volume = not os.path.exists(config.root_dir)
+no_volume = not os.path.exists(cfg.root_dir)
 reason = "no data volume"
 
 no_volume = not os.path.exists(cfg.root_dir)
@@ -46,17 +46,17 @@ def train_transform() -> Any:
 
 
 def test_read_train_rows() -> None:
-    rows = read_train_rows(config.root_dir)
+    rows = read_train_rows(cfg.root_dir)
     assert len(rows) == 3605
 
 
 def test_read_test_rows() -> None:
-    rows = read_test_rows(config.root_dir)
+    rows = read_test_rows(cfg.root_dir)
     assert len(rows) == 1730
 
 
 def test_dataset(transform: Any) -> None:
-    rows = read_train_rows(config.root_dir)
+    rows = read_train_rows(cfg.root_dir)
     dataset = KuzushijiDataset(rows, transform=transform)
     sample = dataset[0]
     plot = draw(
@@ -68,7 +68,7 @@ def test_dataset(transform: Any) -> None:
 
 
 def test_aug(train_transform: Any) -> None:
-    rows = read_train_rows(config.root_dir)
+    rows = read_train_rows(cfg.root_dir)
     dataset = KuzushijiDataset(rows, transform=train_transform)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     batch = next(loader_iter)
@@ -85,9 +85,9 @@ def test_save_submission() -> None:
             "labels": torch.tensor([0]),
         }
     ]
-    code_map = read_code_map(os.path.join(config.root_dir, "unicode_translation.csv"))
+    code_map = read_code_map(os.path.join(cfg.root_dir, "unicode_translation.csv"))
     save_submission(
         rows,
         code_map,
-        os.path.join(config.root_dir, f"test_sub.csv"),
+        os.path.join(cfg.root_dir, f"test_sub.csv"),
     )
