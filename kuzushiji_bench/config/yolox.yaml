@@ -1,9 +1,9 @@
-name: kuzushiji-yolox-3-5-256-1
+name: kuzushiji-yolox-3-5-128-1
 
 device: cuda
-use_amp: false
+use_amp: true
 num_epochs: 999
-hidden_channels: 256
+hidden_channels: 128
 root_dir: /store/kuzushiji-recognition
 depth: 1
 num_classes: 1
@@ -18,12 +18,12 @@ assign:
   box_weight: 3.0
 
 optimizer:
-  lr: 1.0e-4
+  lr: 1.0e-3
   momentum: 0.95
   nesterov: false
 
 criterion:
-  box_weight: 1.0
+  box_weight: 0.2
   cls_weight: 0.0
 
 train_loader:

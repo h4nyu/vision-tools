@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from .block import DefaultActivation, DWConv, ConvBnAct
 from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
-from .loss import CIoULoss, FocalLossWithLogit, DIoULoss
+from .loss import CIoULoss, FocalLossWithLogits, DIoULoss
 from .anchors import Anchor
 from toolz import valmap
 
@@ -249,6 +249,7 @@ class Criterion:
 
         self.box_loss = CIoULoss()
         self.obj_loss = nn.BCEWithLogitsLoss(reduction="mean")
+        # self.obj_loss = FocalLossWithLogits(reduction="mean")
         self.cls_loss = F.binary_cross_entropy_with_logits
 
     def __call__(

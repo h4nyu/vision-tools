@@ -21,7 +21,7 @@ class HuberLoss:
         return loss.mean() if self.size_average else loss.sum()
 
 
-class FocalLossWithLogit:
+class FocalLossWithLogits:
     def __init__(
         self,
         gamma: float = 2.0,
@@ -34,24 +34,13 @@ class FocalLossWithLogit:
         self.reduction = reduction
         self.eps = eps
 
-    def __call__(self, source: Tensor, target: Tensor) -> Tensor:
-        n_classes = target.shape[1]
-        class_ids = torch.arange(
-            1, n_classes + 1, dtype=target.dtype, device=target.device
-        ).unsqueeze(0)
-        p = torch.clamp(torch.sigmoid(source), min=self.eps, max=1 - self.eps)
-        gamma = self.gamma
-        alpha = self.alpha
-        pos = (1 - p) ** gamma * torch.log(p)
-        neg = p ** gamma * torch.log(1 - p)
-        loss = (
-            -(target == class_ids).float() * alpha * pos
-            - ((target != class_ids) * target >= 0).float() * (1 - alpha) * neg
+    def __call__(self, inputs: Tensor, targets: Tensor) -> Tensor:
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        bce = F.binary_cross_entropy_with_logits(
+            inputs, targets, reduction=self.reduction
         )
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
+        loss = self.alpha * (1 - torch.exp(-bce)) ** self.gamma * bce
         return loss
 
 
