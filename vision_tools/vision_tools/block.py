@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch import Tensor
-from typing import Callable
+from typing import Callable, Optional
 
 DefaultActivation = nn.SiLU(inplace=True)
 
@@ -229,3 +229,42 @@ class Focus(nn.Module):
             dim=1,
         )
         return self.conv(x)
+
+
+class SeparableConvBnAct(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 3,
+        stride: int = 1,
+        act: Callable = DefaultActivation,
+    ):
+        super().__init__()
+
+        padding = (kernel_size - 1) // 2
+        self.depthwise = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=in_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            groups=in_channels,
+            padding=padding,
+            bias=False,
+        )
+        self.pointwise = nn.Conv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            bias=False,
+        )
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.act = act
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.depthwise(x)
+        x = self.pointwise(x)
+        x = self.bn(x)
+        x = self.act(x)
+        return x
