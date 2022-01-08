@@ -10,7 +10,7 @@ import torch.nn.functional as F
 from .block import DefaultActivation, DWConv, ConvBnAct
 from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
-from .loss import CIoULoss, FocalLoss, DIoULoss
+from .loss import CIoULoss, FocalLossWithLogit, DIoULoss
 from toolz import valmap
 
 
@@ -253,7 +253,7 @@ class Criterion:
         self.assign = assign
 
         self.box_loss = CIoULoss()
-        self.obj_loss = nn.BCEWithLogitsLoss(reduction="sum")
+        self.obj_loss = nn.BCEWithLogitsLoss(reduction="mean")
         self.cls_loss = F.binary_cross_entropy_with_logits
 
     def __call__(
@@ -276,9 +276,7 @@ class Criterion:
         # 1-stage
         obj_loss = (
             self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
-            / matched_count
         )
-
         box_loss, cls_loss = (
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),

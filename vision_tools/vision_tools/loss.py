@@ -25,18 +25,21 @@ class FocalLossWithLogit:
     def __init__(
         self,
         gamma: float = 2.0,
-        size_average: bool = True,
+        reduction: str = "mean",
         alpha: float = 0.25,
+        eps: float = 1e-6,
     ):
         self.gamma = gamma
         self.alpha = alpha
+        self.reduction = reduction
+        self.eps = eps
 
     def __call__(self, source: Tensor, target: Tensor) -> Tensor:
         n_classes = target.shape[1]
         class_ids = torch.arange(
             1, n_classes + 1, dtype=target.dtype, device=target.device
         ).unsqueeze(0)
-        p = torch.sigmoid(source)
+        p = torch.clamp(torch.sigmoid(source), min=self.eps, max=1 - self.eps)
         gamma = self.gamma
         alpha = self.alpha
         pos = (1 - p) ** gamma * torch.log(p)
@@ -45,6 +48,10 @@ class FocalLossWithLogit:
             -(target == class_ids).float() * alpha * pos
             - ((target != class_ids) * target >= 0).float() * (1 - alpha) * neg
         )
+        if self.reduction == "mean":
+            return loss.mean()
+        elif self.reduction == "sum":
+            return loss.sum()
         return loss
 
 
