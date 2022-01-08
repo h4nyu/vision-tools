@@ -148,6 +148,7 @@ class CenterNet(nn.Module):
         num_classes: int,
         backbone: BackboneLike,
         neck: FPNLike,
+        hidden_channels: int = 1,
         box_depth: int = 1,
         cls_depth: int = 1,
         fpn_depth: int = 1,
@@ -157,22 +158,11 @@ class CenterNet(nn.Module):
         self.channels = channels
         self.backbone = backbone
         self.neck = neck
-        # self.head = head
-        # self.hm_reg = nn.Sequential(
-        #     Head(
-        #         in_channels=channels,
-        #         out_channels=num_classes,
-        #         depth=cls_depth,
-        #     ),
-        #     nn.Sigmoid(),
-        # )
-        # self.box_reg = nn.Sequential(
-        #     Head(
-        #         in_channels=channels,
-        #         out_channels=4,
-        #         depth=box_depth,
-        #     )
-        # )
+        self.box_head = CenterNetHead(
+            in_channels=neck.channels,
+            num_classes=num_classes,
+            hidden_channels=hidden_channels,
+        )
         # self.anchors = EmptyAnchors()
 
     # def forward(self, x: Tensor) -> NetOutput:

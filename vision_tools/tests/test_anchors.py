@@ -1,7 +1,6 @@
-from typing import *
 import torch, pytest, numpy as np
 from pathlib import Path
-from vision_tools.anchors import Anchors
+from vision_tools.anchors import Anchors, Anchor
 
 
 @pytest.mark.parametrize(
@@ -25,8 +24,8 @@ from vision_tools.anchors import Anchors
     ],
 )
 def test_anchors(
-    scales: List[float],
-    ratios: List[float],
+    scales: list[float],
+    ratios: list[float],
     size: int,
 ) -> None:
     original_w = 1024 + 512
@@ -41,3 +40,13 @@ def test_anchors(
     anchor_count = w * h * num_anchors
     assert res.shape == (anchor_count, 4)
     # assert 0 == res.min() // TODO
+
+
+def test_cell_anchors() -> None:
+    fn = Anchor()
+    stride = 2
+    res = fn(height=4, width=3, stride=stride)
+    assert res.shape == (4 * 3, 4)
+    for i in res:
+        print(i)
+    assert res[1].tolist() == [1.0 * stride, 0.0, 1.0 * stride + stride, 0.0 + stride]
