@@ -31,7 +31,7 @@ from .assign import SimOTA
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .loss import HuberLoss, DIoULoss
-from .anchors import EmptyAnchors
+from .anchors import Anchor
 from vision_tools.meters import MeanMeter
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
@@ -53,7 +53,6 @@ class _Head(nn.Module):
         act: Callable = DefaultActivation,
     ) -> None:
         super().__init__()
-
         self.stem = SeparableConvBnAct(
             in_channels=in_channels,
             out_channels=hidden_channels,
@@ -163,15 +162,6 @@ class CenterNet(nn.Module):
             num_classes=num_classes,
             hidden_channels=hidden_channels,
         )
-        # self.anchors = EmptyAnchors()
-
-    # def forward(self, x: Tensor) -> NetOutput:
-    #     fp = self.backbone(x)
-    #     fp = self.fpn(fp)
-    #     heatmaps = self.hm_reg(fp[self.out_idx])
-    #     anchors = self.anchors(heatmaps)
-    #     boxmaps = self.box_reg(fp[self.out_idx])
-    #     return (heatmaps, boxmaps, anchors)
 
 
 class HMLoss(nn.Module):

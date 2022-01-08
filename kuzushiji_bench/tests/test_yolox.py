@@ -49,7 +49,7 @@ def batch() -> TrainBatch:
         row[:200],
         transform=TrainTransform(cfg.image_size),
     )
-    loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=3))
+    loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=2))
     return next(loader_iter)
 
 

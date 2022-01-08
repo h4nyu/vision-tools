@@ -11,6 +11,7 @@ from .block import DefaultActivation, DWConv, ConvBnAct
 from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
 from .loss import CIoULoss, FocalLossWithLogit, DIoULoss
+from .anchors import Anchor
 from toolz import valmap
 
 
@@ -160,35 +161,29 @@ class YOLOX(nn.Module):
             num_classes=num_classes,
             hidden_channels=hidden_channels,
         )
+        self.anchor = Anchor()
 
     def box_branch(self, feats: list[Tensor]) -> Tensor:
         device = feats[0].device
         box_levels = self.box_head(feats)
         yolo_box_list = []
         for pred, stride in zip(box_levels, self.box_strides):
-            batch_size, num_outputs, rows, cols = pred.shape
-            grid = (
-                torch.stack(
-                    torch.meshgrid([torch.arange(rows), torch.arange(cols)]),
-                    dim=2,
-                )
-                .view(rows * cols, 2)
-                .to(device)
+            batch_size, num_outputs, height, width = pred.shape
+            anchor_boxes = self.anchor(
+                height=height, width=width, stride=stride, device=device
             )
-            strides = torch.full((batch_size, len(grid), 1), stride).to(device)
-            anchor_points = (grid + 0.5) * strides
+            anchor_points = (anchor_boxes[:, 0:2] + anchor_boxes[:, 0:2]) / 2.0
             yolo_boxes = (
-                pred.permute(0, 3, 2, 1)
-                .reshape(batch_size, rows * cols, num_outputs)
-                .float()
+                pred.permute(0, 2, 3, 1).contiguous().view(batch_size, -1, num_outputs)
             )
+            strides = torch.full((batch_size, yolo_boxes.size(1), 1), stride).to(device)
             yolo_boxes = torch.cat(
                 [
-                    (yolo_boxes[..., 0:2] + 0.5 + grid) * strides,
+                    yolo_boxes[..., 0:2] * strides + anchor_points,
                     (yolo_boxes[..., 2:4].exp()) * strides,
                     yolo_boxes[..., 4:],
                     strides,
-                    anchor_points,
+                    anchor_points.unsqueeze(0).expand(batch_size, *anchor_points.shape),
                 ],
                 dim=-1,
             )
@@ -334,9 +329,9 @@ class Criterion:
             )
             gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
-            gt_yolo_batch[batch_idx, matched[:, 1], 5 : 5 + num_classes] = F.one_hot(
-                gt_labels[matched[:, 0]], num_classes
-            ).to(gt_yolo_batch)
+            gt_yolo_batch[batch_idx, matched[:, 1], 5 : 5 + num_classes] = (
+                F.one_hot(gt_labels[matched[:, 0]], num_classes).float().to(device)
+            )
 
         pos_idx = gt_yolo_batch[..., 4] == 1.0
         return gt_yolo_batch, pos_idx
