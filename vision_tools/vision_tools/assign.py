@@ -38,7 +38,7 @@ class ClosestAssign:
 class SimOTA:
     def __init__(
         self,
-        topk: int,
+        topk: int = 9,
         radius: float = 2.5,
         box_weight: float = 3.0,
     ) -> None:

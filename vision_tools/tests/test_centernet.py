@@ -6,14 +6,12 @@ from typing import Any
 from torch import Tensor
 from vision_tools.centernet import (
     CenterNet,
+    CenterNetHead,
     ToBoxes,
     HMLoss,
     ToPoints,
 )
 
-# from vision_tools.backbones.resnet import (
-#     ResNetBackbone,
-# )
 from torch.utils.data import DataLoader
 
 
@@ -57,6 +55,26 @@ def test_hm_loss() -> None:
     assert res < 0.3
 
 
+def test_head() -> None:
+    in_channels = [
+        32,
+        64,
+        128,
+    ]
+    hidden_channels = 48
+    num_classes = 3
+    head = CenterNetHead(
+        in_channels=in_channels,
+        hidden_channels=hidden_channels,
+        num_classes=num_classes,
+    )
+    feats = [torch.rand(2, c, 32, 32) for c in in_channels]
+    res = head(feats)
+    assert len(feats) == len(res)
+    for f, r in zip(feats, res):
+        assert r.size() == (2, 4 + 1 + num_classes, r.size(2), r.size(3))
+
+
 # def test_centernet_forward() -> None:
 #     inputs = torch.rand((1, 3, 512, 512))
 #     channels = 32
@@ -69,21 +87,21 @@ def test_hm_loss() -> None:
 #     assert sizemap.shape == (1, 4, 512 // 2, 512 // 2)
 
 
-def test_to_boxes() -> None:
-    h, w = (3, 3)
-    heatmap: Any = torch.rand((1, 2, h, w))
-    sizemap: Any = torch.rand((1, 4, h, w))
-    anchors: Any = torch.rand((4, h, w))
-    channels = 32
-    to_boxes = ToBoxes()
-    netout = (heatmap, sizemap, anchors)
-    box_batch, conf_batch, label_batch = to_boxes(netout)
-    assert len(box_batch) == len(conf_batch) == len(label_batch)
+# def test_to_boxes() -> None:
+#     h, w = (3, 3)
+#     heatmap: Any = torch.rand((1, 2, h, w))
+#     sizemap: Any = torch.rand((1, 4, h, w))
+#     anchors: Any = torch.rand((4, h, w))
+#     channels = 32
+#     to_boxes = ToBoxes()
+#     netout = (heatmap, sizemap, anchors)
+#     box_batch, conf_batch, label_batch = to_boxes(netout)
+#     assert len(box_batch) == len(conf_batch) == len(label_batch)
 
 
-def test_to_points() -> None:
-    h, w = (3, 3)
-    heatmaps: Any = torch.rand((1, 2, h, w))
-    to_points = ToPoints()
-    point_batch, conf_batch, label_batch = to_points(heatmaps, h, w)
-    assert len(point_batch) == len(conf_batch) == len(label_batch)
+# def test_to_points() -> None:
+#     h, w = (3, 3)
+#     heatmaps: Any = torch.rand((1, 2, h, w))
+#     to_points = ToPoints()
+#     point_batch, conf_batch, label_batch = to_points(heatmaps, h, w)
+#     assert len(point_batch) == len(conf_batch) == len(label_batch)
