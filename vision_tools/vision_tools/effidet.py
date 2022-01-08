@@ -41,55 +41,6 @@ from .interface import BackboneLike
 logger = getLogger(__name__)
 
 
-class Visualize:
-    def __init__(
-        self,
-        out_dir: str,
-        prefix: str,
-        limit: int = 1,
-        use_alpha: bool = True,
-        show_confidences: bool = True,
-        transforms: Any = None,
-        box_limit: int = 100,
-    ) -> None:
-        self.prefix = prefix
-        self.out_dir = Path(out_dir)
-        self.limit = limit
-        self.use_alpha = use_alpha
-        self.show_confidences = show_confidences
-        self.transforms = transforms
-        self.box_limit = box_limit
-
-    def __call__(
-        self,
-        image_batch: Tensor,
-        src: tuple[list[Tensor], list[Tensor], list[Tensor]],
-        tgt: tuple[list[Tensor], list[Tensor]],
-    ) -> None:
-        image_batch = image_batch[: self.limit]
-        gt_boxes, gt_labels = tgt
-        gt_boxes = gt_boxes[: self.limit]
-        gt_labels = gt_labels[: self.limit]
-        box_batch, confidence_batch, label_batch = src
-        _, _, h, w = image_batch.shape
-        for i, (img, boxes, confidences, labels, gtb, gtl,) in enumerate(
-            zip(
-                image_batch,
-                box_batch,
-                confidence_batch,
-                label_batch,
-                gt_boxes,
-                gt_labels,
-            )
-        ):
-            boxes, confidences, labels = filter_limit(
-                boxes,
-                confidences,
-                labels,
-                self.box_limit,
-            )
-
-
 class ClassificationModel(nn.Module):
     def __init__(
         self,
