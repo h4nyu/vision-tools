@@ -1,5 +1,13 @@
 import torch
-from vision_tools.block import ConvBnAct, DWConv, SPP, ResBlock, CSP, Focus
+from vision_tools.block import (
+    ConvBnAct,
+    DWConv,
+    SPP,
+    ResBlock,
+    CSP,
+    Focus,
+    SeparableConvBnAct,
+)
 
 
 def test_conv_bn_act() -> None:
@@ -56,3 +64,12 @@ def test_focus() -> None:
     inputs = torch.rand(2, in_channels, 32, 48)
     res = b(inputs)
     assert res.size() == (2, out_channels, 32 // 2, 48 // 2)
+
+
+def test_separable_conv_bn_act() -> None:
+    in_channels = 32
+    out_channels = 48
+    b = SeparableConvBnAct(in_channels=in_channels, out_channels=out_channels)
+    inputs = torch.rand(2, in_channels, 32, 48)
+    res = b(inputs)
+    assert res.size() == (2, out_channels, 32, 48)
