@@ -12,7 +12,9 @@ import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from vision_tools.transforms import normalize, inv_normalize
+from vision_tools.interface import TrainSample
 from sklearn.model_selection import StratifiedKFold
+from vision_tools.interface import TrainBatch, TrainSample
 
 location = "/tmp"
 memory = Memory(location, verbose=0)
@@ -86,7 +88,7 @@ def read_train_rows(root_dir: str) -> list[Row]:
                     float(y0) + float(h),
                 ]
             )
-        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        image_path = os.path.join(root_dir, f"{id}.jpg")
         pil_img = PIL.Image.open(image_path)
         row: Row = dict(
             id=id,
@@ -107,7 +109,7 @@ def read_test_rows(root_dir: str) -> list[Row]:
     rows: list[Row] = []
     for _, csv_row in df.iterrows():
         id = csv_row["image_id"]
-        image_path = os.path.join(root_dir, "images", f"{id}.jpg")
+        image_path = os.path.join(root_dir, f"{id}.jpg")
         pil_img = PIL.Image.open(image_path)
         row: Row = dict(
             id=id,
@@ -130,6 +132,7 @@ def kfold(
     pair_list: list[tuple[list[int], list[int]]] = []
     for train_index, test_index in skf.split(x, y):
         pair_list.append((train_index, test_index))
+    print(fold_idx)
     train_index, test_index = pair_list[fold_idx]
     return (
         [rows[i] for i in train_index],
@@ -139,60 +142,75 @@ def kfold(
 
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
 
-# train_transforms = A.Compose(
-#     [
-#         A.LongestMaxSize(max_size=config.image_size),
-#         A.PadIfNeeded(
-#             min_height=config.image_size, min_width=config.image_size, border_mode=0
-#         ),
-#         A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
-#         A.RandomCrop(config.image_size, config.image_size, p=1.0),
-#         A.ToGray(),
-#         normalize,
-#         ToTensorV2(),
-#     ],
-#     bbox_params=bbox_params,
-# )
-# default_transforms = A.Compose(
-#     [
-#         A.LongestMaxSize(max_size=config.image_size),
-#         A.PadIfNeeded(
-#             min_height=config.image_size, min_width=config.image_size, border_mode=0
-#         ),
-#         normalize,
-#         ToTensorV2(),
-#     ],
-#     bbox_params=bbox_params,
-# )
-
+TrainTransform = lambda image_size: A.Compose(
+    [
+        A.LongestMaxSize(max_size=image_size),
+        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
+        A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
+        A.RandomCrop(image_size, image_size, p=1.0),
+        A.ToGray(),
+        ToTensorV2(),
+    ],
+    bbox_params=bbox_params,
+)
+Transform = lambda image_size: A.Compose(
+    [
+        A.LongestMaxSize(max_size=image_size),
+        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
+        ToTensorV2(),
+    ],
+    bbox_params=bbox_params,
+)
 
 
 class KuzushijiDataset(Dataset):
     def __init__(
         self,
         rows: list[Row],
-        transforms: Any,
+        transform: Any,
     ) -> None:
         self.rows = rows
-        self.transforms = transforms
+        self.transform = transform
 
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor, Tensor, Tensor, Row]:
+    def __getitem__(self, idx: int) -> TrainSample:
         row = self.rows[idx]
         id = row["id"]
         pil_img = PIL.Image.open(row["image_path"])
         img_arr = np.array(pil_img)
         original_img = T.ToTensor()(img_arr)
-        transformed = self.transforms(
+        transformed = self.transform(
             image=img_arr,
             bboxes=torchvision.ops.clip_boxes_to_image(
                 row["boxes"], (pil_img.height, pil_img.width)
             ),
             labels=row["labels"],
         )
-        img = transformed["image"]
-        boxes = torch.tensor(transformed["bboxes"])
-        labels = torch.tensor(transformed["labels"])
-        return img, boxes, labels, original_img, row
+        image = (transformed["image"] / 255).float()
+        boxes = torch.tensor(transformed["bboxes"]).float()
+        labels = torch.zeros(len(boxes)).long()
+        return TrainSample(
+            id=id,
+            image=image,
+            boxes=boxes,
+            labels=labels,
+        )
+
+
+def collate_fn(
+    batch: list[TrainSample],
+) -> TrainBatch:
+    images: list[Tensor] = []
+    box_batch: list[Tensor] = []
+    label_batch: list[Tensor] = []
+    for row in batch:
+        images.append(row["image"])
+        box_batch.append(row["boxes"])
+        label_batch.append(row["labels"])
+    return TrainBatch(
+        image_batch=torch.stack(images),
+        box_batch=box_batch,
+        label_batch=label_batch,
+    )

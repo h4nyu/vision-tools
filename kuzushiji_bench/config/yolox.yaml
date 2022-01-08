@@ -1,0 +1,42 @@
+name: kuzushiji-yolox-3-5-256-1
+
+device: cuda
+use_amp: false
+num_epochs: 999
+hidden_channels: 256
+root_dir: /store/kuzushiji-recognition
+depth: 1
+num_classes: 1
+feat_range: [3, 5]
+box_iou_threshold: 0.3
+score_threshold: 0.5
+image_size: 512
+
+assign:
+  topk: 9
+  radius: 2.5
+  box_weight: 3.0
+
+optimizer:
+  lr: 1.0e-3
+  momentum: 0.95
+  nesterov: false
+
+criterion:
+  box_weight: 1.0
+  cls_weight: 0.0
+
+train_loader:
+  batch_size: 8
+  shuffle: true
+  num_workers: 6
+  drop_last: true
+
+val_loader:
+  batch_size: 8
+  shuffle: false
+  num_workers: 6
+
+fold:
+  n_splits: 5
+  fold_idx: 1

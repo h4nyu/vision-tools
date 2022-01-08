@@ -114,8 +114,8 @@ def box_padding(boxes: Tensor, offset: Number) -> Tensor:
         return boxes
     x0, y0, x1, y1 = boxes.unbind(-1)
     return torch.stack(
-            [x0 - offset, y0 - offset, x1 + offset, y1 + offset],
-            dim=-1,
+        [x0 - offset, y0 - offset, x1 + offset, y1 + offset],
+        dim=-1,
     )
 
 

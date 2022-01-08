@@ -27,7 +27,7 @@ from .modules import (
 )
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
-from .losses import HuberLoss, DIoULoss
+from .loss import HuberLoss, DIoULoss
 from .anchors import EmptyAnchors
 from .matcher import NearnestMatcher, CenterMatcher
 from vision_tools.meters import MeanMeter

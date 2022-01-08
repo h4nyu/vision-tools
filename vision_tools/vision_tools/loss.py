@@ -1,6 +1,7 @@
 import torch, numpy as np, torch.nn as nn, torch.nn.functional as F
 from typing import Literal
 from torch import Tensor
+import math
 from torchvision.ops.boxes import box_area
 
 Reduction = Literal["none", "mean", "sum"]
@@ -20,22 +21,25 @@ class HuberLoss:
         return loss.mean() if self.size_average else loss.sum()
 
 
-class SigmoidFocalLoss:
+class FocalLossWithLogit:
     def __init__(
         self,
         gamma: float = 2.0,
-        size_average: bool = True,
+        reduction: str = "mean",
         alpha: float = 0.25,
+        eps: float = 1e-6,
     ):
         self.gamma = gamma
         self.alpha = alpha
+        self.reduction = reduction
+        self.eps = eps
 
     def __call__(self, source: Tensor, target: Tensor) -> Tensor:
         n_classes = target.shape[1]
         class_ids = torch.arange(
             1, n_classes + 1, dtype=target.dtype, device=target.device
         ).unsqueeze(0)
-        p = torch.sigmoid(source)
+        p = torch.clamp(torch.sigmoid(source), min=self.eps, max=1 - self.eps)
         gamma = self.gamma
         alpha = self.alpha
         pos = (1 - p) ** gamma * torch.log(p)
@@ -44,6 +48,10 @@ class SigmoidFocalLoss:
             -(target == class_ids).float() * alpha * pos
             - ((target != class_ids) * target >= 0).float() * (1 - alpha) * neg
         )
+        if self.reduction == "mean":
+            return loss.mean()
+        elif self.reduction == "sum":
+            return loss.sum()
         return loss
 
 
@@ -186,3 +194,51 @@ class DIoULoss:
             ctr_loss = ctr_loss.mean()
 
         return iouloss + ctr_loss
+
+
+class CIoULoss:
+    def __init__(self, eps: float = 1e-6) -> None:
+        self.eps = eps
+
+    def box_iou(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
+        area1 = box_area(boxes1)
+        area2 = box_area(boxes2)
+        lt = torch.maximum(boxes1[..., :2], boxes2[..., :2])
+        rb = torch.minimum(boxes1[..., 2:], boxes2[..., 2:])
+        wh = (rb - lt).clamp(min=0)
+        inter = wh[..., 0] * wh[..., 1]
+        union = area1 + area2 - inter
+        return inter / (union + self.eps)
+
+    def _compute_aspect_factor(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
+        w1 = boxes1[..., 2] - boxes1[..., 0]
+        h1 = boxes1[..., 3] - boxes1[..., 1]
+        theta1 = torch.atan(w1 / (h1 + self.eps))
+        w2 = boxes2[..., 2] - boxes2[..., 0]
+        h2 = boxes2[..., 3] - boxes2[..., 1]
+        theta2 = torch.atan(w2 / (h2 + self.eps))
+        v = (4 / (math.pi ** 2)) * ((theta2 - theta1) ** 2)
+        return v
+
+    def _compute_distance_factor(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
+        center1 = (boxes1[..., 2:] + boxes1[..., :2]) * 0.5
+        center2 = (boxes2[..., 2:] + boxes2[..., :2]) * 0.5
+        center_distance = ((center2 - center1) ** 2).sum(dim=-1)
+        convex_lt = torch.minimum(boxes1[..., :2], boxes2[..., :2])
+        convex_rb = torch.maximum(boxes1[..., 2:], boxes2[..., 2:])
+        convex_diag = ((convex_rb - convex_lt) ** 2).sum(dim=-1)
+        res = center_distance / (convex_diag + self.eps)
+        return res
+
+    def box_ciou(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
+        boxes1, boxes2 = boxes1.float(), boxes2.float()  # force fp32
+        iou = self.box_iou(boxes1, boxes2)
+        u = self._compute_distance_factor(boxes1, boxes2)
+        v = self._compute_aspect_factor(boxes1, boxes2)
+        with torch.no_grad():
+            alpha = v / (1 - iou + v + self.eps)
+        return iou - (u + alpha * v)
+
+    def __call__(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:
+        ciou = self.box_ciou(boxes1, boxes2)
+        return 1.0 - ciou.mean()
