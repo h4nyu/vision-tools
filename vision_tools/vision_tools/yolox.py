@@ -32,6 +32,22 @@ class DecoupledHead(nn.Module):
             kernel_size=1,
             act=act,
         )
+
+        self.obj_branch = nn.Sequential(
+            Conv(
+                in_channels=hidden_channels,
+                out_channels=hidden_channels,
+                kernel_size=3,
+                act=act,
+            ),
+            Conv(
+                in_channels=hidden_channels,
+                out_channels=hidden_channels,
+                kernel_size=3,
+                act=act,
+            ),
+        )
+
         self.reg_branch = nn.Sequential(
             Conv(
                 in_channels=hidden_channels,
@@ -100,9 +116,10 @@ class DecoupledHead(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         stem = self.stem(x)
         reg_feat = self.reg_branch(stem)
+        obj_feat = self.obj_branch(stem)
         cls_feat = self.cls_branch(stem)
         reg_out = self.reg_out(reg_feat)
-        obj_out = self.obj_out(reg_feat)
+        obj_out = self.obj_out(obj_feat)
         cls_out = self.cls_out(cls_feat)
         return torch.cat([reg_out, obj_out, cls_out], dim=1)
 
@@ -172,7 +189,7 @@ class YOLOX(nn.Module):
             anchor_boxes = self.anchor(
                 height=height, width=width, stride=stride, device=device
             )
-            anchor_points = (anchor_boxes[:, 0:2] + anchor_boxes[:, 0:2]) / 2.0
+            anchor_points = (anchor_boxes[:, 0:2] + anchor_boxes[:, 2:4]) / 2.0
             yolo_boxes = (
                 pred.permute(0, 2, 3, 1).contiguous().view(batch_size, -1, num_outputs)
             )
@@ -307,21 +324,20 @@ class Criterion:
     def prepeare_box_gt(
         self,
         num_classes: int,
-        gt_boxes_batch: list[Tensor],
+        gt_box_batch: list[Tensor],
         gt_label_batch: list[Tensor],
         pred_yolo_batch: Tensor,
     ) -> tuple[Tensor, Tensor]:
         device = pred_yolo_batch.device
         gt_yolo_batch = torch.zeros(
-            pred_yolo_batch.shape,
+            (pred_yolo_batch.size(0), pred_yolo_batch.size(1), 5 + num_classes),
             dtype=pred_yolo_batch.dtype,
             device=device,
         )
 
         for batch_idx, (gt_boxes, gt_labels, pred_yolo) in enumerate(
-            zip(gt_boxes_batch, gt_label_batch, pred_yolo_batch)
+            zip(gt_box_batch, gt_label_batch, pred_yolo_batch)
         ):
-            gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
                 gt_boxes=gt_boxes,
                 pred_boxes=box_convert(
@@ -331,7 +347,9 @@ class Criterion:
                 strides=pred_yolo[:, 5 + num_classes],
                 anchor_points=pred_yolo[:, 6 + num_classes : 6 + num_classes + 2],
             )
-            gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
+            gt_yolo_batch[batch_idx, matched[:, 1], :4] = box_convert(
+                gt_boxes, in_fmt="xyxy", out_fmt="cxcywh"
+            )[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
             gt_yolo_batch[batch_idx, matched[:, 1], 5 : 5 + num_classes] = (
                 F.one_hot(gt_labels[matched[:, 0]], num_classes).float().to(device)
