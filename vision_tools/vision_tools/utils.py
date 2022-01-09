@@ -156,32 +156,46 @@ class Checkpoint(Generic[T]):
         self.checkpoint_model_path = self.root_path.joinpath("checkpoint.pth")
         self.current_model_path = self.root_path.joinpath("current.pth")
         self.checkpoint_path = self.root_path.joinpath("checkpoint.yaml")
+        self.optimizer_path = self.root_path.joinpath("optimizer.pth")
         self.default_score = default_score
         self.root_path.mkdir(exist_ok=True)
         self.score = default_score
         self.comparator = comparator
 
-    def load_if_exists(self, model: T, target: str = "checkpoint") -> tuple[T, float]:
+    def load_if_exists(
+        self, model: T, optimizer: Optional[Any] = None, target: str = "checkpoint"
+    ) -> None:
         model_path = (
             self.checkpoint_model_path
             if target == "checkpoint"
             else self.current_model_path
         )
+        if optimizer is not None and self.optimizer_path.exists():
+            optimizer.load_state_dict(torch.load(self.optimizer_path))
         if model_path.exists() and model_path.exists():
             model.load_state_dict(torch.load(model_path))
             conf = OmegaConf.load(self.checkpoint_path)
             score = conf.get("score", self.default_score)  # type: ignore
             self.score = score
-            return model, score
-        else:
-            return model, self.default_score
 
-    def save_if_needed(self, model: T, score: float) -> None:
-        if self.comparator(self.score, score):
+    def save_if_needed(
+        self,
+        model: Optional[T] = None,
+        score: Optional[float] = None,
+        optimizer: Optional[Any] = None,
+    ) -> None:
+        if (
+            score is not None
+            and model is not None
+            and self.comparator(self.score, score)
+        ):
             torch.save(model.state_dict(), self.checkpoint_model_path)  # type: ignore
             OmegaConf.save(config=dict(score=score), f=self.checkpoint_path)
             self.score == score
-        torch.save(model.state_dict(), self.current_model_path)  # type: ignore
+        if model is not None:
+            torch.save(model.state_dict(), self.current_model_path)  # type: ignore
+        if optimizer is not None:
+            torch.save(optimizer.state_dict(), self.optimizer_path)  # type: ignore
 
 
 @torch.no_grad()

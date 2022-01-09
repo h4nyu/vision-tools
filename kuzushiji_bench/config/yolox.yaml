@@ -19,8 +19,8 @@ assign:
 
 optimizer:
   lr: 1.0e-3
-  momentum: 0.95
-  nesterov: false
+  # momentum: 0.95
+  # nesterov: false
 
 criterion:
   box_weight: 0.2

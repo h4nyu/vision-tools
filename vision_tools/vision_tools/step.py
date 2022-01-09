@@ -26,6 +26,7 @@ class TrainStep(Generic[T, B]):
         loader: DataLoader[B],
         meter: MeterLike,
         use_amp: bool = True,
+        checkpoint: Optional[Checkpoint[T]] = None,
     ) -> None:
         self.criterion = criterion
         self.optimizer = optimizer
@@ -35,6 +36,7 @@ class TrainStep(Generic[T, B]):
         self.writer = writer
         self.scaler = GradScaler()
         self.meter = meter
+        self.checkpoint = checkpoint
 
     def __call__(self, model: T, epoch: Optional[int] = None) -> None:
         model.train()
@@ -51,6 +53,9 @@ class TrainStep(Generic[T, B]):
             for k, v in self.meter.value.items():
                 self.writer.add_scalar(f"train/{k}", v, epoch)
             self.meter.reset()
+
+        if self.checkpoint is not None:
+            self.checkpoint.save_if_needed(optimizer=self.optimizer)
 
 
 EvaluateFn = Callable[[B, B], tuple[float, Mapping[str, float]]]
