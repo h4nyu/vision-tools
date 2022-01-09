@@ -163,20 +163,35 @@ class Checkpoint(Generic[T]):
         self.comparator = comparator
 
     def load_if_exists(
-        self, model: T, optimizer: Optional[Any] = None, target: str = "checkpoint"
+        self,
+        model: T,
+        optimizer: Optional[Any] = None,
+        target: str = "checkpoint",
+        device: Optional[torch.device] = None,
     ) -> None:
         model_path = (
             self.checkpoint_model_path
             if target == "checkpoint"
             else self.current_model_path
         )
+
         if optimizer is not None and self.optimizer_path.exists():
             optimizer.load_state_dict(torch.load(self.optimizer_path))
+
         if model_path.exists() and model_path.exists():
             model.load_state_dict(torch.load(model_path))
             conf = OmegaConf.load(self.checkpoint_path)
             score = conf.get("score", self.default_score)  # type: ignore
             self.score = score
+
+        if device is not None:
+            if model is not None:
+                model.to(device)
+            if optimizer is not None:
+                for state in optimizer.state.values():
+                    for k, v in state.items():
+                        if isinstance(v, torch.Tensor):
+                            state[k] = v.to(device)
 
     def save_if_needed(
         self,
