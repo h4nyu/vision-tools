@@ -49,7 +49,7 @@ def batch() -> TrainBatch:
         row[:200],
         transform=TrainTransform(cfg.image_size),
     )
-    loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=2))
+    loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
     return next(loader_iter)
 
 
@@ -84,3 +84,7 @@ def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
     plot = batch_draw(image_batch=image_batch, box_batch=box_batch)
     writer.add_image("assign", plot, 2)
     writer.flush()
+
+
+def test_criterion(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
+    criterion(model, batch)

@@ -1,24 +1,33 @@
 import os
 from typing import Any
 from omegaconf import OmegaConf
-from vision_tools.backbone import CSPDarknet
+from vision_tools.backbone import CSPDarknet, EfficientNet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
 from vision_tools.utils import Checkpoint
 from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
+
+def get_model_name(cfg: Any) -> str:
+    return f"{cfg.name}-{cfg.feat_range[0]}-{cfg.feat_range[1]}-{cfg.hidden_channels}-{cfg.backbone.name}"
 
 def get_writer(cfg: Any) -> SummaryWriter:
+    model_name = get_model_name(cfg)
     return SummaryWriter(
-        f"runs/{cfg.name}-lr_{cfg.optimizer.lr}-box_w_{cfg.criterion.box_weight}-radius_{cfg.assign.radius}"
+        f"runs/{model_name}-lr_{cfg.optimizer.lr}-box_w_{cfg.criterion.box_weight}-radius_{cfg.assign.radius}"
     )
 
 
+
 def get_model(cfg: Any) -> YOLOX:
-    backbone = CSPDarknet(
-        depth=cfg.depth,
-        hidden_channels=cfg.hidden_channels,
+    # backbone = CSPDarknet(
+    #     depth=cfg.depth,
+    #     hidden_channels=cfg.hidden_channels,
+    # )
+    backbone = EfficientNet(
+        name=cfg.backbone.name
     )
     neck = CSPPAFPN(
         in_channels=backbone.channels[cfg.feat_range[0] : cfg.feat_range[1]],
@@ -44,6 +53,6 @@ def get_criterion(cfg: Any) -> Criterion:
 
 def get_checkpoint(cfg: Any) -> Checkpoint:
     return Checkpoint[YOLOX](
-        root_path=os.path.join(cfg.root_dir, cfg.name),
+        root_path=os.path.join(cfg.root_dir, get_model_name(cfg)),
         default_score=0.0,
     )

@@ -1,16 +1,20 @@
-name: kuzushiji-yolox-3-5-128-1
+name: yolox
 
 device: cuda
 use_amp: true
 num_epochs: 999
-hidden_channels: 128
+hidden_channels: 64
 root_dir: /store/kuzushiji-recognition
 depth: 1
 num_classes: 1
-feat_range: [3, 5]
+feat_range: [3, 5, 6]
 box_iou_threshold: 0.3
 score_threshold: 0.5
 image_size: 512
+
+
+backbone: 
+  name: efficientnet-b3
 
 assign:
   topk: 9
@@ -18,12 +22,12 @@ assign:
   box_weight: 3.0
 
 optimizer:
-  lr: 5.0e-4
+  lr: 1.0e-3
   # momentum: 0.95
   # nesterov: false
 
 criterion:
-  box_weight: 0.2
+  box_weight: 1.0
   cls_weight: 0.0
 
 train_loader:

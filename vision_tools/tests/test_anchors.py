@@ -42,11 +42,9 @@ def test_anchors(
     # assert 0 == res.min() // TODO
 
 
-def test_cell_anchors() -> None:
+def test_anchor() -> None:
     fn = Anchor()
     stride = 2
     res = fn(height=4, width=3, stride=stride)
     assert res.shape == (4 * 3, 4)
-    for i in res:
-        print(i)
     assert res[1].tolist() == [1.0 * stride, 0.0, 1.0 * stride + stride, 0.0 + stride]
