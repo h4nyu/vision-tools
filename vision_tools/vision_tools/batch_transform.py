@@ -48,3 +48,4 @@ class BatchMosaic:
 
             splited_label_batch[key] = [l[m] for l, m in zip(label_batch, masks)]
         # concat
+        return batch
