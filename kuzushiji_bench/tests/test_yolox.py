@@ -34,7 +34,9 @@ def model() -> YOLOX:
     cfg.box_iou_threshold = 0.2
     m = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
-    checkpoint.load_if_exists(m, )
+    checkpoint.load_if_exists(
+        m,
+    )
     return m
 
 
