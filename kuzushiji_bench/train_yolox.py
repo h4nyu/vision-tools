@@ -41,7 +41,7 @@ def main() -> None:
     annotations = read_train_rows(cfg.root_dir)
     train_rows, validation_rows = kfold(annotations, **cfg.fold)
     train_dataset = KuzushijiDataset(
-        train_rows[:400],
+        train_rows[:500],
         transform=TrainTransform(cfg.image_size),
     )
     val_dataset = KuzushijiDataset(

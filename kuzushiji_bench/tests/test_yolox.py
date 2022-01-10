@@ -13,6 +13,7 @@ from vision_tools.utils import draw, batch_draw, seed_everything
 from kuzushiji_bench.data import (
     KuzushijiDataset,
     TrainTransform,
+    Transform,
     collate_fn,
     read_train_rows,
 )
@@ -33,7 +34,7 @@ def model() -> YOLOX:
     cfg.box_iou_threshold = 0.2
     m = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
-    checkpoint.load_if_exists(m, target="current")
+    checkpoint.load_if_exists(m, )
     return m
 
 
@@ -47,12 +48,13 @@ def batch() -> TrainBatch:
     row = read_train_rows(cfg.root_dir)
     dataset = KuzushijiDataset(
         row[:200],
-        transform=TrainTransform(cfg.image_size),
+        transform=Transform(cfg.image_size),
     )
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
     return next(loader_iter)
 
 
+@torch.no_grad()
 def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]

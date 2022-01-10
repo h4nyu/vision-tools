@@ -144,10 +144,11 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 TrainTransform = lambda image_size: A.Compose(
     [
         A.LongestMaxSize(max_size=image_size),
+        A.ColorJitter(p=0.7, brightness=0.2, contrast=0.3, hue=0.1),
         A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
         A.RandomCrop(image_size, image_size, p=1.0),
-        A.ToGray(),
+        A.ToGray(p=0.05),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,

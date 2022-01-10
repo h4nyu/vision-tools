@@ -27,7 +27,7 @@ optimizer:
   # nesterov: false
 
 criterion:
-  box_weight: 1.0
+  box_weight: 0.75
   cls_weight: 0.0
 
 train_loader:

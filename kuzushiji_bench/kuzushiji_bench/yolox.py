@@ -13,6 +13,7 @@ from datetime import datetime
 def get_model_name(cfg: Any) -> str:
     return f"{cfg.name}-{cfg.feat_range[0]}-{cfg.feat_range[1]}-{cfg.hidden_channels}-{cfg.backbone.name}"
 
+
 def get_writer(cfg: Any) -> SummaryWriter:
     model_name = get_model_name(cfg)
     return SummaryWriter(
@@ -20,15 +21,12 @@ def get_writer(cfg: Any) -> SummaryWriter:
     )
 
 
-
 def get_model(cfg: Any) -> YOLOX:
     # backbone = CSPDarknet(
     #     depth=cfg.depth,
     #     hidden_channels=cfg.hidden_channels,
     # )
-    backbone = EfficientNet(
-        name=cfg.backbone.name
-    )
+    backbone = EfficientNet(name=cfg.backbone.name)
     neck = CSPPAFPN(
         in_channels=backbone.channels[cfg.feat_range[0] : cfg.feat_range[1]],
         strides=backbone.strides[cfg.feat_range[0] : cfg.feat_range[1]],
