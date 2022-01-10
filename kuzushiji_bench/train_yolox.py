@@ -68,6 +68,7 @@ def main() -> None:
         meter=MeanReduceDict(),
         writer=writer,
         checkpoint=checkpoint,
+        use_amp=cfg.use_amp,
     )
     metric = Metric()
 

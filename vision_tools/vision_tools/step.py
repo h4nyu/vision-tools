@@ -25,7 +25,7 @@ class TrainStep(Generic[T, B]):
         optimizer: Any,
         loader: DataLoader[B],
         meter: MeterLike,
-        use_amp: bool = True,
+        use_amp: bool = False,
         checkpoint: Optional[Checkpoint[T]] = None,
     ) -> None:
         self.criterion = criterion
