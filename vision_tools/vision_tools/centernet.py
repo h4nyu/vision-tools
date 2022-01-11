@@ -32,7 +32,6 @@ from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .loss import HuberLoss, DIoULoss
 from .anchors import Anchor
-from vision_tools.meters import MeanMeter
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
