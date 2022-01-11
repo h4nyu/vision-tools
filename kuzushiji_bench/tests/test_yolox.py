@@ -13,6 +13,7 @@ from vision_tools.utils import draw, batch_draw, seed_everything
 from kuzushiji_bench.data import (
     KuzushijiDataset,
     TrainTransform,
+    Transform,
     collate_fn,
     read_train_rows,
 )
@@ -33,7 +34,9 @@ def model() -> YOLOX:
     cfg.box_iou_threshold = 0.2
     m = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
-    m, _ = checkpoint.load_if_exists(m, target="current")
+    checkpoint.load_if_exists(
+        m,
+    )
     return m
 
 
@@ -47,12 +50,13 @@ def batch() -> TrainBatch:
     row = read_train_rows(cfg.root_dir)
     dataset = KuzushijiDataset(
         row[:200],
-        transform=TrainTransform(cfg.image_size),
+        transform=Transform(cfg.image_size),
     )
-    loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=3))
+    loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
     return next(loader_iter)
 
 
+@torch.no_grad()
 def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
@@ -84,3 +88,7 @@ def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
     plot = batch_draw(image_batch=image_batch, box_batch=box_batch)
     writer.add_image("assign", plot, 2)
     writer.flush()
+
+
+def test_criterion(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
+    criterion(model, batch)

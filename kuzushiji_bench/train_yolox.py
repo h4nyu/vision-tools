@@ -33,14 +33,15 @@ def main() -> None:
     checkpoint = get_checkpoint(cfg)
     writer = get_writer(cfg)
     model = get_model(cfg)
-    model, score = checkpoint.load_if_exists(model)
-    model = model.to(cfg.device)
     criterion = get_criterion(cfg)
-    optimizer = torch.optim.SGD(model.parameters(), **cfg.optimizer)
+    optimizer = torch.optim.Adam(model.parameters(), **cfg.optimizer)
+
+    checkpoint.load_if_exists(model=model, optimizer=optimizer, device=cfg.device)
+
     annotations = read_train_rows(cfg.root_dir)
     train_rows, validation_rows = kfold(annotations, **cfg.fold)
     train_dataset = KuzushijiDataset(
-        train_rows[:600],
+        train_rows[:500],
         transform=TrainTransform(cfg.image_size),
     )
     val_dataset = KuzushijiDataset(
@@ -66,6 +67,8 @@ def main() -> None:
         loader=train_loader,
         meter=MeanReduceDict(),
         writer=writer,
+        checkpoint=checkpoint,
+        use_amp=cfg.use_amp,
     )
     metric = Metric()
 

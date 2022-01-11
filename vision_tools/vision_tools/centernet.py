@@ -18,6 +18,7 @@ from vision_tools import (
     resize_points,
 )
 from .mkmaps import MkMapsFn, MkBoxMapsFn
+from .block import DefaultActivation, ConvBnAct, SeparableConvBnAct
 from .modules import (
     FReLU,
     ConvBR2d,
@@ -25,11 +26,12 @@ from .modules import (
     SeparableConvBR2d,
     MemoryEfficientSwish,
 )
+from .interface import BackboneLike, FPNLike
+from .assign import SimOTA
 from .bottlenecks import SENextBottleneck2d
 from .bifpn import BiFPN, FP
 from .loss import HuberLoss, DIoULoss
-from .anchors import EmptyAnchors
-from .matcher import NearnestMatcher, CenterMatcher
+from .anchors import Anchor
 from vision_tools.meters import MeanMeter
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
@@ -41,36 +43,98 @@ from pathlib import Path
 logger = getLogger(__name__)
 
 
-class Head(nn.Module):
+class _Head(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        out_channels: int,
-        depth: int,
+        hidden_channels: int,
+        num_classes: int = 1,
+        depth: int = 1,
+        act: Callable = DefaultActivation,
     ) -> None:
         super().__init__()
-        channels = in_channels
-        self.conv = nn.Sequential(
+        self.stem = SeparableConvBnAct(
+            in_channels=in_channels,
+            out_channels=hidden_channels,
+            kernel_size=1,
+            act=act,
+        )
+        self.obj_branch = nn.Sequential(
             *[
-                nn.Sequential(
-                    SeparableConvBR2d(in_channels, in_channels),
-                    MemoryEfficientSwish(),
+                SeparableConvBnAct(
+                    in_channels=hidden_channels, out_channels=hidden_channels, act=act
                 )
                 for _ in range(depth)
-            ]
+            ],
+            nn.Conv2d(
+                in_channels=hidden_channels,
+                out_channels=1,
+                kernel_size=1,
+                stride=1,
+            ),
         )
 
-        self.out = nn.Sequential(
-            SeparableConv2d(
-                in_channels,
-                out_channels,
-            )
+        self.cls_branch = nn.Sequential(
+            *[
+                SeparableConvBnAct(
+                    in_channels=hidden_channels, out_channels=hidden_channels, act=act
+                )
+                for _ in range(depth)
+            ],
+            nn.Conv2d(
+                in_channels=hidden_channels,
+                out_channels=num_classes,
+                kernel_size=1,
+                stride=1,
+            ),
+        )
+
+        self.box_branch = nn.Sequential(
+            *[
+                SeparableConvBnAct(
+                    in_channels=hidden_channels, out_channels=hidden_channels, act=act
+                )
+                for _ in range(depth)
+            ],
+            nn.Conv2d(
+                in_channels=hidden_channels,
+                out_channels=4,
+                kernel_size=1,
+                stride=1,
+            ),
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.conv(x)
-        x = self.out(x)
-        return x
+        stem = self.stem(x)
+        box_out = self.box_branch(stem)
+        obj_out = self.obj_branch(stem)
+        cls_out = self.cls_branch(stem)
+        return torch.cat([box_out, obj_out, cls_out], dim=1)
+
+
+class CenterNetHead(nn.Module):
+    def __init__(
+        self,
+        in_channels: list[int],
+        hidden_channels: int,
+        num_classes: int = 1,
+        act: Callable = DefaultActivation,
+    ) -> None:
+        super().__init__()
+        self.heads = nn.ModuleList(
+            [
+                _Head(
+                    in_channels=c,
+                    num_classes=num_classes,
+                    hidden_channels=hidden_channels,
+                    act=act,
+                )
+                for c in in_channels
+            ]
+        )
+
+    def forward(self, feats: list[Tensor]) -> list[Tensor]:
+        return [m(x) for m, x in zip(self.heads, feats)]
 
 
 NetOutput = tuple[Tensor, Tensor, Tensor]  # label, pos, size, count
@@ -81,41 +145,23 @@ class CenterNet(nn.Module):
         self,
         channels: int,
         num_classes: int,
-        backbone: nn.Module,
+        backbone: BackboneLike,
+        neck: FPNLike,
+        hidden_channels: int = 1,
         box_depth: int = 1,
         cls_depth: int = 1,
         fpn_depth: int = 1,
         out_idx: int = 4,
     ) -> None:
         super().__init__()
-        self.out_idx = out_idx - 3
         self.channels = channels
         self.backbone = backbone
-        self.fpn = nn.Sequential(*[BiFPN(channels=channels) for _ in range(fpn_depth)])
-        self.hm_reg = nn.Sequential(
-            Head(
-                in_channels=channels,
-                out_channels=num_classes,
-                depth=cls_depth,
-            ),
-            nn.Sigmoid(),
+        self.neck = neck
+        self.box_head = CenterNetHead(
+            in_channels=neck.channels,
+            num_classes=num_classes,
+            hidden_channels=hidden_channels,
         )
-        self.box_reg = nn.Sequential(
-            Head(
-                in_channels=channels,
-                out_channels=4,
-                depth=box_depth,
-            )
-        )
-        self.anchors = EmptyAnchors()
-
-    def forward(self, x: Tensor) -> NetOutput:
-        fp = self.backbone(x)
-        fp = self.fpn(fp)
-        heatmaps = self.hm_reg(fp[self.out_idx])
-        anchors = self.anchors(heatmaps)
-        boxmaps = self.box_reg(fp[self.out_idx])
-        return (heatmaps, boxmaps, anchors)
 
 
 class HMLoss(nn.Module):
@@ -155,83 +201,82 @@ class HMLoss(nn.Module):
         return loss
 
 
-class Criterion:
-    def __init__(
-        self,
-        mk_hmmaps: MkMapsFn,
-        mk_boxmaps: MkBoxMapsFn,
-        heatmap_weight: float = 1.0,
-        box_weight: float = 1.0,
-        count_weight: float = 1.0,
-        sigma: float = 0.3,
-    ) -> None:
-        super().__init__()
-        self.hmloss = HMLoss()
-        self.boxloss = BoxLoss()
-        self.heatmap_weight = heatmap_weight
-        self.box_weight = box_weight
-        self.count_weight = count_weight
-        self.mk_hmmaps = mk_hmmaps
+# class Criterion:
+#     def __init__(
+#         self,
+#         mk_hmmaps: MkMapsFn,
+#         mk_boxmaps: MkBoxMapsFn,
+#         heatmap_weight: float = 1.0,
+#         box_weight: float = 1.0,
+#         count_weight: float = 1.0,
+#         sigma: float = 0.3,
+#     ) -> None:
+#         super().__init__()
+#         self.hmloss = HMLoss()
+#         self.boxloss = BoxLoss()
+#         self.heatmap_weight = heatmap_weight
+#         self.box_weight = box_weight
+#         self.count_weight = count_weight
+#         self.mk_hmmaps = mk_hmmaps
 
-    def __call__(
-        self,
-        images: Tensor,
-        netout: NetOutput,
-        gt_box_batch: list[Tensor],
-        gt_label_batch: list[Tensor],
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
-        s_hm, s_bm, anchors = netout
-        _, _, orig_h, orig_w = images.shape
-        _, _, h, w = s_hm.shape
-        t_hm = self.mk_hmmaps(gt_box_batch, gt_label_batch, (h, w), (orig_h, orig_w))
-        hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
-        box_loss = self.boxloss(s_bm, gt_box_batch, anchors) * self.box_weight
-        loss = hm_loss + box_loss
-        return (loss, hm_loss, box_loss, t_hm)
+#     def __call__(
+#         self,
+#         images: Tensor,
+#         netout: NetOutput,
+#         gt_box_batch: list[Tensor],
+#         gt_label_batch: list[Tensor],
+#     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+#         s_hm, s_bm, anchors = netout
+#         _, _, orig_h, orig_w = images.shape
+#         _, _, h, w = s_hm.shape
+#         t_hm = self.mk_hmmaps(gt_box_batch, gt_label_batch, (h, w), (orig_h, orig_w))
+#         hm_loss = self.hmloss(s_hm, t_hm) * self.heatmap_weight
+#         box_loss = self.boxloss(s_bm, gt_box_batch, anchors) * self.box_weight
+#         loss = hm_loss + box_loss
+#         return (loss, hm_loss, box_loss, t_hm)
 
 
-class BoxLoss:
-    def __init__(
-        self,
-        matcher: Any = NearnestMatcher(),
-        use_diff: bool = True,
-    ) -> None:
-        self.matcher = matcher
-        self.loss = DIoULoss(size_average=True)
-        self.use_diff = use_diff
+# class BoxLoss:
+#     def __init__(
+#         self,
+#         use_diff: bool = True,
+#     ) -> None:
+#         self.loss = DIoULoss(size_average=True)
+#         self.assgin = SimOTA()
+#         self.use_diff = use_diff
 
-    def __call__(
-        self,
-        preds: Tensor,
-        gt_box_batch: list[Tensor],
-        anchormap: Tensor,
-    ) -> Tensor:
-        device = preds.device
-        _, _, h, w = preds.shape
-        box_losses: list[Tensor] = []
-        anchors = boxmap_to_boxes(anchormap)
-        for diff_map, gt_boxes in zip(preds, gt_box_batch):
-            if len(gt_boxes) == 0:
-                continue
+#     def __call__(
+#         self,
+#         preds: Tensor,
+#         gt_box_batch: list[Tensor],
+#         anchormap: Tensor,
+#     ) -> Tensor:
+#         device = preds.device
+#         _, _, h, w = preds.shape
+#         box_losses: list[Tensor] = []
+#         anchors = boxmap_to_boxes(anchormap)
+#         for diff_map, gt_boxes in zip(preds, gt_box_batch):
+#             if len(gt_boxes) == 0:
+#                 continue
 
-            pred_boxes = boxmap_to_boxes(diff_map)
-            match_indices, positive_indices = self.matcher(anchors, gt_boxes, (w, h))
-            num_pos = positive_indices.sum()
-            if num_pos == 0:
-                continue
-            matched_gt_boxes = gt_boxes[match_indices][positive_indices]
-            matched_pred_boxes = pred_boxes[positive_indices]
-            if self.use_diff:
-                matched_pred_boxes = anchors[positive_indices] + matched_pred_boxes
-            box_losses.append(
-                self.loss(
-                    box_convert(matched_pred_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
-                    box_convert(matched_gt_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
-                )
-            )
-        if len(box_losses) == 0:
-            return torch.tensor(0.0).to(device)
-        return torch.stack(box_losses).mean()
+#             pred_boxes = boxmap_to_boxes(diff_map)
+#             match_indices, positive_indices = self.assgin(anchors, gt_boxes, (w, h))
+#             num_pos = positive_indices.sum()
+#             if num_pos == 0:
+#                 continue
+#             matched_gt_boxes = gt_boxes[match_indices][positive_indices]
+#             matched_pred_boxes = pred_boxes[positive_indices]
+#             if self.use_diff:
+#                 matched_pred_boxes = anchors[positive_indices] + matched_pred_boxes
+#             box_losses.append(
+#                 self.loss(
+#                     box_convert(matched_pred_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
+#                     box_convert(matched_gt_boxes, in_fmt="cxcywh", out_fmt="xyxy"),
+#                 )
+#             )
+#         if len(box_losses) == 0:
+#             return torch.tensor(0.0).to(device)
+#         return torch.stack(box_losses).mean()
 
 
 class ToBoxes:

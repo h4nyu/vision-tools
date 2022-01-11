@@ -1,5 +1,6 @@
 import torch, numpy as np
 import itertools
+from typing import Optional
 from torch import nn, Tensor
 from vision_tools import (
     boxmaps_to_boxes,
@@ -96,3 +97,44 @@ class EmptyAnchors:
         if self.use_cache:
             self.cache[(h, w)] = boxmap
         return boxmap
+
+
+class Anchor:
+    def __init__(
+        self,
+        use_cache: bool = True,
+    ) -> None:
+        self.use_cache = use_cache
+        self.cache: dict[tuple[int, int, int], Tensor] = {}
+
+    @torch.no_grad()
+    def __call__(
+        self,
+        height: int,
+        width: int,
+        stride: int,
+        device: Optional[torch.device] = None,
+    ) -> Tensor:
+        cache_key = (height, width, stride)
+        if self.use_cache and cache_key in self.cache:
+            return self.cache[cache_key]
+
+        grid_y, grid_x = torch.meshgrid(  # type:ignore
+            torch.arange(height, dtype=torch.float32),
+            torch.arange(width, dtype=torch.float32),
+            indexing="ij",
+        )
+        box_h = torch.ones((height, width), dtype=torch.float32)
+        box_w = torch.ones((height, width), dtype=torch.float32)
+        boxmap = torch.stack([grid_x, grid_y, box_w, box_h], dim=-1) * stride
+        if device is not None:
+            boxmap = boxmap.to(device)
+        boxes = boxmap.view(-1, 4)
+        boxes = box_convert(
+            boxes,
+            in_fmt="xywh",
+            out_fmt="xyxy",
+        )
+        if self.use_cache:
+            self.cache[cache_key] = boxes
+        return boxes

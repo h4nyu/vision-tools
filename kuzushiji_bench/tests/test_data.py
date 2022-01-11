@@ -14,9 +14,6 @@ from kuzushiji_bench.data import (
     Transform,
     TrainTransform,
     collate_fn,
-    # inv_normalize,
-    # train_transforms,
-    # kfold,
     save_submission,
     read_code_map,
     SubRow,
@@ -71,9 +68,10 @@ def test_aug(train_transform: Any) -> None:
     rows = read_train_rows(cfg.root_dir)
     dataset = KuzushijiDataset(rows, transform=train_transform)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
-    batch = next(loader_iter)
-    plot = batch_draw(**batch)
-    writer.add_image("aug", plot, 0)
+    for i in range(2):
+        batch = next(loader_iter)
+        plot = batch_draw(**batch)
+        writer.add_image("aug", plot, i)
     writer.flush()
 
 

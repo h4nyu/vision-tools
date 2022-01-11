@@ -8,7 +8,7 @@ from vision_tools.loss import (
     DIoULoss,
     IoULoss,
     FocalLoss,
-    FocalLossWithLogit,
+    FocalLossWithLogits,
 )
 from torch import nn, Tensor
 
@@ -115,12 +115,16 @@ def test_focal_loss_empty() -> None:
         ),
         (
             [10, 10],
-            0.35,
+            1.24,
+        ),
+        (
+            [10, -10],
+            2.5,
         ),
     ],
 )
 def test_sigmoid_focal_loss(values: t.Any, expected: float) -> None:
-    fn = FocalLossWithLogit()
+    fn = FocalLossWithLogits()
     source = torch.tensor([[values]]).float()
     target = torch.tensor(
         [
@@ -129,5 +133,6 @@ def test_sigmoid_focal_loss(values: t.Any, expected: float) -> None:
                 1,
             ]
         ]
-    )
+    ).float()
     res = fn(source, target).sum()
+    assert res < expected

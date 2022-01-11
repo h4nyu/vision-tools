@@ -10,7 +10,8 @@ import torch.nn.functional as F
 from .block import DefaultActivation, DWConv, ConvBnAct
 from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
-from .loss import CIoULoss, FocalLossWithLogit, DIoULoss
+from .loss import CIoULoss, FocalLossWithLogits, DIoULoss
+from .anchors import Anchor
 from toolz import valmap
 
 
@@ -31,6 +32,22 @@ class DecoupledHead(nn.Module):
             kernel_size=1,
             act=act,
         )
+
+        self.obj_branch = nn.Sequential(
+            Conv(
+                in_channels=hidden_channels,
+                out_channels=hidden_channels,
+                kernel_size=3,
+                act=act,
+            ),
+            Conv(
+                in_channels=hidden_channels,
+                out_channels=hidden_channels,
+                kernel_size=3,
+                act=act,
+            ),
+        )
+
         self.reg_branch = nn.Sequential(
             Conv(
                 in_channels=hidden_channels,
@@ -99,9 +116,10 @@ class DecoupledHead(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         stem = self.stem(x)
         reg_feat = self.reg_branch(stem)
+        obj_feat = self.obj_branch(stem)
         cls_feat = self.cls_branch(stem)
         reg_out = self.reg_out(reg_feat)
-        obj_out = self.obj_out(reg_feat)
+        obj_out = self.obj_out(obj_feat)
         cls_out = self.cls_out(cls_feat)
         return torch.cat([reg_out, obj_out, cls_out], dim=1)
 
@@ -160,35 +178,29 @@ class YOLOX(nn.Module):
             num_classes=num_classes,
             hidden_channels=hidden_channels,
         )
+        self.anchor = Anchor()
 
     def box_branch(self, feats: list[Tensor]) -> Tensor:
         device = feats[0].device
         box_levels = self.box_head(feats)
         yolo_box_list = []
         for pred, stride in zip(box_levels, self.box_strides):
-            batch_size, num_outputs, rows, cols = pred.shape
-            grid = (
-                torch.stack(
-                    torch.meshgrid([torch.arange(rows), torch.arange(cols)]),
-                    dim=2,
-                )
-                .view(rows * cols, 2)
-                .to(device)
+            batch_size, num_outputs, height, width = pred.shape
+            anchor_boxes = self.anchor(
+                height=height, width=width, stride=stride, device=device
             )
-            strides = torch.full((batch_size, len(grid), 1), stride).to(device)
-            anchor_points = (grid + 0.5) * strides
+            anchor_points = (anchor_boxes[:, 0:2] + anchor_boxes[:, 2:4]) / 2.0
             yolo_boxes = (
-                pred.permute(0, 3, 2, 1)
-                .reshape(batch_size, rows * cols, num_outputs)
-                .float()
+                pred.permute(0, 2, 3, 1).contiguous().view(batch_size, -1, num_outputs)
             )
+            strides = torch.full((batch_size, yolo_boxes.size(1), 1), stride).to(device)
             yolo_boxes = torch.cat(
                 [
-                    (yolo_boxes[..., 0:2] + 0.5 + grid) * strides,
+                    yolo_boxes[..., 0:2] * strides + anchor_points,
                     (yolo_boxes[..., 2:4].exp()) * strides,
                     yolo_boxes[..., 4:],
                     strides,
-                    anchor_points,
+                    anchor_points.unsqueeze(0).expand(batch_size, *anchor_points.shape),
                 ],
                 dim=-1,
             )
@@ -253,7 +265,8 @@ class Criterion:
         self.assign = assign
 
         self.box_loss = CIoULoss()
-        self.obj_loss = nn.BCEWithLogitsLoss(reduction="mean")
+        # self.obj_loss = nn.BCEWithLogitsLoss(reduction="mean")
+        self.obj_loss = FocalLossWithLogits(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
 
     def __call__(
@@ -274,7 +287,10 @@ class Criterion:
         matched_count = pos_idx.sum()
 
         # 1-stage
-        obj_loss = self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
+        obj_loss = (
+            self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
+            / matched_count
+        )
         box_loss, cls_loss = (
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
@@ -308,21 +324,20 @@ class Criterion:
     def prepeare_box_gt(
         self,
         num_classes: int,
-        gt_boxes_batch: list[Tensor],
+        gt_box_batch: list[Tensor],
         gt_label_batch: list[Tensor],
         pred_yolo_batch: Tensor,
     ) -> tuple[Tensor, Tensor]:
         device = pred_yolo_batch.device
         gt_yolo_batch = torch.zeros(
-            pred_yolo_batch.shape,
+            (pred_yolo_batch.size(0), pred_yolo_batch.size(1), 5 + num_classes),
             dtype=pred_yolo_batch.dtype,
             device=device,
         )
 
         for batch_idx, (gt_boxes, gt_labels, pred_yolo) in enumerate(
-            zip(gt_boxes_batch, gt_label_batch, pred_yolo_batch)
+            zip(gt_box_batch, gt_label_batch, pred_yolo_batch)
         ):
-            gt_cxcywh = box_convert(gt_boxes, in_fmt="xyxy", out_fmt="cxcywh")
             matched = self.assign(
                 gt_boxes=gt_boxes,
                 pred_boxes=box_convert(
@@ -332,11 +347,13 @@ class Criterion:
                 strides=pred_yolo[:, 5 + num_classes],
                 anchor_points=pred_yolo[:, 6 + num_classes : 6 + num_classes + 2],
             )
-            gt_yolo_batch[batch_idx, matched[:, 1], :4] = gt_cxcywh[matched[:, 0]]
+            gt_yolo_batch[batch_idx, matched[:, 1], :4] = box_convert(
+                gt_boxes, in_fmt="xyxy", out_fmt="cxcywh"
+            )[matched[:, 0]]
             gt_yolo_batch[batch_idx, matched[:, 1], 4] = 1.0
-            gt_yolo_batch[batch_idx, matched[:, 1], 5 : 5 + num_classes] = F.one_hot(
-                gt_labels[matched[:, 0]], num_classes
-            ).to(gt_yolo_batch)
+            gt_yolo_batch[batch_idx, matched[:, 1], 5 : 5 + num_classes] = (
+                F.one_hot(gt_labels[matched[:, 0]], num_classes).float().to(device)
+            )
 
         pos_idx = gt_yolo_batch[..., 4] == 1.0
         return gt_yolo_batch, pos_idx
