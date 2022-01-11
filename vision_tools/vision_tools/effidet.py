@@ -12,7 +12,6 @@ from vision_tools import (
     filter_limit,
 )
 from vision_tools.model_loader import ModelLoader
-from vision_tools.meters import MeanMeter
 from typing import Any, NewType, Callable
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
