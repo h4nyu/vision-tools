@@ -183,16 +183,3 @@ def test_eval_step(
         writer=writer,
     )
     eval_step(model)
-
-
-def test_encode_decode_boxes(criterion: Criterion, model: YOLOX) -> None:
-
-    yolo_batch = torch.zeros(1, 4, 4 + 1 + 3)
-    box_batch = [torch.tensor([[10.0, 20.0, 30.0, 40.0]])]
-    label_batch = [torch.tensor([0])]
-    gt_yolo_batch, _ = criterion.prepeare_box_gt(
-        num_classes=1,
-        gt_box_batch=box_batch,
-        gt_label_batch=label_batch,
-        pred_yolo_batch=yolo_batch,
-    )
