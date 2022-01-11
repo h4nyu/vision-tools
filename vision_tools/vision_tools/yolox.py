@@ -338,6 +338,8 @@ class Criterion:
         for batch_idx, (gt_boxes, gt_labels, pred_yolo) in enumerate(
             zip(gt_box_batch, gt_label_batch, pred_yolo_batch)
         ):
+            if(len(gt_boxes) == 0):
+                continue
             matched = self.assign(
                 gt_boxes=gt_boxes,
                 pred_boxes=box_convert(
