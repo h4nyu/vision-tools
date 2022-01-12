@@ -20,7 +20,8 @@ jobs:
           keys:
             - docker-image-{{ .Environment.CACHE_VERSION }}-{{ checksum "Dockerfile" }}-{{ checksum "vision_tools/setup.py" }}
 
-      - run: name: "Build images if needed"
+      - run: 
+          name: "Build images if needed"
           command: |
             if test -f image.tar; then
               docker load < image.tar
