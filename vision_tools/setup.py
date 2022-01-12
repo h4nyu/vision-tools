@@ -21,6 +21,7 @@ setup(
             "pytest-mypy",
             "mypy",
             "kaggle",
+            "signate",
             "pandas",
             "cytoolz",
             "torch-optimizer",
