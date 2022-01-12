@@ -6,7 +6,7 @@ from omegaconf import OmegaConf
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
 from vision_tools.yolox import YOLOX, Criterion, Inference
-from subaru_bench.yolox import (
+from cots_bench.yolox import (
     get_model,
     get_criterion,
     get_checkpoint,
@@ -15,7 +15,7 @@ from subaru_bench.yolox import (
 from vision_tools.meter import MeanReduceDict
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch
-from subaru_bench.data import (
+from cots_bench.data import (
     KuzushijiDataset,
     TrainTransform,
     Transform,
@@ -23,7 +23,7 @@ from subaru_bench.data import (
     collate_fn,
     kfold,
 )
-from subaru_bench.metric import Metric
+from cots_bench.metric import Metric
 from tqdm import tqdm
 
 

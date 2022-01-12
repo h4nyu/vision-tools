@@ -1,8 +1,8 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
-    name="subaru_bench",
+    name="cots_bench",
     version="0.1.0",
-    packages=["subaru_bench"],
-    package_data={"subaru_bench": ["py.typed"]},
+    packages=find_packages(),
+    package_data={"cots_bench": ["py.typed"]},
 )

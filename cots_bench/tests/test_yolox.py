@@ -4,13 +4,13 @@ import os
 from omegaconf import OmegaConf
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.ops import box_convert
-from subaru_bench.yolox import get_model, get_criterion, get_checkpoint, get_writer
+from cots_bench.yolox import get_model, get_criterion, get_checkpoint, get_writer
 from vision_tools.assign import SimOTA
 from torch.utils.data import DataLoader
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.interface import TrainBatch
 from vision_tools.utils import draw, batch_draw, seed_everything
-from subaru_bench.data import (
+from cots_bench.data import (
     KuzushijiDataset,
     TrainTransform,
     Transform,
@@ -18,7 +18,7 @@ from subaru_bench.data import (
     read_train_rows,
 )
 
-cfg = OmegaConf.load("/app/subaru_bench/config/yolox.yaml")
+cfg = OmegaConf.load("/app/cots_bench/config/yolox.yaml")
 writer = get_writer(cfg)
 
 seed_everything()

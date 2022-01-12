@@ -7,7 +7,7 @@ import os
 from torch.utils.data import DataLoader
 
 # import torchvision, os, torch
-from subaru_bench.data import (
+from cots_bench.data import (
     read_train_rows,
     read_test_rows,
     KuzushijiDataset,
@@ -21,8 +21,8 @@ from subaru_bench.data import (
 from vision_tools.utils import batch_draw, draw
 from torch.utils.tensorboard import SummaryWriter
 
-cfg = OmegaConf.load("/app/subaru_bench/config/yolox.yaml")
-writer = SummaryWriter("/app/runs/test-subaru_bench")
+cfg = OmegaConf.load("/app/cots_bench/config/yolox.yaml")
+writer = SummaryWriter("/app/runs/test-cots_bench")
 
 no_volume = not os.path.exists(cfg.root_dir)
 reason = "no data volume"
