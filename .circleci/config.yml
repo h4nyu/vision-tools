@@ -39,8 +39,6 @@ jobs:
           name: Test
           command: |
             docker-compose run --rm  -w /app/vision_tools app pytest --cov=vision_tools  --cov-report=xml
-            docker-compose run --rm  -w /app/kuzushiji_bench app pytest --cov=kuzushiji_bench  --cov-report=xml
-            docker-compose run --rm  -w /app/cots_bench app pytest --cov=cots_bench  --cov-report=xml
             docker-compose run --rm app codecov
             
 workflows:
