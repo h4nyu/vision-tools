@@ -13,8 +13,8 @@ def auc(
     pre = np.concatenate(([0.0], precision, [0.0]))
     for i in range(pre.size - 1, 0, -1):
         pre[i - 1] = np.maximum(pre[i - 1], pre[i])
-    i = np.where(rec[1:] != rec[:-1])[0]
-    return np.sum((rec[i + 1] - rec[i]) * pre[i + 1])
+    c = np.where(rec[1:] != rec[:-1])[0]
+    return np.sum((rec[c + 1] - rec[i]) * pre[c + 1])
 
 
 class AveragePrecision:
