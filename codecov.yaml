@@ -1,0 +1,12 @@
+flags:
+  # filter the folder(s) you wish to measure by that flag
+  vision_tools:
+    paths:
+      - vision_tools
+  kuzushiji_bench:
+    paths:
+      - kuzushiji_bench
+  subaru_bench:
+    paths:
+      - subaru_bench
+

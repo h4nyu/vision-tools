@@ -17,7 +17,6 @@ from vision_tools.interface import TrainBatch, TrainSample
 
 location = "/tmp"
 
-
 Row = TypedDict(
     "Row",
     {

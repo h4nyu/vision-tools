@@ -28,6 +28,7 @@ setup(
             "scikit-learn",
             "tensorboard",
             "codecov",
+            "signate",
         ]
     },
 )

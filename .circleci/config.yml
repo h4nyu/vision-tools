@@ -20,8 +20,7 @@ jobs:
           keys:
             - docker-image-{{ .Environment.CACHE_VERSION }}-{{ checksum "Dockerfile" }}-{{ checksum "vision_tools/setup.py" }}
 
-      - run:
-          name: "Build images if needed"
+      - run: name: "Build images if needed"
           command: |
             if test -f image.tar; then
               docker load < image.tar
@@ -38,11 +37,10 @@ jobs:
       - run:
           name: Test
           command: |
-            docker-compose run --rm app pytest --cov=vision_tools --cov-report=html:test-reports
+            docker-compose run --rm  -w /app/vision_tools app pytest --cov=vision_tools  --cov-report=xml
+            docker-compose run --rm  -w /app/kuzushiji_bench app pytest --cov=kuzushiji_bench  --cov-report=xml
+            docker-compose run --rm  -w /app/subaru_bench app pytest --cov=subaru_bench  --cov-report=xml
             docker-compose run --rm app codecov
-      - store_artifacts:
-          path: test-reports/
-          destination: circleci-docs
             
 workflows:
   version: 2
