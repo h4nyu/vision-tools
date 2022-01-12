@@ -206,7 +206,7 @@ class Checkpoint(Generic[T]):
         ):
             torch.save(model.state_dict(), self.checkpoint_model_path)  # type: ignore
             OmegaConf.save(config=dict(score=score), f=self.checkpoint_path)
-            self.score == score
+            self.score = score
         if model is not None:
             torch.save(model.state_dict(), self.current_model_path)  # type: ignore
         if optimizer is not None:
