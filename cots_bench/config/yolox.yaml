@@ -5,12 +5,13 @@ use_amp: false
 num_epochs: 999
 hidden_channels: 64
 root_dir: /store/cots
+image_dir: /store/cots/train_images
 depth: 1
 num_classes: 1
 feat_range: [3, 6]
 box_iou_threshold: 0.3
 score_threshold: 0.5
-image_size: 512
+image_size: 1024
 
 
 backbone: 
