@@ -43,8 +43,11 @@ def train_transform() -> Any:
 def train_rows() -> list[Row]:
     return read_train_rows(cfg.root_dir)
 
+
 def test_aug(train_transform: Any, train_rows: list[Row]) -> None:
-    dataset = COTSDataset(train_rows, transform=train_transform, image_dir=cfg.image_dir)
+    dataset = COTSDataset(
+        train_rows, transform=train_transform, image_dir=cfg.image_dir
+    )
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     for i in range(2):
         batch = next(loader_iter)

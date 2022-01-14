@@ -27,32 +27,8 @@ Row = TypedDict(
     },
 )
 
-# SubRow = TypedDict(
-#     "SubRow",
-#     {
-#         "id": str,
-#         "points": Tensor,
-#         "labels": Tensor,
-#     },
-# )
 
-
-# def save_submission(rows: list[SubRow], code_map: dict[str, int], fpath: str) -> None:
-#     codes = list(code_map.keys())
-#     csv_rows: list[tuple[str, str]] = []
-#     for row in rows:
-#         id = row["id"]
-#         points = row["points"]
-#         labels = row["labels"]
-#         out_str = ""
-#         for point, label in zip(points, labels):
-#             out_str += f"{codes[label]} {int(point[0])} {int(point[1])} "
-#         csv_rows.append((id, out_str))
-#     df = pd.DataFrame(csv_rows, columns=["image_id", "labels"])
-#     df.to_csv(fpath, index=False)
-
-
-def read_train_rows(root_dir: str) -> list[Row]:
+def read_train_rows(root_dir: str, skip_empty: bool = True) -> list[Row]:
     row_path = os.path.join(root_dir, "train.csv")
     df = pd.read_csv(row_path)
     rows: list[Row] = []
@@ -70,6 +46,9 @@ def read_train_rows(root_dir: str) -> list[Row]:
                 in_fmt="xywh",
                 out_fmt="xyxy",
             )
+        else:
+            if skip_empty:
+                continue
 
         rows.append(
             Row(
@@ -81,26 +60,6 @@ def read_train_rows(root_dir: str) -> list[Row]:
         )
 
     return rows
-
-
-# def read_test_rows(root_dir: str) -> list[Row]:
-#     row_path = os.path.join(root_dir, "sample_submission.csv")
-#     df = pd.read_csv(row_path)
-#     rows: list[Row] = []
-#     for _, csv_row in df.iterrows():
-#         id = csv_row["image_id"]
-#         image_path = os.path.join(root_dir, f"{id}.jpg")
-#         pil_img = PIL.Image.open(image_path)
-#         row: Row = dict(
-#             id=id,
-#             image_path=image_path,
-#             width=pil_img.width,
-#             height=pil_img.height,
-#             boxes=torch.tensor([]),
-#             labels=torch.tensor([]),
-#         )
-#         rows.append(row)
-#     return rows
 
 
 def kfold(
@@ -162,8 +121,10 @@ class COTSDataset(Dataset):
         id = row["image_id"]
         video_id = row["video_id"]
         video_frame = row["video_frame"]
-        img_arr = np.array(PIL.Image.open(f"{self.image_dir}/video_{video_id}/{video_frame}.jpg"))
-        labels = torch.zeros(len(row['boxes']))
+        img_arr = np.array(
+            PIL.Image.open(f"{self.image_dir}/video_{video_id}/{video_frame}.jpg")
+        )
+        labels = torch.zeros(len(row["boxes"]))
         transformed = self.transform(
             image=img_arr,
             bboxes=clip_boxes_to_image(row["boxes"], img_arr.shape[:2]),
