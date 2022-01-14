@@ -35,6 +35,7 @@ def read_train_rows(root_dir: str, skip_empty: bool = True) -> list[Row]:
     rows: list[Row] = []
     subsequence = -1
     prev_count = -1
+
     for _, csv_row in df.iterrows():
         annotations = json.loads(csv_row["annotations"].replace("'", '"'))
         image_id = csv_row["image_id"]

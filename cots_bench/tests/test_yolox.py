@@ -16,6 +16,7 @@ from cots_bench.data import (
     Transform,
     collate_fn,
     read_train_rows,
+    kfold,
 )
 
 cfg = OmegaConf.load("/app/cots_bench/config/yolox.yaml")
@@ -47,9 +48,9 @@ def criterion() -> Criterion:
 
 @pytest.fixture
 def batch() -> TrainBatch:
-    row = read_train_rows(cfg.root_dir)
+    _, rows = kfold(read_train_rows(cfg.root_dir), cfg.fold.n_splits)
     dataset = COTSDataset(
-        row[:200],
+        rows[10:],
         transform=Transform(cfg.image_size),
         image_dir=cfg.image_dir,
     )
@@ -59,6 +60,7 @@ def batch() -> TrainBatch:
 
 @torch.no_grad()
 def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
+    model.eval()
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
     image_batch = batch["image_batch"]

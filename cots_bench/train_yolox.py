@@ -1,5 +1,4 @@
 import os
-import torch_optimizer as optim
 import torch
 from torch import Tensor
 from omegaconf import OmegaConf

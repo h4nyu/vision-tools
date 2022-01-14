@@ -32,13 +32,13 @@ RUN apt-get update \
         cuda-cudart-11-3=11.3.109-1 \
         cuda-compat-11-3 \
     && ln -s cuda-11.3 /usr/local/cuda \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN cd /usr/bin \
+    && rm -rf /var/lib/apt/lists/* \
+    && cd /usr/bin \
 	&& ln -s idle3 idle \
 	&& ln -s pydoc3 pydoc \
 	&& ln -s python3 python \
 	&& ln -s python3-config python-config
+RUN pip install torch==1.10.1+cu113 torchvision==0.11.2+cu113 torchaudio==0.10.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
 WORKDIR /app
 COPY . .

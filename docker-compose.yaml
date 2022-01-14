@@ -19,6 +19,8 @@ x-app: &app
     - ./store:/store
     - ./.cache:/root/.cache
 
+    - ./store/tensorflow-great-barrier-reef:/kaggle/input/tensorflow-great-barrier-reef
+
 
 services:
   app:
