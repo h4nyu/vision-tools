@@ -1,7 +1,7 @@
 import albumentations as A
 import random
 from torchvision.transforms import Normalize
-from typing import *
+from typing import Tuple, List, Any
 import numpy as np
 import cv2
 
@@ -11,7 +11,7 @@ class RandomLayout(A.DualTransform):
         self,
         width: int,
         height: int,
-        size_limit: tuple[float, float] = (0.5, 1.0),
+        size_limit: Tuple[float, float] = (0.5, 1.0),
         always_apply: bool = False,
         p: float = 1.0,
     ) -> None:
@@ -21,7 +21,7 @@ class RandomLayout(A.DualTransform):
         self.size_limit = size_limit
 
     def apply(
-        self, img: Any, size: tuple[int, int], offset: tuple[int, int], **params: dict
+        self, img: Any, size: Tuple[int, int], offset: Tuple[int, int], **params: dict
     ) -> Any:
         width = self.width * size[0]
         height = self.height * size[1]
@@ -47,10 +47,10 @@ class RandomLayout(A.DualTransform):
     def apply_to_bbox(
         self,
         bbox: Any,
-        size: tuple[float, float],
-        offset: tuple[int, int],
+        size: Tuple[float, float],
+        offset: Tuple[int, int],
         **params: dict
-    ) -> tuple[float, float, float, float]:
+    ) -> Tuple[float, float, float, float]:
         x1, y1, x2, y2 = bbox
         x1 = x1 * size[0] + offset[0]
         y1 = y1 * size[1] + offset[1]
@@ -79,7 +79,7 @@ class RandomLayout(A.DualTransform):
     def get_params(self) -> dict:
         return {}
 
-    def get_transform_init_args_names(self) -> tuple[str, str, str]:
+    def get_transform_init_args_names(self) -> Tuple[str, str, str]:
         return ("width", "height", "size_limit")
 
 

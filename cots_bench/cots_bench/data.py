@@ -1,4 +1,5 @@
-from typing import Any, TypedDict
+from typing import Any, List, Tuple
+from typing_extensions import TypedDict
 from torch import Tensor
 import json
 import torch, os, torchvision, PIL
@@ -29,10 +30,10 @@ Row = TypedDict(
 )
 
 
-def read_train_rows(root_dir: str, skip_empty: bool = True) -> list[Row]:
+def read_train_rows(root_dir: str, skip_empty: bool = True) -> List[Row]:
     row_path = os.path.join(root_dir, "train.csv")
     df = pd.read_csv(row_path)
-    rows: list[Row] = []
+    rows: List[Row] = []
     subsequence = -1
     prev_count = -1
 
@@ -69,13 +70,13 @@ def read_train_rows(root_dir: str, skip_empty: bool = True) -> list[Row]:
 
 
 def kfold(
-    rows: list[Row], n_splits: int, fold_idx: int = 0
-) -> tuple[list[Row], list[Row]]:
+    rows: List[Row], n_splits: int, fold_idx: int = 0
+) -> Tuple[List[Row], List[Row]]:
     skf = GroupKFold()
     x = range(len(rows))
     y = pipe(rows, map(lambda x: len(x["boxes"])), list)
     groups = pipe(rows, map(lambda x: x["sequence"]), list)
-    pair_list: list[tuple[list[int], list[int]]] = []
+    pair_list: List[Tuple[List[int], List[int]]] = []
     for train_index, test_index in skf.split(x, y, groups=groups):
         pair_list.append((train_index, test_index))
     train_index, test_index = pair_list[fold_idx]
@@ -111,7 +112,7 @@ Transform = lambda image_size: A.Compose(
 class COTSDataset(Dataset):
     def __init__(
         self,
-        rows: list[Row],
+        rows: List[Row],
         transform: Any,
         image_dir: str,
     ) -> None:
@@ -148,11 +149,11 @@ class COTSDataset(Dataset):
 
 
 def collate_fn(
-    batch: list[TrainSample],
+    batch: List[TrainSample],
 ) -> TrainBatch:
-    images: list[Tensor] = []
-    box_batch: list[Tensor] = []
-    label_batch: list[Tensor] = []
+    images: List[Tensor] = []
+    box_batch: List[Tensor] = []
+    label_batch: List[Tensor] = []
     for row in batch:
         images.append(row["image"])
         box_batch.append(row["boxes"])

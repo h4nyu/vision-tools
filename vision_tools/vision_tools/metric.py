@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor
+from typing import Tuple, List, Dict, Any
 import torch.nn.functional as F
 from torchvision.ops import box_iou
 
@@ -41,7 +42,7 @@ class MaskAP:
         self,
         reduce_size: int = 1,
         use_batch: bool = False,
-        thresholds: list[float] = [
+        thresholds: List[float] = [
             0.5,
             0.55,
             0.6,
@@ -88,7 +89,7 @@ class MaskAP:
         return value
 
     def accumulate_batch(
-        self, pred_masks: list[Tensor], gt_masks: list[Tensor]
+        self, pred_masks: List[Tensor], gt_masks: List[Tensor]
     ) -> None:
         for p, g in zip(pred_masks, gt_masks):
             self.accumulate(p, g)
@@ -128,7 +129,7 @@ class MaskAP:
 class BoxMAP:
     def __init__(
         self,
-        thresholds: list[float] = [
+        thresholds: List[float] = [
             0.5,
             0.55,
             0.6,
@@ -150,7 +151,7 @@ class BoxMAP:
         self.num_samples = 0
 
     @property
-    def value(self) -> tuple[float, dict[str, float]]:
+    def value(self) -> Tuple[float, Dict[str, float]]:
         res = {}
         for k in self.running.keys():
             res[str(k)] = (
@@ -177,7 +178,7 @@ class BoxMAP:
         return res.item()
 
     def accumulate(
-        self, pred_box_batch: list[Tensor], gt_box_batch: list[Tensor]
+        self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
     ) -> None:
         for p, g in zip(pred_box_batch, gt_box_batch):
             res = self(p, g)
@@ -186,7 +187,7 @@ class BoxMAP:
                 self.running[k] = self.running.get(k, 0) + res.get(k, 0)
 
     @torch.no_grad()
-    def __call__(self, pred_boxes: Tensor, gt_boxes: Tensor) -> dict[float, float]:
+    def __call__(self, pred_boxes: Tensor, gt_boxes: Tensor) -> Dict[float, float]:
         default = {k: 0.0 for k in self.running.keys()}
         if (len(gt_boxes) == 0) and (len(pred_boxes) > 0):
             return default

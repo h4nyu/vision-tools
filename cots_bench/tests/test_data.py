@@ -1,7 +1,7 @@
 import torch
 import pytest
 from omegaconf import OmegaConf
-from typing import Any
+from typing import Any, List
 import os
 
 from torch.utils.data import DataLoader
@@ -47,9 +47,7 @@ def rows() -> list[Row]:
 
 
 def test_aug(train_transform: Any, rows: list[Row]) -> None:
-    dataset = COTSDataset(
-        train_rows, transform=train_transform, image_dir=cfg.image_dir
-    )
+    dataset = COTSDataset(rows, transform=train_transform, image_dir=cfg.image_dir)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     for i in range(1):
         batch = next(loader_iter)
@@ -58,7 +56,7 @@ def test_aug(train_transform: Any, rows: list[Row]) -> None:
     writer.flush()
 
 
-def test_fold(rows) -> None:
+def test_fold(rows: List[Row]) -> None:
     train_rows, test_rows = kfold(rows, cfg.fold.n_splits)
     train_groups = pipe(train_rows, map(lambda x: x["sequence"]), set)
     test_groups = pipe(test_rows, map(lambda x: x["sequence"]), set)
