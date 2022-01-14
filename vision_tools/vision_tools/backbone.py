@@ -1,5 +1,5 @@
 from torch import nn, Tensor
-from typing import Callable
+from typing import Callable, List
 from .block import DefaultActivation, DWConv, ConvBnAct, Focus, CSP, SPP
 from efficientnet_pytorch import EfficientNet as _EfficientNet
 
@@ -28,7 +28,7 @@ class EfficientNet(nn.Module):
         self.channels = efficientnet_channels[name][: self.out_len]
         self.strides = efficientnet_strides[: self.out_len]
 
-    def forward(self, images: Tensor) -> list[Tensor]:  # P1 - P6, P7 is dropped
+    def forward(self, images: Tensor) -> List[Tensor]:  # P1 - P6, P7 is dropped
         features = self.net.extract_endpoints(images)
         return [images, *features.values()][: self.out_len]
 
@@ -96,7 +96,7 @@ class CSPDarknet(nn.Module):
             self.channels.append(next_ch)
             self.strides.append(2 ** (i + 2))
 
-    def forward(self, x: Tensor) -> list[Tensor]:
+    def forward(self, x: Tensor) -> List[Tensor]:
         feats = []
         feats.append(x)
         out = self.stem(x)

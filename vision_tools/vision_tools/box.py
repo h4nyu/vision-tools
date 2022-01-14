@@ -1,5 +1,5 @@
 import torch
-from typing import *
+from typing import Tuple, Union, Callable
 from torch import Tensor
 from torchvision.ops.boxes import box_iou, box_area
 
@@ -14,7 +14,7 @@ def boxmaps_to_boxes(x: Tensor) -> Tensor:
     return x.permute(3, 2, 0, 1).reshape(-1, 4)
 
 
-def resize_boxes(boxes: Tensor, scale: tuple[float, float]) -> Tensor:
+def resize_boxes(boxes: Tensor, scale: Tuple[float, float]) -> Tensor:
     if len(boxes) == 0:
         return boxes
     wr, hr = scale
@@ -52,7 +52,7 @@ def yolo_vflip(yolo: Tensor) -> Tensor:
     return torch.stack(b, dim=-1)
 
 
-def shift(boxes: Tensor, diff: tuple[Number, Number]) -> Tensor:
+def shift(boxes: Tensor, diff: Tuple[Number, Number]) -> Tensor:
     if len(boxes) == 0:
         return boxes
     diff_x, diff_y = diff
@@ -63,7 +63,7 @@ def shift(boxes: Tensor, diff: tuple[Number, Number]) -> Tensor:
 
 def filter_size(
     boxes: Tensor, cond: Callable[[Tensor], Tensor]
-) -> tuple[Tensor, Tensor]:
+) -> Tuple[Tensor, Tensor]:
     if len(boxes) == 0:
         return boxes, torch.tensor([], dtype=torch.bool)
     x0, y0, x1, y1 = boxes.unbind(-1)
@@ -89,7 +89,7 @@ def box_in_area(
     return indices
 
 
-def box_hflip(boxes: Tensor, image_size: tuple[Number, Number]) -> Tensor:
+def box_hflip(boxes: Tensor, image_size: Tuple[Number, Number]) -> Tensor:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
@@ -99,7 +99,7 @@ def box_hflip(boxes: Tensor, image_size: tuple[Number, Number]) -> Tensor:
     return boxes
 
 
-def box_vflip(boxes: Tensor, image_size: tuple[Number, Number]) -> Tensor:
+def box_vflip(boxes: Tensor, image_size: Tuple[Number, Number]) -> Tensor:
     if len(boxes) == 0:
         return boxes
     w, h = image_size
@@ -138,7 +138,7 @@ def filter_limit(
     confidences: Tensor,
     labels: Tensor,
     limit: int,
-) -> tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[Tensor, Tensor, Tensor]:
     unique_labels = torch.unique(labels)
     box_list = []
     label_list = []

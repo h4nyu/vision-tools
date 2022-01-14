@@ -1,7 +1,7 @@
 from typing import Iterator
 import pytest
 import torch
-from typing import Any
+from typing import Any, Tuple, Dict
 from torch import optim
 from vision_tools.yolox import (
     YOLOXHead,
@@ -166,7 +166,7 @@ def test_eval_step(
             ...
 
         @property
-        def value(self) -> tuple[float, dict[str, float]]:
+        def value(self) -> Tuple[float, Dict[str, float]]:
             return 0.99, {
                 "0.5": 0.99,
             }

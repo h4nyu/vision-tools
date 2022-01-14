@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from torch import Tensor
-from typing import Callable, TypedDict, Any
+from typing import Callable, Any, List, Tuple, Dict
+from typing_extensions import TypedDict
 from torch.cuda.amp import GradScaler, autocast
 import math
 from torchvision.ops import box_convert, batched_nms
@@ -127,7 +128,7 @@ class DecoupledHead(nn.Module):
 class YOLOXHead(nn.Module):
     def __init__(
         self,
-        in_channels: list[int],
+        in_channels: List[int],
         hidden_channels: int,
         num_classes: int = 1,
         depthwise: bool = False,
@@ -146,7 +147,7 @@ class YOLOXHead(nn.Module):
             ]
         )
 
-    def forward(self, feats: list[Tensor]) -> list[Tensor]:
+    def forward(self, feats: List[Tensor]) -> List[Tensor]:
         return [m(x) for m, x in zip(self.heads, feats)]
 
 
@@ -160,7 +161,7 @@ class YOLOX(nn.Module):
         box_limit: int = 300,
         box_iou_threshold: float = 0.5,
         score_threshold: float = 0.5,
-        feat_range: tuple[int, int] = (3, 7),
+        feat_range: Tuple[int, int] = (3, 7),
     ) -> None:
         super().__init__()
         self.backbone = backbone
@@ -180,10 +181,10 @@ class YOLOX(nn.Module):
         )
         self.anchor = Anchor()
 
-    def box_branch(self, feats: list[Tensor]) -> Tensor:
+    def box_branch(self, feats: List[Tensor]) -> Tensor:
         device = feats[0].device
         box_levels = self.box_head(feats)
-        yolo_box_list = []
+        yolo_box_List = []
         for pred, stride in zip(box_levels, self.box_strides):
             batch_size, num_outputs, height, width = pred.shape
             anchor_boxes = self.anchor(
@@ -204,11 +205,11 @@ class YOLOX(nn.Module):
                 ],
                 dim=-1,
             )
-            yolo_box_list.append(yolo_boxes)
-        yolo_batch = torch.cat(yolo_box_list, dim=1)
+            yolo_box_List.append(yolo_boxes)
+        yolo_batch = torch.cat(yolo_box_List, dim=1)
         return yolo_batch
 
-    def feats(self, x: Tensor) -> list[Tensor]:
+    def feats(self, x: Tensor) -> List[Tensor]:
         feats = self.backbone(x)
         feats = feats[self.feat_range[0] : self.feat_range[1]]
         return self.neck(feats)
@@ -216,7 +217,7 @@ class YOLOX(nn.Module):
     @torch.no_grad()
     def to_boxes(
         self, yolo_batch: Tensor
-    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
+    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
         score_batch, box_batch, lable_batch = [], [], []
         device = yolo_batch.device
         num_classes = self.num_classes
@@ -273,7 +274,7 @@ class Criterion:
         self,
         model: YOLOX,
         inputs: TrainBatch,
-    ) -> tuple[Tensor, dict[str, Tensor]]:
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
         images = inputs["image_batch"]
         gt_box_batch = inputs["box_batch"]
         gt_label_batch = inputs["label_batch"]
@@ -324,10 +325,10 @@ class Criterion:
     def prepeare_box_gt(
         self,
         num_classes: int,
-        gt_box_batch: list[Tensor],
-        gt_label_batch: list[Tensor],
+        gt_box_batch: List[Tensor],
+        gt_label_batch: List[Tensor],
         pred_yolo_batch: Tensor,
-    ) -> tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor]:
         device = pred_yolo_batch.device
         gt_yolo_batch = torch.zeros(
             (pred_yolo_batch.size(0), pred_yolo_batch.size(1), 5 + num_classes),

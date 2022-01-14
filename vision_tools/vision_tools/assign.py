@@ -1,5 +1,5 @@
 import torch
-import typing
+from typing import Tuple
 from torch import Tensor
 from torchvision.ops.boxes import box_iou
 import torch.nn.functional as F
@@ -51,7 +51,7 @@ class SimOTA:
         anchor_points: Tensor,
         gt_boxes: Tensor,
         strides: Tensor,
-    ) -> tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor]:
         gt_boxes = gt_boxes.unsqueeze(1)
         gt_centers = (gt_boxes[:, :, 0:2] + gt_boxes[:, :, 2:4]) / 2.0
 

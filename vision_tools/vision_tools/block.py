@@ -1,7 +1,6 @@
 import torch
-from torch import nn
-from torch import Tensor
-from typing import Callable, Optional
+from torch import Tensor, nn
+from typing import Callable, Optional, List
 
 DefaultActivation = nn.SiLU(inplace=True)
 
@@ -82,7 +81,7 @@ class SPP(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_sizes: list[int] = [5, 9, 13],
+        kernel_sizes: List[int] = [5, 9, 13],
         act: Callable = DefaultActivation,
     ) -> None:
         super().__init__()

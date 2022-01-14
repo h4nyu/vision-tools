@@ -1,26 +1,27 @@
 from torch import Tensor
-from typing import Protocol, Callable, Any, TypedDict, TypeVar, Generic
+from typing import Callable, Any, TypeVar, Generic, List, Dict, Tuple
+from typing_extensions import Protocol, TypedDict
 
 
 class BackboneLike(Protocol):
-    channels: list[int]
-    strides: list[int]
+    channels: List[int]
+    strides: List[int]
 
-    def __call__(self, x: Tensor) -> list[Tensor]:
+    def __call__(self, x: Tensor) -> List[Tensor]:
         ...
 
 
 class FPNLike(Protocol):
-    channels: list[int]
-    strides: list[int]
+    channels: List[int]
+    strides: List[int]
 
-    def __call__(self, x: list[Tensor]) -> list[Tensor]:
+    def __call__(self, x: List[Tensor]) -> List[Tensor]:
         ...
 
 
 class MeterLike(Protocol):
     @property
-    def value(self) -> dict[str, float]:
+    def value(self) -> Dict[str, float]:
         ...
 
     def accumulate(self, log: Any) -> None:
@@ -35,7 +36,7 @@ B = TypeVar("B", contravariant=True)
 
 class MetricLike(Protocol[B]):
     @property
-    def value(self) -> tuple[float, dict[str, float]]:
+    def value(self) -> Tuple[float, Dict[str, float]]:
         ...
 
     def accumulate(self, pred: B, gt: B) -> None:
@@ -49,8 +50,8 @@ TrainBatch = TypedDict(
     "TrainBatch",
     {
         "image_batch": Tensor,
-        "box_batch": list[Tensor],
-        "label_batch": list[Tensor],
+        "box_batch": List[Tensor],
+        "label_batch": List[Tensor],
     },
 )
 

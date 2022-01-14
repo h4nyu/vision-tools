@@ -7,13 +7,13 @@ from torchvision.utils import (
 from PIL import Image, ImageDraw, ImageFont, ImageColor
 from torchvision.ops import masks_to_boxes, box_convert
 import torch
-from typing import *
 from torch import Tensor
 import json
 import random
 import numpy as np
 import torch.nn.functional as F
-from typing import Optional, Callable
+from typing import Optional, Callable, Any, List, Generic, TypeVar, Tuple, Union
+from typing_extensions import Protocol
 from torch import nn
 from pathlib import Path
 from torch import Tensor
@@ -116,7 +116,7 @@ class ToDevice:
         self.device = device
 
     def __call__(
-        self, *args: Union[Tensor, list[Tensor]], **kargs: Union[Tensor, list[Tensor]]
+        self, *args: Union[Tensor, List[Tensor]], **kargs: Union[Tensor, List[Tensor]]
     ) -> Any:
         if kargs is not None:
             return {
@@ -247,9 +247,9 @@ def draw(
 @torch.no_grad()
 def batch_draw(
     image_batch: Tensor,
-    box_batch: Optional[list[Tensor]] = None,
-    label_batch: Optional[list[Tensor]] = None,
-    point_batch: Optional[list[Tensor]] = None,
+    box_batch: Optional[List[Tensor]] = None,
+    label_batch: Optional[List[Tensor]] = None,
+    point_batch: Optional[List[Tensor]] = None,
 ) -> Tensor:
     empty_list = [None for _ in range(len(image_batch))]
     return make_grid(

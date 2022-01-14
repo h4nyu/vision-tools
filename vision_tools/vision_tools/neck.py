@@ -1,14 +1,14 @@
 import torch
 from torch import nn, Tensor
-from typing import Callable
+from typing import Callable, List
 from .block import DefaultActivation, ConvBnAct, CSP
 
 
 class CSPPAFPN(nn.Module):
     def __init__(
         self,
-        in_channels: list[int],
-        strides: list[int],
+        in_channels: List[int],
+        strides: List[int],
         depth: int = 3,
         act: Callable[[Tensor], Tensor] = nn.LeakyReLU(inplace=True),
     ):
@@ -66,7 +66,7 @@ class CSPPAFPN(nn.Module):
                 )
             )
 
-    def forward(self, feats: list[Tensor]) -> list[Tensor]:
+    def forward(self, feats: List[Tensor]) -> List[Tensor]:
         reverted_feats = feats[::-1]
         up_outs = []
         up_out = feats[-1]

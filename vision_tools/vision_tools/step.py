@@ -1,6 +1,6 @@
 import torch
 from torch import nn, Tensor
-from typing import Optional, Callable, Mapping, Any, TypeVar, Generic, Iterator
+from typing import Optional, Callable, Mapping, Any, TypeVar, Generic, Iterator, Tuple
 from torch.utils.data import Subset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import GradScaler, autocast
@@ -13,7 +13,7 @@ from toolz import valmap
 
 B = TypeVar("B")
 T = TypeVar("T", bound=nn.Module)
-CriterionFn = Callable[[T, B], tuple[Tensor, Optional[Mapping[str, Tensor]]]]
+CriterionFn = Callable[[T, B], Tuple[Tensor, Optional[Mapping[str, Tensor]]]]
 
 
 class TrainStep(Generic[T, B]):
@@ -58,7 +58,7 @@ class TrainStep(Generic[T, B]):
             self.checkpoint.save_if_needed(optimizer=self.optimizer)
 
 
-EvaluateFn = Callable[[B, B], tuple[float, Mapping[str, float]]]
+EvaluateFn = Callable[[B, B], Tuple[float, Mapping[str, float]]]
 InferenceFn = Callable[[T, B], B]
 
 
