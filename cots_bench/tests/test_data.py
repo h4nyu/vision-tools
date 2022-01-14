@@ -14,9 +14,11 @@ from cots_bench.data import (
     COTSDataset,
     Row,
     collate_fn,
+    kfold,
 )
 from vision_tools.utils import batch_draw, draw
 from torch.utils.tensorboard import SummaryWriter
+from toolz.curried import pipe, partition, map, filter
 
 cfg = OmegaConf.load("/app/cots_bench/config/yolox.yaml")
 writer = SummaryWriter("/app/runs/test-cots_bench")
@@ -40,33 +42,25 @@ def train_transform() -> Any:
 
 
 @pytest.fixture
-def train_rows() -> list[Row]:
+def rows() -> list[Row]:
     return read_train_rows(cfg.root_dir)
 
 
-def test_aug(train_transform: Any, train_rows: list[Row]) -> None:
+def test_aug(train_transform: Any, rows: list[Row]) -> None:
     dataset = COTSDataset(
         train_rows, transform=train_transform, image_dir=cfg.image_dir
     )
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
-    for i in range(2):
+    for i in range(1):
         batch = next(loader_iter)
         plot = batch_draw(**batch)
         writer.add_image("aug", plot, i)
     writer.flush()
 
 
-# def test_save_submission() -> None:
-#     rows: list[SubRow] = [
-#         {
-#             "id": "aaaa",
-#             "points": torch.tensor([[10, 20]]),
-#             "labels": torch.tensor([0]),
-#         }
-#     ]
-#     code_map = read_code_map(os.path.join(cfg.root_dir, "unicode_translation.csv"))
-#     save_submission(
-#         rows,
-#         code_map,
-#         os.path.join(cfg.root_dir, f"test_sub.csv"),
-#     )
+def test_fold(rows) -> None:
+    train_rows, test_rows = kfold(rows, cfg.fold.n_splits)
+    train_groups = pipe(train_rows, map(lambda x: x["sequence"]), set)
+    test_groups = pipe(test_rows, map(lambda x: x["sequence"]), set)
+    for i in train_groups:
+        assert i not in test_groups

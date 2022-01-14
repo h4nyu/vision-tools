@@ -17,7 +17,7 @@ def get_model_name(cfg: Any) -> str:
 def get_writer(cfg: Any) -> SummaryWriter:
     model_name = get_model_name(cfg)
     return SummaryWriter(
-        f"runs/{model_name}-lr_{cfg.optimizer.lr}-box_w_{cfg.criterion.box_weight}-radius_{cfg.assign.radius}"
+        f"/app/runs/{model_name}-lr_{cfg.optimizer.lr}-box_w_{cfg.criterion.box_weight}-radius_{cfg.assign.radius}"
     )
 
 

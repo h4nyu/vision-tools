@@ -12,7 +12,7 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from vision_tools.transforms import normalize, inv_normalize
 from vision_tools.interface import TrainSample
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import GroupKFold
 from vision_tools.interface import TrainBatch, TrainSample
 from torchvision.ops import box_convert, clip_boxes_to_image
 
@@ -23,6 +23,7 @@ Row = TypedDict(
         "image_id": str,
         "video_id": int,
         "video_frame": int,
+        "sequence": int,
         "boxes": Tensor,
     },
 )
@@ -32,10 +33,13 @@ def read_train_rows(root_dir: str, skip_empty: bool = True) -> list[Row]:
     row_path = os.path.join(root_dir, "train.csv")
     df = pd.read_csv(row_path)
     rows: list[Row] = []
+    subsequence = -1
+    prev_count = -1
     for _, csv_row in df.iterrows():
         annotations = json.loads(csv_row["annotations"].replace("'", '"'))
         image_id = csv_row["image_id"]
         video_id = csv_row["video_id"]
+        sequence = csv_row["sequence"]
         video_frame = csv_row["video_frame"]
         boxes = torch.zeros(0, 4)
         if len(annotations) > 0:
@@ -56,6 +60,7 @@ def read_train_rows(root_dir: str, skip_empty: bool = True) -> list[Row]:
                 video_frame=video_frame,
                 video_id=video_id,
                 boxes=boxes,
+                sequence=sequence,
             )
         )
 
@@ -65,11 +70,12 @@ def read_train_rows(root_dir: str, skip_empty: bool = True) -> list[Row]:
 def kfold(
     rows: list[Row], n_splits: int, fold_idx: int = 0
 ) -> tuple[list[Row], list[Row]]:
-    skf = StratifiedKFold()
+    skf = GroupKFold()
     x = range(len(rows))
     y = pipe(rows, map(lambda x: len(x["boxes"])), list)
+    groups = pipe(rows, map(lambda x: x["sequence"]), list)
     pair_list: list[tuple[list[int], list[int]]] = []
-    for train_index, test_index in skf.split(x, y):
+    for train_index, test_index in skf.split(x, y, groups=groups):
         pair_list.append((train_index, test_index))
     train_index, test_index = pair_list[fold_idx]
     return (
@@ -87,7 +93,6 @@ TrainTransform = lambda image_size: A.Compose(
         A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
         A.RandomCrop(image_size, image_size, p=1.0),
-        A.ToGray(p=0.05),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
