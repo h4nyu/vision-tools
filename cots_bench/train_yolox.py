@@ -16,7 +16,7 @@ from vision_tools.meter import MeanReduceDict
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch
 from cots_bench.data import (
-    KuzushijiDataset,
+    COTSDataset,
     TrainTransform,
     Transform,
     read_train_rows,
@@ -24,7 +24,6 @@ from cots_bench.data import (
     kfold,
 )
 from cots_bench.metric import Metric
-from tqdm import tqdm
 
 
 def main() -> None:
@@ -40,13 +39,15 @@ def main() -> None:
 
     annotations = read_train_rows(cfg.root_dir)
     train_rows, validation_rows = kfold(annotations, **cfg.fold)
-    train_dataset = KuzushijiDataset(
-        train_rows[:500],
+    train_dataset = COTSDataset(
+        train_rows,
         transform=TrainTransform(cfg.image_size),
+        image_dir=cfg.image_dir,
     )
-    val_dataset = KuzushijiDataset(
-        validation_rows[:100],
+    val_dataset = COTSDataset(
+        validation_rows,
         transform=Transform(cfg.image_size),
+        image_dir=cfg.image_dir,
     )
     train_loader = DataLoader(
         train_dataset,

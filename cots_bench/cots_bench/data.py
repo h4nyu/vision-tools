@@ -16,7 +16,6 @@ from sklearn.model_selection import StratifiedKFold
 from vision_tools.interface import TrainBatch, TrainSample
 from torchvision.ops import box_convert, clip_boxes_to_image
 
-location = "/tmp"
 
 Row = TypedDict(
     "Row",
@@ -104,20 +103,20 @@ def read_train_rows(root_dir: str) -> list[Row]:
 #     return rows
 
 
-# def kfold(
-#     rows: list[Row], n_splits: int, fold_idx: int = 0
-# ) -> tuple[list[Row], list[Row]]:
-#     skf = StratifiedKFold()
-#     x = range(len(rows))
-#     y = pipe(rows, map(lambda x: len(x["labels"])), list)
-#     pair_list: list[tuple[list[int], list[int]]] = []
-#     for train_index, test_index in skf.split(x, y):
-#         pair_list.append((train_index, test_index))
-#     train_index, test_index = pair_list[fold_idx]
-#     return (
-#         [rows[i] for i in train_index],
-#         [rows[i] for i in test_index],
-#     )
+def kfold(
+    rows: list[Row], n_splits: int, fold_idx: int = 0
+) -> tuple[list[Row], list[Row]]:
+    skf = StratifiedKFold()
+    x = range(len(rows))
+    y = pipe(rows, map(lambda x: len(x["boxes"])), list)
+    pair_list: list[tuple[list[int], list[int]]] = []
+    for train_index, test_index in skf.split(x, y):
+        pair_list.append((train_index, test_index))
+    train_index, test_index = pair_list[fold_idx]
+    return (
+        [rows[i] for i in train_index],
+        [rows[i] for i in test_index],
+    )
 
 
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
@@ -167,7 +166,7 @@ class COTSDataset(Dataset):
         labels = torch.zeros(len(row['boxes']))
         transformed = self.transform(
             image=img_arr,
-            bboxes=row["boxes"],
+            bboxes=clip_boxes_to_image(row["boxes"], img_arr.shape[:2]),
             labels=labels,
         )
         image = (transformed["image"] / 255).float()

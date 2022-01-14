@@ -11,7 +11,7 @@ num_classes: 1
 feat_range: [3, 6]
 box_iou_threshold: 0.3
 score_threshold: 0.5
-image_size: 1024
+image_size: 768
 
 
 backbone: 

@@ -22,10 +22,6 @@ def get_writer(cfg: Any) -> SummaryWriter:
 
 
 def get_model(cfg: Any) -> YOLOX:
-    # backbone = CSPDarknet(
-    #     depth=cfg.depth,
-    #     hidden_channels=cfg.hidden_channels,
-    # )
     backbone = EfficientNet(name=cfg.backbone.name)
     neck = CSPPAFPN(
         in_channels=backbone.channels[cfg.feat_range[0] : cfg.feat_range[1]],
