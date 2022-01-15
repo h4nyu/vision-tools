@@ -85,12 +85,12 @@ def train() -> None:
     train_dataset = COTSDataset(
         train_rows,
         transform=TrainTransform(cfg['image_size']),
-        image_dir=cfg['image_dir'],
+        dataset_dir=cfg['dataset_dir'],
     )
     val_dataset = COTSDataset(
         validation_rows,
         transform=Transform(cfg['image_size']),
-        image_dir=cfg['image_dir'],
+        dataset_dir=cfg['dataset_dir'],
     )
     train_loader = DataLoader(
         train_dataset,

@@ -46,7 +46,7 @@ def rows() -> list[Row]:
 
 
 def test_aug(train_transform: Any, rows: list[Row]) -> None:
-    dataset = COTSDataset(rows, transform=train_transform, image_dir=cfg["image_dir"])
+    dataset = COTSDataset(rows, transform=train_transform, dataset_dir=cfg["dataset_dir"])
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     for i in range(1):
         batch = next(loader_iter)
