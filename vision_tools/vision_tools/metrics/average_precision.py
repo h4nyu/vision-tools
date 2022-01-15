@@ -1,6 +1,6 @@
 import torch
 from torch import Tensor
-from typing import Any
+from typing import Any, List
 import numpy as np
 from torchvision.ops.boxes import box_iou
 
@@ -25,8 +25,8 @@ class AveragePrecision:
     ) -> None:
         self.iou_threshold = iou_threshold
         self.eps = eps
-        self.tp_list: list[Any] = []
-        self.confidence_list: list[Any] = []
+        self.tp_list: List[Any] = []
+        self.confidence_list: List[Any] = []
         self.n_gt_box = 0
 
     def reset(self) -> None:
