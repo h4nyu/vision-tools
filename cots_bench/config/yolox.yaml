@@ -5,7 +5,7 @@ use_amp: false
 num_epochs: 999
 hidden_channels: 64
 dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
-store_dir: /kaggle/input/packages/vision_tools/cots_bench/store
+store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
 feat_range: [3, 4]
