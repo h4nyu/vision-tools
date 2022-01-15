@@ -23,7 +23,7 @@ from cots_bench.data import (
     collate_fn,
     kfold,
 )
-from cots_bench.metric import Metric
+from cots_bench.metric import BoxF2
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:
@@ -111,7 +111,7 @@ def train() -> None:
         checkpoint=checkpoint,
         use_amp=cfg["use_amp"],
     )
-    metric = Metric()
+    metric = BoxF2()
 
     eval_step = EvalStep[YOLOX, TrainBatch](
         to_device=to_device,

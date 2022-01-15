@@ -1,5 +1,5 @@
 from torch import Tensor
-from typing import Callable, Any, TypeVar, Generic, List, Dict, Tuple
+from typing import Callable, Any, TypeVar, Generic, List, Dict, Tuple, Union
 from typing_extensions import Protocol, TypedDict
 
 
@@ -21,7 +21,7 @@ class FPNLike(Protocol):
 
 class MeterLike(Protocol):
     @property
-    def value(self) -> Dict[str, float]:
+    def value(self) -> Dict[str, Union[float, int]]:
         ...
 
     def accumulate(self, log: Any) -> None:
@@ -36,7 +36,7 @@ B = TypeVar("B", contravariant=True)
 
 class MetricLike(Protocol[B]):
     @property
-    def value(self) -> Tuple[float, Dict[str, float]]:
+    def value(self) -> Tuple[float, Dict[str, Any]]:
         ...
 
     def accumulate(self, pred: B, gt: B) -> None:

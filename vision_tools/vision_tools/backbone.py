@@ -23,6 +23,7 @@ class EfficientNet(nn.Module):
         name: str,
     ) -> None:
         super().__init__()
+        # https://github.com/lukemelas/EfficientNet-PyTorch/issues/278
         self.net = _EfficientNet.from_pretrained(name)
         self.out_len = 6
         self.channels = efficientnet_channels[name][: self.out_len]
