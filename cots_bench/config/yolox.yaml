@@ -40,5 +40,5 @@ val_loader:
   shuffle: false
   num_workers: 6
 
-n_splits: 5
+n_splits: 6
 fold: 0

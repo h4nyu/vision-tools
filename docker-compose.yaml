@@ -21,6 +21,8 @@ x-app: &app
 
     - ./store/tensorflow-great-barrier-reef:/kaggle/input/tensorflow-great-barrier-reef
     - ./cots_bench/store:/kaggle/input/packages/vision_tools/cots_bench/store
+    - ./cots_bench/runs:/runs
+
 
 
 services:
@@ -33,7 +35,7 @@ services:
 
   tensorboard:
     <<: *app
-    command: tensorboard --logdir=runs --host=0.0.0.0 --port=${TENSORBOARD_PORT}
+    command: tensorboard --logdir=/runs --host=0.0.0.0 --port=${TENSORBOARD_PORT}
     ports:
       - "${TENSORBOARD_PORT}:${TENSORBOARD_PORT}"
 

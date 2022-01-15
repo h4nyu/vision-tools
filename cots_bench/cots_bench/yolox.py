@@ -34,7 +34,7 @@ def get_model_name(cfg: Dict[str, Any]) -> str:
 def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
     model_name = get_model_name(cfg)
     return SummaryWriter(
-        f"/app/runs/{model_name}-lr_{cfg['lr']}-box_w_{cfg['criterion']['box_weight']}-radius_{cfg['assign']['radius']}"
+        f"runs/cots/{model_name}-lr_{cfg['lr']}-box_w_{cfg['criterion']['box_weight']}-radius_{cfg['assign']['radius']}"
     )
 
 
