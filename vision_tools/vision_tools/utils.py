@@ -5,7 +5,7 @@ from torchvision.utils import (
     make_grid,
 )
 from PIL import Image, ImageDraw, ImageFont, ImageColor
-from torchvision.ops import masks_to_boxes, box_convert
+from torchvision.ops import box_convert
 import torch
 from torch import Tensor
 import json
@@ -40,13 +40,13 @@ def seed_everything(seed: int = 777) -> None:
 # wait torchvision 0.12 release
 @torch.no_grad()
 def draw_keypoints(
-    image: torch.Tensor,
-    keypoints: torch.Tensor,
+    image: Tensor,
+    keypoints: Tensor,
     connectivity: Optional[List[Tuple[int, int]]] = None,
     colors: Optional[Union[str, Tuple[int, int, int]]] = None,
     radius: int = 2,
     width: int = 3,
-) -> torch.Tensor:
+) -> Tensor:
 
     """
     Draws Keypoints on given RGB image.
@@ -106,6 +106,36 @@ def draw_keypoints(
     return (
         torch.from_numpy(np.array(img_to_draw)).permute(2, 0, 1).to(dtype=torch.uint8)
     )
+
+
+# wait torchvision 0.11 release in kaggle
+def masks_to_boxes(masks: Tensor) -> Tensor:
+    """
+    Compute the bounding boxes around the provided masks.
+    Returns a [N, 4] tensor containing bounding boxes. The boxes are in ``(x1, y1, x2, y2)`` format with
+    ``0 <= x1 < x2`` and ``0 <= y1 < y2``.
+    Args:
+        masks (Tensor[N, H, W]): masks to transform where N is the number of masks
+            and (H, W) are the spatial dimensions.
+    Returns:
+        Tensor[N, 4]: bounding boxes
+    """
+    if masks.numel() == 0:
+        return torch.zeros((0, 4), device=masks.device, dtype=torch.float)
+
+    n = masks.shape[0]
+
+    bounding_boxes = torch.zeros((n, 4), device=masks.device, dtype=torch.float)
+
+    for index, mask in enumerate(masks):
+        y, x = torch.where(mask != 0)
+
+        bounding_boxes[index, 0] = torch.min(x)
+        bounding_boxes[index, 1] = torch.min(y)
+        bounding_boxes[index, 2] = torch.max(x)
+        bounding_boxes[index, 3] = torch.max(y)
+
+    return bounding_boxes
 
 
 class ToDevice:

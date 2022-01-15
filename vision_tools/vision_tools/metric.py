@@ -116,7 +116,7 @@ class MaskAP:
                 scale_factor=1 / self.reduce_size,
             )[0].bool()
         running_p = 0.0
-        log: dict[float, float] = {}
+        log: Dict[float, float] = {}
         for th in self.thresholds:
             p = self.precision_at(
                 pred_masks=pred_masks, gt_masks=gt_masks, threshold=th
@@ -198,7 +198,7 @@ class BoxMAP:
         if (len(pred_boxes) == 0) and (len(gt_boxes) == 0):
             return default
 
-        res: dict[float, float] = {}
+        res: Dict[float, float] = {}
         for th in self.running.keys():
             p = self.precision_at(
                 pred_boxes=pred_boxes, gt_boxes=gt_boxes, threshold=th
