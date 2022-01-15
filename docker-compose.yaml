@@ -21,7 +21,9 @@ x-app: &app
 
     - ./store/tensorflow-great-barrier-reef:/kaggle/input/tensorflow-great-barrier-reef
     - ./cots_bench/store:/kaggle/input/packages/vision_tools/cots_bench/store
-    - ./cots_bench/runs:/runs
+    - ./cots_bench/runs:/runs/cots
+
+    - ./kuzushiji_bench/runs:/runs/kuzushiji
 
 
 
