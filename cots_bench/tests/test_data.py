@@ -1,6 +1,5 @@
 import torch
 import pytest
-from omegaconf import OmegaConf
 from typing import Any, List
 import os
 
@@ -16,17 +15,17 @@ from cots_bench.data import (
     collate_fn,
     kfold,
 )
-from vision_tools.utils import batch_draw, draw
+from vision_tools.utils import batch_draw, draw, load_config
 from torch.utils.tensorboard import SummaryWriter
 from toolz.curried import pipe, partition, map, filter
 
-cfg = OmegaConf.load("/app/cots_bench/config/yolox.yaml")
+cfg = load_config("/app/cots_bench/config/yolox.yaml")
 writer = SummaryWriter("/app/runs/test-cots_bench")
 
-no_volume = not os.path.exists(cfg.root_dir)
+no_volume = not os.path.exists(cfg["root_dir"])
 reason = "no data volume"
 
-no_volume = not os.path.exists(cfg.root_dir)
+no_volume = not os.path.exists(cfg["root_dir"])
 if no_volume:
     pytestmark = pytest.mark.skip("no data volume")
 
@@ -43,11 +42,11 @@ def train_transform() -> Any:
 
 @pytest.fixture
 def rows() -> list[Row]:
-    return read_train_rows(cfg.root_dir)
+    return read_train_rows(cfg["root_dir"])
 
 
 def test_aug(train_transform: Any, rows: list[Row]) -> None:
-    dataset = COTSDataset(rows, transform=train_transform, image_dir=cfg.image_dir)
+    dataset = COTSDataset(rows, transform=train_transform, image_dir=cfg["image_dir"])
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     for i in range(1):
         batch = next(loader_iter)
@@ -57,7 +56,7 @@ def test_aug(train_transform: Any, rows: list[Row]) -> None:
 
 
 def test_fold(rows: List[Row]) -> None:
-    train_rows, test_rows = kfold(rows, cfg.fold.n_splits)
+    train_rows, test_rows = kfold(rows, cfg["n_splits"])
     train_groups = pipe(train_rows, map(lambda x: x["sequence"]), set)
     test_groups = pipe(test_rows, map(lambda x: x["sequence"]), set)
     for i in train_groups:

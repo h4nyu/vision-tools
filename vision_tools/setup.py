@@ -5,8 +5,8 @@ setup(
     version="0.1.5",
     install_requires=[
         "tqdm",
+        "pyyaml",
         "efficientnet_pytorch",
-        "omegaconf",
     ],
     packages=["vision_tools"],
     package_data={"vision_tools": ["py.typed"]},
@@ -27,6 +27,7 @@ setup(
             "tensorboard",
             "codecov",
             "signate",
+            "types-PyYAML",
         ]
     },
 )

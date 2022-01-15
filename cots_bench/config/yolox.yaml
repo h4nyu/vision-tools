@@ -13,16 +13,15 @@ box_iou_threshold: 0.3
 score_threshold: 0.5
 image_size: 1024
 
-backbone: 
-  name: efficientnet-b3
+backbone_name: efficientnet-b3
 
 assign:
   topk: 9
   radius: 2.5
   box_weight: 3.0
 
-optimizer:
-  lr: 1.0e-3
+lr: 1.0e-3
+
   # momentum: 0.95
   # nesterov: false
 
@@ -41,6 +40,5 @@ val_loader:
   shuffle: false
   num_workers: 6
 
-fold:
-  n_splits: 5
-  fold_idx: 1
+n_splits: 5
+fold: 0

@@ -8,11 +8,11 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 from torchvision.ops import box_convert
 import torch
 from torch import Tensor
-import json
+import yaml
 import random
 import numpy as np
 import torch.nn.functional as F
-from typing import Optional, Callable, Any, List, Generic, TypeVar, Tuple, Union
+from typing import Optional, Callable, Any, List, Generic, TypeVar, Tuple, Union, Dict
 from typing_extensions import Protocol
 from torch import nn
 from pathlib import Path
@@ -24,7 +24,6 @@ from vision_tools import (
 )
 from torchvision.utils import save_image
 from torch.nn.functional import interpolate
-from omegaconf import OmegaConf
 
 
 logger = getLogger(__name__)
@@ -138,6 +137,16 @@ def masks_to_boxes(masks: Tensor) -> Tensor:
     return bounding_boxes
 
 
+def load_config(path: Union[str, Path]) -> Dict[str, Any]:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def save_config(path: Union[str, Path], config: Dict[str, Any]) -> None:
+    with open(path, "w") as f:
+        yaml.dump(config, f)
+
+
 class ToDevice:
     def __init__(
         self,
@@ -210,7 +219,7 @@ class Checkpoint(Generic[T]):
 
         if model_path.exists() and model_path.exists():
             model.load_state_dict(torch.load(model_path))
-            conf = OmegaConf.load(self.checkpoint_path)
+            conf = load_config(self.checkpoint_path)
             score = conf.get("score", self.default_score)  # type: ignore
             self.score = score
 
@@ -235,7 +244,7 @@ class Checkpoint(Generic[T]):
             and self.comparator(self.score, score)
         ):
             torch.save(model.state_dict(), self.checkpoint_model_path)  # type: ignore
-            OmegaConf.save(config=dict(score=score), f=self.checkpoint_path)
+            save_config(self.checkpoint_path, dict(score=score))
             self.score = score
         if model is not None:
             torch.save(model.state_dict(), self.current_model_path)  # type: ignore

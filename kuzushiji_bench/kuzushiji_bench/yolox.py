@@ -1,6 +1,5 @@
 import os
 from typing import Any
-from omegaconf import OmegaConf
 from vision_tools.backbone import CSPDarknet, EfficientNet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
@@ -11,13 +10,13 @@ from datetime import datetime
 
 
 def get_model_name(cfg: Any) -> str:
-    return f"{cfg.name}-{cfg.feat_range[0]}-{cfg.feat_range[1]}-{cfg.hidden_channels}-{cfg.backbone.name}"
+    return f"{cfg['name']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg.['hidden_channels']}-{cfg.['backbone']}"
 
 
 def get_writer(cfg: Any) -> SummaryWriter:
     model_name = get_model_name(cfg)
     return SummaryWriter(
-        f"runs/{model_name}-lr_{cfg.optimizer.lr}-box_w_{cfg.criterion.box_weight}-radius_{cfg.assign.radius}"
+        f"runs/{model_name}-lr_{cfg.['lr']}-box_w_{cfg.['criterion']['box_weight']}-radius_{cfg['assign']['radius']}"
     )
 
 
@@ -26,19 +25,19 @@ def get_model(cfg: Any) -> YOLOX:
     #     depth=cfg.depth,
     #     hidden_channels=cfg.hidden_channels,
     # )
-    backbone = EfficientNet(name=cfg.backbone.name)
+    backbone = EfficientNet(name=cfg['backbone_name'])
     neck = CSPPAFPN(
-        in_channels=backbone.channels[cfg.feat_range[0] : cfg.feat_range[1]],
-        strides=backbone.strides[cfg.feat_range[0] : cfg.feat_range[1]],
+        in_channels=backbone.channels[cfg['feat_range'][0] : cfg['feat_range'][1]],
+        strides=backbone.strides[cfg['feat_range'][0] : cfg['feat_range'][1]],
     )
     model = YOLOX(
         backbone=backbone,
         neck=neck,
-        hidden_channels=cfg.hidden_channels,
-        num_classes=cfg.num_classes,
-        feat_range=cfg.feat_range,
-        box_iou_threshold=cfg.box_iou_threshold,
-        score_threshold=cfg.score_threshold,
+        hidden_channels=cfg['hidden_channels'],
+        num_classes=cfg['num_classes'],
+        feat_range=cfg['feat_range'],
+        box_iou_threshold=cfg['box_iou_threshold'],
+        score_threshold=cfg['score_threshold'],
     )
     return model
 

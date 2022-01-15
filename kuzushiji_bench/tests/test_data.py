@@ -1,6 +1,5 @@
 import torch
 import pytest
-from omegaconf import OmegaConf
 from typing import Any
 import os
 
@@ -18,10 +17,10 @@ from kuzushiji_bench.data import (
     read_code_map,
     SubRow,
 )
-from vision_tools.utils import batch_draw, draw
+from vision_tools.utils import batch_draw, draw, load_config
 from torch.utils.tensorboard import SummaryWriter
 
-cfg = OmegaConf.load("/app/kuzushiji_bench/config/yolox.yaml")
+cfg = load_config("/app/kuzushiji_bench/config/yolox.yaml")
 writer = SummaryWriter("/app/runs/test-kuzushiji_bench")
 
 no_volume = not os.path.exists(cfg.root_dir)
