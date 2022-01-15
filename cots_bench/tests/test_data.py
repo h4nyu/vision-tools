@@ -22,10 +22,10 @@ from toolz.curried import pipe, partition, map, filter
 cfg = load_config("/app/cots_bench/config/yolox.yaml")
 writer = SummaryWriter("/app/runs/test-cots_bench")
 
-no_volume = not os.path.exists(cfg["root_dir"])
+no_volume = not os.path.exists(cfg["dataset_dir"])
 reason = "no data volume"
 
-no_volume = not os.path.exists(cfg["root_dir"])
+no_volume = not os.path.exists(cfg["dataset_dir"])
 if no_volume:
     pytestmark = pytest.mark.skip("no data volume")
 
@@ -42,7 +42,7 @@ def train_transform() -> Any:
 
 @pytest.fixture
 def rows() -> list[Row]:
-    return read_train_rows(cfg["root_dir"])
+    return read_train_rows(cfg["dataset_dir"])
 
 
 def test_aug(train_transform: Any, rows: list[Row]) -> None:

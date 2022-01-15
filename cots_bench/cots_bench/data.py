@@ -30,8 +30,8 @@ Row = TypedDict(
 )
 
 
-def read_train_rows(root_dir: str, skip_empty: bool = True) -> List[Row]:
-    row_path = os.path.join(root_dir, "train.csv")
+def read_train_rows(dataset_dir: str, skip_empty: bool = True) -> List[Row]:
+    row_path = os.path.join(dataset_dir, "train.csv")
     df = pd.read_csv(row_path)
     rows: List[Row] = []
     subsequence = -1
@@ -114,11 +114,11 @@ class COTSDataset(Dataset):
         self,
         rows: List[Row],
         transform: Any,
-        image_dir: str,
+        dataset_dir: str,
     ) -> None:
         self.rows = rows
         self.transform = transform
-        self.image_dir = image_dir
+        self.dataset_dir = dataset_dir
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -129,7 +129,7 @@ class COTSDataset(Dataset):
         video_id = row["video_id"]
         video_frame = row["video_frame"]
         img_arr = np.array(
-            PIL.Image.open(f"{self.image_dir}/video_{video_id}/{video_frame}.jpg")
+            PIL.Image.open(f"{self.dataset_dir}/train_images/video_{video_id}/{video_frame}.jpg")
         )
         labels = torch.zeros(len(row["boxes"]))
         transformed = self.transform(

@@ -24,7 +24,7 @@ writer = get_writer(cfg)
 
 seed_everything()
 
-no_volume = not os.path.exists(cfg["root_dir"])
+no_volume = not os.path.exists(cfg["dataset_dir"])
 if no_volume:
     pytestmark = pytest.mark.skip("no data volume")
 
@@ -46,7 +46,7 @@ def criterion() -> Criterion:
 
 @pytest.fixture
 def batch() -> TrainBatch:
-    _, rows = kfold(read_train_rows(cfg["root_dir"]), cfg["n_splits"])
+    _, rows = kfold(read_train_rows(cfg["dataset_dir"]), cfg["n_splits"])
     dataset = COTSDataset(
         rows[10:],
         transform=Transform(cfg["image_size"]),

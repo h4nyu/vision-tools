@@ -64,7 +64,7 @@ def get_criterion(cfg: Dict[str, Any]) -> Criterion:
 
 def get_checkpoint(cfg: Dict[str, Any]) -> Checkpoint:
     return Checkpoint[YOLOX](
-        root_path=os.path.join(cfg['root_dir'], get_model_name(cfg)),
+        root_path=os.path.join(cfg['store_dir'], get_model_name(cfg)),
         default_score=0.0,
     )
 
@@ -80,7 +80,7 @@ def train() -> None:
 
     checkpoint.load_if_exists(model=model, optimizer=optimizer, device=cfg['device'])
 
-    annotations = read_train_rows(cfg['root_dir'])
+    annotations = read_train_rows(cfg['dataset_dir'])
     train_rows, validation_rows = kfold(annotations, cfg['n_splits'], cfg['fold'])
     train_dataset = COTSDataset(
         train_rows,

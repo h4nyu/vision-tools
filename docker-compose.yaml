@@ -20,6 +20,7 @@ x-app: &app
     - ./.cache:/root/.cache
 
     - ./store/tensorflow-great-barrier-reef:/kaggle/input/tensorflow-great-barrier-reef
+    - ./cots_bench/store:/kaggle/input/packages/vision_tools/cots_bench/store
 
 
 services:

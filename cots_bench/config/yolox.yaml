@@ -4,8 +4,8 @@ device: cuda
 use_amp: false
 num_epochs: 999
 hidden_channels: 64
-root_dir: /kaggle/input/tensorflow-great-barrier-reef
-image_dir: /kaggle/input/tensorflow-great-barrier-reef/train_images
+dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
+store_dir: /kaggle/input/packages/vision_tools/cots_bench/store
 depth: 1
 num_classes: 1
 feat_range: [3, 4]
