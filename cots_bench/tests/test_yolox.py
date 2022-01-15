@@ -50,7 +50,6 @@ def batch() -> TrainBatch:
     dataset = COTSDataset(
         rows[10:],
         transform=Transform(cfg["image_size"]),
-        dataset_dir=cfg["dataset_dir"],
     )
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
     return next(loader_iter)

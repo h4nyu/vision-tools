@@ -25,6 +25,7 @@ Row = TypedDict(
         "video_id": int,
         "video_frame": int,
         "sequence": int,
+        "image_path": str,
         "boxes": Tensor,
     },
 )
@@ -43,6 +44,9 @@ def read_train_rows(dataset_dir: str, skip_empty: bool = True) -> List[Row]:
         video_id = csv_row["video_id"]
         sequence = csv_row["sequence"]
         video_frame = csv_row["video_frame"]
+        image_path = os.path.join(
+            dataset_dir, "train_images", f"video_{video_id}/{video_frame}.jpg"
+        )
         boxes = torch.zeros(0, 4)
         if len(annotations) > 0:
             boxes = box_convert(
@@ -61,6 +65,7 @@ def read_train_rows(dataset_dir: str, skip_empty: bool = True) -> List[Row]:
                 image_id=image_id,
                 video_frame=video_frame,
                 video_id=video_id,
+                image_path=image_path,
                 boxes=boxes,
                 sequence=sequence,
             )
@@ -114,11 +119,9 @@ class COTSDataset(Dataset):
         self,
         rows: List[Row],
         transform: Any,
-        dataset_dir: str,
     ) -> None:
         self.rows = rows
         self.transform = transform
-        self.dataset_dir = dataset_dir
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -128,9 +131,8 @@ class COTSDataset(Dataset):
         id = row["image_id"]
         video_id = row["video_id"]
         video_frame = row["video_frame"]
-        img_arr = np.array(
-            PIL.Image.open(f"{self.dataset_dir}/train_images/video_{video_id}/{video_frame}.jpg")
-        )
+        image_path = row["image_path"]
+        img_arr = np.array(PIL.Image.open(image_path))
         labels = torch.zeros(len(row["boxes"]))
         transformed = self.transform(
             image=img_arr,

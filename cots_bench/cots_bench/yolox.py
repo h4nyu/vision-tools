@@ -26,7 +26,6 @@ from cots_bench.data import (
 from cots_bench.metric import Metric
 
 
-
 def get_model_name(cfg: Dict[str, Any]) -> str:
     return f"{cfg['name']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
 
@@ -39,32 +38,32 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
 
 
 def get_model(cfg: Dict[str, Any]) -> YOLOX:
-    backbone = EfficientNet(name=cfg['backbone_name'])
+    backbone = EfficientNet(name=cfg["backbone_name"])
     neck = CSPPAFPN(
-        in_channels=backbone.channels[cfg['feat_range'][0] : cfg['feat_range'][1]],
-        strides=backbone.strides[cfg['feat_range'][0] : cfg['feat_range'][1]],
+        in_channels=backbone.channels[cfg["feat_range"][0] : cfg["feat_range"][1]],
+        strides=backbone.strides[cfg["feat_range"][0] : cfg["feat_range"][1]],
     )
     model = YOLOX(
         backbone=backbone,
         neck=neck,
-        hidden_channels=cfg['hidden_channels'],
-        num_classes=cfg['num_classes'],
-        feat_range=cfg['feat_range'],
-        box_iou_threshold=cfg['box_iou_threshold'],
-        score_threshold=cfg['score_threshold'],
+        hidden_channels=cfg["hidden_channels"],
+        num_classes=cfg["num_classes"],
+        feat_range=cfg["feat_range"],
+        box_iou_threshold=cfg["box_iou_threshold"],
+        score_threshold=cfg["score_threshold"],
     )
     return model
 
 
 def get_criterion(cfg: Dict[str, Any]) -> Criterion:
-    assign = SimOTA(**cfg['assign'])
-    criterion = Criterion(assign=assign, **cfg['criterion'])
+    assign = SimOTA(**cfg["assign"])
+    criterion = Criterion(assign=assign, **cfg["criterion"])
     return criterion
 
 
 def get_checkpoint(cfg: Dict[str, Any]) -> Checkpoint:
     return Checkpoint[YOLOX](
-        root_path=os.path.join(cfg['store_dir'], get_model_name(cfg)),
+        root_path=os.path.join(cfg["store_dir"], get_model_name(cfg)),
         default_score=0.0,
     )
 
@@ -76,33 +75,31 @@ def train() -> None:
     writer = get_writer(cfg)
     model = get_model(cfg)
     criterion = get_criterion(cfg)
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg['lr'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
 
-    checkpoint.load_if_exists(model=model, optimizer=optimizer, device=cfg['device'])
+    checkpoint.load_if_exists(model=model, optimizer=optimizer, device=cfg["device"])
 
-    annotations = read_train_rows(cfg['dataset_dir'])
-    train_rows, validation_rows = kfold(annotations, cfg['n_splits'], cfg['fold'])
+    annotations = read_train_rows(cfg["dataset_dir"])
+    train_rows, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
     train_dataset = COTSDataset(
         train_rows,
-        transform=TrainTransform(cfg['image_size']),
-        dataset_dir=cfg['dataset_dir'],
+        transform=TrainTransform(cfg["image_size"]),
     )
     val_dataset = COTSDataset(
         validation_rows,
-        transform=Transform(cfg['image_size']),
-        dataset_dir=cfg['dataset_dir'],
+        transform=Transform(cfg["image_size"]),
     )
     train_loader = DataLoader(
         train_dataset,
         collate_fn=collate_fn,
-        **cfg['train_loader'],
+        **cfg["train_loader"],
     )
     val_loader = DataLoader(
         val_dataset,
         collate_fn=collate_fn,
-        **cfg['val_loader'],
+        **cfg["val_loader"],
     )
-    to_device = ToDevice(cfg['device'])
+    to_device = ToDevice(cfg["device"])
 
     train_step = TrainStep[YOLOX, TrainBatch](
         to_device=to_device,
@@ -112,7 +109,7 @@ def train() -> None:
         meter=MeanReduceDict(),
         writer=writer,
         checkpoint=checkpoint,
-        use_amp=cfg['use_amp'],
+        use_amp=cfg["use_amp"],
     )
     metric = Metric()
 
@@ -125,6 +122,6 @@ def train() -> None:
         checkpoint=checkpoint,
     )
 
-    for epoch in range(cfg['num_epochs']):
+    for epoch in range(cfg["num_epochs"]):
         train_step(model, epoch)
         eval_step(model, epoch)
