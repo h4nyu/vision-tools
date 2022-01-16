@@ -12,6 +12,8 @@ feat_range: [3, 4]
 box_iou_threshold: 0.3
 score_threshold: 0.5
 image_size: 1024
+original_width: 1280
+original_height: 720
 
 backbone_name: efficientnet-b3
 

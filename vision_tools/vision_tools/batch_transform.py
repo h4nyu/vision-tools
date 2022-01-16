@@ -55,45 +55,45 @@ class BatchMosaic:
         return batch
 
 
-class RemovePadding:
+class BatchRemovePadding:
     def __init__(self, original_size: Tuple[int, int]) -> None:
         self.original_size = original_size
-        self.original_height, self.original_width = original_size
+        self.original_width, self.original_height  = original_size
         self.longest_side = max(self.original_width, self.original_height)
 
     def scale_and_pad(
         self, padded_size: Tuple[int, int]
     ) -> Tuple[float, Tuple[int, int]]:
-        padded_height, padded_width = padded_size
+        padded_width, padded_height = padded_size
         if self.longest_side == self.original_width:
             scale = self.longest_side / padded_width
             pad = (padded_height - self.original_height / scale) / 2
-            return scale, (int(pad), 0)
+            return scale, (0, int(pad))
         else:
             scale = self.longest_side / padded_height
             pad = (padded_width - self.original_width / scale) / 2
-            return scale, (0, int(pad))
+            return scale, (int(pad), 0)
 
     @torch.no_grad()
     def __call__(self, batch: TrainBatch) -> TrainBatch:
         _image_batch = []
         box_batch = []
         for img, boxes in zip(batch["image_batch"], batch["box_batch"]):
-            padded_size = (img.shape[1], img.shape[2])
+            padded_size = (img.shape[2], img.shape[1])
             scale, pad = self.scale_and_pad(padded_size)
-            boxes = shift(boxes, (-pad[1], -pad[0]))
+            boxes = shift(boxes, (-pad[0], -pad[1]))
             img = img[
-                :, pad[0] : padded_size[0] - pad[0], pad[1] : padded_size[1] - pad[1]
+                :, pad[1] : padded_size[1] - pad[1], pad[0] : padded_size[0] - pad[0]
             ]
             boxes = boxes * scale
             _image_batch.append(img)
             box_batch.append(boxes)
         image_batch = F.interpolate(
             torch.stack(_image_batch, dim=0),
-            size=self.original_size,
+            size=(self.original_height, self.original_width),
         )
-        return TrainBatch(
-            image_batch=image_batch,
-            label_batch=batch["label_batch"],
-            box_batch=box_batch,
-        )
+        return {
+            **batch,
+            "image_batch": image_batch,
+            "box_batch": box_batch,
+        }

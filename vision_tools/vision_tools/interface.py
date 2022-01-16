@@ -52,15 +52,16 @@ TrainBatch = TypedDict(
         "image_batch": Tensor,
         "box_batch": List[Tensor],
         "label_batch": List[Tensor],
+        "conf_batch": List[Tensor],
     },
 )
 
 TrainSample = TypedDict(
     "TrainSample",
     {
-        "id": str,
         "image": Tensor,
         "boxes": Tensor,
         "labels": Tensor,
+        "confs": Tensor,
     },
 )

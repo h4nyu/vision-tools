@@ -242,11 +242,12 @@ class YOLOX(nn.Module):
     def forward(self, image_batch: Tensor) -> TrainBatch:
         feats = self.feats(image_batch)
         yolo_batch = self.box_branch(feats)
-        score_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
+        conf_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
         return dict(
             image_batch=image_batch,
             box_batch=box_batch,
             label_batch=label_batch,
+            conf_batch=conf_batch,
         )
 
 

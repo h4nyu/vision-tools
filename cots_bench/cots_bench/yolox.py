@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from vision_tools.meter import MeanReduceDict
 from vision_tools.step import TrainStep, EvalStep
-from vision_tools.interface import TrainBatch
+from vision_tools.interface import TrainBatch, TrainSample
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
@@ -162,3 +162,28 @@ def evaluate() -> None:
 
     score, other = metric.value
     writer.add_scalar(f"evaluate-all/score", score, 0)
+
+
+class InferenceOne:
+    def __init__(
+        self, model: YOLOX, transform: Any, postprocess: Any, to_device: ToDevice
+    ) -> None:
+        self.model = model
+        self.transform = transform
+        self.to_device = to_device
+        self.postprocess = postprocess
+
+    @torch.no_grad()
+    def __call__(self, image: Any) -> TrainSample:
+        self.model.eval()
+        transformed = self.transform(image=image)
+        image = (transformed["image"] / 255).float()
+        image_batch = self.to_device(image_batch=image.unsqueeze(dim=0))["image_batch"]
+        pred_batch = self.model(image_batch)
+        pred_batch = self.postprocess(pred_batch)
+        return TrainSample(
+            image=pred_batch["image_batch"][0],
+            boxes=pred_batch["box_batch"][0],
+            labels=pred_batch["label_batch"][0],
+            confs=pred_batch["conf_batch"][0],
+        )

@@ -113,6 +113,14 @@ Transform = lambda image_size: A.Compose(
     bbox_params=bbox_params,
 )
 
+InferenceTransform = lambda image_size: A.Compose(
+    [
+        A.LongestMaxSize(max_size=image_size),
+        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
+        ToTensorV2(),
+    ],
+)
+
 
 class COTSDataset(Dataset):
     def __init__(

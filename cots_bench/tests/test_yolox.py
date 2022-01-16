@@ -1,21 +1,33 @@
 import pytest
 import torch
 import os
+import PIL
+from typing import Dict, List, Tuple
+import numpy as np
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.ops import box_convert
-from cots_bench.yolox import get_model, get_criterion, get_checkpoint, get_writer
+from cots_bench.yolox import (
+    get_model,
+    get_criterion,
+    get_checkpoint,
+    get_writer,
+    InferenceOne,
+)
 from vision_tools.assign import SimOTA
 from torch.utils.data import DataLoader
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.interface import TrainBatch
-from vision_tools.utils import draw, batch_draw, seed_everything, load_config
+from vision_tools.utils import draw, batch_draw, seed_everything, load_config, ToDevice
+from vision_tools.batch_transform import BatchRemovePadding
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
     Transform,
+    InferenceTransform,
     collate_fn,
     read_train_rows,
     kfold,
+    Row,
 )
 
 
@@ -35,6 +47,7 @@ def model() -> YOLOX:
     checkpoint = get_checkpoint(cfg)
     checkpoint.load_if_exists(
         m,
+        device=cfg["device"],
     )
     return m
 
@@ -45,10 +58,20 @@ def criterion() -> Criterion:
 
 
 @pytest.fixture
-def batch() -> TrainBatch:
-    _, rows = kfold(read_train_rows(cfg["dataset_dir"]), cfg["n_splits"])
+def to_device() -> ToDevice:
+    return ToDevice(cfg["device"])
+
+
+@pytest.fixture
+def rows() -> List[Row]:
+    return read_train_rows(cfg["dataset_dir"], skip_empty=True)
+
+
+@pytest.fixture
+def batch(rows: List[Row]) -> TrainBatch:
+    _, val_rows = kfold(rows, cfg["n_splits"])
     dataset = COTSDataset(
-        rows[10:],
+        val_rows[10:],
         transform=Transform(cfg["image_size"]),
     )
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
@@ -56,8 +79,11 @@ def batch() -> TrainBatch:
 
 
 @torch.no_grad()
-def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
+def test_assign(
+    batch: TrainBatch, model: YOLOX, criterion: Criterion, to_device: ToDevice
+) -> None:
     model.eval()
+    batch = to_device(**batch)
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
     image_batch = batch["image_batch"]
@@ -92,3 +118,19 @@ def test_assign(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
 
 def test_criterion(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> None:
     criterion(model, batch)
+
+
+def test_inference_one(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
+    inference_one = InferenceOne(
+        model=model,
+        transform=InferenceTransform(cfg["image_size"]),
+        postprocess=BatchRemovePadding((cfg["original_width"], cfg["original_height"])),
+        to_device=to_device,
+    )
+    for i, row in enumerate(rows[:10]):
+        gt_boxes = row["boxes"]
+        img_arr = np.array(PIL.Image.open(row["image_path"]))
+        pred = inference_one(img_arr)
+        plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
+        writer.add_image("inference_one", plot, i)
+    writer.flush()
