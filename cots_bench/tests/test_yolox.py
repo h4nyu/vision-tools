@@ -4,6 +4,7 @@ import os
 import PIL
 from typing import Dict, List, Tuple
 import numpy as np
+from toolz.curried import pipe, partition, map, filter
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.ops import box_convert
 from cots_bench.yolox import (
@@ -33,6 +34,7 @@ from cots_bench.data import (
 
 
 cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
+cfg["device"] = "cpu"
 writer = get_writer(cfg)
 
 seed_everything()
@@ -48,7 +50,6 @@ def model() -> YOLOX:
     checkpoint = get_checkpoint(cfg)
     checkpoint.load_if_exists(
         m,
-        device=cfg["device"],
     )
     return m
 
@@ -70,9 +71,10 @@ def rows() -> List[Row]:
 
 @pytest.fixture
 def batch(rows: List[Row]) -> TrainBatch:
-    _, val_rows = kfold(rows, cfg["n_splits"])
+    rows, _ = kfold(rows, cfg["n_splits"])
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 1), list)
     dataset = COTSDataset(
-        val_rows[10:],
+        rows[10:],
         transform=Transform(cfg["image_size"]),
     )
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))

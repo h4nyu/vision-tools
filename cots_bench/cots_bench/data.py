@@ -74,9 +74,9 @@ def read_train_rows(dataset_dir: str) -> List[Row]:
 def kfold(
     rows: List[Row], n_splits: int, fold_idx: int = 0
 ) -> Tuple[List[Row], List[Row]]:
-    skf = GroupKFold()
+    skf = GroupKFold(n_splits=n_splits)
     x = range(len(rows))
-    y = pipe(rows, map(lambda x: len(x["boxes"])), list)
+    y = pipe(rows, map(lambda x: x["video_id"]), list)
     groups = pipe(rows, map(lambda x: x["sequence"]), list)
     pair_list: List[Tuple[List[int], List[int]]] = []
     for train_index, test_index in skf.split(x, y, groups=groups):
@@ -92,11 +92,26 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 
 TrainTransform = lambda image_size: A.Compose(
     [
-        A.LongestMaxSize(max_size=image_size),
-        A.ColorJitter(p=0.7, brightness=0.2, contrast=0.3, hue=0.1),
-        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
-        A.ShiftScaleRotate(p=0.9, rotate_limit=10, scale_limit=0.2, border_mode=0),
-        A.RandomCrop(image_size, image_size, p=1.0),
+        A.RandomSizedCrop(
+            min_max_height=(640, 720),
+            height=image_size,
+            width=image_size,
+            p=1.0,
+        ),
+        A.OneOf(
+            [
+                A.HueSaturationValue(
+                    hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.9
+                ),
+                A.RandomBrightnessContrast(
+                    brightness_limit=0.2, contrast_limit=0.2, p=0.9
+                ),
+            ],
+            p=0.9,
+        ),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.Cutout(num_holes=8, max_h_size=64, max_w_size=64, fill_value=0, p=0.5),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
@@ -162,6 +177,13 @@ def to_submission_string(boxes: Tensor, confs: Tensor) -> str:
     for i, (cxcywh, conf) in enumerate(zip(cxcywhs, confs)):
         out_str += f"{conf:.4f} {cxcywh[0]:.4f} {cxcywh[1]:.4f} {cxcywh[2]:.4f} {cxcywh[3]:.4f} "
     return out_str.strip(" ")
+
+def filter_empty_boxes(rows: List[Row]) -> List[Row]:
+    return pipe(
+        rows,
+        filter(lambda x: len(x["boxes"]) > 0),
+        list,
+    )
 
 
 def collate_fn(

@@ -21,7 +21,7 @@ from torch.utils.tensorboard import SummaryWriter
 from toolz.curried import pipe, partition, map, filter
 
 cfg = load_config("/app/cots_bench/config/yolox.yaml")
-writer = SummaryWriter("/app/runs/test-cots_bench")
+writer = SummaryWriter("runs/test")
 
 no_volume = not os.path.exists(cfg["dataset_dir"])
 reason = "no data volume"
@@ -47,11 +47,14 @@ def rows() -> List[Row]:
 
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 3), list)
     dataset = COTSDataset(rows, transform=train_transform)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     for i in range(1):
         batch = next(loader_iter)
-        plot = batch_draw(**batch)
+        plot = batch_draw(
+            image_batch=batch["image_batch"], box_batch=batch["box_batch"]
+        )
         writer.add_image("aug", plot, i)
     writer.flush()
 

@@ -25,12 +25,14 @@ from cots_bench.data import (
     read_train_rows,
     collate_fn,
     kfold,
+    filter_empty_boxes,
 )
 from cots_bench.metric import BoxF2
+from toolz.curried import pipe, filter
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:
-    return f"{cfg['name']}-{cfg['fold']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
+    return f"{cfg['name']}-{cfg['fold']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}-{cfg['image_size']}"
 
 
 def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
@@ -70,12 +72,14 @@ def get_checkpoint(cfg: Dict[str, Any]) -> Checkpoint:
         default_score=0.0,
     )
 
+
 def get_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
     model = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
     checkpoint.load_if_exists(
         model=model,
         device=cfg["device"],
+        target=cfg["resume_target"],
     )
 
     return InferenceOne(
@@ -95,10 +99,18 @@ def train() -> None:
     criterion = get_criterion(cfg)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
 
-    checkpoint.load_if_exists(model=model, optimizer=optimizer, device=cfg["device"])
+    checkpoint.load_if_exists(
+        model=model,
+        optimizer=optimizer,
+        device=cfg["device"],
+        target=cfg["resume_target"],
+    )
 
     annotations = read_train_rows(cfg["dataset_dir"])
+    annotations = filter_empty_boxes(annotations)
     train_rows, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
+    print(len(train_rows), len(validation_rows))
+    train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
     train_dataset = COTSDataset(
         train_rows,
         transform=TrainTransform(cfg["image_size"]),

@@ -8,12 +8,13 @@ dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
-feat_range: [3, 5]
+feat_range: [4, 5]
 box_iou_threshold: 0.3
 score_threshold: 0.5
-image_size: 1280
+image_size: 1024
 original_width: 1280
 original_height: 720
+resume_target: current
 
 backbone_name: efficientnet-b3
 
