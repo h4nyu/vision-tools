@@ -142,6 +142,7 @@ class COTSDataset(Dataset):
         image_path = row["image_path"]
         img_arr = np.array(PIL.Image.open(image_path))
         labels = torch.zeros(len(row["boxes"]))
+        confs = torch.ones(len(row["boxes"])).float()
         transformed = self.transform(
             image=img_arr,
             bboxes=clip_boxes_to_image(row["boxes"], img_arr.shape[:2]),
@@ -151,10 +152,10 @@ class COTSDataset(Dataset):
         boxes = torch.tensor(transformed["bboxes"]).float()
         labels = torch.zeros(len(boxes)).long()
         return TrainSample(
-            id=id,
             image=image,
             boxes=boxes,
             labels=labels,
+            confs=confs,
         )
 
 
@@ -172,12 +173,15 @@ def collate_fn(
     images: List[Tensor] = []
     box_batch: List[Tensor] = []
     label_batch: List[Tensor] = []
+    conf_batch: List[Tensor] = []
     for row in batch:
         images.append(row["image"])
         box_batch.append(row["boxes"])
         label_batch.append(row["labels"])
+        conf_batch.append(row["confs"])
     return TrainBatch(
         image_batch=torch.stack(images),
         box_batch=box_batch,
         label_batch=label_batch,
+        conf_batch=conf_batch,
     )

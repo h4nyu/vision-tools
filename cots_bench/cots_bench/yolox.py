@@ -16,10 +16,12 @@ from datetime import datetime
 from vision_tools.meter import MeanReduceDict
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch, TrainSample
+from vision_tools.batch_transform import BatchRemovePadding
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
     Transform,
+    InferenceTransform,
     read_train_rows,
     collate_fn,
     kfold,
@@ -66,6 +68,21 @@ def get_checkpoint(cfg: Dict[str, Any]) -> Checkpoint:
     return Checkpoint[YOLOX](
         root_path=os.path.join(cfg["store_dir"], get_model_name(cfg)),
         default_score=0.0,
+    )
+
+def get_inference_one(cfg: Dict[str, Any]) -> InferenceOne:
+    model = get_model(cfg)
+    checkpoint = get_checkpoint(cfg)
+    checkpoint.load_if_exists(
+        model=model,
+        device=cfg["device"],
+    )
+
+    return InferenceOne(
+        model=model,
+        transform=InferenceTransform(cfg["image_size"]),
+        postprocess=BatchRemovePadding((cfg["original_width"], cfg["original_height"])),
+        to_device=ToDevice(cfg["device"]),
     )
 
 
