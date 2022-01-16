@@ -11,6 +11,7 @@ from cots_bench.yolox import (
     get_criterion,
     get_checkpoint,
     get_writer,
+    get_inference_one,
     InferenceOne,
 )
 from vision_tools.assign import SimOTA
@@ -121,12 +122,7 @@ def test_criterion(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> Non
 
 
 def test_inference_one(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
-    inference_one = InferenceOne(
-        model=model,
-        transform=InferenceTransform(cfg["image_size"]),
-        postprocess=BatchRemovePadding((cfg["original_width"], cfg["original_height"])),
-        to_device=to_device,
-    )
+    inference_one = get_inference_one(cfg)
     for i, row in enumerate(rows[:10]):
         gt_boxes = row["boxes"]
         img_arr = np.array(PIL.Image.open(row["image_path"]))

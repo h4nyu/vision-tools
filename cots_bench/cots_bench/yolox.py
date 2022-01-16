@@ -70,7 +70,7 @@ def get_checkpoint(cfg: Dict[str, Any]) -> Checkpoint:
         default_score=0.0,
     )
 
-def get_inference_one(cfg: Dict[str, Any]) -> InferenceOne:
+def get_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
     model = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
     checkpoint.load_if_exists(
