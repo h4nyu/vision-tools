@@ -164,7 +164,7 @@ def to_submission_string(boxes: Tensor, confs: Tensor) -> str:
     out_str = ""
     for i, (cxcywh, conf) in enumerate(zip(cxcywhs, confs)):
         out_str += f"{conf:.4f} {cxcywh[0]:.4f} {cxcywh[1]:.4f} {cxcywh[2]:.4f} {cxcywh[3]:.4f} "
-    return out_str
+    return out_str.strip(" ")
 
 
 def collate_fn(
