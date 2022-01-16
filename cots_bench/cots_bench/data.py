@@ -111,7 +111,6 @@ TrainTransform = lambda image_size: A.Compose(
         ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
-        A.Cutout(num_holes=8, max_h_size=64, max_w_size=64, fill_value=0, p=0.5),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
