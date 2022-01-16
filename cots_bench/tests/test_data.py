@@ -17,6 +17,7 @@ from cots_bench.data import (
     to_submission_string,
 )
 from vision_tools.utils import batch_draw, draw, load_config
+from vision_tools.batch_transform import BatchMosaic
 from torch.utils.tensorboard import SummaryWriter
 from toolz.curried import pipe, partition, map, filter
 
@@ -50,8 +51,10 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
     rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 3), list)
     dataset = COTSDataset(rows, transform=train_transform)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
-    for i in range(1):
+    mosaic = BatchMosaic()
+    for i in range(2):
         batch = next(loader_iter)
+        batch = mosaic(batch)
         plot = batch_draw(
             image_batch=batch["image_batch"], box_batch=batch["box_batch"]
         )

@@ -67,10 +67,12 @@ def inputs() -> TrainBatch:
         torch.tensor([[10, 10, 20, 20]]),
     ]
     label_batch = [torch.zeros(len(m)).long() for m in box_batch]
+    conf_batch = [torch.ones(len(m)).float() for m in box_batch]
     return TrainBatch(
         image_batch=image_batch,
         box_batch=box_batch,
         label_batch=label_batch,
+        conf_batch=conf_batch,
     )
 
 

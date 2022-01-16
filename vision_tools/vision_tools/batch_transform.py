@@ -14,6 +14,7 @@ class BatchMosaic:
 
     def __call__(self, batch: TrainBatch) -> TrainBatch:
         image_batch = batch["image_batch"]
+        device = image_batch.device
         box_batch = batch["box_batch"]
         label_batch = batch["label_batch"]
         batch_size, _, image_height, image_width = image_batch.shape
@@ -26,8 +27,13 @@ class BatchMosaic:
             (0, cross_y, cross_x, image_height),
             (cross_x, cross_y, image_width, image_height),
         ]
-        splited_image_batch, splited_box_batch, splited_label_batch = {}, {}, {}
-
+        splited_image_batch, splited_box_batch, splited_label_batch, recipe_batch = (
+            {},
+            {},
+            {},
+            {},
+        )
+        recipe_index = list(range(batch_size))
         # split to 2x2 patch
         for key in split_keys:
             x0, y0, x1, y1 = key
@@ -38,27 +44,48 @@ class BatchMosaic:
                 lambda boxes: (x0 < boxes[:, 0])
                 & (boxes[:, 0] < x1)
                 & (y0 < boxes[:, 1])
-                & (boxes[:, 1] < y1)
+                & (boxes[:, 1] < y1) if len(boxes) > 0 else torch.zeros(0).bool().to(device)
             )
             clip_boxes_to_image
             masks = [in_area(boxes) for boxes in box_batch]
+            min_area = torch.tensor([x0, y0, x0, y0]).to(device)
+            max_area = torch.tensor([x1, y1, x1, y1]).to(device)
             splited_box_batch[key] = [
                 b[m].clamp(
-                    min=torch.tensor([x0, y0, x0, y0]),
-                    max=torch.tensor([x1, y1, x1, y1]),
-                )
+                    min=min_area,
+                    max=max_area,
+                ) if len(b) > 0 else b
                 for b, m in zip(box_batch, masks)
             ]
 
             splited_label_batch[key] = [l[m] for l, m in zip(label_batch, masks)]
-        # concat
+            random.shuffle(recipe_index)
+            recipe_batch[key] = recipe_index.copy()
+
+        for key, recipe_index in recipe_batch.items():
+            image_batch[:, :, key[1] : key[3], key[0] : key[2]] = splited_image_batch[
+                key
+            ][recipe_index]
+            splited_box_batch[key] = [splited_box_batch[key][i] for i in recipe_index]
+            splited_label_batch[key] = [
+                splited_label_batch[key][i] for i in recipe_index
+            ]
+        for i in range(batch_size):
+            box_batch[i] = torch.cat([splited_box_batch[key][i] for key in split_keys])
+            label_batch[i] = torch.cat(
+                [splited_label_batch[key][i] for key in split_keys]
+            )
+
+        batch["image_batch"] = image_batch
+        batch["box_batch"] = box_batch
+        batch["label_batch"] = label_batch
         return batch
 
 
 class BatchRemovePadding:
     def __init__(self, original_size: Tuple[int, int]) -> None:
         self.original_size = original_size
-        self.original_width, self.original_height  = original_size
+        self.original_width, self.original_height = original_size
         self.longest_side = max(self.original_width, self.original_height)
 
     def scale_and_pad(
@@ -92,8 +119,9 @@ class BatchRemovePadding:
             torch.stack(_image_batch, dim=0),
             size=(self.original_height, self.original_width),
         )
-        return {
+        out_batch: Any = {
             **batch,
             "image_batch": image_batch,
             "box_batch": box_batch,
         }
+        return out_batch

@@ -27,9 +27,15 @@ class BoxF2:
         )
 
     @property
-    def value(self) -> Tuple[float, Dict[str, int]]:
+    def value(self) -> Tuple[float, Dict[str, float]]:
         f2 = self.f_beta(self.correct["tp"], self.correct["fp"], self.correct["fn"])
-        return f2, self.correct
+        precision = self.correct["tp"] / (self.correct["tp"] + self.correct["fp"])
+        recall = self.correct["tp"] / (self.correct["tp"] + self.correct["fn"])
+        return f2, dict(
+            f2=f2,
+            precision=precision,
+            recall=recall,
+        )
 
     def accumulate(self, pred_batch: TrainBatch, gt_batch: TrainBatch) -> None:
         for pred_boxes, gt_boxes in zip(pred_batch["box_batch"], gt_batch["box_batch"]):

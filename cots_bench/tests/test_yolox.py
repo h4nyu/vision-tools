@@ -30,6 +30,7 @@ from cots_bench.data import (
     read_train_rows,
     kfold,
     Row,
+    filter_empty_boxes,
 )
 
 
@@ -66,15 +67,17 @@ def to_device() -> ToDevice:
 
 @pytest.fixture
 def rows() -> List[Row]:
-    return read_train_rows(cfg["dataset_dir"])
+    return filter_empty_boxes(read_train_rows(cfg["dataset_dir"]))
 
 
 @pytest.fixture
 def batch(rows: List[Row]) -> TrainBatch:
-    rows, _ = kfold(rows, cfg["n_splits"])
-    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 1), list)
+    (
+        _,
+        rows,
+    ) = kfold(rows, cfg["n_splits"])
     dataset = COTSDataset(
-        rows[10:],
+        rows[30:],
         transform=Transform(cfg["image_size"]),
     )
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))

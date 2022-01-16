@@ -276,9 +276,7 @@ def draw(
     if boxes is not None and len(boxes) > 0:
         plot = draw_bounding_boxes(plot, boxes)
     if gt_boxes is not None and len(gt_boxes) > 0:
-        plot = draw_bounding_boxes(
-            plot, boxes=gt_boxes, colors=["red"] * len(gt_boxes)
-        )
+        plot = draw_bounding_boxes(plot, boxes=gt_boxes, colors=["red"] * len(gt_boxes))
     if points is not None and len(points) > 0:
         plot = draw_keypoints(
             plot,

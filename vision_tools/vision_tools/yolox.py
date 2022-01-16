@@ -13,6 +13,7 @@ from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
 from .loss import CIoULoss, FocalLossWithLogits, DIoULoss
 from .anchors import Anchor
+from .batch_transform import BatchMosaic
 from toolz import valmap
 
 
@@ -270,12 +271,14 @@ class Criterion:
         # self.obj_loss = nn.BCEWithLogitsLoss(reduction="mean")
         self.obj_loss = FocalLossWithLogits(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
+        self.mosaic = BatchMosaic()
 
     def __call__(
         self,
         model: YOLOX,
         inputs: TrainBatch,
     ) -> Tuple[Tensor, Dict[str, Tensor]]:
+        inputs = self.mosaic(inputs)
         images = inputs["image_batch"]
         gt_box_batch = inputs["box_batch"]
         gt_label_batch = inputs["label_batch"]

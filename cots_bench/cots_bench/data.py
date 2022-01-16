@@ -178,6 +178,7 @@ def to_submission_string(boxes: Tensor, confs: Tensor) -> str:
         out_str += f"{conf:.4f} {cxcywh[0]:.4f} {cxcywh[1]:.4f} {cxcywh[2]:.4f} {cxcywh[3]:.4f} "
     return out_str.strip(" ")
 
+
 def filter_empty_boxes(rows: List[Row]) -> List[Row]:
     return pipe(
         rows,
