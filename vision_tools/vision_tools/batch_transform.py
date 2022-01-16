@@ -1,6 +1,9 @@
 import torch
 from .interface import TrainBatch
+from typing import List, Tuple, Dict, Any
 from torchvision.ops import clip_boxes_to_image
+import torch.nn.functional as F
+from vision_tools.box import shift
 import random
 
 
@@ -50,3 +53,47 @@ class BatchMosaic:
             splited_label_batch[key] = [l[m] for l, m in zip(label_batch, masks)]
         # concat
         return batch
+
+
+class RemovePadding:
+    def __init__(self, original_size: Tuple[int, int]) -> None:
+        self.original_size = original_size
+        self.original_height, self.original_width = original_size
+        self.longest_side = max(self.original_width, self.original_height)
+
+    def scale_and_pad(
+        self, padded_size: Tuple[int, int]
+    ) -> Tuple[float, Tuple[int, int]]:
+        padded_height, padded_width = padded_size
+        if self.longest_side == self.original_width:
+            scale = self.longest_side / padded_width
+            pad = (padded_height - self.original_height / scale) / 2
+            return scale, (int(pad), 0)
+        else:
+            scale = self.longest_side / padded_height
+            pad = (padded_width - self.original_width / scale) / 2
+            return scale, (0, int(pad))
+
+    @torch.no_grad()
+    def __call__(self, batch: TrainBatch) -> TrainBatch:
+        _image_batch = []
+        box_batch = []
+        for img, boxes in zip(batch["image_batch"], batch["box_batch"]):
+            padded_size = (img.shape[1], img.shape[2])
+            scale, pad = self.scale_and_pad(padded_size)
+            boxes = shift(boxes, (-pad[1], -pad[0]))
+            img = img[
+                :, pad[0] : padded_size[0] - pad[0], pad[1] : padded_size[1] - pad[1]
+            ]
+            boxes = boxes * scale
+            _image_batch.append(img)
+            box_batch.append(boxes)
+        image_batch = F.interpolate(
+            torch.stack(_image_batch, dim=0),
+            size=self.original_size,
+        )
+        return TrainBatch(
+            image_batch=image_batch,
+            label_batch=batch["label_batch"],
+            box_batch=box_batch,
+        )

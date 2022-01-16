@@ -57,10 +57,12 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
 
 
 def test_to_submission_string() -> None:
-    boxes = torch.tensor([
-        [0, 0, 100, 100],
-        [10, 20, 30, 40],
-    ])
+    boxes = torch.tensor(
+        [
+            [0, 0, 100, 100],
+            [10, 20, 30, 40],
+        ]
+    )
     confs = torch.tensor([0.9, 0.5])
     encoded = to_submission_string(boxes, confs)
     expected = [

@@ -276,7 +276,9 @@ def draw(
     if boxes is not None and len(boxes) > 0:
         plot = draw_bounding_boxes(plot, boxes)
     if gt_boxes is not None and len(gt_boxes) > 0:
-        plot = draw_bounding_boxes(plot, boxes=gt_boxes, colors=["green"] * len(gt_boxes))
+        plot = draw_bounding_boxes(
+            plot, boxes=gt_boxes, colors=["green"] * len(gt_boxes)
+        )
     if points is not None and len(points) > 0:
         plot = draw_keypoints(
             plot,
@@ -299,7 +301,10 @@ def batch_draw(
         [
             draw(image=image, boxes=boxes, points=points, gt_boxes=gt_boxes)
             for image, boxes, points, gt_boxes in zip(
-                image_batch, box_batch or empty_list, point_batch or empty_list, gt_box_batch or empty_list
+                image_batch,
+                box_batch or empty_list,
+                point_batch or empty_list,
+                gt_box_batch or empty_list,
             )
         ]
     )
