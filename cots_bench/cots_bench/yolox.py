@@ -30,7 +30,7 @@ from cots_bench.metric import BoxF2
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:
-    return f"{cfg['name']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
+    return f"{cfg['name']}-{cfg['fold']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
 
 
 def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:

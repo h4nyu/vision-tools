@@ -65,7 +65,7 @@ def to_device() -> ToDevice:
 
 @pytest.fixture
 def rows() -> List[Row]:
-    return read_train_rows(cfg["dataset_dir"], skip_empty=True)
+    return read_train_rows(cfg["dataset_dir"])
 
 
 @pytest.fixture

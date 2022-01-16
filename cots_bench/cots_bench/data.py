@@ -31,7 +31,7 @@ Row = TypedDict(
 )
 
 
-def read_train_rows(dataset_dir: str, skip_empty: bool = False) -> List[Row]:
+def read_train_rows(dataset_dir: str) -> List[Row]:
     row_path = os.path.join(dataset_dir, "train.csv")
     df = pd.read_csv(row_path)
     rows: List[Row] = []
@@ -56,9 +56,6 @@ def read_train_rows(dataset_dir: str, skip_empty: bool = False) -> List[Row]:
                 in_fmt="xywh",
                 out_fmt="xyxy",
             )
-        else:
-            if skip_empty:
-                continue
 
         rows.append(
             Row(

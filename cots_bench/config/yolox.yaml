@@ -8,10 +8,10 @@ dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
-feat_range: [3, 4]
+feat_range: [3, 5]
 box_iou_threshold: 0.3
 score_threshold: 0.5
-image_size: 1024
+image_size: 1280
 original_width: 1280
 original_height: 720
 
@@ -42,5 +42,5 @@ val_loader:
   shuffle: false
   num_workers: 6
 
-n_splits: 6
+n_splits: 5
 fold: 0
