@@ -14,6 +14,7 @@ from cots_bench.data import (
     Row,
     collate_fn,
     kfold,
+    to_submission_string,
 )
 from vision_tools.utils import batch_draw, draw, load_config
 from torch.utils.tensorboard import SummaryWriter
@@ -41,11 +42,11 @@ def train_transform() -> Any:
 
 
 @pytest.fixture
-def rows() -> list[Row]:
+def rows() -> List[Row]:
     return read_train_rows(cfg["dataset_dir"])
 
 
-def test_aug(train_transform: Any, rows: list[Row]) -> None:
+def test_aug(train_transform: Any, rows: List[Row]) -> None:
     dataset = COTSDataset(rows, transform=train_transform)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     for i in range(1):
@@ -53,6 +54,29 @@ def test_aug(train_transform: Any, rows: list[Row]) -> None:
         plot = batch_draw(**batch)
         writer.add_image("aug", plot, i)
     writer.flush()
+
+
+def test_to_submission_string() -> None:
+    boxes = torch.tensor([
+        [0, 0, 100, 100],
+        [10, 20, 30, 40],
+    ])
+    confs = torch.tensor([0.9, 0.5])
+    encoded = to_submission_string(boxes, confs)
+    expected = [
+        0.9,
+        0.0,
+        0.0,
+        100.0,
+        100.0,
+        0.5,
+        10.0,
+        20.0,
+        20.0,
+        20.0,
+    ]
+    for v, e in zip(encoded.split(" "), expected):
+        assert float(v) == pytest.approx(e, abs=1e-3)
 
 
 def test_fold(rows: List[Row]) -> None:

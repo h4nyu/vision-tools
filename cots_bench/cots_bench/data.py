@@ -31,7 +31,7 @@ Row = TypedDict(
 )
 
 
-def read_train_rows(dataset_dir: str, skip_empty: bool = True) -> List[Row]:
+def read_train_rows(dataset_dir: str, skip_empty: bool = False) -> List[Row]:
     row_path = os.path.join(dataset_dir, "train.csv")
     df = pd.read_csv(row_path)
     rows: List[Row] = []
@@ -148,6 +148,14 @@ class COTSDataset(Dataset):
             boxes=boxes,
             labels=labels,
         )
+
+
+def to_submission_string(boxes: Tensor, confs: Tensor) -> str:
+    cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="xywh")
+    out_str = ""
+    for i, (cxcywh, conf) in enumerate(zip(cxcywhs, confs)):
+        out_str += f"{conf:.4f} {cxcywh[0]:.4f} {cxcywh[1]:.4f} {cxcywh[2]:.4f} {cxcywh[3]:.4f} "
+    return out_str
 
 
 def collate_fn(

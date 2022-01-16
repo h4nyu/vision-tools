@@ -258,6 +258,7 @@ def draw(
     masks: Optional[Tensor] = None,
     boxes: Optional[Tensor] = None,
     points: Optional[Tensor] = None,
+    gt_boxes: Optional[Tensor] = None,
 ) -> Tensor:
     image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
@@ -274,6 +275,8 @@ def draw(
         plot = draw_bounding_boxes(plot, boxes)
     if boxes is not None and len(boxes) > 0:
         plot = draw_bounding_boxes(plot, boxes)
+    if gt_boxes is not None and len(gt_boxes) > 0:
+        plot = draw_bounding_boxes(plot, boxes=gt_boxes, colors=["green"] * len(gt_boxes))
     if points is not None and len(points) > 0:
         plot = draw_keypoints(
             plot,
@@ -289,13 +292,14 @@ def batch_draw(
     box_batch: Optional[List[Tensor]] = None,
     label_batch: Optional[List[Tensor]] = None,
     point_batch: Optional[List[Tensor]] = None,
+    gt_box_batch: Optional[List[Tensor]] = None,
 ) -> Tensor:
     empty_list = [None for _ in range(len(image_batch))]
     return make_grid(
         [
-            draw(image=image, boxes=boxes, points=points)
-            for image, boxes, points in zip(
-                image_batch, box_batch or empty_list, point_batch or empty_list
+            draw(image=image, boxes=boxes, points=points, gt_boxes=gt_boxes)
+            for image, boxes, points, gt_boxes in zip(
+                image_batch, box_batch or empty_list, point_batch or empty_list, gt_box_batch or empty_list
             )
         ]
     )

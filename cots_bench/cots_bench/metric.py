@@ -7,7 +7,6 @@ from vision_tools.interface import TrainBatch
 import numpy as np
 
 
-
 class BoxF2:
     def __init__(
         self, iou_thresholds: List[float] = list(np.arange(0.3, 0.85, 0.05))

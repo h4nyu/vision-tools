@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict
 import torch
+from tqdm import tqdm
 from torch import Tensor
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
@@ -9,7 +10,7 @@ from vision_tools.backbone import CSPDarknet, EfficientNet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
-from vision_tools.utils import Checkpoint, load_config
+from vision_tools.utils import Checkpoint, load_config, batch_draw
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from vision_tools.meter import MeanReduceDict
@@ -33,7 +34,7 @@ def get_model_name(cfg: Dict[str, Any]) -> str:
 def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
     model_name = get_model_name(cfg)
     return SummaryWriter(
-        f"runs/cots/{model_name}-lr_{cfg['lr']}-box_w_{cfg['criterion']['box_weight']}-radius_{cfg['assign']['radius']}"
+        f"runs/{model_name}-lr_{cfg['lr']}-box_w_{cfg['criterion']['box_weight']}-radius_{cfg['assign']['radius']}"
     )
 
 
@@ -125,3 +126,39 @@ def train() -> None:
     for epoch in range(cfg["num_epochs"]):
         train_step(model, epoch)
         eval_step(model, epoch)
+
+
+def evaluate() -> None:
+    cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
+    checkpoint = get_checkpoint(cfg)
+    writer = get_writer(cfg)
+    model = get_model(cfg)
+    checkpoint.load_if_exists(model=model, device=cfg["device"])
+    annotations = read_train_rows(cfg["dataset_dir"])
+    dataset = COTSDataset(
+        annotations,
+        transform=Transform(cfg["image_size"]),
+    )
+    loader = DataLoader(
+        dataset,
+        collate_fn=collate_fn,
+        **cfg["val_loader"],
+    )
+    to_device = ToDevice(cfg["device"])
+    metric = BoxF2()
+    model.eval()
+    for i, batch in enumerate(tqdm(loader, total=len(loader))):
+        batch = to_device(**batch)
+        pred_batch = model(batch["image_batch"])
+        metric.accumulate(pred_batch, batch)
+
+        plot = batch_draw(
+            image_batch=batch["image_batch"],
+            box_batch=pred_batch["box_batch"],
+            gt_box_batch=batch["box_batch"],
+        )
+        writer.add_image("evalute", plot, i)
+        writer.flush()
+
+    score, other = metric.value
+    writer.add_scalar(f"evaluate-all/score", score, 0)
