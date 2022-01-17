@@ -19,18 +19,28 @@ class BoxF2:
             "fn": 0,
         }
 
-    def f_beta(self, tp: float, fp: float, fn: float) -> float:
+    def precision(self, tp: int, fp: int, fn: int) -> float:
+        if tp + fp == 0:
+            return 0.0
+        return tp / (tp + fp)
+
+    def recall(self, tp: int, fp: int, fn: int) -> float:
+        if tp + fn == 0:
+            return 0.0
+        return tp / (tp + fn)
+
+    def f_beat(self, precision: float, recall: float, beta: float) -> float:
+        if precision + recall == 0:
+            return 0.0
         return (
-            (1 + self.beta ** 2)
-            * tp
-            / ((1 + self.beta ** 2) * tp + self.beta ** 2 * fn + fp)
+            (1 + beta ** 2) * (precision * recall) / ((beta ** 2) * precision + recall)
         )
 
     @property
     def value(self) -> Tuple[float, Dict[str, float]]:
-        f2 = self.f_beta(self.correct["tp"], self.correct["fp"], self.correct["fn"])
-        precision = self.correct["tp"] / (self.correct["tp"] + self.correct["fp"])
-        recall = self.correct["tp"] / (self.correct["tp"] + self.correct["fn"])
+        precision = self.precision(**self.correct)
+        recall = self.recall(**self.correct)
+        f2 = self.f_beat(precision, recall, self.beta)
         return f2, dict(
             f2=f2,
             precision=precision,

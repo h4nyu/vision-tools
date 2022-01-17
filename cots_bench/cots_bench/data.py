@@ -92,12 +92,8 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 
 TrainTransform = lambda image_size: A.Compose(
     [
-        A.RandomSizedCrop(
-            min_max_height=(640, 720),
-            height=image_size,
-            width=image_size,
-            p=1.0,
-        ),
+        A.LongestMaxSize(max_size=image_size),
+        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         A.OneOf(
             [
                 A.HueSaturationValue(

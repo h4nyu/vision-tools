@@ -15,6 +15,7 @@ from cots_bench.data import (
     collate_fn,
     kfold,
     to_submission_string,
+    filter_empty_boxes,
 )
 from vision_tools.utils import batch_draw, draw, load_config
 from vision_tools.batch_transform import BatchMosaic
@@ -34,21 +35,20 @@ if no_volume:
 
 @pytest.fixture
 def transform() -> Any:
-    return Transform(512)
+    return Transform(cfg["image_size"])
 
 
 @pytest.fixture
 def train_transform() -> Any:
-    return TrainTransform(512)
+    return TrainTransform(cfg["image_size"])
 
 
 @pytest.fixture
 def rows() -> List[Row]:
-    return read_train_rows(cfg["dataset_dir"])
+    return filter_empty_boxes(read_train_rows(cfg["dataset_dir"]))
 
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
-    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 3), list)
     dataset = COTSDataset(rows, transform=train_transform)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     mosaic = BatchMosaic()
