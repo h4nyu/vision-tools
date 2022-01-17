@@ -90,17 +90,15 @@ def kfold(
 
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
 
-TrainTransform = lambda image_size: A.Compose(
+TrainTransform = lambda: A.Compose(
     [
-        A.LongestMaxSize(max_size=image_size),
-        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         A.OneOf(
             [
                 A.HueSaturationValue(
                     hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.9
                 ),
                 A.RandomBrightnessContrast(
-                    brightness_limit=0.2, contrast_limit=0.2, p=0.9
+                    brightness_limit=0.15, contrast_limit=0.15, p=0.9
                 ),
             ],
             p=0.9,
@@ -111,19 +109,15 @@ TrainTransform = lambda image_size: A.Compose(
     ],
     bbox_params=bbox_params,
 )
-Transform = lambda image_size: A.Compose(
+Transform = lambda: A.Compose(
     [
-        A.LongestMaxSize(max_size=image_size),
-        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
 )
 
-InferenceTransform = lambda image_size: A.Compose(
+InferenceTransform = lambda: A.Compose(
     [
-        A.LongestMaxSize(max_size=image_size),
-        A.PadIfNeeded(min_height=image_size, min_width=image_size, border_mode=0),
         ToTensorV2(),
     ],
 )

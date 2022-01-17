@@ -1,7 +1,7 @@
 import torch
 from .interface import TrainBatch
 from typing import List, Tuple, Dict, Any
-from torchvision.ops import clip_boxes_to_image
+from torchvision.ops import clip_boxes_to_image, box_area
 import torch.nn.functional as F
 from vision_tools.box import shift
 import random
@@ -9,8 +9,13 @@ import random
 
 # TODO WIP
 class BatchMosaic:
-    def __init__(self) -> None:
-        ...
+    def __init__(
+        self,
+        width_limit: Tuple[float, float] = (1/4, 3/4),
+        height_limit: Tuple[float, float] = (1/4, 3/4),
+     ) -> None:
+        self.width_limit = width_limit
+        self.height_limit = height_limit
 
     def __call__(self, batch: TrainBatch) -> TrainBatch:
         image_batch = batch["image_batch"]
@@ -18,8 +23,8 @@ class BatchMosaic:
         box_batch = batch["box_batch"]
         label_batch = batch["label_batch"]
         batch_size, _, image_height, image_width = image_batch.shape
-        cross_x, cross_y = random.randint(0, image_width), random.randint(
-            0, image_height
+        cross_x, cross_y = random.randint(image_width * self.width_limit[0], image_width * self.width_limit[1] ), random.randint(
+            image_height * self.height_limit[0], image_height * self.height_limit[1]
         )
         split_keys = [
             (0, 0, cross_x, cross_y),
@@ -38,32 +43,30 @@ class BatchMosaic:
         for key in split_keys:
             x0, y0, x1, y1 = key
             splited_image_batch[key] = image_batch[
-                :, :, key[1] : key[3], key[0] : key[2]
+                :, :, y0 : y1, x0 : x1
             ]
-            in_area = (
-                lambda boxes: (x0 < boxes[:, 0])
-                & (boxes[:, 0] < x1)
-                & (y0 < boxes[:, 1])
-                & (boxes[:, 1] < y1) if len(boxes) > 0 else torch.zeros(0).bool().to(device)
-            )
-            clip_boxes_to_image
-            masks = [in_area(boxes) for boxes in box_batch]
             min_area = torch.tensor([x0, y0, x0, y0]).to(device)
             max_area = torch.tensor([x1, y1, x1, y1]).to(device)
-            splited_box_batch[key] = [
-                b[m].clamp(
+            cropped_box_batch = [
+                boxes.clamp(
                     min=min_area,
                     max=max_area,
-                ) if len(b) > 0 else b
-                for b, m in zip(box_batch, masks)
+                )
+                for boxes in box_batch
             ]
+            in_area_batch = [
+                box_area(boxes) > 0
+                for boxes in cropped_box_batch
+            ]
+            splited_box_batch[key] = [b[m] for b, m in zip(cropped_box_batch, in_area_batch)]
 
-            splited_label_batch[key] = [l[m] for l, m in zip(label_batch, masks)]
+            splited_label_batch[key] = [l[m] for l, m in zip(label_batch, in_area_batch)]
             random.shuffle(recipe_index)
             recipe_batch[key] = recipe_index.copy()
 
         for key, recipe_index in recipe_batch.items():
-            image_batch[:, :, key[1] : key[3], key[0] : key[2]] = splited_image_batch[
+            x0, y0, x1, y1 = key
+            image_batch[:, :, y0 : y1, x0 : x1] = splited_image_batch[
                 key
             ][recipe_index]
             splited_box_batch[key] = [splited_box_batch[key][i] for i in recipe_index]

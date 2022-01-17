@@ -35,12 +35,12 @@ if no_volume:
 
 @pytest.fixture
 def transform() -> Any:
-    return Transform(cfg["image_size"])
+    return Transform()
 
 
 @pytest.fixture
 def train_transform() -> Any:
-    return TrainTransform(cfg["image_size"])
+    return TrainTransform()
 
 
 @pytest.fixture
@@ -52,7 +52,7 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
     dataset = COTSDataset(rows, transform=train_transform)
     loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
     mosaic = BatchMosaic()
-    for i in range(2):
+    for i in range(4):
         batch = next(loader_iter)
         batch = mosaic(batch)
         plot = batch_draw(

@@ -1,6 +1,6 @@
-import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import torch
+import os
 from tqdm import tqdm
 from torch import Tensor
 from torch.utils.data import Subset, DataLoader
@@ -84,8 +84,7 @@ def get_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
 
     return InferenceOne(
         model=model,
-        transform=InferenceTransform(cfg["image_size"]),
-        postprocess=BatchRemovePadding((cfg["original_width"], cfg["original_height"])),
+        transform=InferenceTransform(),
         to_device=ToDevice(cfg["device"]),
     )
 
@@ -113,11 +112,11 @@ def train() -> None:
     train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
     train_dataset = COTSDataset(
         train_rows,
-        transform=TrainTransform(cfg["image_size"]),
+        transform=TrainTransform(),
     )
     val_dataset = COTSDataset(
         validation_rows,
-        transform=Transform(cfg["image_size"]),
+        transform=Transform(),
     )
     train_loader = DataLoader(
         train_dataset,
@@ -166,7 +165,7 @@ def evaluate() -> None:
     annotations = read_train_rows(cfg["dataset_dir"])
     dataset = COTSDataset(
         annotations,
-        transform=Transform(cfg["image_size"]),
+        transform=Transform(),
     )
     loader = DataLoader(
         dataset,
@@ -195,7 +194,11 @@ def evaluate() -> None:
 
 class InferenceOne:
     def __init__(
-        self, model: YOLOX, transform: Any, postprocess: Any, to_device: ToDevice
+        self,
+        model: YOLOX,
+        transform: Any,
+        to_device: ToDevice,
+        postprocess: Optional[Any] = None,
     ) -> None:
         self.model = model
         self.transform = transform
@@ -209,7 +212,8 @@ class InferenceOne:
         image = (transformed["image"] / 255).float()
         image_batch = self.to_device(image_batch=image.unsqueeze(dim=0))["image_batch"]
         pred_batch = self.model(image_batch)
-        pred_batch = self.postprocess(pred_batch)
+        if self.postprocess is not None:
+            pred_batch = self.postprocess(pred_batch)
         return TrainSample(
             image=pred_batch["image_batch"][0],
             boxes=pred_batch["box_batch"][0],

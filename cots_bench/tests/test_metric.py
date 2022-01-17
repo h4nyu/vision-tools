@@ -26,7 +26,7 @@ def rows() -> List[Row]:
 
 @pytest.fixture
 def dataset(rows: List[Row]) -> COTSDataset:
-    return COTSDataset(rows, transform=Transform(cfg["image_size"]))
+    return COTSDataset(rows, transform=Transform())
 
 
 def generate_pred(gt_boxes: Tensor) -> Tuple[Tensor, Tensor]:

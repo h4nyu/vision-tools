@@ -78,7 +78,7 @@ def batch(rows: List[Row]) -> TrainBatch:
     ) = kfold(rows, cfg["n_splits"])
     dataset = COTSDataset(
         rows[100:],
-        transform=Transform(cfg["image_size"]),
+        transform=Transform(),
     )
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
     return next(loader_iter)
