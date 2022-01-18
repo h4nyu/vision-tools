@@ -32,7 +32,7 @@ from toolz.curried import pipe, filter
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:
-    return f"{cfg['name']}-{cfg['fold']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}-{cfg['image_size']}"
+    return f"{cfg['name']}-{cfg['fold']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
 
 
 def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
@@ -156,6 +156,7 @@ def train() -> None:
         eval_step(model, epoch)
 
 
+@torch.no_grad()
 def evaluate() -> None:
     cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
     checkpoint = get_checkpoint(cfg)
@@ -163,6 +164,9 @@ def evaluate() -> None:
     model = get_model(cfg)
     checkpoint.load_if_exists(model=model, device=cfg["device"])
     annotations = read_train_rows(cfg["dataset_dir"])
+    annotations = filter_empty_boxes(annotations)
+    _, annotations = kfold(annotations, cfg["n_splits"], cfg["fold"])
+    # train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
     dataset = COTSDataset(
         annotations,
         transform=Transform(),
@@ -179,16 +183,8 @@ def evaluate() -> None:
         batch = to_device(**batch)
         pred_batch = model(batch["image_batch"])
         metric.accumulate(pred_batch, batch)
-
-        plot = batch_draw(
-            image_batch=batch["image_batch"],
-            box_batch=pred_batch["box_batch"],
-            gt_box_batch=batch["box_batch"],
-        )
-        writer.add_image("evalute", plot, i)
-        writer.flush()
-
     score, other = metric.value
+    print(score, other)
     writer.add_scalar(f"evaluate-all/score", score, 0)
 
 
