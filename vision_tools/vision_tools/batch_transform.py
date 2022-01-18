@@ -7,21 +7,26 @@ from vision_tools.box import shift
 import random
 
 
-# TODO WIP
+class BatchRelocate:
+    def __init__(self) -> None:
+        ...
+
+    @torch.no_grad()
+    def __call__(self, batch: TrainBatch) -> TrainBatch:
+        ...
+
 class BatchMosaic:
     def __init__(
         self,
-        width_limit: Tuple[float, float] = (1/4, 3/4),
-        height_limit: Tuple[float, float] = (1/4, 3/4),
+        width_limit: Tuple[float, float] = (1/5, 4/5),
+        height_limit: Tuple[float, float] = (1/5, 4/5),
      ) -> None:
         self.width_limit = width_limit
         self.height_limit = height_limit
 
+    @torch.no_grad()
     def __call__(self, batch: TrainBatch) -> TrainBatch:
-        image_batch = batch["image_batch"]
-        device = image_batch.device
-        box_batch = batch["box_batch"]
-        label_batch = batch["label_batch"]
+        image_batch = batch["image_batch"] device = image_batch.device box_batch = batch["box_batch"] label_batch = batch["label_batch"]
         batch_size, _, image_height, image_width = image_batch.shape
         cross_x, cross_y = random.randint(image_width * self.width_limit[0], image_width * self.width_limit[1] ), random.randint(
             image_height * self.height_limit[0], image_height * self.height_limit[1]
@@ -66,9 +71,7 @@ class BatchMosaic:
 
         for key, recipe_index in recipe_batch.items():
             x0, y0, x1, y1 = key
-            image_batch[:, :, y0 : y1, x0 : x1] = splited_image_batch[
-                key
-            ][recipe_index]
+            image_batch[:, :, y0 : y1, x0 : x1] = splited_image_batch[key][recipe_index]
             splited_box_batch[key] = [splited_box_batch[key][i] for i in recipe_index]
             splited_label_batch[key] = [
                 splited_label_batch[key][i] for i in recipe_index

@@ -92,17 +92,16 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 
 TrainTransform = lambda: A.Compose(
     [
-        A.OneOf(
-            [
-                A.HueSaturationValue(
-                    hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.9
-                ),
-                A.RandomBrightnessContrast(
-                    brightness_limit=0.15, contrast_limit=0.15, p=0.9
-                ),
-            ],
-            p=0.9,
+        A.HueSaturationValue(
+            hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.9
         ),
+        A.RandomBrightnessContrast(
+            brightness_limit=0.15, contrast_limit=0.15, p=0.9
+        ),
+        A.OneOf([
+            A.MotionBlur(p=1.0),
+            A.Blur(blur_limit=5, p=1.0),
+        ], p=0.4),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         ToTensorV2(),

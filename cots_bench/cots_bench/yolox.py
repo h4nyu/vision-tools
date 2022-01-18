@@ -187,7 +187,6 @@ def evaluate() -> None:
     print(score, other)
     writer.add_scalar(f"evaluate-all/score", score, 0)
 
-
 class InferenceOne:
     def __init__(
         self,

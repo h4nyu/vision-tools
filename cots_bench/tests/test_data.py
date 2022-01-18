@@ -48,15 +48,27 @@ def rows() -> List[Row]:
     return filter_empty_boxes(read_train_rows(cfg["dataset_dir"]))
 
 
-def test_aug(train_transform: Any, rows: List[Row]) -> None:
+def test_batch(train_transform: Any, rows: List[Row]) -> None:
     dataset = COTSDataset(rows, transform=train_transform)
-    loader_iter = iter(DataLoader(dataset, batch_size=8, collate_fn=collate_fn))
+    loader_iter = iter(DataLoader(dataset, batch_size=4, collate_fn=collate_fn))
     mosaic = BatchMosaic()
-    for i in range(4):
+    for i in range(1):
         batch = next(loader_iter)
         batch = mosaic(batch)
         plot = batch_draw(
             image_batch=batch["image_batch"], box_batch=batch["box_batch"]
+        )
+        writer.add_image("batch-aug", plot, i)
+    writer.flush()
+
+
+def test_aug(train_transform: Any, rows: List[Row]) -> None:
+    dataset = COTSDataset(rows, transform=train_transform)
+    sample_idx = 10
+    for i in range(10):
+        sample = dataset[sample_idx]
+        plot = draw(
+            image=sample["image"], boxes=sample["boxes"]
         )
         writer.add_image("aug", plot, i)
     writer.flush()
