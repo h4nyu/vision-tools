@@ -15,20 +15,26 @@ class BatchRelocate:
     def __call__(self, batch: TrainBatch) -> TrainBatch:
         ...
 
+
 class BatchMosaic:
     def __init__(
         self,
-        width_limit: Tuple[float, float] = (1/5, 4/5),
-        height_limit: Tuple[float, float] = (1/5, 4/5),
-     ) -> None:
+        width_limit: Tuple[float, float] = (1 / 5, 4 / 5),
+        height_limit: Tuple[float, float] = (1 / 5, 4 / 5),
+    ) -> None:
         self.width_limit = width_limit
         self.height_limit = height_limit
 
     @torch.no_grad()
     def __call__(self, batch: TrainBatch) -> TrainBatch:
-        image_batch = batch["image_batch"] device = image_batch.device box_batch = batch["box_batch"] label_batch = batch["label_batch"]
+        image_batch = batch["image_batch"]
+        device = image_batch.device
+        box_batch = batch["box_batch"]
+        label_batch = batch["label_batch"]
         batch_size, _, image_height, image_width = image_batch.shape
-        cross_x, cross_y = random.randint(image_width * self.width_limit[0], image_width * self.width_limit[1] ), random.randint(
+        cross_x, cross_y = random.randint(
+            image_width * self.width_limit[0], image_width * self.width_limit[1]
+        ), random.randint(
             image_height * self.height_limit[0], image_height * self.height_limit[1]
         )
         split_keys = [
@@ -47,9 +53,7 @@ class BatchMosaic:
         # split to 2x2 patch
         for key in split_keys:
             x0, y0, x1, y1 = key
-            splited_image_batch[key] = image_batch[
-                :, :, y0 : y1, x0 : x1
-            ]
+            splited_image_batch[key] = image_batch[:, :, y0:y1, x0:x1]
             min_area = torch.tensor([x0, y0, x0, y0]).to(device)
             max_area = torch.tensor([x1, y1, x1, y1]).to(device)
             cropped_box_batch = [
@@ -59,19 +63,20 @@ class BatchMosaic:
                 )
                 for boxes in box_batch
             ]
-            in_area_batch = [
-                box_area(boxes) > 0
-                for boxes in cropped_box_batch
+            in_area_batch = [box_area(boxes) > 0 for boxes in cropped_box_batch]
+            splited_box_batch[key] = [
+                b[m] for b, m in zip(cropped_box_batch, in_area_batch)
             ]
-            splited_box_batch[key] = [b[m] for b, m in zip(cropped_box_batch, in_area_batch)]
 
-            splited_label_batch[key] = [l[m] for l, m in zip(label_batch, in_area_batch)]
+            splited_label_batch[key] = [
+                l[m] for l, m in zip(label_batch, in_area_batch)
+            ]
             random.shuffle(recipe_index)
             recipe_batch[key] = recipe_index.copy()
 
         for key, recipe_index in recipe_batch.items():
             x0, y0, x1, y1 = key
-            image_batch[:, :, y0 : y1, x0 : x1] = splited_image_batch[key][recipe_index]
+            image_batch[:, :, y0:y1, x0:x1] = splited_image_batch[key][recipe_index]
             splited_box_batch[key] = [splited_box_batch[key][i] for i in recipe_index]
             splited_label_batch[key] = [
                 splited_label_batch[key][i] for i in recipe_index
