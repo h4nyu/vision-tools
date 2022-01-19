@@ -272,7 +272,6 @@ class Criterion:
         self.obj_loss = FocalLossWithLogits(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
         self.mosaic = BatchMosaic()
-        self.relocate = BatchRelocate()
 
     def __call__(
         self,
@@ -280,7 +279,6 @@ class Criterion:
         inputs: TrainBatch,
     ) -> Tuple[Tensor, Dict[str, Tensor]]:
         inputs = self.mosaic(inputs)
-        inputs = self.relocate(inputs)
         images = inputs["image_batch"]
         gt_box_batch = inputs["box_batch"]
         gt_label_batch = inputs["label_batch"]

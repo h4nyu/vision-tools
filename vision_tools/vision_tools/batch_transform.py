@@ -128,10 +128,10 @@ class BatchMosaic:
                 boxes.clamp(
                     min=min_area,
                     max=max_area,
-                )
+                ) if len(boxes) > 0 else boxes
                 for boxes in box_batch
             ]
-            in_area_batch = [box_area(boxes) > 0 for boxes in cropped_box_batch]
+            in_area_batch = [box_area(boxes) > 0 if len(boxes) > 0 else torch.zeros(0).bool().to(device) for boxes in cropped_box_batch]
             splited_box_batch[key] = [
                 b[m] for b, m in zip(cropped_box_batch, in_area_batch)
             ]

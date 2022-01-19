@@ -50,7 +50,7 @@ def rows() -> List[Row]:
 
 def test_batch(train_transform: Any, rows: List[Row]) -> None:
     dataset = COTSDataset(rows, transform=train_transform)
-    loader_iter = iter(DataLoader(dataset, batch_size=2, collate_fn=collate_fn))
+    loader_iter = iter(DataLoader(dataset, batch_size=4, collate_fn=collate_fn))
     mosaic = BatchMosaic()
     for i in range(1):
         batch = next(loader_iter)
