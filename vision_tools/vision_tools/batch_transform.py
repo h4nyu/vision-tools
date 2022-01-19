@@ -1,4 +1,5 @@
 import torch
+from torch import Tensor
 from .interface import TrainBatch
 from typing import List, Tuple, Dict, Any
 from torchvision.ops import clip_boxes_to_image, box_area
@@ -8,12 +9,79 @@ import random
 
 
 class BatchRelocate:
-    def __init__(self) -> None:
-        ...
+    def __init__(self, n_copy: int = 1) -> None:
+        self.n_copy = n_copy
+
+    def _relocate(
+        self, image: Tensor, boxes: Tensor, labels: Tensor
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        n_boxes = boxes.shape[0]
+        if(n_boxes == 0):
+            return image, boxes, labels
+
+        box_sizes = boxes[:, 2:] - boxes[:, :2]
+        max_wh, _ = box_sizes.max(dim=0)
+        _, h, w = image.shape
+        device = image.device
+        image_size = torch.tensor([h, w]).int().to(device)
+        point_matrix = torch.cat(
+            [
+                torch.randint(
+                    0,
+                    int((w - max_wh[0]).clamp(min=1)),
+                    (
+                        n_boxes,
+                        self.n_copy,
+                        1,
+                    ),
+                    device=device,
+                ),
+                torch.randint(
+                    0,
+                    int((h - max_wh[1]).clamp(min=1)),
+                    (
+                        n_boxes,
+                        self.n_copy,
+                        1,
+                    ),
+                    device=device,
+                ),
+            ],
+            dim=2,
+        )
+        new_box_list, new_label_list = [boxes], [labels]
+        for b, points, label in zip(boxes.int(), point_matrix, labels):
+            box_image = image[:, b[1] : b[3], b[0] : b[2]]
+            _, box_h, box_w = box_image.shape
+            new_boxes = torch.cat(
+                [
+                    points,
+                    points[:, 0:1] + box_w,
+                    points[:, 1:2] + box_h,
+                ],
+                dim=1,
+            )
+            new_boxes = clip_boxes_to_image(new_boxes, [h, w])
+            for nb in new_boxes:
+                image[:, nb[1] : nb[3], nb[0] : nb[2]] = box_image
+            new_box_list.append(new_boxes)
+            new_label_list.append(torch.full((self.n_copy,), label).to(label))
+        boxes = torch.cat(new_box_list, dim=0)
+        labels = torch.cat(new_label_list, dim=0)
+        return image, boxes, labels
 
     @torch.no_grad()
     def __call__(self, batch: TrainBatch) -> TrainBatch:
-        ...
+        image_batch = batch["image_batch"]
+        device = image_batch.device
+        box_batch = batch["box_batch"]
+        label_batch = batch["label_batch"]
+        for i, (image, boxes, labels) in enumerate(zip(image_batch, box_batch, label_batch)):
+            image, boxes, labels = self._relocate(image, boxes, labels)
+            image_batch[i] = image
+            box_batch[i] = boxes
+            label_batch[i] = labels
+        return batch
 
 
 class BatchMosaic:
@@ -33,9 +101,9 @@ class BatchMosaic:
         label_batch = batch["label_batch"]
         batch_size, _, image_height, image_width = image_batch.shape
         cross_x, cross_y = random.randint(
-            image_width * self.width_limit[0], image_width * self.width_limit[1]
+            int(image_width * self.width_limit[0]), int(image_width * self.width_limit[1])
         ), random.randint(
-            image_height * self.height_limit[0], image_height * self.height_limit[1]
+            int(image_height * self.height_limit[0]), int(image_height * self.height_limit[1])
         )
         split_keys = [
             (0, 0, cross_x, cross_y),

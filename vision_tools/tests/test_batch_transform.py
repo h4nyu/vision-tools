@@ -1,6 +1,6 @@
 import pytest
 import torch
-from vision_tools.batch_transform import BatchMosaic, BatchRemovePadding
+from vision_tools.batch_transform import BatchMosaic, BatchRemovePadding, BatchRelocate
 from vision_tools.interface import TrainBatch
 
 
@@ -60,4 +60,9 @@ def test_batch_mosaic(batch: TrainBatch) -> None:
 def test_remove_padding(batch: TrainBatch) -> None:
     orignal_size = (720, 1280)
     t = BatchRemovePadding(orignal_size)
+    t(batch)
+
+
+def test_batch_relocate(batch: TrainBatch) -> None:
+    t = BatchRelocate()
     t(batch)

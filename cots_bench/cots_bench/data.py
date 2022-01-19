@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Dict
 from typing_extensions import TypedDict
 from torch import Tensor
 import json
@@ -90,8 +90,15 @@ def kfold(
 
 bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
 
-TrainTransform = lambda: A.Compose(
+TrainTransform = lambda cfg: A.Compose(
     [
+        A.RandomResizedCrop(
+            ratio=(0.70, 1.4),
+            scale=(0.7, 1.0),
+            width=cfg["original_width"],
+            height=cfg["original_height"],
+            p=0.9,
+        ),
         A.HueSaturationValue(
             hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.9
         ),
@@ -105,6 +112,7 @@ TrainTransform = lambda: A.Compose(
         ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
+        A.Cutout(p=0.9, num_holes=16, max_h_size=64, max_w_size=64),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,

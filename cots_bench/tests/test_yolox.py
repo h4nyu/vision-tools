@@ -75,7 +75,8 @@ def batch(rows: List[Row]) -> TrainBatch:
     (
         _,
         rows,
-    ) = kfold(rows, cfg["n_splits"])
+    ) = kfold(rows, cfg["n_splits"], cfg["fold"])
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 5), list)
     dataset = COTSDataset(
         rows[10:],
         transform=Transform(),

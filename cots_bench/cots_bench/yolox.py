@@ -12,6 +12,7 @@ from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
 from vision_tools.utils import Checkpoint, load_config, batch_draw
 from torch.utils.tensorboard import SummaryWriter
+import functools
 from datetime import datetime
 from vision_tools.meter import MeanReduceDict
 from vision_tools.step import TrainStep, EvalStep
@@ -32,13 +33,13 @@ from toolz.curried import pipe, filter
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:
-    return f"{cfg['name']}-{cfg['fold']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
+    return f"{cfg['name']}-{cfg['fold']}-{cfg['n_splits']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
 
 
 def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
     model_name = get_model_name(cfg)
     return SummaryWriter(
-        f"runs/{model_name}-lr_{cfg['lr']}-box_w_{cfg['criterion']['box_weight']}-radius_{cfg['assign']['radius']}"
+        f"runs/{model_name}-lr_{cfg['lr']}-box_w_{cfg['criterion']['box_weight']}-radius_{cfg['assign']['radius']}-mosaic-cutout-scale"
     )
 
 
@@ -112,7 +113,7 @@ def train() -> None:
     train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
     train_dataset = COTSDataset(
         train_rows,
-        transform=TrainTransform(),
+        transform=TrainTransform(cfg),
     )
     val_dataset = COTSDataset(
         validation_rows,

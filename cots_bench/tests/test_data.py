@@ -18,7 +18,7 @@ from cots_bench.data import (
     filter_empty_boxes,
 )
 from vision_tools.utils import batch_draw, draw, load_config
-from vision_tools.batch_transform import BatchMosaic
+from vision_tools.batch_transform import BatchMosaic, BatchRelocate
 from torch.utils.tensorboard import SummaryWriter
 from toolz.curried import pipe, partition, map, filter
 
@@ -40,7 +40,7 @@ def transform() -> Any:
 
 @pytest.fixture
 def train_transform() -> Any:
-    return TrainTransform()
+    return TrainTransform(cfg)
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def rows() -> List[Row]:
 
 def test_batch(train_transform: Any, rows: List[Row]) -> None:
     dataset = COTSDataset(rows, transform=train_transform)
-    loader_iter = iter(DataLoader(dataset, batch_size=4, collate_fn=collate_fn))
+    loader_iter = iter(DataLoader(dataset, batch_size=2, collate_fn=collate_fn))
     mosaic = BatchMosaic()
     for i in range(1):
         batch = next(loader_iter)
@@ -65,7 +65,7 @@ def test_batch(train_transform: Any, rows: List[Row]) -> None:
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
     dataset = COTSDataset(rows, transform=train_transform)
     sample_idx = 10
-    for i in range(10):
+    for i in range(20):
         sample = dataset[sample_idx]
         plot = draw(image=sample["image"], boxes=sample["boxes"])
         writer.add_image("aug", plot, i)
