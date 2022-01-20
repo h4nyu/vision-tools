@@ -10,7 +10,7 @@ depth: 1
 num_classes: 1
 feat_range: [3, 5]
 box_iou_threshold: 0.4
-score_threshold: 0.05
+score_threshold: 0.1
 original_width: 1280
 original_height: 720
 # resume_target: current

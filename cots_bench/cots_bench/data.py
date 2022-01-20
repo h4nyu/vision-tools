@@ -92,12 +92,12 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 
 TrainTransform = lambda cfg: A.Compose(
     [
-        A.RandomResizedCrop(
-            ratio=(0.70, 1.4),
-            scale=(0.7, 1.0),
-            width=cfg["original_width"],
-            height=cfg["original_height"],
-            p=0.9,
+        A.ShiftScaleRotate(
+            shift_limit=0.0,
+            scale_limit=0.5,
+            border_mode=0,
+            rotate_limit=5,
+            p=1.0,
         ),
         A.HueSaturationValue(
             hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.9
@@ -105,14 +105,15 @@ TrainTransform = lambda cfg: A.Compose(
         A.RandomBrightnessContrast(brightness_limit=0.15, contrast_limit=0.15, p=0.9),
         A.OneOf(
             [
-                A.MotionBlur(p=1.0),
-                A.Blur(blur_limit=5, p=1.0),
+                A.MotionBlur(p=1.0, blur_limit=3),
+                A.Blur(blur_limit=3, p=1.0),
+                A.MedianBlur(blur_limit=3, p=1.0),
             ],
-            p=0.4,
+            p=0.3,
         ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
-        A.Cutout(p=0.9, num_holes=16, max_h_size=64, max_w_size=64),
+        A.Cutout(p=1.0, num_holes=16, max_h_size=64, max_w_size=64),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,

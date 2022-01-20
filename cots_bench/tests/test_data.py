@@ -67,6 +67,7 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
     sample_idx = 10
     for i in range(20):
         sample = dataset[sample_idx]
+        assert sample["image"].shape == (3, cfg["original_height"], cfg["original_width"])
         plot = draw(image=sample["image"], boxes=sample["boxes"])
         writer.add_image("aug", plot, i)
     writer.flush()
