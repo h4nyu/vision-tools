@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch import Tensor
-from typing import Callable, Any, List, Tuple, Dict
+from typing import Callable, Any, List, Tuple, Dict, Optional
 from typing_extensions import TypedDict
 from torch.cuda.amp import GradScaler, autocast
 import math
@@ -160,7 +160,7 @@ class YOLOX(nn.Module):
         hidden_channels: int,
         num_classes: int,
         box_limit: int = 300,
-        box_iou_threshold: float = 0.5,
+        box_iou_threshold: Optional[float] = None,
         score_threshold: float = 0.5,
         feat_range: Tuple[int, int] = (3, 7),
     ) -> None:
@@ -225,19 +225,24 @@ class YOLOX(nn.Module):
         for r in yolo_batch:
             scores = r[:, 4].sigmoid()
             th_filter = scores > self.score_threshold
-            r = r[th_filter]
-            scores = scores[th_filter]
+            scores, sort_idx = torch.sort(scores[th_filter], descending=True)
+            sort_idx = sort_idx[:self.box_limit]
+            r = r[th_filter][sort_idx]
             boxes = box_convert(r[:, :4], in_fmt="cxcywh", out_fmt="xyxy")
             lables = r[:, 5 : 5 + num_classes].argmax(-1).long()
-            nms_index = batched_nms(
-                boxes=boxes,
-                scores=scores,
-                idxs=lables,
-                iou_threshold=self.box_iou_threshold,
-            )[: self.box_limit]
-            box_batch.append(boxes[nms_index])
-            score_batch.append(scores[nms_index])
-            lable_batch.append(lables[nms_index])
+            if self.box_iou_threshold is not None:
+                nms_index = batched_nms(
+                    boxes=boxes,
+                    scores=scores,
+                    idxs=lables,
+                    iou_threshold=self.box_iou_threshold,
+                )
+                boxes = boxes[nms_index]
+                scores = scores[nms_index]
+                lables = lables[nms_index]
+            box_batch.append(boxes)
+            score_batch.append(scores)
+            lable_batch.append(lables)
         return score_batch, box_batch, lable_batch
 
     def forward(self, image_batch: Tensor) -> TrainBatch:
@@ -268,7 +273,6 @@ class Criterion:
         self.assign = assign
 
         self.box_loss = CIoULoss()
-        # self.obj_loss = nn.BCEWithLogitsLoss(reduction="mean")
         self.obj_loss = FocalLossWithLogits(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
         self.mosaic = BatchMosaic()

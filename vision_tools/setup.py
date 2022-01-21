@@ -21,6 +21,7 @@ setup(
             "kaggle",
             "signate",
             "pandas",
+            "ensemble-boxes",
             "cytoolz",
             "albumentations",
             "scikit-learn",

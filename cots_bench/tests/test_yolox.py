@@ -13,7 +13,7 @@ from cots_bench.yolox import (
     get_checkpoint,
     get_writer,
     get_inference_one,
-    InferenceOne,
+    get_tta_inference_one,
 )
 from vision_tools.assign import SimOTA
 from torch.utils.data import DataLoader
@@ -76,7 +76,7 @@ def batch(rows: List[Row]) -> TrainBatch:
         _,
         rows,
     ) = kfold(rows, cfg["n_splits"], cfg["fold"])
-    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 5), list)
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 0), list)
     dataset = COTSDataset(
         rows[10:],
         transform=Transform(),
@@ -135,4 +135,15 @@ def test_inference_one(rows: List[Row], model: YOLOX, to_device: ToDevice) -> No
         pred = inference_one(img_arr)
         plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
         writer.add_image("inference_one", plot, i)
+    writer.flush()
+
+
+def test_tta(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
+    inference_one = get_tta_inference_one(cfg)
+    for i, row in enumerate(rows[:10]):
+        gt_boxes = row["boxes"]
+        img_arr = np.array(PIL.Image.open(row["image_path"]))
+        pred = inference_one(img_arr)
+        plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
+        writer.add_image("tta_inference_one", plot, i)
     writer.flush()

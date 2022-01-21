@@ -16,7 +16,7 @@ class BatchRelocate:
         self, image: Tensor, boxes: Tensor, labels: Tensor
     ) -> Tuple[Tensor, Tensor, Tensor]:
         n_boxes = boxes.shape[0]
-        if(n_boxes == 0):
+        if n_boxes == 0:
             return image, boxes, labels
 
         box_sizes = boxes[:, 2:] - boxes[:, :2]
@@ -76,7 +76,9 @@ class BatchRelocate:
         device = image_batch.device
         box_batch = batch["box_batch"]
         label_batch = batch["label_batch"]
-        for i, (image, boxes, labels) in enumerate(zip(image_batch, box_batch, label_batch)):
+        for i, (image, boxes, labels) in enumerate(
+            zip(image_batch, box_batch, label_batch)
+        ):
             image, boxes, labels = self._relocate(image, boxes, labels)
             image_batch[i] = image
             box_batch[i] = boxes
@@ -101,9 +103,11 @@ class BatchMosaic:
         label_batch = batch["label_batch"]
         batch_size, _, image_height, image_width = image_batch.shape
         cross_x, cross_y = random.randint(
-            int(image_width * self.width_limit[0]), int(image_width * self.width_limit[1])
+            int(image_width * self.width_limit[0]),
+            int(image_width * self.width_limit[1]),
         ), random.randint(
-            int(image_height * self.height_limit[0]), int(image_height * self.height_limit[1])
+            int(image_height * self.height_limit[0]),
+            int(image_height * self.height_limit[1]),
         )
         split_keys = [
             (0, 0, cross_x, cross_y),
@@ -128,10 +132,17 @@ class BatchMosaic:
                 boxes.clamp(
                     min=min_area,
                     max=max_area,
-                ) if len(boxes) > 0 else boxes
+                )
+                if len(boxes) > 0
+                else boxes
                 for boxes in box_batch
             ]
-            in_area_batch = [box_area(boxes) > 0 if len(boxes) > 0 else torch.zeros(0).bool().to(device) for boxes in cropped_box_batch]
+            in_area_batch = [
+                box_area(boxes) > 0
+                if len(boxes) > 0
+                else torch.zeros(0).bool().to(device)
+                for boxes in cropped_box_batch
+            ]
             splited_box_batch[key] = [
                 b[m] for b, m in zip(cropped_box_batch, in_area_batch)
             ]

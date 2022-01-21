@@ -9,8 +9,8 @@ store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
 feat_range: [3, 5]
-box_iou_threshold: 0.4
-score_threshold: 0.1
+box_iou_threshold: 0.5
+score_threshold: 0.01
 original_width: 1280
 original_height: 720
 # resume_target: current
@@ -45,4 +45,4 @@ val_loader:
   num_workers: 6
 
 n_splits: 5
-fold: 0
+fold: 1

@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 import torch
 import os
 from tqdm import tqdm
+from ensemble_boxes import weighted_boxes_fusion
 from torch import Tensor
 from torch.utils.data import Subset, DataLoader
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
@@ -11,10 +12,12 @@ from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
 from vision_tools.utils import Checkpoint, load_config, batch_draw
+from torchvision.transforms.functional import vflip, hflip
 from torch.utils.tensorboard import SummaryWriter
 import functools
 from datetime import datetime
 from vision_tools.meter import MeanReduceDict
+from vision_tools.box import box_hflip, box_vflip, resize_boxes
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch, TrainSample
 from vision_tools.batch_transform import BatchRemovePadding
@@ -90,6 +93,22 @@ def get_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
     )
 
 
+def get_tta_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
+    model = get_model(cfg)
+    checkpoint = get_checkpoint(cfg)
+    checkpoint.load_if_exists(
+        model=model,
+        device=cfg["device"],
+        target=cfg["resume_target"],
+    )
+
+    return TTAInferenceOne(
+        model=model,
+        transform=InferenceTransform(),
+        to_device=ToDevice(cfg["device"]),
+    )
+
+
 def train() -> None:
     seed_everything()
     cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
@@ -109,7 +128,6 @@ def train() -> None:
     annotations = read_train_rows(cfg["dataset_dir"])
     annotations = filter_empty_boxes(annotations)
     train_rows, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
-    print(len(train_rows), len(validation_rows))
     train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
     train_dataset = COTSDataset(
         train_rows,
@@ -216,4 +234,57 @@ class InferenceOne:
             boxes=pred_batch["box_batch"][0],
             labels=pred_batch["label_batch"][0],
             confs=pred_batch["conf_batch"][0],
+        )
+
+
+class TTAInferenceOne:
+    def __init__(
+        self,
+        model: YOLOX,
+        transform: Any,
+        to_device: ToDevice,
+        postprocess: Optional[Any] = None,
+    ) -> None:
+        self.model = model
+        self.transform = transform
+        self.to_device = to_device
+        self.postprocess = postprocess
+
+    @torch.no_grad()
+    def __call__(self, image: Any) -> TrainSample:
+        self.model.eval()
+        transformed = self.transform(image=image)
+        image = (transformed["image"] / 255).float()
+        _, h, w = image.shape
+        vf_image = vflip(image)
+        hf_image = hflip(image)
+        image_batch = self.to_device(
+            image_batch=torch.stack(
+                [
+                    image,
+                    vf_image,
+                    hf_image,
+                ]
+            )
+        )["image_batch"]
+        pred_batch = self.model(image_batch)
+        boxes = pred_batch["box_batch"][0]
+        vf_boxes = box_vflip(pred_batch["box_batch"][1], image_size=(w, h))
+        hf_boxes = box_hflip(pred_batch["box_batch"][2], image_size=(w, h))
+        np_boxes, np_confs, np_lables = weighted_boxes_fusion(
+            [
+                resize_boxes(boxes, (1/w, 1/h)),
+                resize_boxes(vf_boxes, (1/w, 1/h)),
+                resize_boxes(hf_boxes, (1/w, 1/h)),
+            ],
+            pred_batch["conf_batch"],
+            pred_batch["label_batch"],
+        )
+        if self.postprocess is not None:
+            pred_batch = self.postprocess(pred_batch)
+        return TrainSample(
+            image=pred_batch["image_batch"][0],
+            boxes=resize_boxes(torch.from_numpy(np_boxes), (w, h)),
+            labels=torch.from_numpy(np_lables),
+            confs=torch.from_numpy(np_confs),
         )
