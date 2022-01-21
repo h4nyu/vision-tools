@@ -30,7 +30,7 @@ lr: 1.0e-3
   # nesterov: false
 
 criterion:
-  box_weight: 0.75
+  box_weight: 0.2
   cls_weight: 0.0
 
 train_loader:
@@ -43,6 +43,5 @@ val_loader:
   batch_size: 5
   shuffle: false
   num_workers: 6
-
-n_splits: 5
-fold: 1
+n_splits: 3
+fold: 0

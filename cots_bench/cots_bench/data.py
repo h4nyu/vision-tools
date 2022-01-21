@@ -7,7 +7,7 @@ import numpy as np
 from torch.utils.data import Dataset
 from dataclasses import dataclass
 import pandas as pd
-from toolz.curried import pipe, partition, map, filter
+from toolz.curried import pipe, partition, map, filter, count
 import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
@@ -32,7 +32,7 @@ Row = TypedDict(
 
 
 def read_train_rows(dataset_dir: str) -> List[Row]:
-    row_path = os.path.join(dataset_dir, "train.csv")
+    row_path = os.path.join(dataset_dir, "train.corrected.csv")
     df = pd.read_csv(row_path)
     rows: List[Row] = []
     subsequence = -1
@@ -77,7 +77,7 @@ def kfold(
     skf = GroupKFold(n_splits=n_splits)
     x = range(len(rows))
     y = pipe(rows, map(lambda x: x["video_id"]), list)
-    groups = pipe(rows, map(lambda x: x["sequence"]), list)
+    groups = pipe(rows, map(lambda x: x["video_id"]), list)
     pair_list: List[Tuple[List[int], List[int]]] = []
     for train_index, test_index in skf.split(x, y, groups=groups):
         pair_list.append((train_index, test_index))
@@ -93,10 +93,10 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=
 TrainTransform = lambda cfg: A.Compose(
     [
         A.ShiftScaleRotate(
-            shift_limit=0.0,
+            shift_limit=0.1,
             scale_limit=0.5,
             border_mode=0,
-            rotate_limit=5,
+            rotate_limit=15,
             p=1.0,
         ),
         A.HueSaturationValue(
@@ -141,6 +141,23 @@ class COTSDataset(Dataset):
         self.rows = rows
         self.transform = transform
 
+    def __str__(self) -> None:
+        string = ""
+        string += "\tlen = %d\n" % len(self)
+        zero_count = pipe(self.rows, filter(lambda x: x["boxes"].shape[0] == 0), count)
+        non_zero_count = pipe(
+            self.rows, filter(lambda x: x["boxes"].shape[0] != 0), count
+        )
+        string += "\tzero_count     = %5d (%0.2f)\n" % (
+            zero_count,
+            zero_count / len(self.rows),
+        )
+        string += "\tnon_zero_count = %5d (%0.2f)\n" % (
+            non_zero_count,
+            non_zero_count / len(self.rows),
+        )
+        return string
+
     def __len__(self) -> int:
         return len(self.rows)
 
@@ -184,6 +201,12 @@ def filter_empty_boxes(rows: List[Row]) -> List[Row]:
         list,
     )
 
+def keep_ratio(rows: List[Row]) -> List[Row]:
+    """keep zero and non-zero boxes with 1:4"""
+    no_zero_rows = pipe(rows, filter_empty_boxes, list)
+    non_zero_count = len(no_zero_rows)
+    zero_rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 0), list)[:int(non_zero_count) * 4]
+    return no_zero_rows + zero_rows
 
 def collate_fn(
     batch: List[TrainSample],

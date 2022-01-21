@@ -30,6 +30,7 @@ from cots_bench.data import (
     collate_fn,
     kfold,
     filter_empty_boxes,
+    keep_ratio,
 )
 from cots_bench.metric import BoxF2
 from toolz.curried import pipe, filter
@@ -126,17 +127,17 @@ def train() -> None:
     )
 
     annotations = read_train_rows(cfg["dataset_dir"])
-    annotations = filter_empty_boxes(annotations)
     train_rows, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
-    train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
     train_dataset = COTSDataset(
         train_rows,
         transform=TrainTransform(cfg),
     )
+    print(f"train_dataset={train_dataset}")
     val_dataset = COTSDataset(
-        validation_rows,
+        keep_ratio(validation_rows),
         transform=Transform(),
     )
+    print(f"val_dataset={val_dataset}")
     train_loader = DataLoader(
         train_dataset,
         collate_fn=collate_fn,
@@ -273,9 +274,9 @@ class TTAInferenceOne:
         hf_boxes = box_hflip(pred_batch["box_batch"][2], image_size=(w, h))
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             [
-                resize_boxes(boxes, (1/w, 1/h)),
-                resize_boxes(vf_boxes, (1/w, 1/h)),
-                resize_boxes(hf_boxes, (1/w, 1/h)),
+                resize_boxes(boxes, (1 / w, 1 / h)),
+                resize_boxes(vf_boxes, (1 / w, 1 / h)),
+                resize_boxes(hf_boxes, (1 / w, 1 / h)),
             ],
             pred_batch["conf_batch"],
             pred_batch["label_batch"],
