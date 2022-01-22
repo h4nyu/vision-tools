@@ -4,6 +4,7 @@ import os
 from tqdm import tqdm
 from ensemble_boxes import weighted_boxes_fusion
 from torch import Tensor
+from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import Subset, DataLoader, RandomSampler
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
 from vision_tools.yolox import YOLOX, Criterion, ToBoxes
@@ -37,33 +38,63 @@ from toolz.curried import pipe, partition, map, filter, count, valmap
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:
-    return f"{cfg['name']}-{cfg['fold']}-{cfg['n_splits']}-{cfg['feat_range'][0]}-{cfg['feat_range'][1]}-{cfg['hidden_channels']}-{cfg['backbone_name']}"
+    return pipe(
+        [
+            cfg["name"],
+            cfg["backbone_name"],
+            cfg["hidden_channels"],
+            cfg["fold"],
+            cfg["n_splits"],
+            cfg["image_width"],
+            cfg["image_height"],
+            cfg["fpn_start"],
+            cfg["fpn_end"],
+        ],
+        map(str),
+        "-".join,
+    )
 
 
 def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
     model_name = get_model_name(cfg)
+    writer_name = pipe(
+        [
+            model_name,
+            cfg["lr"],
+            cfg["criterion"]["box_weight"],
+            cfg["assign"]["radius"],
+            "mosaic",
+            "cutout",
+            "scale",
+            "resize",
+        ],
+        map(str),
+        "-".join,
+    )
     return SummaryWriter(
-        f"runs/{model_name}-lr_{cfg['lr']}-box_w_{cfg['criterion']['box_weight']}-radius_{cfg['assign']['radius']}-mosaic-cutout-scale"
+        f"runs/{writer_name}",
     )
 
 
 def get_model(cfg: Dict[str, Any]) -> YOLOX:
     backbone = EfficientNet(name=cfg["backbone_name"])
     neck = CSPPAFPN(
-        in_channels=backbone.channels[cfg["feat_range"][0] : cfg["feat_range"][1]],
-        strides=backbone.strides[cfg["feat_range"][0] : cfg["feat_range"][1]],
+        in_channels=backbone.channels[cfg["fpn_start"] : cfg["fpn_end"]],
+        strides=backbone.strides[cfg["fpn_start"] : cfg["fpn_end"]],
     )
     model = YOLOX(
         backbone=backbone,
         neck=neck,
         hidden_channels=cfg["hidden_channels"],
         num_classes=cfg["num_classes"],
-        feat_range=cfg["feat_range"],
+        feat_range=(cfg["fpn_start"], cfg["fpn_end"]),
     )
     return model
 
+
 def get_to_boxes(cfg: Dict[str, Any]) -> ToBoxes:
     return ToBoxes(**cfg["to_boxes"])
+
 
 def get_criterion(cfg: Dict[str, Any]) -> Criterion:
     assign = SimOTA(**cfg["assign"])
@@ -146,13 +177,16 @@ def train() -> None:
     print(f"train_dataset={train_dataset}")
     val_dataset = COTSDataset(
         keep_ratio(validation_rows),
-        transform=Transform(),
+        transform=Transform(cfg),
     )
     print(f"val_dataset={val_dataset}")
     train_loader = DataLoader(
         train_dataset,
         collate_fn=collate_fn,
-        **cfg["train_loader"],
+        shuffle=True,
+        drop_last=True,
+        batch_size=cfg["train_loader"]["batch_size"] - 1,
+        num_workers=cfg["train_loader"]["num_workers"],
     )
     zero_loader = DataLoader(
         zero_dataset,
@@ -172,6 +206,9 @@ def train() -> None:
     mosaic = BatchMosaic(p=0.3)
     to_boxes = get_to_boxes(cfg)
     iteration = 0
+    use_amp = cfg["use_amp"]
+    scaler = GradScaler(enabled=use_amp)
+
     for epoch in range(cfg["epochs"]):
         model.train()
         meter = MeanReduceDict()
@@ -183,10 +220,12 @@ def train() -> None:
             merged_batch = merge_batch([batch, zero_batch])
             merged_batch = mosaic(merged_batch)
             optimizer.zero_grad()
-            loss, _, other = criterion(model, merged_batch)
-            loss.backward()
-            optimizer.step()
-
+            with autocast(enabled=use_amp):
+                loss, _, other = criterion(model, merged_batch)
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                scaler.step(optimizer)
+                scaler.update()
             meter.accumulate(valmap(lambda x: x.item(), other))
         for k, v in meter.value.items():
             writer.add_scalar(f"train/{k}", v, epoch)
@@ -197,16 +236,19 @@ def train() -> None:
             for batch in tqdm(val_loader, total=len(val_loader)):
                 batch = to_device(**batch)
                 _, pred_yolo_batch, other = criterion(model, batch)
-                pred_box_batch = to_boxes(pred_yolo_batch)['box_batch']
+                pred_box_batch = to_boxes(pred_yolo_batch)["box_batch"]
                 metric.accumulate(pred_box_batch, batch["box_batch"])
                 meter.accumulate(valmap(lambda x: x.item(), other))
             score, other_log = metric.value
             writer.add_scalar(f"val/score", score, epoch)
             for k, v in other_log.items():
                 writer.add_scalar(f"val/{k}", v, epoch)
+            print(metric.value)
+            print(meter.value)
             for k, v in meter.value.items():
                 writer.add_scalar(f"val/{k}", v, epoch)
             checkpoint.save_if_needed(model, score)
+        writer.flush()
 
 
 @torch.no_grad()
@@ -222,7 +264,7 @@ def evaluate() -> None:
     # train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
     dataset = COTSDataset(
         annotations,
-        transform=Transform(),
+        transform=Transform(cfg),
     )
     loader = DataLoader(
         dataset,

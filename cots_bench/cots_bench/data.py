@@ -92,11 +92,16 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_area=14)
 
 TrainTransform = lambda cfg: A.Compose(
     [
+        A.Resize(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            interpolation=PIL.Image.BILINEAR,
+        ),
         A.ShiftScaleRotate(
             shift_limit=0.1,
             scale_limit=0.5,
             border_mode=0,
-            rotate_limit=15,
+            rotate_limit=90,
             p=1.0,
         ),
         A.HueSaturationValue(
@@ -118,8 +123,13 @@ TrainTransform = lambda cfg: A.Compose(
     ],
     bbox_params=bbox_params,
 )
-Transform = lambda: A.Compose(
+Transform = lambda cfg: A.Compose(
     [
+        A.Resize(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            interpolation=PIL.Image.BILINEAR,
+        ),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,

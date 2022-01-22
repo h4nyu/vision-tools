@@ -1,14 +1,18 @@
 name: yolox
 
 device: cuda
-use_amp: false
+use_amp: true
 epochs: 999
-hidden_channels: 128
+hidden_channels: 64
 dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
-feat_range: [3, 5]
+fpn_start: 3
+fpn_end: 5
+image_width: 1536
+image_height: 860
+
 original_width: 1280
 original_height: 720
 
@@ -22,7 +26,6 @@ to_boxes:
   iou_threshold: 0.5
   conf_threshold: 0.5
   limit: 1000
-
 
 assign:
   topk: 9
@@ -40,14 +43,13 @@ criterion:
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 5
+  batch_size: 9
   shuffle: true
   num_workers: 6
   drop_last: false
 
 val_loader:
   batch_size: 5
-  shuffle: false
   num_workers: 6
 
 n_splits: 5

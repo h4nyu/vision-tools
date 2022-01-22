@@ -34,21 +34,6 @@ class DecoupledHead(nn.Module):
             act=act,
         )
 
-        self.obj_branch = nn.Sequential(
-            Conv(
-                in_channels=hidden_channels,
-                out_channels=hidden_channels,
-                kernel_size=3,
-                act=act,
-            ),
-            Conv(
-                in_channels=hidden_channels,
-                out_channels=hidden_channels,
-                kernel_size=3,
-                act=act,
-            ),
-        )
-
         self.reg_branch = nn.Sequential(
             Conv(
                 in_channels=hidden_channels,
@@ -117,10 +102,9 @@ class DecoupledHead(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         stem = self.stem(x)
         reg_feat = self.reg_branch(stem)
-        obj_feat = self.obj_branch(stem)
         cls_feat = self.cls_branch(stem)
         reg_out = self.reg_out(reg_feat)
-        obj_out = self.obj_out(obj_feat)
+        obj_out = self.obj_out(reg_feat)
         cls_out = self.cls_out(cls_feat)
         return torch.cat([reg_out, obj_out, cls_out], dim=1)
 
@@ -216,12 +200,12 @@ class YOLOX(nn.Module):
 class ToBoxes:
     def __init__(
         self,
-        box_limit: int = 300,
-        box_iou_threshold: Optional[float] = None,
+        limit: int = 300,
+        iou_threshold: Optional[float] = None,
         conf_threshold: float = 0.5,
     ):
-        self.box_limit = box_limit
-        self.box_iou_threshold = box_iou_threshold
+        self.limit = limit
+        self.iou_threshold = iou_threshold
         self.conf_threshold = conf_threshold
 
     @torch.no_grad()
@@ -233,16 +217,16 @@ class ToBoxes:
             scores = r[:, 4].sigmoid()
             th_filter = scores > self.conf_threshold
             scores, sort_idx = torch.sort(scores[th_filter], descending=True)
-            sort_idx = sort_idx[: self.box_limit]
+            sort_idx = sort_idx[: self.limit]
             r = r[th_filter][sort_idx]
             boxes = box_convert(r[:, :4], in_fmt="cxcywh", out_fmt="xyxy")
             lables = r[:, 5 : 5 + num_classes].argmax(-1).long()
-            if self.box_iou_threshold is not None:
+            if self.iou_threshold is not None:
                 nms_index = batched_nms(
                     boxes=boxes,
                     scores=scores,
                     idxs=lables,
-                    iou_threshold=self.box_iou_threshold,
+                    iou_threshold=self.iou_threshold,
                 )
                 boxes = boxes[nms_index]
                 scores = scores[nms_index]
@@ -292,7 +276,7 @@ class Criterion:
         # 1-stage
         obj_loss = (
             self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
-            / matched_count
+            / matched_count.clamp(min=1)
         )
         box_loss, cls_loss = (
             torch.tensor(0.0).to(device),

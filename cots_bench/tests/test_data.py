@@ -35,7 +35,7 @@ if no_volume:
 
 @pytest.fixture
 def transform() -> Any:
-    return Transform()
+    return Transform(cfg)
 
 
 @pytest.fixture
@@ -69,8 +69,8 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
         sample = dataset[sample_idx]
         assert sample["image"].shape == (
             3,
-            cfg["original_height"],
-            cfg["original_width"],
+            cfg["image_height"],
+            cfg["image_width"],
         )
         plot = draw(image=sample["image"], boxes=sample["boxes"])
         writer.add_image("aug", plot, i)

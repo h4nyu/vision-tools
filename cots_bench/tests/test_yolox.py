@@ -65,6 +65,7 @@ def criterion() -> Criterion:
 def to_device() -> ToDevice:
     return ToDevice(cfg["device"])
 
+
 @pytest.fixture
 def to_boxes() -> ToBoxes:
     return get_to_boxes(cfg)
@@ -84,7 +85,7 @@ def batch(rows: List[Row]) -> TrainBatch:
     rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 4), list)
     dataset = COTSDataset(
         rows[10:],
-        transform=Transform(),
+        transform=Transform(cfg),
     )
     loader_iter = iter(DataLoader(dataset, collate_fn=collate_fn, batch_size=1))
     return next(loader_iter)
@@ -92,7 +93,11 @@ def batch(rows: List[Row]) -> TrainBatch:
 
 @torch.no_grad()
 def test_assign(
-    batch: TrainBatch, model: YOLOX, criterion: Criterion, to_device: ToDevice, to_boxes: ToBoxes,
+    batch: TrainBatch,
+    model: YOLOX,
+    criterion: Criterion,
+    to_device: ToDevice,
+    to_boxes: ToBoxes,
 ) -> None:
     model.eval()
     batch = to_device(**batch)
