@@ -91,12 +91,16 @@ class BatchMosaic:
         self,
         width_limit: Tuple[float, float] = (1 / 5, 4 / 5),
         height_limit: Tuple[float, float] = (1 / 5, 4 / 5),
+        p: float = 0.5,
     ) -> None:
         self.width_limit = width_limit
         self.height_limit = height_limit
+        self.p = p
 
     @torch.no_grad()
     def __call__(self, batch: TrainBatch) -> TrainBatch:
+        if random.uniform(0, 1) > self.p:
+            return batch
         image_batch = batch["image_batch"]
         device = image_batch.device
         box_batch = batch["box_batch"]

@@ -24,6 +24,9 @@ from vision_tools import (
 )
 from torchvision.utils import save_image
 from torch.nn.functional import interpolate
+from .interface import (
+    TrainBatch,
+)
 
 
 logger = getLogger(__name__)
@@ -306,3 +309,18 @@ def batch_draw(
             )
         ]
     )
+
+
+def merge_batch(batches: List[TrainBatch]) -> TrainBatch:
+    image_batch = torch.cat([batch["image_batch"] for batch in batches])
+    box_batch, label_batch, conf_batch = [], [], []
+    for batch in batches:
+        box_batch.extend(batch["box_batch"])
+        label_batch.extend(batch["label_batch"])
+        conf_batch.extend(batch["conf_batch"])
+    return {
+        "image_batch": image_batch,
+        "box_batch": box_batch,
+        "label_batch": label_batch,
+        "conf_batch": conf_batch,
+    }

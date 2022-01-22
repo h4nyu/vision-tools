@@ -4,14 +4,14 @@ import os
 from tqdm import tqdm
 from ensemble_boxes import weighted_boxes_fusion
 from torch import Tensor
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import Subset, DataLoader, RandomSampler
 from vision_tools.utils import seed_everything, Checkpoint, ToDevice
-from vision_tools.yolox import YOLOX, Criterion, Inference
+from vision_tools.yolox import YOLOX, Criterion, ToBoxes
 from vision_tools.backbone import CSPDarknet, EfficientNet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
-from vision_tools.utils import Checkpoint, load_config, batch_draw
+from vision_tools.utils import Checkpoint, load_config, batch_draw, merge_batch
 from torchvision.transforms.functional import vflip, hflip
 from torch.utils.tensorboard import SummaryWriter
 import functools
@@ -20,7 +20,7 @@ from vision_tools.meter import MeanReduceDict
 from vision_tools.box import box_hflip, box_vflip, resize_boxes
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch, TrainSample
-from vision_tools.batch_transform import BatchRemovePadding
+from vision_tools.batch_transform import BatchMosaic
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
@@ -33,7 +33,7 @@ from cots_bench.data import (
     keep_ratio,
 )
 from cots_bench.metric import BoxF2
-from toolz.curried import pipe, filter
+from toolz.curried import pipe, partition, map, filter, count, valmap
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:
@@ -59,11 +59,11 @@ def get_model(cfg: Dict[str, Any]) -> YOLOX:
         hidden_channels=cfg["hidden_channels"],
         num_classes=cfg["num_classes"],
         feat_range=cfg["feat_range"],
-        box_iou_threshold=cfg["box_iou_threshold"],
-        score_threshold=cfg["score_threshold"],
     )
     return model
 
+def get_to_boxes(cfg: Dict[str, Any]) -> ToBoxes:
+    return ToBoxes(**cfg["to_boxes"])
 
 def get_criterion(cfg: Dict[str, Any]) -> Criterion:
     assign = SimOTA(**cfg["assign"])
@@ -94,7 +94,7 @@ def get_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
     )
 
 
-def get_tta_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
+def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
     model = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
     checkpoint.load_if_exists(
@@ -128,10 +128,21 @@ def train() -> None:
 
     annotations = read_train_rows(cfg["dataset_dir"])
     train_rows, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
+    train_non_zero_rows = pipe(
+        train_rows, filter(lambda x: x["boxes"].shape[0] > 0), list
+    )
+    train_zero_rows = pipe(train_rows, filter(lambda x: x["boxes"].shape[0] == 0), list)
+
     train_dataset = COTSDataset(
-        train_rows,
+        train_non_zero_rows,
         transform=TrainTransform(cfg),
     )
+
+    zero_dataset = COTSDataset(
+        train_zero_rows,
+        transform=TrainTransform(cfg),
+    )
+
     print(f"train_dataset={train_dataset}")
     val_dataset = COTSDataset(
         keep_ratio(validation_rows),
@@ -143,37 +154,59 @@ def train() -> None:
         collate_fn=collate_fn,
         **cfg["train_loader"],
     )
+    zero_loader = DataLoader(
+        zero_dataset,
+        sampler=RandomSampler(zero_dataset),
+        batch_size=1,
+        drop_last=True,
+        num_workers=0,
+        collate_fn=collate_fn,
+    )
     val_loader = DataLoader(
         val_dataset,
         collate_fn=collate_fn,
         **cfg["val_loader"],
     )
     to_device = ToDevice(cfg["device"])
+    metric = BoxF2(iou_thresholds=cfg["val_iou_thresholds"])
+    mosaic = BatchMosaic(p=0.3)
+    to_boxes = get_to_boxes(cfg)
+    iteration = 0
+    for epoch in range(cfg["epochs"]):
+        model.train()
+        meter = MeanReduceDict()
+        for (batch, zero_batch) in tqdm(
+            zip(train_loader, zero_loader), total=len(train_loader)
+        ):
+            batch = to_device(**batch)
+            zero_batch = to_device(**zero_batch)
+            merged_batch = merge_batch([batch, zero_batch])
+            merged_batch = mosaic(merged_batch)
+            optimizer.zero_grad()
+            loss, _, other = criterion(model, merged_batch)
+            loss.backward()
+            optimizer.step()
 
-    train_step = TrainStep[YOLOX, TrainBatch](
-        to_device=to_device,
-        criterion=criterion,
-        optimizer=optimizer,
-        loader=train_loader,
-        meter=MeanReduceDict(),
-        writer=writer,
-        checkpoint=checkpoint,
-        use_amp=cfg["use_amp"],
-    )
-    metric = BoxF2()
+            meter.accumulate(valmap(lambda x: x.item(), other))
+        for k, v in meter.value.items():
+            writer.add_scalar(f"train/{k}", v, epoch)
 
-    eval_step = EvalStep[YOLOX, TrainBatch](
-        to_device=to_device,
-        loader=val_loader,
-        metric=metric,
-        writer=writer,
-        inference=Inference(),
-        checkpoint=checkpoint,
-    )
-
-    for epoch in range(cfg["num_epochs"]):
-        train_step(model, epoch)
-        eval_step(model, epoch)
+        model.eval()
+        meter = MeanReduceDict()
+        with torch.no_grad():
+            for batch in tqdm(val_loader, total=len(val_loader)):
+                batch = to_device(**batch)
+                _, pred_yolo_batch, other = criterion(model, batch)
+                pred_box_batch = to_boxes(pred_yolo_batch)['box_batch']
+                metric.accumulate(pred_box_batch, batch["box_batch"])
+                meter.accumulate(valmap(lambda x: x.item(), other))
+            score, other_log = metric.value
+            writer.add_scalar(f"val/score", score, epoch)
+            for k, v in other_log.items():
+                writer.add_scalar(f"val/{k}", v, epoch)
+            for k, v in meter.value.items():
+                writer.add_scalar(f"val/{k}", v, epoch)
+            checkpoint.save_if_needed(model, score)
 
 
 @torch.no_grad()
@@ -199,6 +232,7 @@ def evaluate() -> None:
     to_device = ToDevice(cfg["device"])
     metric = BoxF2()
     model.eval()
+
     for i, batch in enumerate(tqdm(loader, total=len(loader))):
         batch = to_device(**batch)
         pred_batch = model(batch["image_batch"])

@@ -14,10 +14,11 @@ from cots_bench.yolox import (
     get_writer,
     get_inference_one,
     get_tta_inference_one,
+    get_to_boxes,
 )
 from vision_tools.assign import SimOTA
 from torch.utils.data import DataLoader
-from vision_tools.yolox import YOLOX, Criterion
+from vision_tools.yolox import YOLOX, Criterion, ToBoxes
 from vision_tools.interface import TrainBatch
 from vision_tools.utils import draw, batch_draw, seed_everything, load_config, ToDevice
 from vision_tools.batch_transform import BatchRemovePadding
@@ -64,6 +65,10 @@ def criterion() -> Criterion:
 def to_device() -> ToDevice:
     return ToDevice(cfg["device"])
 
+@pytest.fixture
+def to_boxes() -> ToBoxes:
+    return get_to_boxes(cfg)
+
 
 @pytest.fixture
 def rows() -> List[Row]:
@@ -87,15 +92,14 @@ def batch(rows: List[Row]) -> TrainBatch:
 
 @torch.no_grad()
 def test_assign(
-    batch: TrainBatch, model: YOLOX, criterion: Criterion, to_device: ToDevice
+    batch: TrainBatch, model: YOLOX, criterion: Criterion, to_device: ToDevice, to_boxes: ToBoxes,
 ) -> None:
     model.eval()
     batch = to_device(**batch)
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
     image_batch = batch["image_batch"]
-    feats = model.feats(image_batch)
-    pred_yolo_batch = model.box_branch(feats)
+    pred_yolo_batch = model(batch)
     gt_yolo_batch, pos_idx = criterion.prepeare_box_gt(
         model.num_classes, gt_box_batch, gt_label_batch, pred_yolo_batch
     )
@@ -117,7 +121,7 @@ def test_assign(
         image_batch=image_batch, box_batch=box_batch, point_batch=point_batch
     )
     writer.add_image("assign", plot, 1)
-    score_batch, box_batch, label_batch = model.to_boxes(pred_yolo_batch)
+    box_batch = to_boxes(pred_yolo_batch)["box_batch"]
     plot = batch_draw(image_batch=image_batch, box_batch=box_batch)
     writer.add_image("assign", plot, 2)
     writer.flush()

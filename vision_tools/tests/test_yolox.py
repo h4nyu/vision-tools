@@ -35,8 +35,6 @@ def model() -> YOLOX:
         hidden_channels=64,
         num_classes=num_classes,
         feat_range=feat_range,
-        box_iou_threshold=0.1,
-        score_threshold=0.0,
     )
 
 
@@ -127,27 +125,6 @@ def test_criterion(
     model: YOLOX,
 ) -> None:
     criterion(model, inputs)
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda")
-def test_train_step(
-    criterion: Criterion,
-    model: YOLOX,
-    inputs: TrainBatch,
-    loader: DataLoader[TrainBatch],
-) -> None:
-    model.to("cuda")
-    optimizer = optim.Adam(model.parameters())
-    writer = SummaryWriter()
-    train_step = TrainStep[YOLOX, TrainBatch](
-        to_device=ToDevice("cuda"),
-        criterion=criterion,
-        optimizer=optimizer,
-        loader=loader,
-        meter=MeanReduceDict(),
-        writer=writer,
-    )
-    train_step(model)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda")

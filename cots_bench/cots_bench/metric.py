@@ -47,8 +47,10 @@ class BoxF2:
             recall=recall,
         )
 
-    def accumulate(self, pred_batch: TrainBatch, gt_batch: TrainBatch) -> None:
-        for pred_boxes, gt_boxes in zip(pred_batch["box_batch"], gt_batch["box_batch"]):
+    def accumulate(
+        self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
+    ) -> None:
+        for pred_boxes, gt_boxes in zip(pred_box_batch, gt_box_batch):
             for iou_threshold in self.iou_thresholds:
                 correct = self.correct_at_iou_thr(pred_boxes, gt_boxes, iou_threshold)
                 self.correct["tp"] += correct["tp"]

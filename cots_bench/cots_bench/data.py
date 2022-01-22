@@ -77,7 +77,7 @@ def kfold(
     skf = GroupKFold(n_splits=n_splits)
     x = range(len(rows))
     y = pipe(rows, map(lambda x: x["video_id"]), list)
-    groups = pipe(rows, map(lambda x: x["video_id"]), list)
+    groups = pipe(rows, map(lambda x: x["sequence"]), list)
     pair_list: List[Tuple[List[int], List[int]]] = []
     for train_index, test_index in skf.split(x, y, groups=groups):
         pair_list.append((train_index, test_index))
@@ -88,7 +88,7 @@ def kfold(
     )
 
 
-bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_visibility=0.75)
+bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_area=14)
 
 TrainTransform = lambda cfg: A.Compose(
     [
@@ -141,7 +141,7 @@ class COTSDataset(Dataset):
         self.rows = rows
         self.transform = transform
 
-    def __str__(self) -> None:
+    def __str__(self) -> str:
         string = ""
         string += "\tlen = %d\n" % len(self)
         zero_count = pipe(self.rows, filter(lambda x: x["boxes"].shape[0] == 0), count)
@@ -201,12 +201,16 @@ def filter_empty_boxes(rows: List[Row]) -> List[Row]:
         list,
     )
 
+
 def keep_ratio(rows: List[Row]) -> List[Row]:
     """keep zero and non-zero boxes with 1:4"""
     no_zero_rows = pipe(rows, filter_empty_boxes, list)
     non_zero_count = len(no_zero_rows)
-    zero_rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 0), list)[:int(non_zero_count) * 4]
+    zero_rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 0), list)[
+        : int(non_zero_count) * 4
+    ]
     return no_zero_rows + zero_rows
+
 
 def collate_fn(
     batch: List[TrainSample],

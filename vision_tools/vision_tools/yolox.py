@@ -13,7 +13,6 @@ from .interface import FPNLike, BackboneLike, TrainBatch
 from .assign import SimOTA
 from .loss import CIoULoss, FocalLossWithLogits, DIoULoss
 from .anchors import Anchor
-from .batch_transform import BatchMosaic, BatchRelocate
 from toolz import valmap
 
 
@@ -159,9 +158,6 @@ class YOLOX(nn.Module):
         neck: FPNLike,
         hidden_channels: int,
         num_classes: int,
-        box_limit: int = 300,
-        box_iou_threshold: Optional[float] = None,
-        score_threshold: float = 0.5,
         feat_range: Tuple[int, int] = (3, 7),
     ) -> None:
         super().__init__()
@@ -169,11 +165,8 @@ class YOLOX(nn.Module):
         self.neck = neck
         self.feat_range = feat_range
         self.num_classes = num_classes
-        self.box_limit = box_limit
         self.strides = self.backbone.strides
         self.box_strides = self.strides[self.feat_range[0] : self.feat_range[1]]
-        self.box_iou_threshold = box_iou_threshold
-        self.score_threshold = score_threshold
 
         self.box_head = YOLOXHead(
             in_channels=backbone.channels[self.feat_range[0] : self.feat_range[1]],
@@ -215,18 +208,32 @@ class YOLOX(nn.Module):
         feats = feats[self.feat_range[0] : self.feat_range[1]]
         return self.neck(feats)
 
+    def forward(self, image_batch: Tensor) -> Tensor:
+        feats = self.feats(image_batch)
+        return self.box_branch(feats)
+
+
+class ToBoxes:
+    def __init__(
+        self,
+        box_limit: int = 300,
+        box_iou_threshold: Optional[float] = None,
+        conf_threshold: float = 0.5,
+    ):
+        self.box_limit = box_limit
+        self.box_iou_threshold = box_iou_threshold
+        self.conf_threshold = conf_threshold
+
     @torch.no_grad()
-    def to_boxes(
-        self, yolo_batch: Tensor
-    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
-        score_batch, box_batch, lable_batch = [], [], []
+    def __call__(self, yolo_batch: Tensor) -> Dict[str, List[Tensor]]:
+        conf_batch, box_batch, label_batch = [], [], []
         device = yolo_batch.device
-        num_classes = self.num_classes
+        num_classes = yolo_batch.shape[-1] - 5
         for r in yolo_batch:
             scores = r[:, 4].sigmoid()
-            th_filter = scores > self.score_threshold
+            th_filter = scores > self.conf_threshold
             scores, sort_idx = torch.sort(scores[th_filter], descending=True)
-            sort_idx = sort_idx[:self.box_limit]
+            sort_idx = sort_idx[: self.box_limit]
             r = r[th_filter][sort_idx]
             boxes = box_convert(r[:, :4], in_fmt="cxcywh", out_fmt="xyxy")
             lables = r[:, 5 : 5 + num_classes].argmax(-1).long()
@@ -241,20 +248,9 @@ class YOLOX(nn.Module):
                 scores = scores[nms_index]
                 lables = lables[nms_index]
             box_batch.append(boxes)
-            score_batch.append(scores)
-            lable_batch.append(lables)
-        return score_batch, box_batch, lable_batch
-
-    def forward(self, image_batch: Tensor) -> TrainBatch:
-        feats = self.feats(image_batch)
-        yolo_batch = self.box_branch(feats)
-        conf_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
-        return dict(
-            image_batch=image_batch,
-            box_batch=box_batch,
-            label_batch=label_batch,
-            conf_batch=conf_batch,
-        )
+            conf_batch.append(scores)
+            label_batch.append(lables)
+        return dict(box_batch=box_batch, conf_batch=conf_batch, label_batch=label_batch)
 
 
 class Criterion:
@@ -275,14 +271,12 @@ class Criterion:
         self.box_loss = CIoULoss()
         self.obj_loss = FocalLossWithLogits(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
-        self.mosaic = BatchMosaic()
 
     def __call__(
         self,
         model: YOLOX,
         inputs: TrainBatch,
-    ) -> Tuple[Tensor, Dict[str, Tensor]]:
-        inputs = self.mosaic(inputs)
+    ) -> Tuple[Tensor, Tensor, Dict[str, Tensor]]:
         images = inputs["image_batch"]
         gt_box_batch = inputs["box_batch"]
         gt_label_batch = inputs["label_batch"]
@@ -326,6 +320,7 @@ class Criterion:
         )
         return (
             loss,
+            pred_yolo_batch,
             dict(loss=loss, obj_loss=obj_loss, box_loss=box_loss, cls_loss=cls_loss),
         )
 
