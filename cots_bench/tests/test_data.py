@@ -17,6 +17,7 @@ from cots_bench.data import (
     to_submission_string,
     filter_empty_boxes,
 )
+from cots_bench.transform import RandomCutAndPaste
 from vision_tools.utils import batch_draw, draw, load_config
 from vision_tools.batch_transform import BatchMosaic, BatchRelocate
 from torch.utils.tensorboard import SummaryWriter
@@ -108,3 +109,16 @@ def test_fold(rows: List[Row]) -> None:
     test_groups = pipe(test_rows, map(lambda x: x["sequence"]), set)
     for i in train_groups:
         assert i not in test_groups
+
+
+def test_cut_and_paste(rows: List[Row]) -> None:
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 0), list)
+    dataset = COTSDataset(rows, transform=Transform(cfg))
+    t = RandomCutAndPaste()
+
+    for i in range(5):
+        sample = dataset[0]
+        sample = t(sample)
+        plot = draw(image=sample["image"], boxes=sample["boxes"])
+        writer.add_image("random_cut_and_paste", plot, i)
+    writer.flush()

@@ -274,10 +274,9 @@ class Criterion:
         matched_count = pos_idx.sum()
 
         # 1-stage
-        obj_loss = (
-            self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
-            / matched_count.clamp(min=1)
-        )
+        obj_loss = self.obj_loss(
+            pred_yolo_batch[..., 4], gt_yolo_batch[..., 4]
+        ) / matched_count.clamp(min=1)
         box_loss, cls_loss = (
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),

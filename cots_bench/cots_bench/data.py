@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple, Dict
+from typing import Any, List, Tuple, Dict, Optional
 from typing_extensions import TypedDict
 from torch import Tensor
 import json
@@ -15,6 +15,7 @@ from vision_tools.transforms import normalize, inv_normalize
 from vision_tools.interface import TrainSample
 from sklearn.model_selection import GroupKFold
 from vision_tools.interface import TrainBatch, TrainSample
+from cots_bench.transform import RandomCutAndPaste
 from torchvision.ops import box_convert, clip_boxes_to_image
 
 
@@ -99,7 +100,7 @@ TrainTransform = lambda cfg: A.Compose(
         ),
         A.ShiftScaleRotate(
             shift_limit=0.1,
-            scale_limit=0.5,
+            scale_limit=(-0.5, 1.0),
             border_mode=0,
             rotate_limit=90,
             p=1.0,
@@ -147,9 +148,11 @@ class COTSDataset(Dataset):
         self,
         rows: List[Row],
         transform: Any,
+        random_cut_and_paste: Optional[RandomCutAndPaste] = None,
     ) -> None:
         self.rows = rows
         self.transform = transform
+        self.random_cut_and_paste = random_cut_and_paste
 
     def __str__(self) -> str:
         string = ""
@@ -188,13 +191,15 @@ class COTSDataset(Dataset):
         image = (transformed["image"] / 255).float()
         boxes = torch.tensor(transformed["bboxes"]).float()
         labels = torch.zeros(len(boxes)).long()
-        return TrainSample(
+        sample = TrainSample(
             image=image,
             boxes=boxes,
             labels=labels,
             confs=confs,
         )
-
+        if(self.random_cut_and_paste is not None):
+            sample = self.random_cut_and_paste(sample)
+        return sample
 
 def to_submission_string(boxes: Tensor, confs: Tensor) -> str:
     cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="xywh")

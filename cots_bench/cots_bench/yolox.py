@@ -12,6 +12,8 @@ from vision_tools.backbone import CSPDarknet, EfficientNet
 from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
+from vision_tools.optim import Lookahead
+from torch.optim import Adam
 from vision_tools.utils import Checkpoint, load_config, batch_draw, merge_batch
 from torchvision.transforms.functional import vflip, hflip
 from torch.utils.tensorboard import SummaryWriter
@@ -34,6 +36,7 @@ from cots_bench.data import (
     keep_ratio,
 )
 from cots_bench.metric import BoxF2
+from cots_bench.transform import RandomCutAndPaste
 from toolz.curried import pipe, partition, map, filter, count, valmap
 
 
@@ -65,8 +68,9 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             cfg["assign"]["radius"],
             "mosaic",
             "cutout",
-            "scale",
-            "resize",
+            "scale-0.5-1.0",
+            "roteate90",
+            "cut_and_paste",
         ],
         map(str),
         "-".join,
@@ -148,8 +152,14 @@ def train() -> None:
     writer = get_writer(cfg)
     model = get_model(cfg)
     criterion = get_criterion(cfg)
-    optimizer = torch.optim.Adam(model.parameters(), lr=cfg["lr"])
-
+    optimizer = Lookahead(
+        Adam(
+            model.parameters(),
+            lr=cfg["lr"],
+        ),
+        k=cfg["lookahead_k"],
+        alpha=cfg["lookahead_alpha"],
+    )
     checkpoint.load_if_exists(
         model=model,
         optimizer=optimizer,
@@ -167,6 +177,7 @@ def train() -> None:
     train_dataset = COTSDataset(
         train_non_zero_rows,
         transform=TrainTransform(cfg),
+        random_cut_and_paste=RandomCutAndPaste(),
     )
 
     zero_dataset = COTSDataset(
@@ -247,7 +258,7 @@ def train() -> None:
             print(meter.value)
             for k, v in meter.value.items():
                 writer.add_scalar(f"val/{k}", v, epoch)
-            checkpoint.save_if_needed(model, score)
+            checkpoint.save_if_needed(model, score, optimizer=optimizer)
         writer.flush()
 
 
