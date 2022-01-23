@@ -64,7 +64,7 @@ def test_batch(train_transform: Any, rows: List[Row]) -> None:
 
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
-    dataset = COTSDataset(rows, transform=train_transform)
+    dataset = COTSDataset(rows, transform=train_transform, random_cut_and_paste=RandomCutAndPaste())
     sample_idx = 10
     for i in range(20):
         sample = dataset[sample_idx]

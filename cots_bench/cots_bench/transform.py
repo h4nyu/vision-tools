@@ -15,7 +15,6 @@ class RandomCutAndPaste:
     ) -> None:
         self.radius = radius
         self.mask = self._make_mask(mask_size)
-        print(self.mask)
 
     @torch.no_grad()
     def _make_mask(self, mask_size: int) -> Tensor:
@@ -40,50 +39,59 @@ class RandomCutAndPaste:
         if len(boxes) == 0:
             return sample
 
+        device = image.device
         _, H, W = image.shape
         paste_image = image.clone()
         cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
         u = np.random.choice(len(boxes))
         cut_box = boxes[u]
+        cut_label = sample["labels"][u]
+        cut_conf = sample["confs"][u]
         cut_cxcywh = cxcywhs[u]
+        paste_width = int(cut_cxcywh[2])
+        paste_height = int(cut_cxcywh[3])
+        paste_x0 = torch.randint(
+            int(cut_box[0] - self.radius), int(cut_box[0] + self.radius), (1,)
+        ).clamp(min=0, max=W - paste_width)
+        paste_y0 = torch.randint(
+            int(cut_box[1] - self.radius), int(cut_box[1] + self.radius), (1,)
+        ).clamp(min=0, max=H - paste_height)
 
-        paste_x0y0 = cut_cxcywh[:2] + np.random.randint(
-            -self.radius, self.radius, size=2
+        paste_box = torch.cat(
+            [paste_x0, paste_y0, paste_x0 + paste_width, paste_y0 + paste_height]
         )
-        paste_wh = cut_cxcywh[2:]
-        print(paste_wh)
-        paste_box = torch.cat([paste_x0y0, paste_x0y0 + paste_wh])
 
         blend_mask = F.interpolate(
             self.mask,
-            size=(int(paste_wh[0]), int(paste_wh[1])),
+            size=(paste_height, paste_width),
             mode="nearest",
         )[0]
-        print(blend_mask.shape)
         paste_image[
             :,
-            int(paste_box[1]) : int(paste_box[1]) + int(paste_wh[1]),
-            int(paste_box[0]) : int(paste_box[0]) + int(paste_wh[0]),
+            int(paste_box[1]) : int(paste_box[1]) + paste_height,
+            int(paste_box[0]) : int(paste_box[0]) + paste_width,
         ] = (
             blend_mask
             * image[
                 :,
-                int(cut_box[1]) : int(cut_box[1]) + int(paste_wh[1]),
-                int(cut_box[0]) : int(cut_box[0]) + int(paste_wh[0]),
+                int(cut_box[1]) : int(cut_box[1]) + paste_height,
+                int(cut_box[0]) : int(cut_box[0]) + paste_width,
             ]
             + (1 - blend_mask)
             * image[
                 :,
-                int(paste_box[1]) : int(paste_box[1]) + int(paste_wh[1]),
-                int(paste_box[0]) : int(paste_box[0]) + int(paste_wh[0]),
+                int(paste_box[1]) : int(paste_box[1]) + paste_height,
+                int(paste_box[0]) : int(paste_box[0]) + paste_width,
             ]
         )
 
         pasted_boxes = torch.cat([boxes, paste_box.unsqueeze(0)])
+        pasted_labels = torch.cat([sample["labels"], cut_label.unsqueeze(0)])
+        pasted_confs = torch.cat([sample["confs"], cut_conf.unsqueeze(0)])
 
         return {
             "image": paste_image,
             "boxes": pasted_boxes,
-            "labels": sample["labels"],
-            "confs": sample["confs"],
+            "labels": pasted_labels,
+            "confs": pasted_confs,
         }

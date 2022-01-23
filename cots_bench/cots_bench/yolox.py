@@ -152,13 +152,9 @@ def train() -> None:
     writer = get_writer(cfg)
     model = get_model(cfg)
     criterion = get_criterion(cfg)
-    optimizer = Lookahead(
-        Adam(
-            model.parameters(),
-            lr=cfg["lr"],
-        ),
-        k=cfg["lookahead_k"],
-        alpha=cfg["lookahead_alpha"],
+    optimizer = Adam(
+        model.parameters(),
+        lr=cfg["lr"],
     )
     checkpoint.load_if_exists(
         model=model,
