@@ -64,14 +64,14 @@ def test_batch(train_transform: Any, rows: List[Row]) -> None:
 
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 10), list)
     dataset = COTSDataset(
         rows,
         transform=train_transform,
-        random_cut_and_paste=RandomCutAndPaste(use_hflip=True),
+        random_cut_and_paste=RandomCutAndPaste(use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(0.5, 1.7)),
     )
-    sample_idx = 10
     for i in range(20):
-        sample = dataset[sample_idx]
+        sample = dataset[0]
         assert sample["image"].shape == (
             3,
             cfg["image_height"],

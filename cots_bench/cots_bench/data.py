@@ -119,7 +119,7 @@ TrainTransform = lambda cfg: A.Compose(
         ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
-        A.Cutout(p=1.0, num_holes=16, max_h_size=64, max_w_size=64),
+        # A.Cutout(p=1.0, num_holes=16, max_h_size=64, max_w_size=64),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,

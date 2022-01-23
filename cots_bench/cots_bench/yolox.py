@@ -67,7 +67,6 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             cfg["criterion"]["box_weight"],
             cfg["assign"]["radius"],
             "mosaic",
-            "cutout",
             "scale-0.5-1.0",
             "cut_and_paste",
             "roteate90",

@@ -10,6 +10,7 @@ depth: 1
 num_classes: 1
 fpn_start: 3
 fpn_end: 5
+
 image_width: 1536
 image_height: 860
 
@@ -45,7 +46,7 @@ criterion:
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 8
+  batch_size: 7
   shuffle: true
   num_workers: 6
   drop_last: false
