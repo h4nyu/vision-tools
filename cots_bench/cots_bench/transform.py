@@ -42,14 +42,18 @@ class RandomCutAndPaste:
         device = image.device
         _, H, W = image.shape
         paste_image = image.clone()
-        cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
         u = np.random.choice(len(boxes))
         cut_box = boxes[u]
         cut_label = sample["labels"][u]
         cut_conf = sample["confs"][u]
-        cut_cxcywh = cxcywhs[u]
+        cut_cxcywh = box_convert(boxes[u:u+1], in_fmt="xyxy", out_fmt="cxcywh")[0]
         paste_width = int(cut_cxcywh[2])
         paste_height = int(cut_cxcywh[3])
+
+        # guard against too small boxes
+        if(paste_width == 0 or paste_height == 0):
+            return sample
+
         paste_x0 = torch.randint(
             int(cut_box[0] - self.radius), int(cut_box[0] + self.radius), (1,)
         ).clamp(min=0, max=W - paste_width)

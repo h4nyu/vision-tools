@@ -102,7 +102,7 @@ TrainTransform = lambda cfg: A.Compose(
             shift_limit=0.1,
             scale_limit=(-0.5, 1.0),
             border_mode=0,
-            rotate_limit=90,
+            rotate_limit=5,
             p=1.0,
         ),
         A.HueSaturationValue(
