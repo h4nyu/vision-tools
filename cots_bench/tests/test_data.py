@@ -64,7 +64,9 @@ def test_batch(train_transform: Any, rows: List[Row]) -> None:
 
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
-    dataset = COTSDataset(rows, transform=train_transform, random_cut_and_paste=RandomCutAndPaste())
+    dataset = COTSDataset(
+        rows, transform=train_transform, random_cut_and_paste=RandomCutAndPaste(use_hflip=True)
+    )
     sample_idx = 10
     for i in range(20):
         sample = dataset[sample_idx]
@@ -112,12 +114,12 @@ def test_fold(rows: List[Row]) -> None:
 
 
 def test_cut_and_paste(rows: List[Row]) -> None:
-    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 0), list)
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 1), list)
     dataset = COTSDataset(rows, transform=Transform(cfg))
     t = RandomCutAndPaste()
 
-    for i in range(5):
-        sample = dataset[0]
+    for i in range(20):
+        sample = dataset[800]
         sample = t(sample)
         plot = draw(image=sample["image"], boxes=sample["boxes"])
         writer.add_image("random_cut_and_paste", plot, i)

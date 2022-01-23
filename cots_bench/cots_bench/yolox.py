@@ -173,7 +173,7 @@ def train() -> None:
     train_dataset = COTSDataset(
         train_non_zero_rows,
         transform=TrainTransform(cfg),
-        random_cut_and_paste=RandomCutAndPaste(),
+        random_cut_and_paste=RandomCutAndPaste(use_hflip=True),
     )
 
     zero_dataset = COTSDataset(

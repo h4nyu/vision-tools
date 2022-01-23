@@ -3,8 +3,8 @@ from torch import Tensor, nn
 from typing import Dict, Tuple, Any
 from vision_tools.interface import TrainSample
 from torchvision.ops import box_convert
+import random
 import torch.nn.functional as F
-import numpy as np
 
 
 class RandomCutAndPaste:
@@ -12,9 +12,13 @@ class RandomCutAndPaste:
         self,
         radius: int = 128,
         mask_size: int = 64,
+        use_vflip: bool = False,
+        use_hflip: bool = False,
     ) -> None:
         self.radius = radius
         self.mask = self._make_mask(mask_size)
+        self.use_vflip = use_vflip
+        self.use_hflip = use_hflip
 
     @torch.no_grad()
     def _make_mask(self, mask_size: int) -> Tensor:
@@ -36,22 +40,23 @@ class RandomCutAndPaste:
     def __call__(self, sample: TrainSample) -> TrainSample:
         image = sample["image"]
         boxes = sample["boxes"]
-        if len(boxes) == 0:
+        box_count = boxes.shape[0]
+        if box_count == 0:
             return sample
 
         device = image.device
         _, H, W = image.shape
         paste_image = image.clone()
-        u = np.random.choice(len(boxes))
+        u = random.randint(0, box_count - 1)
         cut_box = boxes[u]
         cut_label = sample["labels"][u]
         cut_conf = sample["confs"][u]
-        cut_cxcywh = box_convert(boxes[u:u+1], in_fmt="xyxy", out_fmt="cxcywh")[0]
+        cut_cxcywh = box_convert(boxes[u : u + 1], in_fmt="xyxy", out_fmt="cxcywh")[0]
         paste_width = int(cut_cxcywh[2])
         paste_height = int(cut_cxcywh[3])
 
         # guard against too small boxes
-        if(paste_width == 0 or paste_height == 0):
+        if paste_width == 0 or paste_height == 0:
             return sample
 
         paste_x0 = torch.randint(
@@ -70,17 +75,22 @@ class RandomCutAndPaste:
             size=(paste_height, paste_width),
             mode="nearest",
         )[0]
+        box_image = image[
+            :,
+            int(cut_box[1]) : int(cut_box[1]) + paste_height,
+            int(cut_box[0]) : int(cut_box[0]) + paste_width,
+        ]
+        if self.use_vflip and random.uniform(0, 1) > 0.5:
+            box_image = box_image.flip(1)
+        if self.use_hflip and random.uniform(0, 1) > 0.5:
+            box_image = box_image.flip(2)
+
         paste_image[
             :,
             int(paste_box[1]) : int(paste_box[1]) + paste_height,
             int(paste_box[0]) : int(paste_box[0]) + paste_width,
         ] = (
-            blend_mask
-            * image[
-                :,
-                int(cut_box[1]) : int(cut_box[1]) + paste_height,
-                int(cut_box[0]) : int(cut_box[0]) + paste_width,
-            ]
+            blend_mask * box_image
             + (1 - blend_mask)
             * image[
                 :,
