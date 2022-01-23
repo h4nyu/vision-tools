@@ -15,6 +15,7 @@ class RandomCutAndPaste:
     ) -> None:
         self.radius = radius
         self.mask = self._make_mask(mask_size)
+        print(self.mask)
 
     @torch.no_grad()
     def _make_mask(self, mask_size: int) -> Tensor:
@@ -39,28 +40,43 @@ class RandomCutAndPaste:
         if len(boxes) == 0:
             return sample
 
+        _, H, W = image.shape
         paste_image = image.clone()
         cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
-        _, H, W = image.shape
         u = np.random.choice(len(boxes))
-        cut_box = boxes[u].int()
+        cut_box = boxes[u]
         cut_cxcywh = cxcywhs[u]
 
         paste_x0y0 = cut_cxcywh[:2] + np.random.randint(
             -self.radius, self.radius, size=2
         )
         paste_wh = cut_cxcywh[2:]
-        paste_box = torch.cat([paste_x0y0, paste_x0y0 + paste_wh]).int()
+        print(paste_wh)
+        paste_box = torch.cat([paste_x0y0, paste_x0y0 + paste_wh])
 
         blend_mask = F.interpolate(
             self.mask,
-            size=(paste_box[3] - paste_box[1], paste_box[2] - paste_box[0]),
+            size=(int(paste_wh[0]), int(paste_wh[1])),
             mode="nearest",
         )[0]
-        paste_image[:, int(paste_box[1]) : int(paste_box[3]), int(paste_box[0]) : int(paste_box[2])] = (
-            blend_mask * image[:, int(cut_box[1]) : int(cut_box[3]), int(cut_box[0]) : int(cut_box[2])]
+        print(blend_mask.shape)
+        paste_image[
+            :,
+            int(paste_box[1]) : int(paste_box[1]) + int(paste_wh[1]),
+            int(paste_box[0]) : int(paste_box[0]) + int(paste_wh[0]),
+        ] = (
+            blend_mask
+            * image[
+                :,
+                int(cut_box[1]) : int(cut_box[1]) + int(paste_wh[1]),
+                int(cut_box[0]) : int(cut_box[0]) + int(paste_wh[0]),
+            ]
             + (1 - blend_mask)
-            * image[:, int(paste_box[1]) : int(paste_box[3]), int(paste_box[0]) : int(paste_box[2])]
+            * image[
+                :,
+                int(paste_box[1]) : int(paste_box[1]) + int(paste_wh[1]),
+                int(paste_box[0]) : int(paste_box[0]) + int(paste_wh[0]),
+            ]
         )
 
         pasted_boxes = torch.cat([boxes, paste_box.unsqueeze(0)])

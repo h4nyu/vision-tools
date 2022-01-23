@@ -197,9 +197,10 @@ class COTSDataset(Dataset):
             labels=labels,
             confs=confs,
         )
-        if(self.random_cut_and_paste is not None):
+        if self.random_cut_and_paste is not None:
             sample = self.random_cut_and_paste(sample)
         return sample
+
 
 def to_submission_string(boxes: Tensor, confs: Tensor) -> str:
     cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="xywh")
