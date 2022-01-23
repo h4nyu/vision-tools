@@ -183,7 +183,6 @@ class COTSDataset(Dataset):
         image_path = row["image_path"]
         img_arr = np.array(PIL.Image.open(image_path))
         labels = torch.zeros(len(row["boxes"]))
-        confs = torch.ones(len(row["boxes"])).float()
         transformed = self.transform(
             image=img_arr,
             bboxes=clip_boxes_to_image(row["boxes"], img_arr.shape[:2]),
@@ -192,6 +191,7 @@ class COTSDataset(Dataset):
         image = (transformed["image"] / 255).float()
         boxes = torch.tensor(transformed["bboxes"]).float()
         labels = torch.zeros(len(boxes)).long()
+        confs = torch.ones(len(labels)).float()
         sample = TrainSample(
             image=image,
             boxes=boxes,
