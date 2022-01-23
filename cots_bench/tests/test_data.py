@@ -116,7 +116,7 @@ def test_fold(rows: List[Row]) -> None:
 def test_cut_and_paste(rows: List[Row]) -> None:
     rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 1), list)
     dataset = COTSDataset(rows, transform=Transform(cfg))
-    t = RandomCutAndPaste()
+    t = RandomCutAndPaste(use_rot90=True, use_hflip=True, use_vflip=True, scale_limit=(0.5, 1.0))
 
     for i in range(20):
         sample = dataset[800]

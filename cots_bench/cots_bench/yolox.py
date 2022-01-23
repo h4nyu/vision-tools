@@ -69,8 +69,8 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             "mosaic",
             "cutout",
             "scale-0.5-1.0",
-            "roteate90",
             "cut_and_paste",
+            "roteate90",
         ],
         map(str),
         "-".join,
@@ -173,7 +173,7 @@ def train() -> None:
     train_dataset = COTSDataset(
         train_non_zero_rows,
         transform=TrainTransform(cfg),
-        random_cut_and_paste=RandomCutAndPaste(use_hflip=True),
+        random_cut_and_paste=RandomCutAndPaste(use_hflip=True, use_vflip=True, use_rot90=True),
     )
 
     zero_dataset = COTSDataset(
