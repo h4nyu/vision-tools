@@ -195,8 +195,7 @@ def train() -> None:
         shuffle=True,
         drop_last=True,
         batch_size=cfg["train_loader"]["batch_size"] - 1,
-        num_workers=0
-        # num_workers=cfg["train_loader"]["num_workers"],
+        num_workers=cfg["train_loader"]["num_workers"],
     )
     zero_loader = DataLoader(
         zero_dataset,

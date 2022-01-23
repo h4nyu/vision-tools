@@ -59,15 +59,16 @@ class RandomCutAndPaste:
         paste_width = int(cut_cxcywh[2])
         paste_height = int(cut_cxcywh[3])
 
-        # guard against too small boxes
-        if (paste_width * scale <= 1.0) or (paste_height * scale <= 1.0):
-            return sample
-
         scale = (
             1.0
             if self.scale_limit is None
             else random.uniform(self.scale_limit[0], self.scale_limit[1])
         )
+
+        # guard against too small boxes
+        if (paste_width * scale <= 1.0) or (paste_height * scale <= 1.0):
+            return sample
+
         max_length = int(max(paste_width, paste_height) * scale)
 
         paste_x0 = torch.randint(
@@ -143,4 +144,30 @@ class RandomCutAndPaste:
             "boxes": paste_boxes,
             "labels": paste_labels,
             "confs": paste_confs,
+        }
+
+
+class FilterSmallBoxes:
+    def __init__(
+        self,
+        min_height: int = 4,
+        min_width: int = 4,
+    ) -> None:
+        self.min_height = min_height
+        self.min_width = min_width
+
+    def __call__(self, sample: TrainSample) -> TrainSample:
+        image = sample["image"]
+        boxes = sample["boxes"]
+        box_count = boxes.shape[0]
+        if box_count == 0:
+            return sample
+        filter_mask = ((boxes[:, 2] - boxes[:, 0]) >= self.min_width) & (
+            (boxes[:, 3] - boxes[:, 1]) >= self.min_height
+        )
+        return {
+            "image": image,
+            "boxes": boxes[filter_mask],
+            "labels": sample["labels"][filter_mask],
+            "confs": sample["confs"][filter_mask],
         }

@@ -15,7 +15,7 @@ from vision_tools.transforms import normalize, inv_normalize
 from vision_tools.interface import TrainSample
 from sklearn.model_selection import GroupKFold
 from vision_tools.interface import TrainBatch, TrainSample
-from cots_bench.transform import RandomCutAndPaste
+from cots_bench.transform import RandomCutAndPaste, FilterSmallBoxes
 from torchvision.ops import box_convert, clip_boxes_to_image
 
 
@@ -153,6 +153,7 @@ class COTSDataset(Dataset):
         self.rows = rows
         self.transform = transform
         self.random_cut_and_paste = random_cut_and_paste
+        self.filter_small_boxes = FilterSmallBoxes(min_height=8, min_width=8)
 
     def __str__(self) -> str:
         string = ""
@@ -199,6 +200,7 @@ class COTSDataset(Dataset):
         )
         if self.random_cut_and_paste is not None:
             sample = self.random_cut_and_paste(sample)
+        sample = self.filter_small_boxes(sample)
         return sample
 
 
