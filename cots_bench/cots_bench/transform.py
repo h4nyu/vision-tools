@@ -16,6 +16,7 @@ class RandomCutAndPaste:
         use_hflip: bool = False,
         use_rot90: bool = False,
         scale_limit: Optional[Tuple[float, float]] = None,
+        p: float = 1.0,
     ) -> None:
         self.radius = radius
         self.mask = self._make_mask(mask_size)
@@ -23,6 +24,7 @@ class RandomCutAndPaste:
         self.use_hflip = use_hflip
         self.use_rot90 = use_rot90
         self.scale_limit = scale_limit
+        self.p = p
 
     @torch.no_grad()
     def _make_mask(self, mask_size: int) -> Tensor:
@@ -48,102 +50,107 @@ class RandomCutAndPaste:
         if box_count == 0:
             return sample
 
+        labels = sample["labels"]
+        confs = sample["confs"]
+
         device = image.device
         _, H, W = image.shape
         paste_image = image.clone()
-        u = random.randint(0, box_count - 1)
-        cut_box = boxes[u]
-        cut_label = sample["labels"][u]
-        cut_conf = sample["confs"][u]
-        cut_cxcywh = box_convert(boxes[u : u + 1], in_fmt="xyxy", out_fmt="cxcywh")[0]
-        paste_width = int(cut_cxcywh[2])
-        paste_height = int(cut_cxcywh[3])
+        cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
+        for idx in range(box_count):
+            if random.uniform(0, 1) > self.p:
+                continue
 
-        scale = (
-            1.0
-            if self.scale_limit is None
-            else random.uniform(self.scale_limit[0], self.scale_limit[1])
-        )
-
-        # guard against too small boxes
-        if (paste_width * scale <= 1.0) or (paste_height * scale <= 1.0):
-            return sample
-
-        max_length = int(max(paste_width, paste_height) * scale)
-
-        paste_x0 = torch.randint(
-            int(cut_box[0] - self.radius), int(cut_box[0] + self.radius), (1,)
-        ).clamp(min=0, max=W - max_length)
-        paste_y0 = torch.randint(
-            int(cut_box[1] - self.radius), int(cut_box[1] + self.radius), (1,)
-        ).clamp(min=0, max=H - max_length)
-
-        paste_box = torch.cat(
-            [paste_x0, paste_y0, paste_x0 + paste_width, paste_y0 + paste_height]
-        )
-
-        blend_mask = F.interpolate(
-            self.mask,
-            size=(paste_height, paste_width),
-            mode="nearest",
-        )[0]
-        box_image = image[
-            :,
-            int(cut_box[1]) : int(cut_box[1]) + paste_height,
-            int(cut_box[0]) : int(cut_box[0]) + paste_width,
-        ]
-
-        if self.use_vflip and random.uniform(0, 1) > 0.5:
-            box_image = box_image.flip(1)
-        if self.use_hflip and random.uniform(0, 1) > 0.5:
-            box_image = box_image.flip(2)
-        if self.use_rot90 and random.uniform(0, 1) > 0.5:
-            box_image = torch.rot90(box_image, dims=[1, 2])
-            blend_mask = torch.rot90(blend_mask, dims=[1, 2])
-            paste_width, paste_height = paste_height, paste_width
-            paste_box[2] = paste_x0 + paste_width
-            paste_box[3] = paste_y0 + paste_height
-
-        if self.scale_limit is not None:
-            paste_height, paste_width = int(paste_height * scale), int(
-                paste_width * scale
+            cut_box = boxes[idx]
+            cut_label = sample["labels"][idx]
+            cut_conf = sample["confs"][idx]
+            cut_cxcywh = cxcywhs[idx]
+            paste_width = int(cut_cxcywh[2])
+            paste_height = int(cut_cxcywh[3])
+            scale = (
+                1.0
+                if self.scale_limit is None
+                else random.uniform(self.scale_limit[0], self.scale_limit[1])
             )
-            blend_mask = F.interpolate(
-                blend_mask.unsqueeze(0),
-                size=(paste_height, paste_width),
-                mode="nearest",
-            )[0]
-            box_image = F.interpolate(
-                box_image.unsqueeze(0),
-                size=(paste_height, paste_width),
-                mode="nearest",
-            )[0]
-            paste_box[2] = paste_x0 + paste_width
-            paste_box[3] = paste_y0 + paste_height
+            # guard against too small boxes
+            if (paste_width * scale <= 1.0) or (paste_height * scale <= 1.0):
+                continue
 
-        paste_image[
-            :,
-            int(paste_box[1]) : int(paste_box[1]) + paste_height,
-            int(paste_box[0]) : int(paste_box[0]) + paste_width,
-        ] = (
-            blend_mask * box_image
-            + (1 - blend_mask)
-            * image[
+            max_length = int(max(paste_width, paste_height) * scale)
+
+            paste_x0 = torch.randint(
+                int(cut_box[0] - self.radius), int(cut_box[0] + self.radius), (1,)
+            ).clamp(min=0, max=W - max_length)
+            paste_y0 = torch.randint(
+                int(cut_box[1] - self.radius), int(cut_box[1] + self.radius), (1,)
+            ).clamp(min=0, max=H - max_length)
+
+            paste_box = torch.cat(
+                [paste_x0, paste_y0, paste_x0 + paste_width, paste_y0 + paste_height]
+            )
+
+            blend_mask = F.interpolate(
+                self.mask,
+                size=(paste_height, paste_width),
+                mode="nearest",
+            )[0]
+            box_image = image[
+                :,
+                int(cut_box[1]) : int(cut_box[1]) + paste_height,
+                int(cut_box[0]) : int(cut_box[0]) + paste_width,
+            ]
+
+            if self.use_vflip and random.uniform(0, 1) > 0.5:
+                box_image = box_image.flip(1)
+            if self.use_hflip and random.uniform(0, 1) > 0.5:
+                box_image = box_image.flip(2)
+            if self.use_rot90 and random.uniform(0, 1) > 0.5:
+                box_image = torch.rot90(box_image, dims=[1, 2])
+                blend_mask = torch.rot90(blend_mask, dims=[1, 2])
+                paste_width, paste_height = paste_height, paste_width
+                paste_box[2] = paste_x0 + paste_width
+                paste_box[3] = paste_y0 + paste_height
+
+            if self.scale_limit is not None:
+                paste_height, paste_width = int(paste_height * scale), int(
+                    paste_width * scale
+                )
+                blend_mask = F.interpolate(
+                    blend_mask.unsqueeze(0),
+                    size=(paste_height, paste_width),
+                    mode="nearest",
+                )[0]
+                box_image = F.interpolate(
+                    box_image.unsqueeze(0),
+                    size=(paste_height, paste_width),
+                    mode="nearest",
+                )[0]
+                paste_box[2] = paste_x0 + paste_width
+                paste_box[3] = paste_y0 + paste_height
+
+            paste_image[
                 :,
                 int(paste_box[1]) : int(paste_box[1]) + paste_height,
                 int(paste_box[0]) : int(paste_box[0]) + paste_width,
-            ]
-        )
+            ] = (
+                blend_mask * box_image
+                + (1 - blend_mask)
+                * image[
+                    :,
+                    int(paste_box[1]) : int(paste_box[1]) + paste_height,
+                    int(paste_box[0]) : int(paste_box[0]) + paste_width,
+                ]
+            )
 
-        paste_boxes = torch.cat([boxes, paste_box.unsqueeze(0)])
-        paste_labels = torch.cat([sample["labels"], cut_label.unsqueeze(0)])
-        paste_confs = torch.cat([sample["confs"], cut_conf.unsqueeze(0)])
+            boxes = torch.cat([boxes, paste_box.unsqueeze(0)])
+            labels = torch.cat([labels, cut_label.unsqueeze(0)])
+            confs = torch.cat([confs, cut_conf.unsqueeze(0)])
 
         return {
             "image": paste_image,
-            "boxes": paste_boxes,
-            "labels": paste_labels,
-            "confs": paste_confs,
+            "boxes": boxes,
+            "labels": labels,
+            "confs": confs,
         }
 
 

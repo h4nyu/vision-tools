@@ -173,7 +173,11 @@ def train() -> None:
         train_non_zero_rows,
         transform=TrainTransform(cfg),
         random_cut_and_paste=RandomCutAndPaste(
-            use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(0.5, 1.5)
+            use_hflip=True,
+            use_vflip=True,
+            use_rot90=True,
+            scale_limit=(0.5, 1.5),
+            p=0.9,
         ),
     )
 

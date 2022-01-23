@@ -64,11 +64,13 @@ def test_batch(train_transform: Any, rows: List[Row]) -> None:
 
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
-    rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 10), list)
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 5), list)
     dataset = COTSDataset(
         rows,
         transform=train_transform,
-        random_cut_and_paste=RandomCutAndPaste(use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(0.5, 1.7)),
+        random_cut_and_paste=RandomCutAndPaste(
+            use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(0.5, 1.7)
+        ),
     )
     for i in range(20):
         sample = dataset[0]
@@ -116,14 +118,18 @@ def test_fold(rows: List[Row]) -> None:
 
 
 def test_cut_and_paste(rows: List[Row]) -> None:
-    rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 1), list)
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 2), list)
     dataset = COTSDataset(rows, transform=Transform(cfg))
     t = RandomCutAndPaste(
-        use_rot90=True, use_hflip=True, use_vflip=True, scale_limit=(0.5, 1.7)
+        use_rot90=True,
+        use_hflip=True,
+        use_vflip=True,
+        scale_limit=(0.5, 1.7),
+        p=0.7,
     )
 
     for i in range(20):
-        sample = dataset[800]
+        sample = dataset[0]
         sample = t(sample)
         plot = draw(image=sample["image"], boxes=sample["boxes"])
         writer.add_image("random_cut_and_paste", plot, i)
