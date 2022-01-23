@@ -60,10 +60,15 @@ class RandomCutAndPaste:
         paste_height = int(cut_cxcywh[3])
 
         # guard against too small boxes
-        if paste_width == 0 or paste_height == 0:
+        if (paste_width * scale <= 1.0) or (paste_height * scale <= 1.0):
             return sample
 
-        max_length = max(paste_width, paste_height)
+        scale = (
+            1.0
+            if self.scale_limit is None
+            else random.uniform(self.scale_limit[0], self.scale_limit[1])
+        )
+        max_length = int(max(paste_width, paste_height) * scale)
 
         paste_x0 = torch.randint(
             int(cut_box[0] - self.radius), int(cut_box[0] + self.radius), (1,)
@@ -92,15 +97,16 @@ class RandomCutAndPaste:
         if self.use_hflip and random.uniform(0, 1) > 0.5:
             box_image = box_image.flip(2)
         if self.use_rot90 and random.uniform(0, 1) > 0.5:
-            box_image = torch.rot90(box_image,dims=[1,2])
+            box_image = torch.rot90(box_image, dims=[1, 2])
             blend_mask = torch.rot90(blend_mask, dims=[1, 2])
             paste_width, paste_height = paste_height, paste_width
             paste_box[2] = paste_x0 + paste_width
             paste_box[3] = paste_y0 + paste_height
 
         if self.scale_limit is not None:
-            scale = random.uniform(1.0 - self.scale_limit[0], 1.0 + self.scale_limit[1])
-            paste_height, paste_width = int(paste_height*scale), int(paste_width*scale)
+            paste_height, paste_width = int(paste_height * scale), int(
+                paste_width * scale
+            )
             blend_mask = F.interpolate(
                 blend_mask.unsqueeze(0),
                 size=(paste_height, paste_width),

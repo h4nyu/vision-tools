@@ -173,7 +173,9 @@ def train() -> None:
     train_dataset = COTSDataset(
         train_non_zero_rows,
         transform=TrainTransform(cfg),
-        random_cut_and_paste=RandomCutAndPaste(use_hflip=True, use_vflip=True, use_rot90=True),
+        random_cut_and_paste=RandomCutAndPaste(
+            use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(0.5, 1.5)
+        ),
     )
 
     zero_dataset = COTSDataset(
@@ -193,7 +195,8 @@ def train() -> None:
         shuffle=True,
         drop_last=True,
         batch_size=cfg["train_loader"]["batch_size"] - 1,
-        num_workers=cfg["train_loader"]["num_workers"],
+        num_workers=0
+        # num_workers=cfg["train_loader"]["num_workers"],
     )
     zero_loader = DataLoader(
         zero_dataset,
