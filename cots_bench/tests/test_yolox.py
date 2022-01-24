@@ -146,7 +146,7 @@ def test_tta(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
         gt_boxes = row["boxes"]
         img_arr = np.array(PIL.Image.open(row["image_path"]))
         pred = inference_one(img_arr)
-        print(pred['boxes'])
+        print(pred["boxes"])
         print(pred["image"].shape)
         plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
         writer.add_image("tta_inference_one", plot, i)

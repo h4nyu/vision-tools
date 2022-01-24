@@ -375,5 +375,5 @@ class TTAInferenceOne:
             confs=torch.from_numpy(np_confs),
         )
         sample = self.postprocess(sample)
-        sample['boxes'] = sample['boxes'][nms(sample['boxes'], sample['confs'], 0.5)]
+        sample["boxes"] = sample["boxes"][nms(sample["boxes"], sample["confs"], 0.5)]
         return sample

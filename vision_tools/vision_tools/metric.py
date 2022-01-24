@@ -205,3 +205,90 @@ class BoxMAP:
             )
             res[th] = p
         return res
+
+
+class BoxAP:
+    def __init__(
+        self,
+        iou_threshold: float = 0.5,
+        num_classes: int = 1,
+    ):
+        self.iou_threshold = iou_threshold
+        self.num_classes = num_classes
+        self.reset()
+
+    def reset(self) -> None:
+        self.tps = torch.zeros((0,), dtype=torch.int)
+        self.fps = torch.zeros((0,), dtype=torch.int)
+        self.confs = torch.zeros((0,), dtype=torch.float)
+        self.num_gts = 0
+
+    def accumulate(
+        self,
+        pred_box_batch: List[Tensor],
+        pred_conf_batch: List[Tensor],
+        gt_box_batch: List[Tensor],
+    ) -> None:
+        for pred_boxes, pred_confs, gt_boxes in zip(
+            pred_box_batch, pred_conf_batch, gt_box_batch
+        ):
+            tps, fps = self.match_boxes(pred_boxes, gt_boxes, self.iou_threshold)
+            self.tps = torch.cat((self.tps, tps), dim=0)
+            self.fps = torch.cat((self.fps, fps), dim=0)
+            self.confs = torch.cat((self.confs, pred_confs), dim=0)
+            self.num_gts += gt_boxes.size(0)
+
+    @staticmethod
+    def match_boxes(
+        pred_boxes: Tensor, gt_boxes: Tensor, iou_threshold: float
+    ) -> Tuple[Tensor, Tensor]:
+        """
+        test each predicted box (tp or fp).
+        note: assume that pred_boxes are sorted by confidence descending.
+        """
+        num_preds = len(pred_boxes)
+        num_gts = len(gt_boxes)
+        tps = torch.zeros(num_preds, dtype=torch.int)
+        fps = torch.zeros(num_preds, dtype=torch.int)
+        if num_preds > 0:
+            if num_gts > 0:
+                matched_gt = torch.zeros(num_gts, dtype=torch.bool)
+                iou_matrix = box_iou(pred_boxes, gt_boxes)
+                max_ious = iou_matrix.max(axis=1).values
+                max_idxs = iou_matrix.argmax(axis=1)
+                for pred_idx, (max_iou, max_idx) in enumerate(zip(max_ious, max_idxs)):
+                    if (max_iou >= iou_threshold) and ~matched_gt[max_idx]:
+                        tps[pred_idx] = 1
+                        matched_gt[max_idx] = True
+                    else:
+                        fps[pred_idx] = 1
+            else:
+                fps[:] = 1
+        return tps, fps
+
+    @property
+    def value(self) -> float:
+        precision, recall = precision_recall_curve(
+            self.tps, self.fps, self.confs, self.num_gts
+        )
+        precision = torch.cummax(precision.flip(0), 0).values.flip(0)
+        zero = torch.zeros(1, dtype=recall.dtype)
+        diff_recall = torch.diff(recall, prepend=zero)
+        return (precision * diff_recall).sum(), {}
+
+
+def precision_recall_curve(
+    tps: Tensor, fps: Tensor, confs: Tensor, num_gts: int
+) -> Tuple[Tensor, Tensor]:
+    confs, sort_idx = torch.sort(confs, descending=True)
+    tps = tps[sort_idx]
+    fps = fps[sort_idx]
+    sum_tps = tps.cumsum(dim=0).float()
+    sum_fps = fps.cumsum(dim=0).float()
+    one = torch.scalar_tensor(1, dtype=torch.torch.float, device=tps.device)
+    nan = torch.scalar_tensor(float("nan"), dtype=torch.float, device=tps.device)
+    precision = sum_tps / torch.maximum(sum_tps + sum_fps, one)
+    recall = (
+        sum_tps / num_gts if num_gts > 0 else torch.full_like(sum_tps, nan, dtype=float)
+    )
+    return precision, recall
