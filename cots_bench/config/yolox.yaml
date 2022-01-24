@@ -3,7 +3,7 @@ name: yolox
 device: cuda
 use_amp: true
 epochs: 999
-hidden_channels: 64
+hidden_channels: 72
 dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
@@ -17,7 +17,8 @@ image_height: 860
 original_width: 1280
 original_height: 720
 
-resume_target: current
+# resume_target: current
+resume_target: checkpoint
 
 backbone_type: efficientnet
 backbone_name: efficientnet-b3
@@ -26,8 +27,8 @@ lookahead_k: 5
 lookahead_alpha: 0.5
 
 to_boxes:
-  iou_threshold: 0.5
-  conf_threshold: 0.5
+  iou_threshold: 0.4
+  conf_threshold: 0.2
   limit: 1000
 
 assign:

@@ -3,6 +3,7 @@ from torch import Tensor, nn
 from typing import Dict, Tuple, Any, Optional
 from vision_tools.interface import TrainSample
 from torchvision.ops import box_convert
+from vision_tools.box import resize_boxes
 import random
 import torch.nn.functional as F
 
@@ -177,4 +178,34 @@ class FilterSmallBoxes:
             "boxes": boxes[filter_mask],
             "labels": sample["labels"][filter_mask],
             "confs": sample["confs"][filter_mask],
+        }
+
+
+class Resize:
+    def __init__(
+        self,
+        height: int,
+        width: int,
+    ) -> None:
+        self.height = height
+        self.width = width
+
+    def __call__(self, sample: TrainSample) -> TrainSample:
+        image = sample["image"]
+        boxes = sample["boxes"]
+        _, H, W = image.shape
+        image = F.interpolate(
+            image.unsqueeze(0),
+            size=(
+                self.height,
+                self.width,
+            ),
+            mode="nearest",
+        )[0]
+        boxes = resize_boxes(boxes, (self.width / W, self.height / H))
+        return {
+            "image": image,
+            "boxes": boxes,
+            "labels": sample["labels"],
+            "confs": sample["confs"],
         }

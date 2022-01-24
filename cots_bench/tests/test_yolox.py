@@ -12,7 +12,6 @@ from cots_bench.yolox import (
     get_criterion,
     get_checkpoint,
     get_writer,
-    get_inference_one,
     get_tta_inference_one,
     get_to_boxes,
 )
@@ -68,6 +67,7 @@ def to_device() -> ToDevice:
 
 @pytest.fixture
 def to_boxes() -> ToBoxes:
+    cfg["to_boxes"]["conf_threshold"] = 0.01
     return get_to_boxes(cfg)
 
 
@@ -104,16 +104,14 @@ def test_assign(
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
     image_batch = batch["image_batch"]
-    pred_yolo_batch = model(batch)
+    pred_yolo_batch = model(image_batch)
     gt_yolo_batch, pos_idx = criterion.prepeare_box_gt(
         model.num_classes, gt_box_batch, gt_label_batch, pred_yolo_batch
     )
-    box_batch = [
+    gt_box_batch = [
         box_convert(b[idx], in_fmt="cxcywh", out_fmt="xyxy")
         for b, idx in zip(gt_yolo_batch[:, :, :4], pos_idx)
     ]
-    plot = batch_draw(image_batch=image_batch, box_batch=box_batch)
-    writer.add_image("assign", plot, 0)
     box_batch = [
         box_convert(b[idx], in_fmt="cxcywh", out_fmt="xyxy")
         for b, idx in zip(pred_yolo_batch[:, :, :4], pos_idx)
@@ -123,12 +121,17 @@ def test_assign(
         for b, idx in zip(pred_yolo_batch[:, :, 7:9], pos_idx)
     ]
     plot = batch_draw(
-        image_batch=image_batch, box_batch=box_batch, point_batch=point_batch
+        image_batch=image_batch,
+        box_batch=box_batch,
+        point_batch=point_batch,
+        gt_box_batch=gt_box_batch,
+    )
+    writer.add_image("assign", plot, 0)
+    box_batch = to_boxes(pred_yolo_batch)["box_batch"]
+    plot = batch_draw(
+        image_batch=image_batch, box_batch=box_batch, gt_box_batch=gt_box_batch
     )
     writer.add_image("assign", plot, 1)
-    box_batch = to_boxes(pred_yolo_batch)["box_batch"]
-    plot = batch_draw(image_batch=image_batch, box_batch=box_batch)
-    writer.add_image("assign", plot, 2)
     writer.flush()
 
 
@@ -136,23 +139,15 @@ def test_criterion(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> Non
     criterion(model, batch)
 
 
-def test_inference_one(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
-    inference_one = get_inference_one(cfg)
-    for i, row in enumerate(rows[:10]):
-        gt_boxes = row["boxes"]
-        img_arr = np.array(PIL.Image.open(row["image_path"]))
-        pred = inference_one(img_arr)
-        plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
-        writer.add_image("inference_one", plot, i)
-    writer.flush()
-
-
 def test_tta(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
     inference_one = get_tta_inference_one(cfg)
-    for i, row in enumerate(rows[:10]):
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 4), list)
+    for i, row in enumerate(rows[:1]):
         gt_boxes = row["boxes"]
         img_arr = np.array(PIL.Image.open(row["image_path"]))
         pred = inference_one(img_arr)
+        print(pred['boxes'])
+        print(pred["image"].shape)
         plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
         writer.add_image("tta_inference_one", plot, i)
     writer.flush()

@@ -24,6 +24,7 @@ from vision_tools.box import box_hflip, box_vflip, resize_boxes
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch, TrainSample
 from vision_tools.batch_transform import BatchMosaic
+from torchvision.ops import nms
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
@@ -36,7 +37,7 @@ from cots_bench.data import (
     keep_ratio,
 )
 from cots_bench.metric import BoxF2
-from cots_bench.transform import RandomCutAndPaste
+from cots_bench.transform import RandomCutAndPaste, Resize
 from toolz.curried import pipe, partition, map, filter, count, valmap
 
 
@@ -112,22 +113,6 @@ def get_checkpoint(cfg: Dict[str, Any]) -> Checkpoint:
     )
 
 
-def get_inference_one(cfg: Dict[str, Any]) -> "InferenceOne":
-    model = get_model(cfg)
-    checkpoint = get_checkpoint(cfg)
-    checkpoint.load_if_exists(
-        model=model,
-        device=cfg["device"],
-        target=cfg["resume_target"],
-    )
-
-    return InferenceOne(
-        model=model,
-        transform=InferenceTransform(),
-        to_device=ToDevice(cfg["device"]),
-    )
-
-
 def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
     model = get_model(cfg)
     checkpoint = get_checkpoint(cfg)
@@ -136,11 +121,15 @@ def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
         device=cfg["device"],
         target=cfg["resume_target"],
     )
+    to_boxes = get_to_boxes(cfg)
+    resize = Resize(width=cfg["original_width"], height=cfg["original_height"])
 
     return TTAInferenceOne(
         model=model,
-        transform=InferenceTransform(),
+        transform=InferenceTransform(cfg),
         to_device=ToDevice(cfg["device"]),
+        to_boxes=to_boxes,
+        postprocess=resize,
     )
 
 
@@ -239,6 +228,7 @@ def train() -> None:
                 scaler.step(optimizer)
                 scaler.update()
             meter.accumulate(valmap(lambda x: x.item(), other))
+
         for k, v in meter.value.items():
             writer.add_scalar(f"train/{k}", v, epoch)
 
@@ -332,12 +322,14 @@ class TTAInferenceOne:
         model: YOLOX,
         transform: Any,
         to_device: ToDevice,
-        postprocess: Optional[Any] = None,
+        to_boxes: ToBoxes,
+        postprocess: Resize,
     ) -> None:
         self.model = model
         self.transform = transform
         self.to_device = to_device
         self.postprocess = postprocess
+        self.to_boxes = to_boxes
 
     @torch.no_grad()
     def __call__(self, image: Any) -> TrainSample:
@@ -356,10 +348,17 @@ class TTAInferenceOne:
                 ]
             )
         )["image_batch"]
-        pred_batch = self.model(image_batch)
+        pred_yolo_batch = self.model(image_batch)
+        pred_batch = self.to_boxes(pred_yolo_batch)
         boxes = pred_batch["box_batch"][0]
         vf_boxes = box_vflip(pred_batch["box_batch"][1], image_size=(w, h))
         hf_boxes = box_hflip(pred_batch["box_batch"][2], image_size=(w, h))
+        print(
+            resize_boxes(boxes, (1 / w, 1 / h)),
+            resize_boxes(vf_boxes, (1 / w, 1 / h)),
+            resize_boxes(hf_boxes, (1 / w, 1 / h)),
+        )
+        print(pred_batch["conf_batch"])
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             [
                 resize_boxes(boxes, (1 / w, 1 / h)),
@@ -369,11 +368,12 @@ class TTAInferenceOne:
             pred_batch["conf_batch"],
             pred_batch["label_batch"],
         )
-        if self.postprocess is not None:
-            pred_batch = self.postprocess(pred_batch)
-        return TrainSample(
-            image=pred_batch["image_batch"][0],
+        sample = TrainSample(
+            image=image_batch[0],
             boxes=resize_boxes(torch.from_numpy(np_boxes), (w, h)),
             labels=torch.from_numpy(np_lables),
             confs=torch.from_numpy(np_confs),
         )
+        sample = self.postprocess(sample)
+        sample['boxes'] = sample['boxes'][nms(sample['boxes'], sample['confs'], 0.5)]
+        return sample
