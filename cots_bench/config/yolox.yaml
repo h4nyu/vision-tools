@@ -11,14 +11,14 @@ num_classes: 1
 fpn_start: 3
 fpn_end: 5
 
-image_width: 1536
-image_height: 860
+image_width: 2560
+image_height: 1440
 
 original_width: 1280
 original_height: 720
 
-# resume_target: current
-resume_target: checkpoint
+resume_target: current
+# resume_target: checkpoint
 
 backbone_type: efficientnet
 backbone_name: efficientnet-b3
@@ -47,7 +47,7 @@ criterion:
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 7
+  batch_size: 5
   shuffle: true
   num_workers: 6
   drop_last: false

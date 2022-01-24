@@ -166,7 +166,7 @@ def train() -> None:
             use_hflip=True,
             use_vflip=True,
             use_rot90=True,
-            scale_limit=(0.5, 1.5),
+            scale_limit=(0.3, 1.5),
             p=0.9,
         ),
     )

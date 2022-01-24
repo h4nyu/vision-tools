@@ -11,7 +11,7 @@ import torch.nn.functional as F
 class RandomCutAndPaste:
     def __init__(
         self,
-        radius: int = 256,
+        radius: float = 0.3,
         mask_size: int = 64,
         use_vflip: bool = False,
         use_hflip: bool = False,
@@ -58,6 +58,8 @@ class RandomCutAndPaste:
         _, H, W = image.shape
         paste_image = image.clone()
         cxcywhs = box_convert(boxes, in_fmt="xyxy", out_fmt="cxcywh")
+
+        radius = int(self.radius * min(H, W))
         for idx in range(box_count):
             if random.uniform(0, 1) > self.p:
                 continue
@@ -80,10 +82,10 @@ class RandomCutAndPaste:
             max_length = int(max(paste_width, paste_height) * scale)
 
             paste_x0 = torch.randint(
-                int(cut_box[0] - self.radius), int(cut_box[0] + self.radius), (1,)
+                int(cut_box[0] - radius), int(cut_box[0] + radius), (1,)
             ).clamp(min=0, max=W - max_length)
             paste_y0 = torch.randint(
-                int(cut_box[1] - self.radius), int(cut_box[1] + self.radius), (1,)
+                int(cut_box[1] - radius), int(cut_box[1] + radius), (1,)
             ).clamp(min=0, max=H - max_length)
 
             paste_box = torch.cat(
@@ -160,9 +162,11 @@ class FilterSmallBoxes:
         self,
         min_height: int = 4,
         min_width: int = 4,
+        aspect_limit: float = 1.5,
     ) -> None:
         self.min_height = min_height
         self.min_width = min_width
+        self.aspect_limit = aspect_limit
 
     def __call__(self, sample: TrainSample) -> TrainSample:
         image = sample["image"]
@@ -170,9 +174,17 @@ class FilterSmallBoxes:
         box_count = boxes.shape[0]
         if box_count == 0:
             return sample
-        filter_mask = ((boxes[:, 2] - boxes[:, 0]) >= self.min_width) & (
-            (boxes[:, 3] - boxes[:, 1]) >= self.min_height
+        box_widths = boxes[:, 2] - boxes[:, 0]
+        box_heights = boxes[:, 3] - boxes[:, 1]
+        filter_mask = (box_widths >= self.min_width) & (
+            box_heights >= self.min_height
         )
+        aspects, _ = torch.stack([
+            box_widths.clamp(min=1.0) / box_heights.clamp(min=1.0),
+            box_heights.clamp(min=1.0) / box_widths.clamp(min=1.0)
+        ]).max(dim=0)
+        filter_mask = filter_mask & (aspects <= self.aspect_limit)
+
         return {
             "image": image,
             "boxes": boxes[filter_mask],

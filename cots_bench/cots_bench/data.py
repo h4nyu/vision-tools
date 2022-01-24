@@ -14,7 +14,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from vision_tools.transforms import normalize, inv_normalize
 from vision_tools.interface import TrainSample
 from sklearn.model_selection import GroupKFold
-from vision_tools.interface import TrainBatch, TrainSample
+from vision_tools.interface import TrainBatch, TrainSample 
 from cots_bench.transform import RandomCutAndPaste, FilterSmallBoxes
 from torchvision.ops import box_convert, clip_boxes_to_image
 
@@ -100,26 +100,25 @@ TrainTransform = lambda cfg: A.Compose(
         ),
         A.ShiftScaleRotate(
             shift_limit=0.1,
-            scale_limit=(-0.5, 1.0),
+            scale_limit=(-0.3, 1.0),
             border_mode=0,
-            rotate_limit=5,
+            rotate_limit=0,
             p=1.0,
         ),
         A.HueSaturationValue(
-            hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.9
+            hue_shift_limit=0.15, sat_shift_limit=0.15, val_shift_limit=0.15, p=0.9
         ),
-        A.RandomBrightnessContrast(brightness_limit=0.15, contrast_limit=0.15, p=0.9),
-        A.OneOf(
-            [
-                A.MotionBlur(p=1.0, blur_limit=3),
-                A.Blur(blur_limit=3, p=1.0),
-                A.MedianBlur(blur_limit=3, p=1.0),
-            ],
-            p=0.3,
-        ),
+        A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
+        # A.OneOf(
+        #     [
+        #         A.MotionBlur(p=1.0, blur_limit=3),
+        #         A.Blur(blur_limit=3, p=1.0),
+        #         A.MedianBlur(blur_limit=3, p=1.0),
+        #     ],
+        #     p=0.3,
+        # ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
-        # A.Cutout(p=1.0, num_holes=16, max_h_size=64, max_w_size=64),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,
