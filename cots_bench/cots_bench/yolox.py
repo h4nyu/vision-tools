@@ -24,6 +24,7 @@ from vision_tools.box import box_hflip, box_vflip, resize_boxes
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch, TrainSample
 from vision_tools.batch_transform import BatchMosaic
+from vision_tools.metric import BoxAP
 from torchvision.ops import nms
 from cots_bench.data import (
     COTSDataset,
@@ -203,7 +204,6 @@ def train() -> None:
         **cfg["val_loader"],
     )
     to_device = ToDevice(cfg["device"])
-    metric = BoxF2(iou_thresholds=cfg["val_iou_thresholds"])
     mosaic = BatchMosaic(p=0.3)
     to_boxes = get_to_boxes(cfg)
     iteration = 0
@@ -234,22 +234,25 @@ def train() -> None:
 
         model.eval()
         meter = MeanReduceDict()
+        ap = BoxAP()
         with torch.no_grad():
             for batch in tqdm(val_loader, total=len(val_loader)):
                 batch = to_device(**batch)
                 _, pred_yolo_batch, other = criterion(model, batch)
-                pred_box_batch = to_boxes(pred_yolo_batch)["box_batch"]
-                metric.accumulate(pred_box_batch, batch["box_batch"])
+                pred_batch = to_boxes(pred_yolo_batch)
+                ap.accumulate(
+                    pred_batch["box_batch"],
+                    pred_batch["conf_batch"],
+                    batch["box_batch"],
+                )
                 meter.accumulate(valmap(lambda x: x.item(), other))
-            score, other_log = metric.value
-            writer.add_scalar(f"val/score", score, epoch)
-            for k, v in other_log.items():
-                writer.add_scalar(f"val/{k}", v, epoch)
-            print(metric.value)
+            ap_score, _ = ap.value
+            writer.add_scalar(f"val/ap", ap_score, epoch)
+            print(ap_score)
             print(meter.value)
             for k, v in meter.value.items():
                 writer.add_scalar(f"val/{k}", v, epoch)
-            checkpoint.save_if_needed(model, score, optimizer=optimizer)
+            checkpoint.save_if_needed(model, ap_score, optimizer=optimizer)
         writer.flush()
 
 

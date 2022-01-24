@@ -267,14 +267,14 @@ class BoxAP:
         return tps, fps
 
     @property
-    def value(self) -> float:
+    def value(self) -> Tuple[float, Dict[str, float]]:
         precision, recall = precision_recall_curve(
             self.tps, self.fps, self.confs, self.num_gts
         )
         precision = torch.cummax(precision.flip(0), 0).values.flip(0)
         zero = torch.zeros(1, dtype=recall.dtype)
         diff_recall = torch.diff(recall, prepend=zero)
-        return (precision * diff_recall).sum(), {}
+        return (precision * diff_recall).sum().item(), {}
 
 
 def precision_recall_curve(
@@ -286,9 +286,8 @@ def precision_recall_curve(
     sum_tps = tps.cumsum(dim=0).float()
     sum_fps = fps.cumsum(dim=0).float()
     one = torch.scalar_tensor(1, dtype=torch.torch.float, device=tps.device)
-    nan = torch.scalar_tensor(float("nan"), dtype=torch.float, device=tps.device)
     precision = sum_tps / torch.maximum(sum_tps + sum_fps, one)
     recall = (
-        sum_tps / num_gts if num_gts > 0 else torch.full_like(sum_tps, nan, dtype=float)
+        sum_tps / num_gts if num_gts > 0 else torch.full_like(sum_tps, float('nan'), dtype=torch.float)
     )
     return precision, recall
