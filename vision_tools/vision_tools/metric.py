@@ -218,9 +218,9 @@ class BoxAP:
         self.reset()
 
     def reset(self) -> None:
-        self.tps = torch.zeros((0,), dtype=torch.int)
-        self.fps = torch.zeros((0,), dtype=torch.int)
-        self.confs = torch.zeros((0,), dtype=torch.float)
+        self.tp_list:List[Tensor] = []
+        self.fp_list:List[Tensor] = []
+        self.conf_list:List[Tensor]= []
         self.num_gts = 0
 
     def accumulate(
@@ -233,9 +233,9 @@ class BoxAP:
             pred_box_batch, pred_conf_batch, gt_box_batch
         ):
             tps, fps = self.match_boxes(pred_boxes, gt_boxes, self.iou_threshold)
-            self.tps = torch.cat((self.tps, tps), dim=0)
-            self.fps = torch.cat((self.fps, fps), dim=0)
-            self.confs = torch.cat((self.confs, pred_confs), dim=0)
+            self.tp_list.append(tps)
+            self.fp_list.append(fps)
+            self.conf_list.append(pred_confs)
             self.num_gts += gt_boxes.size(0)
 
     @staticmethod
@@ -268,8 +268,11 @@ class BoxAP:
 
     @property
     def value(self) -> Tuple[float, Dict[str, float]]:
+        tps = torch.cat(self.tp_list, dim=0)
+        fps = torch.cat(self.fp_list, dim=0)
+        confs = torch.cat(self.conf_list, dim=0)
         precision, recall = precision_recall_curve(
-            self.tps, self.fps, self.confs, self.num_gts
+            tps, fps, confs, self.num_gts
         )
         precision = torch.cummax(precision.flip(0), 0).values.flip(0)
         zero = torch.zeros(1, dtype=recall.dtype)
