@@ -118,6 +118,17 @@ def box_padding(boxes: Tensor, offset: Number) -> Tensor:
         dim=-1,
     )
 
+def filter_aspect(boxes: Tensor, aspect_limit: float) -> Tensor:
+    device = boxes.device
+    if len(boxes) == 0:
+        return toech.zeros(0, dtype=torch.bool, device=device)
+    box_widths = boxes[:, 2] - boxes[:, 0]
+    box_heights = boxes[:, 3] - boxes[:, 1]
+    aspects, _ = torch.stack([
+        box_widths.clamp(min=1.0) / box_heights.clamp(min=1.0),
+        box_heights.clamp(min=1.0) / box_widths.clamp(min=1.0)
+    ]).max(dim=0)
+    return aspects <= aspect_limit
 
 def to_center_points(boxes: Tensor) -> Tensor:
     if len(boxes) == 0:

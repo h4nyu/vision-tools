@@ -162,7 +162,7 @@ class FilterSmallBoxes:
         self,
         min_height: int = 4,
         min_width: int = 4,
-        aspect_limit: float = 1.5,
+        aspect_limit: float = 3,
     ) -> None:
         self.min_height = min_height
         self.min_width = min_width
@@ -174,17 +174,17 @@ class FilterSmallBoxes:
         box_count = boxes.shape[0]
         if box_count == 0:
             return sample
+
         box_widths = boxes[:, 2] - boxes[:, 0]
         box_heights = boxes[:, 3] - boxes[:, 1]
-        filter_mask = (box_widths >= self.min_width) & (
-            box_heights >= self.min_height
-        )
-        aspects, _ = torch.stack([
-            box_widths.clamp(min=1.0) / box_heights.clamp(min=1.0),
-            box_heights.clamp(min=1.0) / box_widths.clamp(min=1.0)
-        ]).max(dim=0)
+        filter_mask = (box_widths >= self.min_width) & (box_heights >= self.min_height)
+        aspects, _ = torch.stack(
+            [
+                box_widths.clamp(min=1.0) / box_heights.clamp(min=1.0),
+                box_heights.clamp(min=1.0) / box_widths.clamp(min=1.0),
+            ]
+        ).max(dim=0)
         filter_mask = filter_mask & (aspects <= self.aspect_limit)
-
         return {
             "image": image,
             "boxes": boxes[filter_mask],

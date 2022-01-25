@@ -68,7 +68,7 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             cfg["lr"],
             cfg["criterion"]["box_weight"],
             cfg["assign"]["radius"],
-            "mosaic",
+            cfg["mosaic_p"],
             "scale-0.5-1.0",
             "cut_and_paste",
             "roteate90",
@@ -166,7 +166,7 @@ def train() -> None:
             use_hflip=True,
             use_vflip=True,
             use_rot90=True,
-            scale_limit=(0.3, 1.5),
+            scale_limit=(0.9, 1.1),
             p=0.9,
         ),
     )
@@ -204,7 +204,7 @@ def train() -> None:
         **cfg["val_loader"],
     )
     to_device = ToDevice(cfg["device"])
-    mosaic = BatchMosaic(p=0.3)
+    mosaic = BatchMosaic(p=cfg["mosaic_p"])
     to_boxes = get_to_boxes(cfg)
     iteration = 0
     use_amp = cfg["use_amp"]
@@ -258,17 +258,18 @@ def train() -> None:
 
 @torch.no_grad()
 def evaluate() -> None:
+    seed_everything()
     cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
     checkpoint = get_checkpoint(cfg)
     writer = get_writer(cfg)
     model = get_model(cfg)
     checkpoint.load_if_exists(model=model, device=cfg["device"])
     annotations = read_train_rows(cfg["dataset_dir"])
-    annotations = filter_empty_boxes(annotations)
-    _, annotations = kfold(annotations, cfg["n_splits"], cfg["fold"])
-    # train_rows = pipe(train_rows, filter(lambda row: len(row["boxes"]) > 0), list)
+    _, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
+    validation_rows = keep_ratio(validation_rows)
+    writer = get_writer(cfg)
     dataset = COTSDataset(
-        annotations,
+        validation_rows,
         transform=Transform(cfg),
     )
     loader = DataLoader(
@@ -277,16 +278,30 @@ def evaluate() -> None:
         **cfg["val_loader"],
     )
     to_device = ToDevice(cfg["device"])
-    metric = BoxF2()
+    to_boxes = get_to_boxes(cfg)
     model.eval()
-
+    metric = BoxF2()
+    ap = BoxAP()
     for i, batch in enumerate(tqdm(loader, total=len(loader))):
         batch = to_device(**batch)
-        pred_batch = model(batch["image_batch"])
-        metric.accumulate(pred_batch, batch)
+        pred_yolo_batch = model(batch["image_batch"])
+        pred_batch = to_boxes(pred_yolo_batch)
+        metric.accumulate(pred_batch["box_batch"], batch["box_batch"])
+        ap.accumulate(
+            pred_batch["box_batch"],
+            pred_batch["conf_batch"],
+            batch["box_batch"],
+        )
+        if i % 5 == 0 and batch["box_batch"][:1][0].shape[0] > 0:
+            plot = batch_draw(
+                image_batch=batch["image_batch"][:1],
+                box_batch=pred_batch["box_batch"][:1],
+                gt_box_batch=batch["box_batch"][:1],
+            )
+            writer.add_image("preview", plot, i // 5)
     score, other = metric.value
-    print(score, other)
-    writer.add_scalar(f"evaluate-all/score", score, 0)
+    ap_score, _ = ap.value
+    print(f"f2:{score}, ap:{ap_score}, {other}")
 
 
 class InferenceOne:

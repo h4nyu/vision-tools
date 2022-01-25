@@ -14,7 +14,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from vision_tools.transforms import normalize, inv_normalize
 from vision_tools.interface import TrainSample
 from sklearn.model_selection import GroupKFold
-from vision_tools.interface import TrainBatch, TrainSample 
+from vision_tools.interface import TrainBatch, TrainSample
 from cots_bench.transform import RandomCutAndPaste, FilterSmallBoxes
 from torchvision.ops import box_convert, clip_boxes_to_image
 
@@ -99,8 +99,8 @@ TrainTransform = lambda cfg: A.Compose(
             interpolation=PIL.Image.BILINEAR,
         ),
         A.ShiftScaleRotate(
-            shift_limit=0.1,
-            scale_limit=(-0.3, 1.0),
+            shift_limit=0.0,
+            scale_limit=(-0.1, 1.0),
             border_mode=0,
             rotate_limit=0,
             p=1.0,
@@ -109,14 +109,6 @@ TrainTransform = lambda cfg: A.Compose(
             hue_shift_limit=0.15, sat_shift_limit=0.15, val_shift_limit=0.15, p=0.9
         ),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
-        # A.OneOf(
-        #     [
-        #         A.MotionBlur(p=1.0, blur_limit=3),
-        #         A.Blur(blur_limit=3, p=1.0),
-        #         A.MedianBlur(blur_limit=3, p=1.0),
-        #     ],
-        #     p=0.3,
-        # ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         ToTensorV2(),

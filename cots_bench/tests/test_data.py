@@ -5,7 +5,9 @@ import os
 
 from torch.utils.data import DataLoader
 
-# import torchvision, os, torch
+from cots_bench.yolox import (
+    get_writer,
+)
 from cots_bench.data import (
     read_train_rows,
     Transform,
@@ -24,7 +26,7 @@ from torch.utils.tensorboard import SummaryWriter
 from toolz.curried import pipe, partition, map, filter
 
 cfg = load_config("/app/cots_bench/config/yolox.yaml")
-writer = SummaryWriter("runs/test")
+writer = get_writer(cfg)
 
 no_volume = not os.path.exists(cfg["dataset_dir"])
 reason = "no data volume"

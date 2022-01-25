@@ -4,7 +4,7 @@ from .interface import TrainBatch
 from typing import List, Tuple, Dict, Any
 from torchvision.ops import clip_boxes_to_image, box_area
 import torch.nn.functional as F
-from vision_tools.box import shift
+from vision_tools.box import shift, filter_aspect
 import random
 
 
@@ -91,10 +91,12 @@ class BatchMosaic:
         self,
         width_limit: Tuple[float, float] = (1 / 5, 4 / 5),
         height_limit: Tuple[float, float] = (1 / 5, 4 / 5),
+        aspect_limit: float = 2.0,
         p: float = 0.5,
     ) -> None:
         self.width_limit = width_limit
         self.height_limit = height_limit
+        self.aspect_limit = aspect_limit
         self.p = p
 
     @torch.no_grad()
@@ -142,11 +144,12 @@ class BatchMosaic:
                 for boxes in box_batch
             ]
             in_area_batch = [
-                box_area(boxes) > 0
+                (box_area(boxes) > 0) & (filter_aspect(boxes, self.aspect_limit))
                 if len(boxes) > 0
                 else torch.zeros(0).bool().to(device)
                 for boxes in cropped_box_batch
             ]
+
             splited_box_batch[key] = [
                 b[m] for b, m in zip(cropped_box_batch, in_area_batch)
             ]
