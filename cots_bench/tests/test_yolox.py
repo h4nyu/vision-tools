@@ -25,7 +25,6 @@ from cots_bench.data import (
     COTSDataset,
     TrainTransform,
     Transform,
-    InferenceTransform,
     collate_fn,
     read_train_rows,
     kfold,

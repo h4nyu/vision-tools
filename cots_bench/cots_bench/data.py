@@ -106,7 +106,7 @@ TrainTransform = lambda cfg: A.Compose(
             p=1.0,
         ),
         A.HueSaturationValue(
-            hue_shift_limit=0.15, sat_shift_limit=0.15, val_shift_limit=0.15, p=0.9
+            hue_shift_limit=5, sat_shift_limit=15, val_shift_limit=15, p=0.9
         ),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.HorizontalFlip(p=0.5),
@@ -126,18 +126,6 @@ Transform = lambda cfg: A.Compose(
     ],
     bbox_params=bbox_params,
 )
-
-InferenceTransform = lambda cfg: A.Compose(
-    [
-        A.Resize(
-            height=cfg["image_height"],
-            width=cfg["image_width"],
-            interpolation=PIL.Image.BILINEAR,
-        ),
-        ToTensorV2(),
-    ],
-)
-
 
 class COTSDataset(Dataset):
     def __init__(

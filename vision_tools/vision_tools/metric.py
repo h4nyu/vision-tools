@@ -232,6 +232,7 @@ class BoxAP:
         for pred_boxes, pred_confs, gt_boxes in zip(
             pred_box_batch, pred_conf_batch, gt_box_batch
         ):
+            print(len(pred_boxes),len(pred_confs))
             tps, fps = self.match_boxes(pred_boxes, gt_boxes, self.iou_threshold)
             self.tp_list.append(tps)
             self.fp_list.append(fps)
@@ -271,6 +272,7 @@ class BoxAP:
         tps = torch.cat(self.tp_list, dim=0)
         fps = torch.cat(self.fp_list, dim=0)
         confs = torch.cat(self.conf_list, dim=0)
+        print(tps.shape, fps.shape, confs.shape)
         precision, recall = precision_recall_curve(
             tps, fps, confs, self.num_gts
         )

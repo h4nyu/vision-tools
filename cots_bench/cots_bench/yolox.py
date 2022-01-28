@@ -14,7 +14,7 @@ from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
 from vision_tools.optim import Lookahead
 from torch.optim import Adam
-from vision_tools.utils import Checkpoint, load_config, batch_draw, merge_batch
+from vision_tools.utils import Checkpoint, load_config, batch_draw, merge_batch, draw
 from torchvision.transforms.functional import vflip, hflip
 from torch.utils.tensorboard import SummaryWriter
 import functools
@@ -30,7 +30,6 @@ from cots_bench.data import (
     COTSDataset,
     TrainTransform,
     Transform,
-    InferenceTransform,
     read_train_rows,
     collate_fn,
     kfold,
@@ -127,7 +126,7 @@ def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
 
     return TTAInferenceOne(
         model=model,
-        transform=InferenceTransform(cfg),
+        transform=Transform(cfg),
         to_device=ToDevice(cfg["device"]),
         to_boxes=to_boxes,
         postprocess=resize,
@@ -153,11 +152,12 @@ def train() -> None:
     )
 
     annotations = read_train_rows(cfg["dataset_dir"])
+    annotations = filter_empty_boxes(annotations)
     train_rows, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
     train_non_zero_rows = pipe(
         train_rows, filter(lambda x: x["boxes"].shape[0] > 0), list
     )
-    train_zero_rows = pipe(train_rows, filter(lambda x: x["boxes"].shape[0] == 0), list)
+    # train_zero_rows = pipe(train_rows, filter(lambda x: x["boxes"].shape[0] == 0), list)
 
     train_dataset = COTSDataset(
         train_non_zero_rows,
@@ -171,10 +171,10 @@ def train() -> None:
         ),
     )
 
-    zero_dataset = COTSDataset(
-        train_zero_rows,
-        transform=TrainTransform(cfg),
-    )
+    # zero_dataset = COTSDataset(
+    #     train_zero_rows,
+    #     transform=TrainTransform(cfg),
+    # )
 
     print(f"train_dataset={train_dataset}")
     val_dataset = COTSDataset(
@@ -187,17 +187,17 @@ def train() -> None:
         collate_fn=collate_fn,
         shuffle=True,
         drop_last=True,
-        batch_size=cfg["train_loader"]["batch_size"] - 1,
+        batch_size=cfg["train_loader"]["batch_size"],
         num_workers=cfg["train_loader"]["num_workers"],
     )
-    zero_loader = DataLoader(
-        zero_dataset,
-        sampler=RandomSampler(zero_dataset),
-        batch_size=1,
-        drop_last=True,
-        num_workers=0,
-        collate_fn=collate_fn,
-    )
+    # zero_loader = DataLoader(
+    #     zero_dataset,
+    #     sampler=RandomSampler(zero_dataset),
+    #     batch_size=1,
+    #     drop_last=True,
+    #     num_workers=0,
+    #     collate_fn=collate_fn,
+    # )
     val_loader = DataLoader(
         val_dataset,
         collate_fn=collate_fn,
@@ -213,16 +213,14 @@ def train() -> None:
     for epoch in range(cfg["epochs"]):
         model.train()
         meter = MeanReduceDict()
-        for (batch, zero_batch) in tqdm(
-            zip(train_loader, zero_loader), total=len(train_loader)
+        for batch in tqdm(
+            train_loader, total=len(train_loader)
         ):
             batch = to_device(**batch)
-            zero_batch = to_device(**zero_batch)
-            merged_batch = merge_batch([batch, zero_batch])
-            merged_batch = mosaic(merged_batch)
+            batch = mosaic(batch)
             optimizer.zero_grad()
             with autocast(enabled=use_amp):
-                loss, _, other = criterion(model, merged_batch)
+                loss, _, other = criterion(model, batch)
                 scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)
                 scaler.step(optimizer)
@@ -269,34 +267,35 @@ def evaluate() -> None:
     validation_rows = keep_ratio(validation_rows)
     writer = get_writer(cfg)
     dataset = COTSDataset(
-        validation_rows,
+        validation_rows[:100],
         transform=Transform(cfg),
-    )
-    loader = DataLoader(
-        dataset,
-        collate_fn=collate_fn,
-        **cfg["val_loader"],
     )
     to_device = ToDevice(cfg["device"])
     to_boxes = get_to_boxes(cfg)
-    model.eval()
+
+    inference = TTAInferenceOne(
+        model=model,
+        to_device=ToDevice(cfg["device"]),
+        to_boxes=to_boxes,
+    )
+
     metric = BoxF2()
     ap = BoxAP()
-    for i, batch in enumerate(tqdm(loader, total=len(loader))):
-        batch = to_device(**batch)
-        pred_yolo_batch = model(batch["image_batch"])
-        pred_batch = to_boxes(pred_yolo_batch)
-        metric.accumulate(pred_batch["box_batch"], batch["box_batch"])
+    for i, sample in enumerate(tqdm(dataset, total=len(dataset))):
+        sample = to_device(**sample)
+        pred_sample = inference(sample['image'])
+        metric.accumulate([pred_sample['boxes']], [sample["boxes"]])
         ap.accumulate(
-            pred_batch["box_batch"],
-            pred_batch["conf_batch"],
-            batch["box_batch"],
+            [pred_sample['boxes']],
+            [pred_sample['confs']],
+            [sample["boxes"]]
+
         )
-        if i % 5 == 0 and batch["box_batch"][:1][0].shape[0] > 0:
-            plot = batch_draw(
-                image_batch=batch["image_batch"][:1],
-                box_batch=pred_batch["box_batch"][:1],
-                gt_box_batch=batch["box_batch"][:1],
+        if i % 5 == 0 and pred_sample['boxes'].shape[0] > 0:
+            plot = draw(
+                image=pred_sample['image'],
+                boxes=pred_sample["boxes"],
+                gt_boxes=sample["boxes"],
             )
             writer.add_image("preview", plot, i // 5)
     score, other = metric.value
@@ -338,10 +337,10 @@ class TTAInferenceOne:
     def __init__(
         self,
         model: YOLOX,
-        transform: Any,
         to_device: ToDevice,
         to_boxes: ToBoxes,
-        postprocess: Resize,
+        postprocess: Optional[Resize]=None,
+        transform: Optional[Any]=None,
     ) -> None:
         self.model = model
         self.transform = transform
@@ -352,31 +351,26 @@ class TTAInferenceOne:
     @torch.no_grad()
     def __call__(self, image: Any) -> TrainSample:
         self.model.eval()
-        transformed = self.transform(image=image)
-        image = (transformed["image"] / 255).float()
+        device = image.device
+        if self.transform is not None:
+            transformed = self.transform(image=image)
+            image = (transformed["image"] / 255).float()
         _, h, w = image.shape
         vf_image = vflip(image)
         hf_image = hflip(image)
-        image_batch = self.to_device(
-            image_batch=torch.stack(
-                [
-                    image,
-                    vf_image,
-                    hf_image,
-                ]
-            )
-        )["image_batch"]
+        image_batch=torch.stack(
+            [
+                image,
+                vf_image,
+                hf_image,
+            ]
+        )
         pred_yolo_batch = self.model(image_batch)
         pred_batch = self.to_boxes(pred_yolo_batch)
         boxes = pred_batch["box_batch"][0]
         vf_boxes = box_vflip(pred_batch["box_batch"][1], image_size=(w, h))
         hf_boxes = box_hflip(pred_batch["box_batch"][2], image_size=(w, h))
-        print(
-            resize_boxes(boxes, (1 / w, 1 / h)),
-            resize_boxes(vf_boxes, (1 / w, 1 / h)),
-            resize_boxes(hf_boxes, (1 / w, 1 / h)),
-        )
-        print(pred_batch["conf_batch"])
+        weights = [2, 1, 1]
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             [
                 resize_boxes(boxes, (1 / w, 1 / h)),
@@ -385,13 +379,18 @@ class TTAInferenceOne:
             ],
             pred_batch["conf_batch"],
             pred_batch["label_batch"],
+            weights=weights,
         )
         sample = TrainSample(
             image=image_batch[0],
-            boxes=resize_boxes(torch.from_numpy(np_boxes), (w, h)),
-            labels=torch.from_numpy(np_lables),
-            confs=torch.from_numpy(np_confs),
+            boxes=resize_boxes(torch.from_numpy(np_boxes), (w, h)).to(device),
+            labels=torch.from_numpy(np_lables).to(device),
+            confs=torch.from_numpy(np_confs).to(device),
         )
-        sample = self.postprocess(sample)
-        sample["boxes"] = sample["boxes"][nms(sample["boxes"], sample["confs"], 0.5)]
+        if self.postprocess is not None:
+            sample = self.postprocess(sample)
+        nms_idx = nms(sample["boxes"], sample["confs"], 0.5)
+        sample["boxes"] = sample["boxes"][nms_idx]
+        sample["labels"] = sample["labels"][nms_idx]
+        sample["confs"] = sample["confs"][nms_idx]
         return sample

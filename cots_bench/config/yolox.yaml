@@ -8,17 +8,17 @@ dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
-fpn_start: 2
+fpn_start: 3
 fpn_end: 5
 
-image_width: 1280
-image_height: 720
+image_width: 1792
+image_height: 1024
 
 original_width: 1280
 original_height: 720
 
-resume_target: current
-# resume_target: checkpoint
+# resume_target: current
+resume_target: checkpoint
 
 backbone_type: efficientnet
 backbone_name: efficientnet-b2
@@ -26,7 +26,7 @@ backbone_name: efficientnet-b2
 val_iou_thresholds: [0.3]
 lookahead_k: 5
 lookahead_alpha: 0.5
-mosaic_p: 0.7
+mosaic_p: 0.4
 
 to_boxes:
   iou_threshold: 0.4
@@ -35,7 +35,7 @@ to_boxes:
 
 assign:
   topk: 9
-  radius: 2.5
+  radius: 1.5
   box_weight: 3.0
 
 lr: 1.0e-3
@@ -46,13 +46,13 @@ criterion:
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 11
+  batch_size: 6
   shuffle: true
   num_workers: 6
   drop_last: true
 
 val_loader:
-  batch_size: 11
+  batch_size: 6
   num_workers: 6
 
 n_splits: 5
