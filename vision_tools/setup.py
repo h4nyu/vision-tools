@@ -7,6 +7,7 @@ setup(
         "tqdm",
         "pyyaml",
         "efficientnet_pytorch",
+        "hydra-core",
     ],
     packages=["vision_tools"],
     package_data={"vision_tools": ["py.typed"]},

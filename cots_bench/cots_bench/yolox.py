@@ -202,7 +202,11 @@ def train(cfg:Dict[str, Any]) -> None:
     )
     to_device = ToDevice(cfg["device"])
     mosaic = BatchMosaic(p=cfg["mosaic_p"])
-    to_boxes = get_to_boxes(cfg)
+    to_boxes = ToBoxes(
+        iou_threshold=cfg["to_boxes"]["iou_threshold"],
+        conf_threshold=0.01,
+        limit=cfg["to_boxes"]["limit"],
+    )
     iteration = 0
     use_amp = cfg["use_amp"]
     scaler = GradScaler(enabled=use_amp)
