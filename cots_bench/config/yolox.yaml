@@ -17,7 +17,6 @@ image_height: 1024
 original_width: 1280
 original_height: 720
 
-# resume_target: current
 resume_target: checkpoint
 
 backbone_type: efficientnet
@@ -30,7 +29,7 @@ mosaic_p: 0.4
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.5
+  conf_threshold: 0.4
   limit: 2000
 
 assign:

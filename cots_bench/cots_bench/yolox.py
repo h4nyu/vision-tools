@@ -13,6 +13,7 @@ from vision_tools.neck import CSPPAFPN
 from vision_tools.yolox import YOLOX, Criterion
 from vision_tools.assign import SimOTA
 from vision_tools.optim import Lookahead
+import torch.nn.functional as F
 from torch.optim import Adam
 from vision_tools.utils import Checkpoint, load_config, batch_draw, merge_batch, draw
 from torchvision.transforms.functional import vflip, hflip
@@ -131,7 +132,7 @@ def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
     )
 
 
-def train(cfg:Dict[str, Any]) -> None:
+def train(cfg: Dict[str, Any]) -> None:
     seed_everything()
     checkpoint = get_checkpoint(cfg)
     writer = get_writer(cfg)
@@ -343,11 +344,13 @@ class TTAInferenceOne:
         _, h, w = image.shape
         vf_image = vflip(image)
         hf_image = hflip(image)
+        vhf_image = hflip(vflip(image))
         image_batch = torch.stack(
             [
                 image,
                 vf_image,
                 hf_image,
+                vhf_image,
             ]
         )
         pred_yolo_batch = self.model(image_batch)
@@ -355,12 +358,14 @@ class TTAInferenceOne:
         boxes = pred_batch["box_batch"][0]
         vf_boxes = box_vflip(pred_batch["box_batch"][1], image_size=(w, h))
         hf_boxes = box_hflip(pred_batch["box_batch"][2], image_size=(w, h))
-        weights = [2, 1, 1]
+        vhf_boxes = box_vflip(box_hflip(pred_batch["box_batch"][3], image_size=(w, h)), image_size=(w, h))
+        weights = [1, 1, 1, 1]
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             [
                 resize_boxes(boxes, (1 / w, 1 / h)),
                 resize_boxes(vf_boxes, (1 / w, 1 / h)),
                 resize_boxes(hf_boxes, (1 / w, 1 / h)),
+                resize_boxes(vhf_boxes, (1 / w, 1 / h)),
             ],
             pred_batch["conf_batch"],
             pred_batch["label_batch"],
