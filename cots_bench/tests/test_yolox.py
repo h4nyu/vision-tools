@@ -26,6 +26,7 @@ from cots_bench.data import (
     TrainTransform,
     Transform,
     collate_fn,
+    InferenceTransform,
     read_train_rows,
     kfold,
     Row,
@@ -141,10 +142,13 @@ def test_criterion(batch: TrainBatch, model: YOLOX, criterion: Criterion) -> Non
 def test_tta(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
     inference_one = get_tta_inference_one(cfg)
     rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 4), list)
+    transform = InferenceTransform(cfg)
     for i, row in enumerate(rows[:1]):
         gt_boxes = row["boxes"]
         img_arr = np.array(PIL.Image.open(row["image_path"]))
-        pred = inference_one(img_arr)
+        img = transform(image=img_arr)['image'] / 255
+        img = to_device(image=img)['image']
+        pred = inference_one(img)
         print(pred["boxes"])
         print(pred["image"].shape)
         plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)

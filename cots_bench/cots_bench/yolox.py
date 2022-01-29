@@ -126,8 +126,6 @@ def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
 
     return TTAInferenceOne(
         model=model,
-        transform=Transform(cfg),
-        to_device=ToDevice(cfg["device"]),
         to_boxes=to_boxes,
         postprocess=resize,
     )
@@ -275,7 +273,6 @@ def evaluate() -> None:
 
     inference = TTAInferenceOne(
         model=model,
-        to_device=ToDevice(cfg["device"]),
         to_boxes=to_boxes,
     )
 
@@ -337,24 +334,17 @@ class TTAInferenceOne:
     def __init__(
         self,
         model: YOLOX,
-        to_device: ToDevice,
         to_boxes: ToBoxes,
         postprocess: Optional[Resize]=None,
-        transform: Optional[Any]=None,
     ) -> None:
         self.model = model
-        self.transform = transform
-        self.to_device = to_device
         self.postprocess = postprocess
         self.to_boxes = to_boxes
 
     @torch.no_grad()
-    def __call__(self, image: Any) -> TrainSample:
+    def __call__(self, image: Tensor) -> TrainSample:
         self.model.eval()
         device = image.device
-        if self.transform is not None:
-            transformed = self.transform(image=image)
-            image = (transformed["image"] / 255).float()
         _, h, w = image.shape
         vf_image = vflip(image)
         hf_image = hflip(image)

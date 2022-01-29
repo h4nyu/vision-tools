@@ -127,6 +127,17 @@ Transform = lambda cfg: A.Compose(
     bbox_params=bbox_params,
 )
 
+InferenceTransform = lambda cfg: A.Compose(
+    [
+        A.Resize(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            interpolation=PIL.Image.BILINEAR,
+        ),
+        ToTensorV2(),
+    ],
+)
+
 class COTSDataset(Dataset):
     def __init__(
         self,
