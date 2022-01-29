@@ -34,6 +34,7 @@ services:
       KAGGLE_USERNAME: *KAGGLE_USERNAME
       KAGGLE_KEY: *KAGGLE_KEY
       CODECOV_TOKEN: *CODECOV_TOKEN
+      CONFIG_FILE:
 
   tensorboard:
     <<: *app

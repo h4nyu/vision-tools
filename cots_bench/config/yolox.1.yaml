@@ -30,7 +30,7 @@ mosaic_p: 0.4
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.7
+  conf_threshold: 0.5
   limit: 2000
 
 assign:

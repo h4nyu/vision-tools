@@ -26,6 +26,7 @@ from kuzushiji_bench.metric import Metric
 from tqdm import tqdm
 
 
+
 def main() -> None:
     seed_everything()
     cfg = load_config(os.path.join(os.path.dirname(__file__), "config/yolox.yaml"))

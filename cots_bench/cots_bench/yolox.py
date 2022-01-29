@@ -131,9 +131,8 @@ def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
     )
 
 
-def train() -> None:
+def train(cfg:Dict[str, Any]) -> None:
     seed_everything()
-    cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
     checkpoint = get_checkpoint(cfg)
     writer = get_writer(cfg)
     model = get_model(cfg)
@@ -251,9 +250,8 @@ def train() -> None:
 
 
 @torch.no_grad()
-def evaluate() -> None:
+def evaluate(cfg: Dict[str, Any]) -> None:
     seed_everything()
-    cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
     checkpoint = get_checkpoint(cfg)
     writer = get_writer(cfg)
     model = get_model(cfg)

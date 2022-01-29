@@ -32,7 +32,7 @@ from .interface import (
 logger = getLogger(__name__)
 
 
-def seed_everything(seed: int = 777) -> None:
+def seed_everything(seed: int = 3801) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
