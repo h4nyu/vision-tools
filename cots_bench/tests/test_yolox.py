@@ -146,8 +146,8 @@ def test_tta(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
     for i, row in enumerate(rows[:1]):
         gt_boxes = row["boxes"]
         img_arr = np.array(PIL.Image.open(row["image_path"]))
-        img = transform(image=img_arr)['image'] / 255
-        img = to_device(image=img)['image']
+        img = transform(image=img_arr)["image"] / 255
+        img = to_device(image=img)["image"]
         pred = inference_one(img)
         print(pred["boxes"])
         print(pred["image"].shape)

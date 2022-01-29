@@ -211,9 +211,7 @@ def train() -> None:
     for epoch in range(cfg["epochs"]):
         model.train()
         meter = MeanReduceDict()
-        for batch in tqdm(
-            train_loader, total=len(train_loader)
-        ):
+        for batch in tqdm(train_loader, total=len(train_loader)):
             batch = to_device(**batch)
             batch = mosaic(batch)
             optimizer.zero_grad()
@@ -280,17 +278,12 @@ def evaluate() -> None:
     ap = BoxAP()
     for i, sample in enumerate(tqdm(dataset, total=len(dataset))):
         sample = to_device(**sample)
-        pred_sample = inference(sample['image'])
-        metric.accumulate([pred_sample['boxes']], [sample["boxes"]])
-        ap.accumulate(
-            [pred_sample['boxes']],
-            [pred_sample['confs']],
-            [sample["boxes"]]
-
-        )
-        if i % 5 == 0 and pred_sample['boxes'].shape[0] > 0:
+        pred_sample = inference(sample["image"])
+        metric.accumulate([pred_sample["boxes"]], [sample["boxes"]])
+        ap.accumulate([pred_sample["boxes"]], [pred_sample["confs"]], [sample["boxes"]])
+        if i % 5 == 0 and pred_sample["boxes"].shape[0] > 0:
             plot = draw(
-                image=pred_sample['image'],
+                image=pred_sample["image"],
                 boxes=pred_sample["boxes"],
                 gt_boxes=sample["boxes"],
             )
@@ -335,7 +328,7 @@ class TTAInferenceOne:
         self,
         model: YOLOX,
         to_boxes: ToBoxes,
-        postprocess: Optional[Resize]=None,
+        postprocess: Optional[Resize] = None,
     ) -> None:
         self.model = model
         self.postprocess = postprocess
@@ -348,7 +341,7 @@ class TTAInferenceOne:
         _, h, w = image.shape
         vf_image = vflip(image)
         hf_image = hflip(image)
-        image_batch=torch.stack(
+        image_batch = torch.stack(
             [
                 image,
                 vf_image,

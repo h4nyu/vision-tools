@@ -218,9 +218,9 @@ class BoxAP:
         self.reset()
 
     def reset(self) -> None:
-        self.tp_list:List[Tensor] = []
-        self.fp_list:List[Tensor] = []
-        self.conf_list:List[Tensor]= []
+        self.tp_list: List[Tensor] = []
+        self.fp_list: List[Tensor] = []
+        self.conf_list: List[Tensor] = []
         self.num_gts = 0
 
     def accumulate(
@@ -271,9 +271,7 @@ class BoxAP:
         tps = torch.cat(self.tp_list, dim=0)
         fps = torch.cat(self.fp_list, dim=0)
         confs = torch.cat(self.conf_list, dim=0)
-        precision, recall = precision_recall_curve(
-            tps, fps, confs, self.num_gts
-        )
+        precision, recall = precision_recall_curve(tps, fps, confs, self.num_gts)
         precision = torch.cummax(precision.flip(0), 0).values.flip(0)
         zero = torch.zeros(1, dtype=recall.dtype)
         diff_recall = torch.diff(recall, prepend=zero)
@@ -291,6 +289,8 @@ def precision_recall_curve(
     one = torch.scalar_tensor(1, dtype=torch.torch.float, device=tps.device)
     precision = sum_tps / torch.maximum(sum_tps + sum_fps, one)
     recall = (
-        sum_tps / num_gts if num_gts > 0 else torch.full_like(sum_tps, float('nan'), dtype=torch.float)
+        sum_tps / num_gts
+        if num_gts > 0
+        else torch.full_like(sum_tps, float("nan"), dtype=torch.float)
     )
     return precision, recall

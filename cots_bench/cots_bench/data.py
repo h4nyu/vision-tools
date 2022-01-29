@@ -138,6 +138,7 @@ InferenceTransform = lambda cfg: A.Compose(
     ],
 )
 
+
 class COTSDataset(Dataset):
     def __init__(
         self,
