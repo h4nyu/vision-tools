@@ -30,7 +30,7 @@ mosaic_p: 0.4
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.5
+  conf_threshold: 0.3
   limit: 2000
 
 assign:
@@ -56,4 +56,4 @@ val_loader:
   num_workers: 6
 
 n_splits: 5
-fold: 1
+fold: 2
