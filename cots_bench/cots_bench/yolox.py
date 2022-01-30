@@ -358,7 +358,9 @@ class TTAInferenceOne:
         boxes = pred_batch["box_batch"][0]
         vf_boxes = box_vflip(pred_batch["box_batch"][1], image_size=(w, h))
         hf_boxes = box_hflip(pred_batch["box_batch"][2], image_size=(w, h))
-        vhf_boxes = box_vflip(box_hflip(pred_batch["box_batch"][3], image_size=(w, h)), image_size=(w, h))
+        vhf_boxes = box_vflip(
+            box_hflip(pred_batch["box_batch"][3], image_size=(w, h)), image_size=(w, h)
+        )
         weights = [1, 1, 1, 1]
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             [
@@ -379,6 +381,90 @@ class TTAInferenceOne:
         )
         if self.postprocess is not None:
             sample = self.postprocess(sample)
+        nms_idx = nms(sample["boxes"], sample["confs"], 0.5)
+        sample["boxes"] = sample["boxes"][nms_idx]
+        sample["labels"] = sample["labels"][nms_idx]
+        sample["confs"] = sample["confs"][nms_idx]
+        return sample
+
+
+class EnsembleInferenceOne:
+    def __init__(
+        self,
+        cfg: Dict[str, Any],
+    ) -> None:
+        self.cfg = cfg
+        self.model_configs = [load_config(p) for p in cfg["model_configs"]]
+        presets = []
+        for c in self.model_configs:
+            model = get_model(c)
+            checkpoint = get_checkpoint(c)
+            checkpoint.load_if_exists(
+                model=model,
+                device=c["device"],
+                target=c["resume_target"],
+            )
+            presets.append(
+                {
+                    "model": model,
+                    "to_boxes": get_to_boxes(c),
+                }
+            )
+        self.presets = presets
+        self.resize = Resize(width=cfg["original_width"], height=cfg["original_height"])
+
+    @torch.no_grad()
+    def __call__(self, image: Tensor) -> TrainSample:
+        device = image.device
+        _, h, w = image.shape
+        vf_image = vflip(image)
+        hf_image = hflip(image)
+        vhf_image = hflip(vflip(image))
+        image_batch = torch.stack(
+            [
+                image,
+                vf_image,
+                hf_image,
+                vhf_image,
+            ]
+        )
+        pred_box_batch = []
+        pred_conf_batch = []
+        pred_label_batch = []
+
+        for preset in self.presets:
+            model = preset["model"].to(device)
+            to_boxes = preset["to_boxes"]
+            model.eval()
+            pred_yolo_batch = model(image_batch)
+            pred_batch = to_boxes(pred_yolo_batch)
+            boxes = pred_batch["box_batch"][0]
+            vf_boxes = box_vflip(pred_batch["box_batch"][1], image_size=(w, h))
+            hf_boxes = box_hflip(pred_batch["box_batch"][2], image_size=(w, h))
+            vhf_boxes = box_vflip(
+                box_hflip(pred_batch["box_batch"][3], image_size=(w, h)),
+                image_size=(w, h),
+            )
+            pred_box_batch += [
+                resize_boxes(x, (1 / w, 1 / h))
+                for x in [boxes, vf_boxes, hf_boxes, vhf_boxes]
+            ]
+            pred_conf_batch += pred_batch["conf_batch"]
+            pred_label_batch += pred_batch["label_batch"]
+
+        np_boxes, np_confs, np_lables = weighted_boxes_fusion(
+            pred_box_batch,
+            pred_conf_batch,
+            pred_label_batch,
+        )
+
+        sample = TrainSample(
+            image=image_batch[0],
+            boxes=resize_boxes(torch.from_numpy(np_boxes), (w, h)).to(device),
+            labels=torch.from_numpy(np_lables).to(device),
+            confs=torch.from_numpy(np_confs).to(device),
+        )
+        sample = self.resize(sample)
         nms_idx = nms(sample["boxes"], sample["confs"], 0.5)
         sample["boxes"] = sample["boxes"][nms_idx]
         sample["labels"] = sample["labels"][nms_idx]

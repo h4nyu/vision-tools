@@ -1,0 +1,9 @@
+model_configs:
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.0.yaml
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.1.yaml
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.2.yaml
+
+image_width: 1792
+image_height: 1024
+original_width: 1280
+original_height: 720

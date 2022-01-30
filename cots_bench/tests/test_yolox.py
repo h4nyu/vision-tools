@@ -14,6 +14,7 @@ from cots_bench.yolox import (
     get_writer,
     get_tta_inference_one,
     get_to_boxes,
+    EnsembleInferenceOne,
 )
 from vision_tools.assign import SimOTA
 from torch.utils.data import DataLoader
@@ -153,4 +154,22 @@ def test_tta(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
         print(pred["image"].shape)
         plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
         writer.add_image("tta_inference_one", plot, i)
+    writer.flush()
+
+
+def test_ensemble(rows: List[Row], to_device: ToDevice) -> None:
+    cfg = load_config(
+        os.path.join(os.path.dirname(__file__), "../config/ensemble.yaml")
+    )
+    inference_one = EnsembleInferenceOne(cfg)
+    rows = pipe(rows, filter(lambda x: len(x["boxes"]) > 4), list)
+    transform = InferenceTransform(cfg)
+    for i, row in enumerate(rows[:1]):
+        gt_boxes = row["boxes"]
+        img_arr = np.array(PIL.Image.open(row["image_path"]))
+        img = transform(image=img_arr)["image"] / 255
+        img = to_device(image=img)["image"]
+        pred = inference_one(img)
+        plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
+        writer.add_image("ensemble", plot, i)
     writer.flush()
