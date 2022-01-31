@@ -262,11 +262,15 @@ def evaluate(cfg: Dict[str, Any]) -> None:
     model = get_model(cfg)
     checkpoint.load_if_exists(model=model, device=cfg["device"])
     annotations = read_train_rows(cfg["dataset_dir"])
-    _, validation_rows = kfold(annotations, cfg["n_splits"], cfg["fold"])
-    validation_rows = keep_ratio(validation_rows)
+    _, validation_rows = kfold(filter_empty_boxes(annotations), cfg["n_splits"], cfg["fold"])
+
+    zero_rows = pipe(
+        validation_rows, filter(lambda x: x["boxes"].shape[0] == 0), list
+    )
+    validation_rows = keep_ratio(validation_rows + zero_rows)
     writer = get_writer(cfg)
     dataset = COTSDataset(
-        validation_rows[:100],
+        validation_rows,
         transform=Transform(cfg),
     )
     to_device = ToDevice(cfg["device"])
@@ -284,7 +288,8 @@ def evaluate(cfg: Dict[str, Any]) -> None:
         pred_sample = inference(sample["image"])
         metric.accumulate([pred_sample["boxes"]], [sample["boxes"]])
         ap.accumulate([pred_sample["boxes"]], [pred_sample["confs"]], [sample["boxes"]])
-        if i % 5 == 0 and pred_sample["boxes"].shape[0] > 0:
+
+        if i % 5 == 0:
             plot = draw(
                 image=pred_sample["image"],
                 boxes=pred_sample["boxes"],
