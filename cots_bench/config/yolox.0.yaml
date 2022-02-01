@@ -44,7 +44,7 @@ eval_interval: 10
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.3
+  conf_threshold: 0.6
   limit: 2000
 
 assign:
