@@ -17,11 +17,10 @@ image_height: 1024
 original_width: 1280
 original_height: 720
 
-# resume_target: current
 resume_target: checkpoint
 
 backbone_type: efficientnet
-backbone_name: efficientnet-b2
+backbone_name: efficientnet-b3
 
 val_iou_thresholds: [0.3]
 lookahead_k: 5
@@ -30,7 +29,7 @@ mosaic_p: 0.4
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.3
+  conf_threshold: 0.4
   limit: 2000
 
 assign:
@@ -56,4 +55,4 @@ val_loader:
   num_workers: 6
 
 n_splits: 5
-fold: 1
+fold: 0

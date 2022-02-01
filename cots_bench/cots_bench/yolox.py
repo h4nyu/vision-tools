@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 import torch
 import os
 from tqdm import tqdm
@@ -174,6 +174,7 @@ def train(cfg: Dict[str, Any]) -> None:
     #     transform=TrainTransform(cfg),
     # )
 
+    print(f"log_dir={writer.log_dir}")
     print(f"train_dataset={train_dataset}")
     val_dataset = COTSDataset(
         keep_ratio(validation_rows),
@@ -213,9 +214,9 @@ def train(cfg: Dict[str, Any]) -> None:
     scaler = GradScaler(enabled=use_amp)
 
     for epoch in range(cfg["epochs"]):
-        model.train()
-        meter = MeanReduceDict()
-        for batch in tqdm(train_loader, total=len(train_loader)):
+        train_meter = MeanReduceDict()
+        for i, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
+            model.train()
             batch = to_device(**batch)
             batch = mosaic(batch)
             optimizer.zero_grad()
@@ -225,32 +226,35 @@ def train(cfg: Dict[str, Any]) -> None:
                 scaler.unscale_(optimizer)
                 scaler.step(optimizer)
                 scaler.update()
-            meter.accumulate(valmap(lambda x: x.item(), other))
+            train_meter.accumulate(valmap(lambda x: x.item(), other))
 
-        for k, v in meter.value.items():
-            writer.add_scalar(f"train/{k}", v, epoch)
+            if i % 10 == 0:
+                model.eval()
+                val_meter = MeanReduceDict()
+                ap = BoxAP()
+                with torch.no_grad():
+                    for batch in tqdm(val_loader, total=len(val_loader)):
+                        batch = to_device(**batch)
+                        _, pred_yolo_batch, other = criterion(model, batch)
+                        pred_batch = to_boxes(pred_yolo_batch)
+                        ap.accumulate(
+                            pred_batch["box_batch"],
+                            pred_batch["conf_batch"],
+                            batch["box_batch"],
+                        )
+                        val_meter.accumulate(valmap(lambda x: x.item(), other))
+                    ap_score, _ = ap.value
+                    writer.add_scalar(f"val/ap", ap_score, i)
+                    print(ap_score)
+                    print(val_meter.value)
 
-        model.eval()
-        meter = MeanReduceDict()
-        ap = BoxAP()
-        with torch.no_grad():
-            for batch in tqdm(val_loader, total=len(val_loader)):
-                batch = to_device(**batch)
-                _, pred_yolo_batch, other = criterion(model, batch)
-                pred_batch = to_boxes(pred_yolo_batch)
-                ap.accumulate(
-                    pred_batch["box_batch"],
-                    pred_batch["conf_batch"],
-                    batch["box_batch"],
-                )
-                meter.accumulate(valmap(lambda x: x.item(), other))
-            ap_score, _ = ap.value
-            writer.add_scalar(f"val/ap", ap_score, epoch)
-            print(ap_score)
-            print(meter.value)
-            for k, v in meter.value.items():
-                writer.add_scalar(f"val/{k}", v, epoch)
-            checkpoint.save_if_needed(model, ap_score, optimizer=optimizer)
+                for k, v in train_meter.value.items():
+                    writer.add_scalar(f"train/{k}", v, i)
+
+                for k, v in val_meter.value.items():
+                    writer.add_scalar(f"val/{k}", v, i)
+                checkpoint.save_if_needed(model, ap_score, optimizer=optimizer)
+
         writer.flush()
 
 
@@ -259,6 +263,7 @@ def evaluate(cfg: Dict[str, Any]) -> None:
     seed_everything()
     checkpoint = get_checkpoint(cfg)
     writer = get_writer(cfg)
+    print(writer.log_dir)
     model = get_model(cfg)
     checkpoint.load_if_exists(model=model, device=cfg["device"])
     annotations = read_train_rows(cfg["dataset_dir"])
@@ -415,7 +420,7 @@ class EnsembleInferenceOne:
                     "to_boxes": get_to_boxes(c),
                 }
             )
-        self.presets = presets
+        self.presets:List[Dict[str, Any]] = presets
         self.resize = Resize(width=cfg["original_width"], height=cfg["original_height"])
 
     @torch.no_grad()

@@ -11,13 +11,12 @@ num_classes: 1
 fpn_start: 3
 fpn_end: 5
 
-image_width: 1792
-image_height: 1024
+image_width: 2560
+image_height: 1440
 
 original_width: 1280
 original_height: 720
 
-# resume_target: current
 resume_target: checkpoint
 
 backbone_type: efficientnet
@@ -30,7 +29,7 @@ mosaic_p: 0.4
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.3
+  conf_threshold: 0.5
   limit: 2000
 
 assign:
@@ -38,7 +37,7 @@ assign:
   radius: 1.5
   box_weight: 3.0
 
-lr: 1.0e-3
+lr: 1.0e-4
 fine_lr: 1.0e-4
 
 criterion:
@@ -46,14 +45,14 @@ criterion:
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 6
+  batch_size: 3
   shuffle: true
   num_workers: 6
   drop_last: true
 
 val_loader:
-  batch_size: 6
+  batch_size: 3
   num_workers: 6
 
 n_splits: 5
-fold: 1
+fold: 0

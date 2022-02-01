@@ -29,7 +29,7 @@ mosaic_p: 0.4
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.4
+  conf_threshold: 0.5
   limit: 2000
 
 assign:
@@ -47,12 +47,12 @@ criterion:
 train_loader:
   batch_size: 6
   shuffle: true
-  num_workers: 6
+  num_workers: 5
   drop_last: true
 
 val_loader:
   batch_size: 6
-  num_workers: 6
+  num_workers: 5
 
 n_splits: 5
 fold: 0
