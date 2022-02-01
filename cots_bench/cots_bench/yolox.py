@@ -25,7 +25,7 @@ from vision_tools.box import box_hflip, box_vflip, resize_boxes
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch, TrainSample
 from vision_tools.batch_transform import BatchMosaic
-from vision_tools.metric import BoxAP
+from vision_tools.metric import MeanBoxAP
 from torchvision.ops import nms
 from cots_bench.data import (
     COTSDataset,
@@ -231,7 +231,7 @@ def train(cfg: Dict[str, Any]) -> None:
             if i % 10 == 0:
                 model.eval()
                 val_meter = MeanReduceDict()
-                ap = BoxAP()
+                ap = MeanBoxAP(iou_thresholds=cfg["iou_thresholds"])
                 with torch.no_grad():
                     for batch in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
@@ -287,7 +287,7 @@ def evaluate(cfg: Dict[str, Any]) -> None:
     )
 
     metric = BoxF2()
-    ap = BoxAP()
+    ap = MeanBoxAP(iou_thresholds=cfg["iou_thresholds"])
     for i, sample in enumerate(tqdm(dataset, total=len(dataset))):
         sample = to_device(**sample)
         pred_sample = inference(sample["image"])
@@ -302,8 +302,8 @@ def evaluate(cfg: Dict[str, Any]) -> None:
             )
             writer.add_image("preview", plot, i // 5)
     score, other = metric.value
-    ap_score, _ = ap.value
-    print(f"f2:{score}, ap:{ap_score}, {other}")
+    ap_score, ap_logs = ap.value
+    print(f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}")
 
 
 class InferenceOne:

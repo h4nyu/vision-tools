@@ -122,7 +122,7 @@ def box_padding(boxes: Tensor, offset: Number) -> Tensor:
 def filter_aspect(boxes: Tensor, aspect_limit: float) -> Tensor:
     device = boxes.device
     if len(boxes) == 0:
-        return toech.zeros(0, dtype=torch.bool, device=device)
+        return torch.zeros(0, dtype=torch.bool, device=device)
     box_widths = boxes[:, 2] - boxes[:, 0]
     box_heights = boxes[:, 3] - boxes[:, 1]
     aspects, _ = torch.stack(

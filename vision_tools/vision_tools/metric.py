@@ -294,3 +294,41 @@ def precision_recall_curve(
         else torch.full_like(sum_tps, float("nan"), dtype=torch.float)
     )
     return precision, recall
+
+class MeanBoxAP:
+    def __init__(
+        self,
+        iou_thresholds: List[float] = [0.5],
+        num_classes: int = 1,
+    ):
+        self.iou_thresholds = iou_thresholds
+        self.num_classes = num_classes
+        self.aps = [BoxAP(iou_threshold=iou_threshold, num_classes=num_classes) for iou_threshold in iou_thresholds]
+        self.reset()
+
+    def reset(self) -> None:
+        for ap in self.aps:
+            ap.reset()
+
+    def accumulate(
+        self,
+        pred_box_batch: List[Tensor],
+        pred_conf_batch: List[Tensor],
+        gt_box_batch: List[Tensor],
+    ) -> None:
+        for ap in self.aps:
+            ap.accumulate(
+                pred_box_batch=pred_box_batch,
+                pred_conf_batch=pred_conf_batch,
+                gt_box_batch=gt_box_batch,
+            )
+
+    @property
+    def value(self) -> Tuple[float, Dict[str, float]]:
+        aps = [ap.value for ap in self.aps]
+        logs = {
+            f"ap@{iou:.2f}": ap[0]
+            for iou, ap in zip(self.iou_thresholds, aps)
+        }
+        ap = sum(ap[0] for ap in aps) / len(aps)
+        return ap, logs
