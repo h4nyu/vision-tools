@@ -26,7 +26,8 @@ backbone_name: efficientnet-b2
 val_iou_thresholds: [0.3]
 lookahead_k: 5
 lookahead_alpha: 0.5
-mosaic_p: 0.4
+# mosaic_p: 0.4
+mosaic_p: 0.0
 
 to_boxes:
   iou_threshold: 0.4
@@ -38,11 +39,11 @@ assign:
   radius: 1.5
   box_weight: 3.0
 
-lr: 1.0e-3
+lr: 1.0e-4
 fine_lr: 1.0e-4
 
 criterion:
-  box_weight: 0.5
+  box_weight: 1.0
   cls_weight: 0.0
 
 train_loader:

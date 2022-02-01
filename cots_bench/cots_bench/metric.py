@@ -13,11 +13,11 @@ class BoxF2:
     ) -> None:
         self.beta = 2.0
         self.iou_thresholds = iou_thresholds
-        self.correct = {
+        self.corrects = [{
             "tp": 0,
             "fp": 0,
             "fn": 0,
-        }
+        }] * len(iou_thresholds)
 
     def precision(self, tp: int, fp: int, fn: int) -> float:
         if tp + fp == 0:
@@ -38,24 +38,25 @@ class BoxF2:
 
     @property
     def value(self) -> Tuple[float, Dict[str, float]]:
-        precision = self.precision(**self.correct)
-        recall = self.recall(**self.correct)
-        f2 = self.f_beat(precision, recall, self.beta)
+        precisions = [self.precision(**c) for c in self.corrects]
+        recalls = [self.recall(**c) for c in self.corrects]
+        f2s = [self.f_beat(p, r, self.beta) for p, r in zip(precisions, recalls)]
+        f2 = np.mean(f2s)
         return f2, dict(
             f2=f2,
-            precision=precision,
-            recall=recall,
+            precision=np.mean(precisions),
+            recall=np.mean(recalls),
         )
 
     def accumulate(
         self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
     ) -> None:
         for pred_boxes, gt_boxes in zip(pred_box_batch, gt_box_batch):
-            for iou_threshold in self.iou_thresholds:
+            for i,  iou_threshold in enumerate(self.iou_thresholds):
                 correct = self.correct_at_iou_thr(pred_boxes, gt_boxes, iou_threshold)
-                self.correct["tp"] += correct["tp"]
-                self.correct["fp"] += correct["fp"]
-                self.correct["fn"] += correct["fn"]
+                self.corrects[i]["tp"] += correct["tp"]
+                self.corrects[i]["fp"] += correct["fp"]
+                self.corrects[i]["fn"] += correct["fn"]
 
     def reset(self) -> None:
         self.correct = {

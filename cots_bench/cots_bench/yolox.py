@@ -249,10 +249,10 @@ def train(cfg: Dict[str, Any]) -> None:
                     print(val_meter.value)
 
                 for k, v in train_meter.value.items():
-                    writer.add_scalar(f"train/{k}", v, i)
+                    writer.add_scalar(f"train/{k}", v, i * epoch)
 
                 for k, v in val_meter.value.items():
-                    writer.add_scalar(f"val/{k}", v, i)
+                    writer.add_scalar(f"val/{k}", v, i * epoch)
                 checkpoint.save_if_needed(model, ap_score, optimizer=optimizer)
 
         writer.flush()
