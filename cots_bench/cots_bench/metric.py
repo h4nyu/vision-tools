@@ -13,11 +13,13 @@ class BoxF2:
     ) -> None:
         self.beta = 2.0
         self.iou_thresholds = iou_thresholds
-        self.corrects = [{
-            "tp": 0,
-            "fp": 0,
-            "fn": 0,
-        }] * len(iou_thresholds)
+        self.corrects = [
+            {
+                "tp": 0,
+                "fp": 0,
+                "fn": 0,
+            }
+        ] * len(iou_thresholds)
 
     def precision(self, tp: int, fp: int, fn: int) -> float:
         if tp + fp == 0:
@@ -52,7 +54,7 @@ class BoxF2:
         self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
     ) -> None:
         for pred_boxes, gt_boxes in zip(pred_box_batch, gt_box_batch):
-            for i,  iou_threshold in enumerate(self.iou_thresholds):
+            for i, iou_threshold in enumerate(self.iou_thresholds):
                 correct = self.correct_at_iou_thr(pred_boxes, gt_boxes, iou_threshold)
                 self.corrects[i]["tp"] += correct["tp"]
                 self.corrects[i]["fp"] += correct["fp"]

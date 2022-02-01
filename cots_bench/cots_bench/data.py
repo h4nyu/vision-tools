@@ -98,13 +98,6 @@ TrainTransform = lambda cfg: A.Compose(
             width=cfg["image_width"],
             interpolation=PIL.Image.BILINEAR,
         ),
-        A.ShiftScaleRotate(
-            shift_limit=0.0,
-            scale_limit=(-0.1, 1.0),
-            border_mode=0,
-            rotate_limit=0,
-            p=1.0,
-        ),
         A.HueSaturationValue(
             hue_shift_limit=5, sat_shift_limit=15, val_shift_limit=15, p=0.9
         ),

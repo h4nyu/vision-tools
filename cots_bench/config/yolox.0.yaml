@@ -38,7 +38,9 @@ iou_thresholds:
 val_iou_thresholds: [0.3]
 lookahead_k: 5
 lookahead_alpha: 0.5
-mosaic_p: 0.4
+mosaic_p: 0.0
+cut_and_paste_radius: 0.2
+eval_interval: 10
 
 to_boxes:
   iou_threshold: 0.4
@@ -48,13 +50,13 @@ to_boxes:
 assign:
   topk: 9
   radius: 1.5
-  box_weight: 3.0
+  box_weight: 4.0
 
-lr: 1.0e-3
+lr: 1.0e-4
 fine_lr: 1.0e-4
 
 criterion:
-  box_weight: 0.5
+  box_weight: 0.2
   cls_weight: 0.0
 
 train_loader:

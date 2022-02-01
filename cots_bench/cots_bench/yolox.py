@@ -161,6 +161,7 @@ def train(cfg: Dict[str, Any]) -> None:
         train_non_zero_rows,
         transform=TrainTransform(cfg),
         random_cut_and_paste=RandomCutAndPaste(
+            radius=cfg["cut_and_paste_radius"],
             use_hflip=True,
             use_vflip=True,
             use_rot90=True,
@@ -197,6 +198,7 @@ def train(cfg: Dict[str, Any]) -> None:
     #     num_workers=0,
     #     collate_fn=collate_fn,
     # )
+    eval_interval = cfg["eval_interval"]
     val_loader = DataLoader(
         val_dataset,
         collate_fn=collate_fn,
@@ -213,9 +215,12 @@ def train(cfg: Dict[str, Any]) -> None:
     use_amp = cfg["use_amp"]
     scaler = GradScaler(enabled=use_amp)
 
+    epoch_size = len(train_loader)
+    iteration = 0
     for epoch in range(cfg["epochs"]):
         train_meter = MeanReduceDict()
-        for i, batch in tqdm(enumerate(train_loader), total=len(train_loader)):
+        for batch in tqdm(train_loader, total=epoch_size):
+            iteration += 1
             model.train()
             batch = to_device(**batch)
             batch = mosaic(batch)
@@ -228,7 +233,7 @@ def train(cfg: Dict[str, Any]) -> None:
                 scaler.update()
             train_meter.accumulate(valmap(lambda x: x.item(), other))
 
-            if i % 10 == 0:
+            if iteration % eval_interval == 0:
                 model.eval()
                 val_meter = MeanReduceDict()
                 ap = MeanBoxAP(iou_thresholds=cfg["iou_thresholds"])
@@ -243,16 +248,18 @@ def train(cfg: Dict[str, Any]) -> None:
                             batch["box_batch"],
                         )
                         val_meter.accumulate(valmap(lambda x: x.item(), other))
-                    ap_score, _ = ap.value
-                    writer.add_scalar(f"val/ap", ap_score, i)
-                    print(ap_score)
+                    ap_score, ap_logs = ap.value
+                    writer.add_scalar(f"val/ap", ap_score, iteration)
+                    print(ap_score, ap_logs)
                     print(val_meter.value)
 
                 for k, v in train_meter.value.items():
-                    writer.add_scalar(f"train/{k}", v, i * epoch)
+                    writer.add_scalar(f"train/{k}", v, iteration)
 
                 for k, v in val_meter.value.items():
-                    writer.add_scalar(f"val/{k}", v, i * epoch)
+                    writer.add_scalar(f"val/{k}", v, iteration)
+                for k, v in ap_logs.items():
+                    writer.add_scalar(f"val/{k}", v, iteration)
                 checkpoint.save_if_needed(model, ap_score, optimizer=optimizer)
 
         writer.flush()
@@ -267,11 +274,11 @@ def evaluate(cfg: Dict[str, Any]) -> None:
     model = get_model(cfg)
     checkpoint.load_if_exists(model=model, device=cfg["device"])
     annotations = read_train_rows(cfg["dataset_dir"])
-    _, validation_rows = kfold(filter_empty_boxes(annotations), cfg["n_splits"], cfg["fold"])
-
-    zero_rows = pipe(
-        validation_rows, filter(lambda x: x["boxes"].shape[0] == 0), list
+    _, validation_rows = kfold(
+        filter_empty_boxes(annotations), cfg["n_splits"], cfg["fold"]
     )
+
+    zero_rows = pipe(validation_rows, filter(lambda x: x["boxes"].shape[0] == 0), list)
     validation_rows = keep_ratio(validation_rows + zero_rows)
     writer = get_writer(cfg)
     dataset = COTSDataset(
@@ -420,7 +427,7 @@ class EnsembleInferenceOne:
                     "to_boxes": get_to_boxes(c),
                 }
             )
-        self.presets:List[Dict[str, Any]] = presets
+        self.presets: List[Dict[str, Any]] = presets
         self.resize = Resize(width=cfg["original_width"], height=cfg["original_height"])
 
     @torch.no_grad()
