@@ -22,12 +22,27 @@ resume_target: checkpoint
 
 backbone_type: efficientnet
 backbone_name: efficientnet-b2
+iou_thresholds:
+  - 0.30
+  - 0.35
+  - 0.40
+  - 0.45
+  - 0.50
+  - 0.55
+  - 0.60
+  - 0.65
+  - 0.70
+  - 0.75
+  - 0.80
+  - 0.85
 
 val_iou_thresholds: [0.3]
 lookahead_k: 5
 lookahead_alpha: 0.5
-# mosaic_p: 0.4
-mosaic_p: 0.0
+
+mosaic_p: 0.9
+cut_and_paste_radius: 0.2
+eval_interval: 10
 
 to_boxes:
   iou_threshold: 0.4
@@ -39,21 +54,21 @@ assign:
   radius: 1.5
   box_weight: 3.0
 
-lr: 1.0e-4
+lr: 5.0e-4
 fine_lr: 1.0e-4
 
 criterion:
-  box_weight: 1.0
+  box_weight: 0.5
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 6
+  batch_size: 8
   shuffle: true
   num_workers: 6
   drop_last: true
 
 val_loader:
-  batch_size: 6
+  batch_size: 8
   num_workers: 6
 
 n_splits: 5

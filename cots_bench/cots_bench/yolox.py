@@ -72,6 +72,7 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             "scale-0.5-1.0",
             "cut_and_paste",
             "roteate90",
+            cfg["eval_interval"],
         ],
         map(str),
         "-".join,
@@ -253,14 +254,15 @@ def train(cfg: Dict[str, Any]) -> None:
                     print(ap_score, ap_logs)
                     print(val_meter.value)
 
-                for k, v in train_meter.value.items():
-                    writer.add_scalar(f"train/{k}", v, iteration)
 
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
                 for k, v in ap_logs.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
                 checkpoint.save_if_needed(model, ap_score, optimizer=optimizer)
+
+        for k, v in train_meter.value.items():
+            writer.add_scalar(f"train/{k}", v, iteration)
 
         writer.flush()
 

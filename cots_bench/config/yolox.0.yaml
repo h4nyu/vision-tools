@@ -33,18 +33,17 @@ iou_thresholds:
   - 0.70
   - 0.75
   - 0.80
-  - 0.85
 
 val_iou_thresholds: [0.3]
 lookahead_k: 5
 lookahead_alpha: 0.5
-mosaic_p: 0.0
+mosaic_p: 0.4
 cut_and_paste_radius: 0.2
 eval_interval: 10
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.6
+  conf_threshold: 0.5
   limit: 2000
 
 assign:
