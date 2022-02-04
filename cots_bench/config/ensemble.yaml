@@ -1,6 +1,6 @@
 model_configs:
-  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.0.yaml
-  # - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.1.yaml
+  # - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.0.yaml
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.1.yaml
   # - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.2.yaml
   # - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.3.yaml
 

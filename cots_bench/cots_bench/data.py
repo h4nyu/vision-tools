@@ -99,7 +99,7 @@ TrainTransform = lambda cfg: A.Compose(
             interpolation=PIL.Image.BILINEAR,
         ),
         A.HueSaturationValue(
-            hue_shift_limit=10, sat_shift_limit=15, val_shift_limit=15, p=0.9
+            hue_shift_limit=10, sat_shift_limit=15, val_shift_limit=15, p=cfg['hue_p']
         ),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.HorizontalFlip(p=0.5),

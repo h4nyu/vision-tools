@@ -303,7 +303,7 @@ def evaluate(cfg: Dict[str, Any]) -> None:
         metric.accumulate([pred_sample["boxes"]], [sample["boxes"]])
         ap.accumulate([pred_sample["boxes"]], [pred_sample["confs"]], [sample["boxes"]])
 
-        if i % 5 == 0:
+        if i % 10 == 0:
             plot = draw(
                 image=pred_sample["image"],
                 boxes=pred_sample["boxes"],

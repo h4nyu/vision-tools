@@ -35,17 +35,25 @@ iou_thresholds:
   - 0.80
 
 val_iou_thresholds: [0.3]
-lookahead_k: 5
-lookahead_alpha: 0.5
-# mosaic_p: 0.7
-mosaic_p: 0.0
+
+
 cut_and_paste_radius: 0.2
-eval_interval: 1
+
+## rough
+# mosaic_p: 0.7
+# hue_p: 0.9
 # eval_interval: 50
+# lr: 5.0e-4
+
+## fine
+mosaic_p: 0.0
+hue_p: 0.0
+eval_interval: 1
+lr: 1.0e-5
 
 to_boxes:
   iou_threshold: 0.4
-  conf_threshold: 0.3
+  conf_threshold: 0.55
   limit: 2000
 
 assign:
@@ -53,8 +61,6 @@ assign:
   radius: 1.5
   box_weight: 3.0
 
-# lr: 5.0e-4
-lr: 1.0e-4
 
 criterion:
   box_weight: 0.3
