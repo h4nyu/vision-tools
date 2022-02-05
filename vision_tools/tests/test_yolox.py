@@ -24,7 +24,8 @@ from vision_tools.meter import MeanReduceDict
 def model() -> YOLOX:
     backbone = CSPDarknet()
     num_classes = 2
-    feat_range = (3, 6)
+    feat_range = (2, 6)
+    head_range = (1, 3)
     neck = CSPPAFPN(
         in_channels=backbone.channels[feat_range[0] : feat_range[1]],
         strides=backbone.strides[feat_range[0] : feat_range[1]],
@@ -35,6 +36,7 @@ def model() -> YOLOX:
         hidden_channels=64,
         num_classes=num_classes,
         feat_range=feat_range,
+        head_range=head_range,
     )
 
 

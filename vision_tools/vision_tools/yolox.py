@@ -143,17 +143,19 @@ class YOLOX(nn.Module):
         hidden_channels: int,
         num_classes: int,
         feat_range: Tuple[int, int] = (3, 7),
+        head_range: Tuple[int, int] = (0, 3),
     ) -> None:
         super().__init__()
         self.backbone = backbone
         self.neck = neck
         self.feat_range = feat_range
+        self.head_range = head_range
         self.num_classes = num_classes
         self.strides = self.backbone.strides
-        self.box_strides = self.strides[self.feat_range[0] : self.feat_range[1]]
+        self.box_strides = self.neck.strides[self.head_range[0] : self.head_range[1]]
 
         self.box_head = YOLOXHead(
-            in_channels=backbone.channels[self.feat_range[0] : self.feat_range[1]],
+            in_channels=self.neck.channels[self.head_range[0] : self.head_range[1]],
             num_classes=num_classes,
             hidden_channels=hidden_channels,
         )
@@ -190,7 +192,7 @@ class YOLOX(nn.Module):
     def feats(self, x: Tensor) -> List[Tensor]:
         feats = self.backbone(x)
         feats = feats[self.feat_range[0] : self.feat_range[1]]
-        return self.neck(feats)
+        return self.neck(feats)[self.head_range[0] : self.head_range[1]]
 
     def forward(self, image_batch: Tensor) -> Tensor:
         feats = self.feats(image_batch)
