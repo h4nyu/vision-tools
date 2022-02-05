@@ -52,8 +52,10 @@ def get_model_name(cfg: Dict[str, Any]) -> str:
             cfg["n_splits"],
             cfg["image_width"],
             cfg["image_height"],
-            cfg["fpn_start"],
-            cfg["fpn_end"],
+            cfg["feat_start"],
+            cfg["feat_end"],
+            cfg["head_start"],
+            cfg["head_end"],
         ],
         map(str),
         "-".join,
@@ -88,15 +90,16 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
 def get_model(cfg: Dict[str, Any]) -> YOLOX:
     backbone = EfficientNet(name=cfg["backbone_name"])
     neck = CSPPAFPN(
-        in_channels=backbone.channels[cfg["fpn_start"] : cfg["fpn_end"]],
-        strides=backbone.strides[cfg["fpn_start"] : cfg["fpn_end"]],
+        in_channels=backbone.channels[cfg["feat_start"] : cfg["feat_end"]],
+        strides=backbone.strides[cfg["feat_start"] : cfg["feat_end"]],
     )
     model = YOLOX(
         backbone=backbone,
         neck=neck,
         hidden_channels=cfg["hidden_channels"],
         num_classes=cfg["num_classes"],
-        feat_range=(cfg["fpn_start"], cfg["fpn_end"]),
+        feat_range=(cfg["feat_start"], cfg["feat_end"]),
+        head_range=(cfg["head_start"], cfg["head_end"]),
     )
     return model
 

@@ -8,8 +8,10 @@ dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
-fpn_start: 4
-fpn_end: 5
+feat_start: 3
+feat_end: 6
+head_start: 1
+head_end: 2
 
 image_width: 1920
 image_height: 1280
