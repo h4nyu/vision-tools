@@ -73,6 +73,9 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             "cut_and_paste",
             "roteate90",
             cfg["eval_interval"],
+            cfg["cut_and_paste_p"],
+            cfg["cut_and_paste_scale_min"],
+            cfg["cut_and_paste_scale_max"],
         ],
         map(str),
         "-".join,
@@ -166,8 +169,8 @@ def train(cfg: Dict[str, Any]) -> None:
             use_hflip=True,
             use_vflip=True,
             use_rot90=True,
-            scale_limit=(0.9, 1.1),
-            p=0.9,
+            scale_limit=(cfg["cut_and_paste_scale_min"], cfg["cut_and_paste_scale_max"]),
+            p=cfg["cut_and_paste_p"],
         ),
     )
 
@@ -261,8 +264,9 @@ def train(cfg: Dict[str, Any]) -> None:
                     writer.add_scalar(f"val/{k}", v, iteration)
                 checkpoint.save_if_needed(model, ap_score, optimizer=optimizer)
 
-        for k, v in train_meter.value.items():
-            writer.add_scalar(f"train/{k}", v, iteration)
+                for k, v in train_meter.value.items():
+                    writer.add_scalar(f"train/{k}", v, iteration)
+                train_meter.reset()
 
         writer.flush()
 

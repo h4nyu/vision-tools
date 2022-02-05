@@ -25,7 +25,7 @@ from vision_tools.batch_transform import BatchMosaic, BatchRelocate
 from torch.utils.tensorboard import SummaryWriter
 from toolz.curried import pipe, partition, map, filter
 
-cfg = load_config("/app/cots_bench/config/yolox.yaml")
+cfg = load_config("/app/cots_bench/config/yolox.1.yaml")
 writer = get_writer(cfg)
 
 no_volume = not os.path.exists(cfg["dataset_dir"])
@@ -67,11 +67,13 @@ def test_batch(train_transform: Any, rows: List[Row]) -> None:
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
     rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 5), list)
+    print(cfg["cut_and_paste_scale_min"])
     dataset = COTSDataset(
         rows,
         transform=train_transform,
         random_cut_and_paste=RandomCutAndPaste(
-            use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(0.5, 1.7)
+            radius=cfg["cut_and_paste_radius"],
+            use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(cfg["cut_and_paste_scale_min"], cfg["cut_and_paste_scale_max"])
         ),
     )
     for i in range(20):

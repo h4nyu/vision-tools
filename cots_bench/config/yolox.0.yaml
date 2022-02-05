@@ -3,7 +3,7 @@ name: yolox
 device: cuda
 use_amp: true
 epochs: 999
-hidden_channels: 48
+hidden_channels: 32
 dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
@@ -11,8 +11,8 @@ num_classes: 1
 fpn_start: 3
 fpn_end: 5
 
-image_width: 1792
-image_height: 1024
+image_width: 1920
+image_height: 1280
 
 original_width: 1280
 original_height: 720

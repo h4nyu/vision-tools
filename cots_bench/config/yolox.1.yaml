@@ -8,7 +8,7 @@ dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
-fpn_start: 3
+fpn_start: 4
 fpn_end: 5
 
 image_width: 1920
@@ -37,19 +37,22 @@ iou_thresholds:
 val_iou_thresholds: [0.3]
 
 
-cut_and_paste_radius: 0.2
+cut_and_paste_p: 0.9
+cut_and_paste_scale_min: 0.5
+cut_and_paste_scale_max: 1.1
+cut_and_paste_radius: 0.3
 
 ## rough
-# mosaic_p: 0.7
-# hue_p: 0.9
-# eval_interval: 50
-# lr: 5.0e-4
+mosaic_p: 0.9
+hue_p: 0.9
+eval_interval: 50
+lr: 5.0e-4
 
 ## fine
-mosaic_p: 0.0
-hue_p: 0.0
-eval_interval: 1
-lr: 1.0e-5
+# mosaic_p: 0.0
+# hue_p: 0.0
+# eval_interval: 1
+# lr: 1.0e-5
 
 to_boxes:
   iou_threshold: 0.4
@@ -58,7 +61,7 @@ to_boxes:
 
 assign:
   topk: 9
-  radius: 1.5
+  radius: 3
   box_weight: 3.0
 
 
@@ -69,12 +72,12 @@ criterion:
 train_loader:
   batch_size: 5
   shuffle: true
-  num_workers: 6
+  num_workers: 5
   drop_last: true
 
 val_loader:
-  batch_size: 5
-  num_workers: 6
+  batch_size: 9
+  num_workers: 5
 
 n_splits: 5
 fold: 1

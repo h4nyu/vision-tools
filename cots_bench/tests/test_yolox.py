@@ -35,7 +35,7 @@ from cots_bench.data import (
 )
 
 
-cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.yaml"))
+cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.1.yaml"))
 cfg["device"] = "cpu"
 writer = get_writer(cfg)
 
