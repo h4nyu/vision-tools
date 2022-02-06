@@ -103,7 +103,7 @@ TrainTransform = lambda cfg: A.Compose(
         ),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
+        A.VerticalFlip(p=cfg['vflip_p']),
         ToTensorV2(),
     ],
     bbox_params=bbox_params,

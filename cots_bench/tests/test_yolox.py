@@ -102,6 +102,7 @@ def test_assign(
 ) -> None:
     model.eval()
     batch = to_device(**batch)
+    print(writer.log_dir)
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
     image_batch = batch["image_batch"]
