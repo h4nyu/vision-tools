@@ -246,8 +246,6 @@ class Criterion:
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
         cls_weight: float = 1.0,
-        assign_radius: float = 2.0,
-        assign_center_wight: float = 1.0,
     ) -> None:
         self.box_weight = box_weight
         self.cls_weight = cls_weight
@@ -255,7 +253,7 @@ class Criterion:
         self.assign = assign
 
         self.box_loss = CIoULoss()
-        self.obj_loss = FocalLossWithLogits(reduction="sum")
+        self.obj_loss = nn.BCEWithLogitsLoss(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
 
     def __call__(

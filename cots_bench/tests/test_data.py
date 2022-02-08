@@ -73,7 +73,13 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
         transform=train_transform,
         random_cut_and_paste=RandomCutAndPaste(
             radius=cfg["cut_and_paste_radius"],
-            use_hflip=True, use_vflip=True, use_rot90=True, scale_limit=(cfg["cut_and_paste_scale_min"], cfg["cut_and_paste_scale_max"])
+            use_hflip=True,
+            use_vflip=True,
+            use_rot90=True,
+            scale_limit=(
+                cfg["cut_and_paste_scale_min"],
+                cfg["cut_and_paste_scale_max"],
+            ),
         ),
     )
     for i in range(20):

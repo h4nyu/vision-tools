@@ -46,10 +46,10 @@ def get_model_name(cfg: Dict[str, Any]) -> str:
     return pipe(
         [
             cfg["name"],
-            cfg["backbone_name"],
-            cfg["hidden_channels"],
             cfg["fold"],
             cfg["n_splits"],
+            cfg["backbone_name"],
+            cfg["hidden_channels"],
             cfg["image_width"],
             cfg["image_height"],
             cfg["feat_start"],
@@ -70,6 +70,8 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             cfg["lr"],
             cfg["criterion"]["box_weight"],
             cfg["assign"]["radius"],
+            cfg["assign"]["topk"],
+            cfg["assign"]["box_weight"],
             cfg["mosaic_p"],
             "scale-0.5-1.0",
             "cut_and_paste",
@@ -78,6 +80,7 @@ def get_writer(cfg: Dict[str, Any]) -> SummaryWriter:
             cfg["cut_and_paste_p"],
             cfg["cut_and_paste_scale_min"],
             cfg["cut_and_paste_scale_max"],
+            cfg["to_boxes"]["conf_threshold"],
         ],
         map(str),
         "-".join,
@@ -172,7 +175,10 @@ def train(cfg: Dict[str, Any]) -> None:
             use_hflip=True,
             use_vflip=True,
             use_rot90=True,
-            scale_limit=(cfg["cut_and_paste_scale_min"], cfg["cut_and_paste_scale_max"]),
+            scale_limit=(
+                cfg["cut_and_paste_scale_min"],
+                cfg["cut_and_paste_scale_max"],
+            ),
             p=cfg["cut_and_paste_p"],
         ),
     )
@@ -260,7 +266,6 @@ def train(cfg: Dict[str, Any]) -> None:
                     print(ap_score, ap_logs)
                     print(val_meter.value)
 
-
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
                 for k, v in ap_logs.items():
@@ -319,7 +324,7 @@ def evaluate(cfg: Dict[str, Any]) -> None:
             writer.add_image("preview", plot, i // 5)
     score, other = metric.value
     ap_score, ap_logs = ap.value
-    print(f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}")
+    writer.add_text("evaluate", f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}", 0)
 
 
 class InferenceOne:

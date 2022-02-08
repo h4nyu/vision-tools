@@ -9,12 +9,12 @@ store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
 feat_start: 4
-feat_end: 7
+feat_end: 6
 head_start: 0
-head_end: 3
+head_end: 1
 
-image_width: 1920
-image_height: 1280
+image_width: 2560
+image_height: 1440
 
 original_width: 1280
 original_height: 720
@@ -22,7 +22,7 @@ original_height: 720
 resume_target: checkpoint
 
 backbone_type: efficientnet
-backbone_name: efficientnet-b3
+backbone_name: efficientnet-b2
 iou_thresholds:
   - 0.30
   - 0.35
@@ -39,35 +39,34 @@ iou_thresholds:
 val_iou_thresholds: [0.3]
 
 
-cut_and_paste_p: 0.9
-cut_and_paste_scale_min: 0.5
-cut_and_paste_scale_max: 1.1
+cut_and_paste_p: 0.95
+cut_and_paste_scale_min: 0.8
+cut_and_paste_scale_max: 1.2
 cut_and_paste_radius: 0.3
+vflip_p: 0.5
 
 ## rough
-# mosaic_p: 0.9
-# hue_p: 0.9
-# cut_and_paste_p: 0.9
-# eval_interval: 100
-vflip_p: 0.5
-# lr: 2.0e-4
+mosaic_p: 0.9
+hue_p: 0.9
+cut_and_paste_p: 0.9
+eval_interval: 100
+lr: 1.0e-3
 
-## fine
-mosaic_p: 0.0
-hue_p: 0.0
-cut_and_paste_p: 0.0
-vflip_p: 0.0
-eval_interval: 1
-lr: 1.0e-5
+## fine-1
+# mosaic_p: 0.0
+# hue_p: 0.0
+# cut_and_paste_p: 0.9
+# eval_interval: 1
+# lr: 5.0e-4
 
 to_boxes:
-  iou_threshold: 0.4
-  conf_threshold: 0.55
+  iou_threshold: 0.2
+  conf_threshold: 0.70
   limit: 2000
 
 assign:
   topk: 9
-  radius: 1.5
+  radius:  1.5
   box_weight: 3.0
 
 
@@ -76,13 +75,13 @@ criterion:
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 5
+  batch_size: 4
   shuffle: true
   num_workers: 5
   drop_last: true
 
 val_loader:
-  batch_size: 9
+  batch_size: 10
   num_workers: 5
 
 n_splits: 5
