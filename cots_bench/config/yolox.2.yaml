@@ -53,10 +53,10 @@ eval_interval: 100
 lr: 1.0e-3
 
 ## fine-1
-# mosaic_p: 0.0
+# mosaic_p: 1.0
 # hue_p: 0.0
 # cut_and_paste_p: 0.9
-# eval_interval: 1
+# eval_interval: 5
 # lr: 5.0e-4
 
 to_boxes:
@@ -71,7 +71,7 @@ assign:
 
 
 criterion:
-  box_weight: 0.5
+  box_weight: 1.0
   cls_weight: 0.0
 
 train_loader:

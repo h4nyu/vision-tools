@@ -154,7 +154,7 @@ def train(cfg: Dict[str, Any]) -> None:
     )
     checkpoint.load_if_exists(
         model=model,
-        optimizer=optimizer,
+        # optimizer=optimizer,
         device=cfg["device"],
         target=cfg["resume_target"],
     )
@@ -324,7 +324,9 @@ def evaluate(cfg: Dict[str, Any]) -> None:
             writer.add_image("preview", plot, i // 5)
     score, other = metric.value
     ap_score, ap_logs = ap.value
+    print(f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}")
     writer.add_text("evaluate", f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}", 0)
+    writer.flush()
 
 
 class InferenceOne:

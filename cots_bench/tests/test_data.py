@@ -25,7 +25,7 @@ from vision_tools.batch_transform import BatchMosaic, BatchRelocate
 from torch.utils.tensorboard import SummaryWriter
 from toolz.curried import pipe, partition, map, filter
 
-cfg = load_config("/app/cots_bench/config/yolox.1.yaml")
+cfg = load_config("/app/cots_bench/config/yolox.2.yaml")
 writer = get_writer(cfg)
 
 no_volume = not os.path.exists(cfg["dataset_dir"])
