@@ -8,52 +8,81 @@ dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 store_dir: /kaggle/input/packages/vision-tools/cots_bench/store
 depth: 1
 num_classes: 1
-fpn_start: 3
-fpn_end: 5
+feat_start: 4
+feat_end: 6
+head_start: 0
+head_end: 1
 
-image_width: 1792
-image_height: 1024
+image_width: 2560
+image_height: 1440
 
 original_width: 1280
 original_height: 720
 
-# resume_target: current
 resume_target: checkpoint
 
 backbone_type: efficientnet
 backbone_name: efficientnet-b2
+iou_thresholds:
+  - 0.30
+  - 0.35
+  - 0.40
+  - 0.45
+  - 0.50
+  - 0.55
+  - 0.60
+  - 0.65
+  - 0.70
+  - 0.75
+  - 0.80
 
 val_iou_thresholds: [0.3]
-lookahead_k: 5
-lookahead_alpha: 0.5
-mosaic_p: 0.4
+
+
+cut_and_paste_p: 0.95
+cut_and_paste_scale_min: 0.8
+cut_and_paste_scale_max: 1.2
+cut_and_paste_radius: 0.3
+vflip_p: 0.5
+
+## rough
+mosaic_p: 0.9
+hue_p: 0.9
+cut_and_paste_p: 0.9
+eval_interval: 100
+lr: 1.0e-3
+
+## fine-1
+# mosaic_p: 1.0
+# hue_p: 0.0
+# cut_and_paste_p: 0.9
+# eval_interval: 5
+# lr: 5.0e-4
 
 to_boxes:
-  iou_threshold: 0.4
-  conf_threshold: 0.5
+  iou_threshold: 0.2
+  conf_threshold: 0.70
   limit: 2000
 
 assign:
   topk: 9
-  radius: 1.5
+  radius:  1.5
   box_weight: 3.0
 
-lr: 1.0e-3
-fine_lr: 1.0e-4
 
 criterion:
-  box_weight: 0.5
+  box_weight: 1.0
   cls_weight: 0.0
 
 train_loader:
-  batch_size: 6
+  batch_size: 4
   shuffle: true
-  num_workers: 6
+  num_workers: 5
   drop_last: true
 
 val_loader:
-  batch_size: 6
-  num_workers: 6
+  batch_size: 10
+  num_workers: 5
 
 n_splits: 5
 fold: 3

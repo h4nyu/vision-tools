@@ -85,4 +85,4 @@ val_loader:
   num_workers: 4
 
 n_splits: 5
-fold: 2
+fold: 0
