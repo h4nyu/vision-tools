@@ -425,7 +425,6 @@ class TTAInferenceOne:
         )
         if self.postprocess is not None:
             sample = self.postprocess(sample)
-        # sample = self.tracker(sample)
         return sample
 
 
