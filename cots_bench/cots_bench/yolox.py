@@ -140,6 +140,7 @@ def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
         model=model,
         to_boxes=to_boxes,
         postprocess=resize,
+        tracker=Tracker(),
     )
 
 
@@ -414,7 +415,7 @@ class TTAInferenceOne:
             pred_batch["conf_batch"],
             label_batch,
             weights=weights,
-            iou_thr=0.2,
+            iou_thr=self.to_boxes.iou_threshold,
         )
         sample = TrainSample(
             image=image_batch[0],
