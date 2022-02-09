@@ -27,6 +27,7 @@ from vision_tools.interface import TrainBatch, TrainSample
 from vision_tools.batch_transform import BatchMosaic
 from vision_tools.metric import MeanBoxAP
 from torchvision.ops import nms
+from vision_tools.tracker import Tracker
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
@@ -305,6 +306,7 @@ def evaluate(cfg: Dict[str, Any]) -> None:
     inference = TTAInferenceOne(
         model=model,
         to_boxes=to_boxes,
+        tracker=Tracker(),
     )
 
     metric = BoxF2()
@@ -315,13 +317,13 @@ def evaluate(cfg: Dict[str, Any]) -> None:
         metric.accumulate([pred_sample["boxes"]], [sample["boxes"]])
         ap.accumulate([pred_sample["boxes"]], [pred_sample["confs"]], [sample["boxes"]])
 
-        if i % 10 == 0:
+        if len(sample["boxes"]) > 0 and i % 100 == 0:
             plot = draw(
                 image=pred_sample["image"],
                 boxes=pred_sample["boxes"],
                 gt_boxes=sample["boxes"],
             )
-            writer.add_image("preview", plot, i // 5)
+            writer.add_image("preview", plot, i)
     score, other = metric.value
     ap_score, ap_logs = ap.value
     print(f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}")
@@ -364,11 +366,13 @@ class TTAInferenceOne:
         self,
         model: YOLOX,
         to_boxes: ToBoxes,
+        tracker: Tracker,
         postprocess: Optional[Resize] = None,
     ) -> None:
         self.model = model
         self.postprocess = postprocess
         self.to_boxes = to_boxes
+        self.tracker = tracker
 
     @torch.no_grad()
     def __call__(self, image: Tensor) -> TrainSample:
@@ -395,6 +399,11 @@ class TTAInferenceOne:
             box_hflip(pred_batch["box_batch"][3], image_size=(w, h)), image_size=(w, h)
         )
         weights = [1, 1, 1, 1]
+        label_batch = [
+            torch.zeros_like(x)
+            for x
+            in pred_batch["label_batch"]
+        ]
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             [
                 resize_boxes(boxes, (1 / w, 1 / h)),
@@ -403,8 +412,9 @@ class TTAInferenceOne:
                 resize_boxes(vhf_boxes, (1 / w, 1 / h)),
             ],
             pred_batch["conf_batch"],
-            pred_batch["label_batch"],
+            label_batch,
             weights=weights,
+            iou_thr=0.2,
         )
         sample = TrainSample(
             image=image_batch[0],
@@ -414,10 +424,7 @@ class TTAInferenceOne:
         )
         if self.postprocess is not None:
             sample = self.postprocess(sample)
-        nms_idx = nms(sample["boxes"], sample["confs"], 0.5)
-        sample["boxes"] = sample["boxes"][nms_idx]
-        sample["labels"] = sample["labels"][nms_idx]
-        sample["confs"] = sample["confs"][nms_idx]
+        # sample = self.tracker(sample)
         return sample
 
 

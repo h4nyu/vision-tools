@@ -295,6 +295,7 @@ def precision_recall_curve(
     )
     return precision, recall
 
+
 class MeanBoxAP:
     def __init__(
         self,
@@ -303,7 +304,10 @@ class MeanBoxAP:
     ):
         self.iou_thresholds = iou_thresholds
         self.num_classes = num_classes
-        self.aps = [BoxAP(iou_threshold=iou_threshold, num_classes=num_classes) for iou_threshold in iou_thresholds]
+        self.aps = [
+            BoxAP(iou_threshold=iou_threshold, num_classes=num_classes)
+            for iou_threshold in iou_thresholds
+        ]
         self.reset()
 
     def reset(self) -> None:
@@ -326,9 +330,6 @@ class MeanBoxAP:
     @property
     def value(self) -> Tuple[float, Dict[str, float]]:
         aps = [ap.value for ap in self.aps]
-        logs = {
-            f"ap@{iou:.2f}": ap[0]
-            for iou, ap in zip(self.iou_thresholds, aps)
-        }
+        logs = {f"ap@{iou:.2f}": ap[0] for iou, ap in zip(self.iou_thresholds, aps)}
         ap = sum(ap[0] for ap in aps) / len(aps)
         return ap, logs
