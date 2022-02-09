@@ -93,15 +93,8 @@ bbox_params = dict(format="pascal_voc", label_fields=["labels"], min_area=14)
 
 TrainTransform = lambda cfg: A.Compose(
     [
-        A.ShiftScaleRotate(
-            shift_limit=0.0,
-            scale_limit=(0.0, 0.3),
-            border_mode=0,
-            rotate_limit=0,
-            p=1.0,
-        ),
         A.HueSaturationValue(
-            hue_shift_limit=10, sat_shift_limit=15, val_shift_limit=15, p=cfg["hue_p"]
+            hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=cfg["hue_p"]
         ),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.HorizontalFlip(p=0.5),
