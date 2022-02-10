@@ -329,11 +329,10 @@ def evaluate(cfg_file: str) -> None:
 
         if len(gt_boxes) != len(pred_sample["boxes"]):
             extra_sequences.add(row["sequence"])
-            print(row["sequence"])
             plot = draw(
                 image=pred_sample["image"],
                 boxes=pred_sample["boxes"],
-                gt_boxes=sample["boxes"],
+                gt_boxes=gt_boxes,
             )
             writer.add_image("preview", plot, i)
     score, other = metric.value
@@ -498,7 +497,8 @@ class EnsembleInferenceOne:
                 for x in [boxes, vf_boxes, hf_boxes, vhf_boxes]
             ]
             pred_conf_batch += pred_batch["conf_batch"]
-            pred_label_batch += pred_batch["label_batch"]
+            pred_label_batch += [torch.zeros_like(x) for x in pred_batch["label_batch"]]
+
 
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             pred_box_batch,
@@ -512,9 +512,9 @@ class EnsembleInferenceOne:
             labels=torch.from_numpy(np_lables).to(device),
             confs=torch.from_numpy(np_confs).to(device),
         )
+        thr_filter = sample['confs'] > self.cfg["conf_thr"]
+        sample['boxes'] = sample['boxes'][thr_filter]
+        sample['labels'] = sample['labels'][thr_filter]
+        sample['confs'] = sample['confs'][thr_filter]
         sample = self.resize(sample)
-        nms_idx = nms(sample["boxes"], sample["confs"], 0.5)
-        sample["boxes"] = sample["boxes"][nms_idx]
-        sample["labels"] = sample["labels"][nms_idx]
-        sample["confs"] = sample["confs"][nms_idx]
         return sample

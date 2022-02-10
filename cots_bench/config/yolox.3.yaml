@@ -77,12 +77,12 @@ criterion:
 train_loader:
   batch_size: 4
   shuffle: true
-  num_workers: 5
+  num_workers: 4
   drop_last: true
 
 val_loader:
-  batch_size: 10
-  num_workers: 5
+  batch_size: 8
+  num_workers: 4
 
 missed_keys:
   - 0-11880

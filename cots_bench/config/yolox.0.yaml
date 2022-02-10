@@ -61,7 +61,7 @@ lr: 1.0e-3
 
 to_boxes:
   iou_threshold: 0.2
-  conf_threshold: 0.70
+  conf_threshold: 0.80
   limit: 2000
 
 assign:

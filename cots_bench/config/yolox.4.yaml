@@ -71,7 +71,7 @@ assign:
 
 
 criterion:
-  box_weight: 1.0
+  box_weight: 0.5
   cls_weight: 0.0
 
 train_loader:
