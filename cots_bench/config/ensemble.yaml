@@ -13,6 +13,7 @@ original_height: 720
 
 dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
 conf_thr: 0.1
+iou_thr: 0.4
 
 n_splits: 5
 fold: 2

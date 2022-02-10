@@ -504,6 +504,7 @@ class EnsembleInferenceOne:
             pred_box_batch,
             pred_conf_batch,
             pred_label_batch,
+            iou_thr=self.cfg['iou_thr'],
         )
 
         sample = TrainSample(
