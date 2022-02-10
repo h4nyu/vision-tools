@@ -4,6 +4,7 @@ from torch import Tensor
 import json
 import torch, os, torchvision, PIL
 import numpy as np
+import cv2
 from torch.utils.data import Dataset
 from dataclasses import dataclass
 import pandas as pd
@@ -102,7 +103,7 @@ TrainTransform = lambda cfg: A.Compose(
         A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],
-            interpolation=PIL.Image.BILINEAR,
+            interpolation=cv2.INTER_NEAREST,
         ),
         ToTensorV2(),
     ],
@@ -164,7 +165,7 @@ class COTSDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> TrainSample:
+    def __getitem__(self, idx: int) -> Tuple[TrainSample, Row]:
         row = self.rows[idx]
         id = row["image_id"]
         video_id = row["video_id"]
@@ -190,7 +191,7 @@ class COTSDataset(Dataset):
         if self.random_cut_and_paste is not None:
             sample = self.random_cut_and_paste(sample)
         sample = self.filter_small_boxes(sample)
-        return sample
+        return sample, row
 
 
 def to_submission_string(boxes: Tensor, confs: Tensor) -> str:
@@ -220,13 +221,13 @@ def keep_ratio(rows: List[Row]) -> List[Row]:
 
 
 def collate_fn(
-    batch: List[TrainSample],
+    batch: List[Tuple[TrainSample, Row]],
 ) -> TrainBatch:
     images: List[Tensor] = []
     box_batch: List[Tensor] = []
     label_batch: List[Tensor] = []
     conf_batch: List[Tensor] = []
-    for row in batch:
+    for row, _ in batch:
         images.append(row["image"])
         box_batch.append(row["boxes"])
         label_batch.append(row["labels"])

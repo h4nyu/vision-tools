@@ -282,43 +282,54 @@ def train(cfg: Dict[str, Any]) -> None:
 
 
 @torch.no_grad()
-def evaluate(cfg: Dict[str, Any]) -> None:
+def evaluate(cfg_file: str) -> None:
+    cfg = load_config(cfg_file)
     seed_everything()
-    checkpoint = get_checkpoint(cfg)
-    writer = get_writer(cfg)
+    writer_name = "-".join(cfg["model_configs"])
+    writer = SummaryWriter(
+        f"runs/{writer_name}",
+    )
     print(writer.log_dir)
-    model = get_model(cfg)
-    checkpoint.load_if_exists(model=model, device=cfg["device"])
     annotations = read_train_rows(cfg["dataset_dir"])
     _, validation_rows = kfold(
         filter_empty_boxes(annotations), cfg["n_splits"], cfg["fold"]
     )
 
     zero_rows = pipe(validation_rows, filter(lambda x: x["boxes"].shape[0] == 0), list)
+    val_no_zero_sequences = pipe(
+        validation_rows,
+        map(lambda x: x["sequence"]),
+        set,
+    )
     validation_rows = keep_ratio(validation_rows + zero_rows)
-    writer = get_writer(cfg)
     dataset = COTSDataset(
         validation_rows,
         transform=Transform(cfg),
     )
     to_device = ToDevice(cfg["device"])
-    to_boxes = get_to_boxes(cfg)
 
-    inference = TTAInferenceOne(
-        model=model,
-        to_boxes=to_boxes,
-        tracker=Tracker(),
+    inference = EnsembleInferenceOne(
+        cfg=cfg,
     )
 
     metric = BoxF2()
     ap = MeanBoxAP(iou_thresholds=cfg["iou_thresholds"])
-    for i, sample in enumerate(tqdm(dataset, total=len(dataset))):
+    extra_sequences = set()
+    box_scale = (
+        cfg["original_width"] / cfg["image_width"],
+        cfg["original_height"] / cfg["image_height"],
+    )
+    for i, (sample, row) in enumerate(tqdm(dataset, total=len(dataset))):
         sample = to_device(**sample)
         pred_sample = inference(sample["image"])
-        metric.accumulate([pred_sample["boxes"]], [sample["boxes"]])
-        ap.accumulate([pred_sample["boxes"]], [pred_sample["confs"]], [sample["boxes"]])
+        gt_boxes = resize_boxes(sample["boxes"], box_scale)
 
-        if len(sample["boxes"]) > 0 and i % 100 == 0:
+        metric.accumulate([pred_sample["boxes"]], [gt_boxes])
+        ap.accumulate([pred_sample["boxes"]], [pred_sample["confs"]], [gt_boxes])
+
+        if len(gt_boxes) != len(pred_sample["boxes"]):
+            extra_sequences.add(row["sequence"])
+            print(row["sequence"])
             plot = draw(
                 image=pred_sample["image"],
                 boxes=pred_sample["boxes"],
@@ -329,6 +340,7 @@ def evaluate(cfg: Dict[str, Any]) -> None:
     ap_score, ap_logs = ap.value
     print(f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}")
     writer.add_text("evaluate", f"f2:{score}, ap:{ap_score}, {other}, {ap_logs}", 0)
+    cfg["extra_sequences"] = list(extra_sequences)
     writer.flush()
 
 
@@ -400,11 +412,7 @@ class TTAInferenceOne:
             box_hflip(pred_batch["box_batch"][3], image_size=(w, h)), image_size=(w, h)
         )
         weights = [1, 1, 1, 1]
-        label_batch = [
-            torch.zeros_like(x)
-            for x
-            in pred_batch["label_batch"]
-        ]
+        label_batch = [torch.zeros_like(x) for x in pred_batch["label_batch"]]
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             [
                 resize_boxes(boxes, (1 / w, 1 / h)),

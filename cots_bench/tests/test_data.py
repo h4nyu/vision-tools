@@ -83,7 +83,7 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
         ),
     )
     for i in range(20):
-        sample = dataset[0]
+        sample, _ = dataset[0]
         assert sample["image"].shape == (
             3,
             cfg["image_height"],
@@ -139,7 +139,7 @@ def test_cut_and_paste(rows: List[Row]) -> None:
     )
 
     for i in range(20):
-        sample = dataset[0]
+        sample, _ = dataset[0]
         sample = t(sample)
         plot = draw(image=sample["image"], boxes=sample["boxes"])
         writer.add_image("random_cut_and_paste", plot, i)

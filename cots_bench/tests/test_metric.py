@@ -48,7 +48,7 @@ def generate_pred(gt_boxes: Tensor) -> Tuple[Tensor, Tensor]:
 
 
 def test_boxf2(dataset: COTSDataset) -> None:
-    sample = dataset[4515]
+    sample, _ = dataset[4515]
     image = sample["image"]
     gt_boxes = sample["boxes"]
     plot = draw(image=image, boxes=gt_boxes)

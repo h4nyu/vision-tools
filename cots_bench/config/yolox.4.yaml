@@ -84,12 +84,5 @@ val_loader:
   batch_size: 10
   num_workers: 5
 
-missed_keys:
-  - 0-11880
-  - 0-11928
-  - 0-12185
-  - 0-12295
-  - 1-677
-
 n_splits: 5
-fold: 3
+fold: 4
