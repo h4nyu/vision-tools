@@ -58,7 +58,7 @@ class CSPDarknet(nn.Module):
         self.channels = [in_channels, base_channels]
         self.strides = [1, 2]
         for i in range(height):
-            prev_ch = base_channels * 2 ** i
+            prev_ch = base_channels * 2**i
             next_ch = base_channels * 2 ** (i + 1)
             blocks = (
                 [

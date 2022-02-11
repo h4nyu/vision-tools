@@ -12,11 +12,10 @@ from toolz.curried import pipe, partition, map, filter, count
 import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
-from vision_tools.transforms import normalize, inv_normalize
-from vision_tools.interface import TrainSample
+from vision_tools.transforms import normalize, inv_normalize, RandomCutAndPaste
+from vision_tools.interface import Detection
 from sklearn.model_selection import GroupKFold
-from vision_tools.interface import TrainBatch, TrainSample
-from cots_bench.transform import RandomCutAndPaste, FilterSmallBoxes
+from vision_tools.interface import TrainBatch, Detection
 from torchvision.ops import box_convert, clip_boxes_to_image
 
 
@@ -143,7 +142,6 @@ class COTSDataset(Dataset):
         self.rows = rows
         self.transform = transform
         self.random_cut_and_paste = random_cut_and_paste
-        self.filter_small_boxes = FilterSmallBoxes(min_height=8, min_width=8)
 
     def __str__(self) -> str:
         string = ""
@@ -165,7 +163,7 @@ class COTSDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> Tuple[TrainSample, Row]:
+    def __getitem__(self, idx: int) -> Tuple[Detection, Row]:
         row = self.rows[idx]
         id = row["image_id"]
         video_id = row["video_id"]
@@ -182,7 +180,7 @@ class COTSDataset(Dataset):
         boxes = torch.tensor(transformed["bboxes"]).float()
         labels = torch.zeros(len(boxes)).long()
         confs = torch.ones(len(labels)).float()
-        sample = TrainSample(
+        sample = Detection(
             image=image,
             boxes=boxes,
             labels=labels,
@@ -190,7 +188,6 @@ class COTSDataset(Dataset):
         )
         if self.random_cut_and_paste is not None:
             sample = self.random_cut_and_paste(sample)
-        sample = self.filter_small_boxes(sample)
         return sample, row
 
 
@@ -221,7 +218,7 @@ def keep_ratio(rows: List[Row]) -> List[Row]:
 
 
 def collate_fn(
-    batch: List[Tuple[TrainSample, Row]],
+    batch: List[Tuple[Detection, Row]],
 ) -> TrainBatch:
     images: List[Tensor] = []
     box_batch: List[Tensor] = []

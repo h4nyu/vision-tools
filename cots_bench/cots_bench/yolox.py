@@ -23,11 +23,10 @@ from datetime import datetime
 from vision_tools.meter import MeanReduceDict
 from vision_tools.box import box_hflip, box_vflip, resize_boxes
 from vision_tools.step import TrainStep, EvalStep
-from vision_tools.interface import TrainBatch, TrainSample
+from vision_tools.interface import TrainBatch, Detection
 from vision_tools.batch_transform import BatchMosaic
 from vision_tools.metric import MeanBoxAP
 from torchvision.ops import nms
-from vision_tools.tracker import Tracker
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
@@ -39,7 +38,7 @@ from cots_bench.data import (
     keep_ratio,
 )
 from cots_bench.metric import BoxF2
-from cots_bench.transform import RandomCutAndPaste, Resize
+from vision_tools.transforms import RandomCutAndPaste, Resize
 from toolz.curried import pipe, partition, map, filter, count, valmap
 
 
@@ -140,7 +139,6 @@ def get_tta_inference_one(cfg: Dict[str, Any]) -> "TTAInferenceOne":
         model=model,
         to_boxes=to_boxes,
         postprocess=resize,
-        tracker=Tracker(),
     )
 
 
@@ -351,7 +349,7 @@ class InferenceOne:
         self.postprocess = postprocess
 
     @torch.no_grad()
-    def __call__(self, image: Any) -> TrainSample:
+    def __call__(self, image: Any) -> Detection:
         self.model.eval()
         transformed = self.transform(image=image)
         image = (transformed["image"] / 255).float()
@@ -359,7 +357,7 @@ class InferenceOne:
         pred_batch = self.model(image_batch)
         if self.postprocess is not None:
             pred_batch = self.postprocess(pred_batch)
-        return TrainSample(
+        return Detection(
             image=pred_batch["image_batch"][0],
             boxes=pred_batch["box_batch"][0],
             labels=pred_batch["label_batch"][0],
@@ -372,16 +370,14 @@ class TTAInferenceOne:
         self,
         model: YOLOX,
         to_boxes: ToBoxes,
-        tracker: Tracker,
         postprocess: Optional[Resize] = None,
     ) -> None:
         self.model = model
         self.postprocess = postprocess
         self.to_boxes = to_boxes
-        self.tracker = tracker
 
     @torch.no_grad()
-    def __call__(self, image: Tensor) -> TrainSample:
+    def __call__(self, image: Tensor) -> Detection:
         self.model.eval()
         device = image.device
         _, h, w = image.shape
@@ -418,7 +414,7 @@ class TTAInferenceOne:
             weights=weights,
             iou_thr=self.to_boxes.iou_threshold,
         )
-        sample = TrainSample(
+        sample = Detection(
             image=image_batch[0],
             boxes=resize_boxes(torch.from_numpy(np_boxes), (w, h)).to(device),
             labels=torch.from_numpy(np_lables).to(device),
@@ -455,7 +451,7 @@ class EnsembleInferenceOne:
         self.resize = Resize(width=cfg["original_width"], height=cfg["original_height"])
 
     @torch.no_grad()
-    def __call__(self, image: Tensor) -> TrainSample:
+    def __call__(self, image: Tensor) -> Detection:
         device = image.device
         _, h, w = image.shape
         vf_image = vflip(image)
@@ -493,23 +489,22 @@ class EnsembleInferenceOne:
             pred_conf_batch += pred_batch["conf_batch"]
             pred_label_batch += [torch.zeros_like(x) for x in pred_batch["label_batch"]]
 
-
         np_boxes, np_confs, np_lables = weighted_boxes_fusion(
             pred_box_batch,
             pred_conf_batch,
             pred_label_batch,
-            iou_thr=self.cfg['iou_thr'],
+            iou_thr=self.cfg["iou_thr"],
         )
 
-        sample = TrainSample(
+        sample = Detection(
             image=image_batch[0],
             boxes=resize_boxes(torch.from_numpy(np_boxes), (w, h)).to(device),
             labels=torch.from_numpy(np_lables).to(device),
             confs=torch.from_numpy(np_confs).to(device),
         )
-        thr_filter = sample['confs'] > self.cfg["conf_thr"]
-        sample['boxes'] = sample['boxes'][thr_filter]
-        sample['labels'] = sample['labels'][thr_filter]
-        sample['confs'] = sample['confs'][thr_filter]
+        thr_filter = sample["confs"] > self.cfg["conf_thr"]
+        sample["boxes"] = sample["boxes"][thr_filter]
+        sample["labels"] = sample["labels"][thr_filter]
+        sample["confs"] = sample["confs"][thr_filter]
         sample = self.resize(sample)
         return sample

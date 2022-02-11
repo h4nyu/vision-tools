@@ -19,7 +19,7 @@ def unitwise_norm(x: Tensor) -> Tensor:
     else:
         raise ValueError(f"Wrong input dimensions: {x.ndim}")
 
-    return torch.sum(x ** 2, dim=dim, keepdim=keepdim) ** 0.5
+    return torch.sum(x**2, dim=dim, keepdim=keepdim) ** 0.5
 
 
 class SGD_AGC(Optimizer):

@@ -56,8 +56,8 @@ TrainBatch = TypedDict(
     },
 )
 
-TrainSample = TypedDict(
-    "TrainSample",
+Detection = TypedDict(
+    "Detection",
     {
         "image": Tensor,
         "boxes": Tensor,

@@ -207,7 +207,7 @@ class CIoULoss:
         w2 = boxes2[..., 2] - boxes2[..., 0]
         h2 = boxes2[..., 3] - boxes2[..., 1]
         theta2 = torch.atan(w2 / (h2 + self.eps))
-        v = (4 / (math.pi ** 2)) * ((theta2 - theta1) ** 2)
+        v = (4 / (math.pi**2)) * ((theta2 - theta1) ** 2)
         return v
 
     def _compute_distance_factor(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:

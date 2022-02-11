@@ -31,7 +31,7 @@ def test_anchors(
 ) -> None:
     original_w = 1024 + 512
     original_h = 1024
-    stride = 2 ** 7
+    stride = 2**7
     h = original_h // stride
     w = original_w // stride
     images = torch.zeros((1, 3, h, w), dtype=torch.float32)

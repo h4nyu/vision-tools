@@ -19,7 +19,6 @@ from cots_bench.data import (
     to_submission_string,
     filter_empty_boxes,
 )
-from cots_bench.transform import RandomCutAndPaste
 from vision_tools.utils import batch_draw, draw, load_config
 from vision_tools.batch_transform import BatchMosaic, BatchRelocate
 from torch.utils.tensorboard import SummaryWriter
@@ -70,16 +69,6 @@ def test_aug(train_transform: Any, rows: List[Row]) -> None:
     dataset = COTSDataset(
         rows,
         transform=train_transform,
-        random_cut_and_paste=RandomCutAndPaste(
-            radius=cfg["cut_and_paste_radius"],
-            use_hflip=True,
-            use_vflip=True,
-            use_rot90=True,
-            scale_limit=(
-                cfg["cut_and_paste_scale_min"],
-                cfg["cut_and_paste_scale_max"],
-            ),
-        ),
     )
     for i in range(20):
         sample, _ = dataset[0]
@@ -124,22 +113,3 @@ def test_fold(rows: List[Row]) -> None:
     test_groups = pipe(test_rows, map(lambda x: x["sequence"]), set)
     for i in train_groups:
         assert i not in test_groups
-
-
-def test_cut_and_paste(rows: List[Row]) -> None:
-    rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 2), list)
-    dataset = COTSDataset(rows, transform=Transform(cfg))
-    t = RandomCutAndPaste(
-        use_rot90=True,
-        use_hflip=True,
-        use_vflip=True,
-        scale_limit=(0.5, 1.7),
-        p=0.7,
-    )
-
-    for i in range(20):
-        sample, _ = dataset[0]
-        sample = t(sample)
-        plot = draw(image=sample["image"], boxes=sample["boxes"])
-        writer.add_image("random_cut_and_paste", plot, i)
-    writer.flush()

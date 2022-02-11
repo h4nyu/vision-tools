@@ -101,7 +101,7 @@ class MkGaussianMaps(MkMapsBase):
             weight = torch.ones((box_count, 1, 1, 1)).to(device)
         mounts = torch.exp(
             -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
-            / (2 * self.sigma ** 2)
+            / (2 * self.sigma**2)
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return heatmap
@@ -220,7 +220,7 @@ class MkPointMaps:
         weight = torch.ones((count, 1, 1, 1)).to(device)
         mounts = torch.exp(
             -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
-            / (2 * self.sigma ** 2)
+            / (2 * self.sigma**2)
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return heatmap

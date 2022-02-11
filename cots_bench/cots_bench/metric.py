@@ -35,7 +35,7 @@ class BoxF2:
         if precision + recall == 0:
             return 0.0
         return (
-            (1 + beta ** 2) * (precision * recall) / ((beta ** 2) * precision + recall)
+            (1 + beta**2) * (precision * recall) / ((beta**2) * precision + recall)
         )
 
     @property
