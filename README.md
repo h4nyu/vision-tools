@@ -22,4 +22,4 @@ docker-compose build app
 | :-                                         | :-           |
 | **[vision_tools](./vision_tools)**         | lib          |
 | **[kuzushiji_bench](./kuzushiji_bench)**   | kuzushiji    |
-| **[kuzushiji_bench](./cots_bench)**        | Detect crown-of-thorns starfish in underwater image data    |
+| **[cots_bench](./cots_bench)**        | Detect crown-of-thorns starfish in underwater image data    |
