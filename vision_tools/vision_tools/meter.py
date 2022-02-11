@@ -1,9 +1,10 @@
-from typing import Any, Dict
+from __future__ import annotations
+from typing import Any
 
 
 class MeanReduceDict:
     def __init__(self) -> None:
-        self.running: Dict[str, float] = {}
+        self.running: dict[str, float] = {}
         self.num_samples = 0
 
     def accumulate(self, log: Any) -> None:
@@ -16,7 +17,7 @@ class MeanReduceDict:
         self.num_samples = 0
 
     @property
-    def value(self) -> Dict[str, float]:
+    def value(self) -> dict[str, float]:
         return {
             k: self.running.get(k, 0) / max(1, self.num_samples)
             for k in self.running.keys()
