@@ -37,11 +37,9 @@ def generate_pred(gt_boxes: Tensor) -> Tuple[Tensor, Tensor]:
         # pseudo pred bbox
         conf = random.random()
         confs.append(conf)
-        #         noise = (np.random.randn(4)*5).round()
         pred_cxcy = gt_cxcy * torch.tensor([1.0, 1.0, 1.25, 1.25])
         pred_cxcys.append(pred_cxcy)
 
-    # print(torch.cat(pred_cxcys, dim=1).shape)
     pred_boxes = box_convert(torch.stack(pred_cxcys), in_fmt="cxcywh", out_fmt="xyxy")
     pred_confs = torch.tensor(confs)
     return pred_confs, pred_boxes

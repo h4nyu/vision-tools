@@ -67,7 +67,6 @@ def test_batch(train_transform: Any, rows: List[Row]) -> None:
 
 def test_aug(train_transform: Any, rows: List[Row]) -> None:
     rows = pipe(rows, filter(lambda x: len(x["boxes"]) == 5), list)
-    print(cfg["cut_and_paste_scale_min"])
     dataset = COTSDataset(
         rows,
         transform=train_transform,

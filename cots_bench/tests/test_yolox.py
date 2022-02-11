@@ -102,7 +102,6 @@ def test_assign(
 ) -> None:
     model.eval()
     batch = to_device(**batch)
-    print(writer.log_dir)
     gt_box_batch = batch["box_batch"]
     gt_label_batch = batch["label_batch"]
     image_batch = batch["image_batch"]
@@ -151,8 +150,6 @@ def test_tta(rows: List[Row], model: YOLOX, to_device: ToDevice) -> None:
         img = transform(image=img_arr)["image"] / 255
         img = to_device(image=img)["image"]
         pred = inference_one(img)
-        print(pred["boxes"])
-        print(pred["image"].shape)
         plot = draw(image=pred["image"], boxes=pred["boxes"], gt_boxes=gt_boxes)
         writer.add_image("tta_inference_one", plot, i)
     writer.flush()

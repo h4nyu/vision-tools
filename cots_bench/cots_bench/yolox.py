@@ -190,13 +190,10 @@ def train(cfg: Dict[str, Any]) -> None:
     #     transform=TrainTransform(cfg),
     # )
 
-    print(f"log_dir={writer.log_dir}")
-    print(f"train_dataset={train_dataset}")
     val_dataset = COTSDataset(
         keep_ratio(validation_rows),
         transform=Transform(cfg),
     )
-    print(f"val_dataset={val_dataset}")
     train_loader = DataLoader(
         train_dataset,
         collate_fn=collate_fn,
@@ -265,8 +262,6 @@ def train(cfg: Dict[str, Any]) -> None:
                         val_meter.accumulate(valmap(lambda x: x.item(), other))
                     ap_score, ap_logs = ap.value
                     writer.add_scalar(f"val/ap", ap_score, iteration)
-                    print(ap_score, ap_logs)
-                    print(val_meter.value)
 
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
@@ -289,7 +284,6 @@ def evaluate(cfg_file: str) -> None:
     writer = SummaryWriter(
         f"runs/{writer_name}",
     )
-    print(writer.log_dir)
     annotations = read_train_rows(cfg["dataset_dir"])
     _, validation_rows = kfold(
         filter_empty_boxes(annotations), cfg["n_splits"], cfg["fold"]
