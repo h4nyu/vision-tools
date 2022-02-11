@@ -25,7 +25,7 @@ from vision_tools.box import box_hflip, box_vflip, resize_boxes
 from vision_tools.step import TrainStep, EvalStep
 from vision_tools.interface import TrainBatch, Detection
 from vision_tools.batch_transform import BatchMosaic
-from vision_tools.metric import MeanBoxAP
+from vision_tools.metric import MeanBoxAP, MeanBoxF2
 from torchvision.ops import nms
 from cots_bench.data import (
     COTSDataset,
@@ -37,7 +37,6 @@ from cots_bench.data import (
     filter_empty_boxes,
     keep_ratio,
 )
-from cots_bench.metric import BoxF2
 from vision_tools.transforms import RandomCutAndPaste, Resize
 from toolz.curried import pipe, partition, map, filter, count, valmap
 
@@ -304,7 +303,7 @@ def evaluate(cfg_file: str) -> None:
         cfg=cfg,
     )
 
-    metric = BoxF2()
+    metric = MeanBoxF2()
     ap = MeanBoxAP(iou_thresholds=cfg["iou_thresholds"])
     extra_sequences = set()
     box_scale = (
