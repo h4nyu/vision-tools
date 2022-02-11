@@ -1,4 +1,5 @@
-FROM debian:bookworm-slim
+FROM python:3.7.12-buster
+
 
 ENV NVIDIA_VISIBLE_DEVICES=all \
     PATH=/usr/local/cuda/bin:/usr/local/nvidia/bin:/root/.local/bin:${PATH} \
@@ -14,13 +15,6 @@ RUN apt-get update \
         zlib1g-dev \ 
         curl \ 
         ca-certificates \ 
-        gcc \ 
-        python3 \
-        python3-pip \ 
-        python3-dev \ 
-        python3-setuptools \ 
-        python3-wheel \ 
-        build-essential \ 
         unzip \ 
         graphviz \ 
         git \
@@ -32,15 +26,11 @@ RUN apt-get update \
         cuda-cudart-11-3=11.3.109-1 \
         cuda-compat-11-3 \
     && ln -s cuda-11.3 /usr/local/cuda \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN cd /usr/bin \
-	&& ln -s idle3 idle \
-	&& ln -s pydoc3 pydoc \
-	&& ln -s python3 python \
-	&& ln -s python3-config python-config
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir torch==1.9.1+cu111 torchvision==0.10.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 
 WORKDIR /app
 COPY . .
 RUN pip install -e vision_tools[dev] \
-    && pip install -e kuzushiji_bench
+    && pip install -e kuzushiji_bench \
+    && pip install -e cots_bench

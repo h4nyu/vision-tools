@@ -1,6 +1,6 @@
 import torch
 from torch import nn, Tensor
-from typing import Optional, Callable, Mapping, Any, TypeVar, Generic, Iterator
+from typing import Optional, Callable, Mapping, Any, TypeVar, Generic, Iterator, Tuple
 from torch.utils.data import Subset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.cuda.amp import GradScaler, autocast
@@ -13,7 +13,7 @@ from toolz import valmap
 
 B = TypeVar("B")
 T = TypeVar("T", bound=nn.Module)
-CriterionFn = Callable[[T, B], tuple[Tensor, Optional[Mapping[str, Tensor]]]]
+CriterionFn = Callable[[T, B], Tuple[Tensor, Optional[Mapping[str, Tensor]]]]
 
 
 class TrainStep(Generic[T, B]):
@@ -58,7 +58,7 @@ class TrainStep(Generic[T, B]):
             self.checkpoint.save_if_needed(optimizer=self.optimizer)
 
 
-EvaluateFn = Callable[[B, B], tuple[float, Mapping[str, float]]]
+EvaluateFn = Callable[[B, B], Tuple[float, Mapping[str, float]]]
 InferenceFn = Callable[[T, B], B]
 
 
@@ -71,6 +71,7 @@ class EvalStep(Generic[T, B]):
         loader: DataLoader[B],
         metric: MetricLike[B],
         checkpoint: Optional[Checkpoint[T]] = None,
+        metric_name: str = "eval",
     ) -> None:
         self.to_device = to_device
         self.loader = loader
@@ -78,6 +79,7 @@ class EvalStep(Generic[T, B]):
         self.metric = metric
         self.inference = inference
         self.checkpoint = checkpoint
+        self.metric_name = metric_name
 
     @torch.no_grad()
     def __call__(self, model: T, epoch: Optional[int] = None) -> None:
@@ -87,9 +89,9 @@ class EvalStep(Generic[T, B]):
             pred_batch = self.inference(model, batch)
             self.metric.accumulate(pred_batch, batch)
         score, other = self.metric.value
-        self.writer.add_scalar("eval/score", score, epoch)
+        self.writer.add_scalar(f"{self.metric_name}/score", score, epoch)
         for k, v in other.items():
-            self.writer.add_scalar(f"eval/{k}", v, epoch)
+            self.writer.add_scalar(f"{self.metric_name}/{k}", v, epoch)
         self.metric.reset()
         if self.checkpoint is not None:
             self.checkpoint.save_if_needed(model, score)

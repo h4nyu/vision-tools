@@ -1,0 +1,5 @@
+flags:
+  # filter the folder(s) you wish to measure by that flag
+  vision_tools:
+    paths:
+      - vision_tools

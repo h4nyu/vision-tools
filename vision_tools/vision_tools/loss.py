@@ -1,5 +1,6 @@
 import torch, numpy as np, torch.nn as nn, torch.nn.functional as F
-from typing import Literal
+from typing import List, Tuple
+from typing_extensions import Literal
 from torch import Tensor
 import math
 from torchvision.ops.boxes import box_area
@@ -87,7 +88,7 @@ class FocalLoss:
 
 
 class IoU:
-    def __call__(self, boxes1: Tensor, boxes2: Tensor) -> tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Tensor, boxes2: Tensor) -> Tuple[Tensor, Tensor]:
         area1 = box_area(boxes1)
         area2 = box_area(boxes2)
         lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
@@ -138,7 +139,7 @@ class IoULoss:
     def __init__(self, size_average: bool = True) -> None:
         self.size_average = size_average
 
-    def __call__(self, boxes1: Tensor, boxes2: Tensor) -> tuple[Tensor, Tensor]:
+    def __call__(self, boxes1: Tensor, boxes2: Tensor) -> Tuple[Tensor, Tensor]:
         device = boxes1.device
         if len(boxes1) == 0 and len(boxes2) == 0:
             return torch.tensor(0.0, device=device), torch.zeros(0, device=device)
@@ -206,7 +207,7 @@ class CIoULoss:
         w2 = boxes2[..., 2] - boxes2[..., 0]
         h2 = boxes2[..., 3] - boxes2[..., 1]
         theta2 = torch.atan(w2 / (h2 + self.eps))
-        v = (4 / (math.pi ** 2)) * ((theta2 - theta1) ** 2)
+        v = (4 / (math.pi**2)) * ((theta2 - theta1) ** 2)
         return v
 
     def _compute_distance_factor(self, boxes1: Tensor, boxes2: Tensor) -> Tensor:

@@ -1,4 +1,5 @@
 import torch, pytest, numpy as np
+from typing import List
 from pathlib import Path
 from vision_tools.anchors import Anchors, Anchor
 
@@ -24,13 +25,13 @@ from vision_tools.anchors import Anchors, Anchor
     ],
 )
 def test_anchors(
-    scales: list[float],
-    ratios: list[float],
+    scales: List[float],
+    ratios: List[float],
     size: int,
 ) -> None:
     original_w = 1024 + 512
     original_h = 1024
-    stride = 2 ** 7
+    stride = 2**7
     h = original_h // stride
     w = original_w // stride
     images = torch.zeros((1, 3, h, w), dtype=torch.float32)

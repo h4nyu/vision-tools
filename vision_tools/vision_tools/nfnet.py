@@ -317,7 +317,7 @@ class NFNet(nn.Module):
                 )
                 if block_index == 0:
                     expected_std = 1.0
-                expected_std = (expected_std ** 2 + alpha ** 2) ** 0.5
+                expected_std = (expected_std**2 + alpha**2) ** 0.5
         self.body = nn.Sequential(*blocks)
         final_conv_channels = 2 * in_channels
         self.final_conv = WSConv2d(

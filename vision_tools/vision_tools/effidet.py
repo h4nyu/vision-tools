@@ -11,8 +11,7 @@ from functools import partial
 from vision_tools import (
     filter_limit,
 )
-from vision_tools.model_loader import ModelLoader
-from typing import Any, NewType, Callable
+from typing import Any, NewType, Callable, List, Tuple
 from torchvision.ops.boxes import box_iou
 from torch.utils.data import DataLoader
 from torchvision.ops import nms
@@ -104,7 +103,7 @@ class RegressionModel(nn.Module):
         return x
 
 
-NetOutput = tuple[list[Tensor], list[Tensor], list[Tensor]]
+NetOutput = Tuple[List[Tensor], List[Tensor], List[Tensor]]
 
 
 def _init_weight(m: nn.Module) -> None:
@@ -121,7 +120,7 @@ class EfficientDet(nn.Module):
         num_classes: int,
         backbone: BackboneLike,
         channels: int = 64,
-        out_ids: list[int] = [6, 7],
+        out_ids: List[int] = [6, 7],
         anchors: Anchors = Anchors(),
         fpn_depth: int = 1,
         box_depth: int = 1,
@@ -179,9 +178,9 @@ class Criterion:
         self,
         images: Tensor,
         net_output: NetOutput,
-        gt_boxes_list: list[Tensor],
-        gt_classes_list: list[Tensor],
-    ) -> tuple[Tensor, Tensor, Tensor]:
+        gt_boxes_List: List[Tensor],
+        gt_classes_List: List[Tensor],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         (
             anchor_levels,
             box_reg_levels,
@@ -198,8 +197,8 @@ class Criterion:
         cls_losses = torch.zeros(batch_size, device=device)
         for batch_id, (gt_boxes, gt_lables, box_pred, cls_pred,) in enumerate(
             zip(
-                gt_boxes_list,
-                gt_classes_list,
+                gt_boxes_List,
+                gt_classes_List,
                 box_preds,
                 cls_preds,
             )
@@ -245,8 +244,8 @@ class PreProcess:
 
     def __call__(
         self,
-        batch: tuple[Tensor, list[Tensor], list[Tensor]],
-    ) -> tuple[Tensor, list[Tensor], list[Tensor]]:
+        batch: Tuple[Tensor, List[Tensor], List[Tensor]],
+    ) -> Tuple[Tensor, List[Tensor], List[Tensor]]:
         image_batch, boxes_batch, label_batch = batch
         return (
             image_batch.to(
@@ -282,7 +281,7 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, net_output: NetOutput
-    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
+    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
         (
             anchor_levels,
             box_diff_levels,
@@ -303,9 +302,9 @@ class ToBoxes:
             boxes = boxes[filter_idx]
             unique_labels = labels.unique()
 
-            box_list: list[Tensor] = []
-            confidence_list: list[Tensor] = []
-            label_list: list[Tensor] = []
+            box_List: List[Tensor] = []
+            confidence_List: List[Tensor] = []
+            label_List: List[Tensor] = []
             for c in unique_labels:
                 cls_indices = labels == c
                 if cls_indices.sum() == 0:
@@ -325,21 +324,21 @@ class ToBoxes:
                     c_confidences,
                     self.iou_threshold,
                 )
-                box_list.append(c_boxes[nms_indices])
-                confidence_list.append(c_confidences[nms_indices])
-                label_list.append(c_labels[nms_indices])
-            if len(confidence_list) > 0:
-                confidences = torch.cat(confidence_list, dim=0)
+                box_List.append(c_boxes[nms_indices])
+                confidence_List.append(c_confidences[nms_indices])
+                label_List.append(c_labels[nms_indices])
+            if len(confidence_List) > 0:
+                confidences = torch.cat(confidence_List, dim=0)
             else:
                 confidences = torch.zeros(
                     0, device=confidences.device, dtype=confidences.dtype
                 )
-            if len(box_list) > 0:
-                boxes = torch.cat(box_list, dim=0)
+            if len(box_List) > 0:
+                boxes = torch.cat(box_List, dim=0)
             else:
                 boxes = torch.zeros(0, device=boxes.device, dtype=boxes.dtype)
-            if len(label_list) > 0:
-                labels = torch.cat(label_list, dim=0)
+            if len(label_List) > 0:
+                labels = torch.cat(label_List, dim=0)
             else:
                 labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
             sort_indices = confidences.argsort(descending=True)

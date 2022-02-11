@@ -2,9 +2,8 @@ import os
 import torch_optimizer as optim
 import torch
 from torch import Tensor
-from omegaconf import OmegaConf
 from torch.utils.data import Subset, DataLoader
-from vision_tools.utils import seed_everything, Checkpoint, ToDevice
+from vision_tools.utils import seed_everything, Checkpoint, ToDevice, load_config
 from vision_tools.yolox import YOLOX, Criterion, Inference
 from kuzushiji_bench.yolox import (
     get_model,
@@ -27,9 +26,10 @@ from kuzushiji_bench.metric import Metric
 from tqdm import tqdm
 
 
+
 def main() -> None:
     seed_everything()
-    cfg = OmegaConf.load(os.path.join(os.path.dirname(__file__), "config/yolox.yaml"))
+    cfg = load_config(os.path.join(os.path.dirname(__file__), "config/yolox.yaml"))
     checkpoint = get_checkpoint(cfg)
     writer = get_writer(cfg)
     model = get_model(cfg)

@@ -1,7 +1,7 @@
 from typing import Iterator
 import pytest
 import torch
-from typing import Any
+from typing import Any, Tuple, Dict
 from torch import optim
 from vision_tools.yolox import (
     YOLOXHead,
@@ -24,7 +24,8 @@ from vision_tools.meter import MeanReduceDict
 def model() -> YOLOX:
     backbone = CSPDarknet()
     num_classes = 2
-    feat_range = (3, 6)
+    feat_range = (2, 6)
+    head_range = (1, 3)
     neck = CSPPAFPN(
         in_channels=backbone.channels[feat_range[0] : feat_range[1]],
         strides=backbone.strides[feat_range[0] : feat_range[1]],
@@ -35,8 +36,7 @@ def model() -> YOLOX:
         hidden_channels=64,
         num_classes=num_classes,
         feat_range=feat_range,
-        box_iou_threshold=0.1,
-        score_threshold=0.0,
+        head_range=head_range,
     )
 
 
@@ -67,10 +67,12 @@ def inputs() -> TrainBatch:
         torch.tensor([[10, 10, 20, 20]]),
     ]
     label_batch = [torch.zeros(len(m)).long() for m in box_batch]
+    conf_batch = [torch.ones(len(m)).float() for m in box_batch]
     return TrainBatch(
         image_batch=image_batch,
         box_batch=box_batch,
         label_batch=label_batch,
+        conf_batch=conf_batch,
     )
 
 
@@ -128,27 +130,6 @@ def test_criterion(
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda")
-def test_train_step(
-    criterion: Criterion,
-    model: YOLOX,
-    inputs: TrainBatch,
-    loader: DataLoader[TrainBatch],
-) -> None:
-    model.to("cuda")
-    optimizer = optim.Adam(model.parameters())
-    writer = SummaryWriter()
-    train_step = TrainStep[YOLOX, TrainBatch](
-        to_device=ToDevice("cuda"),
-        criterion=criterion,
-        optimizer=optimizer,
-        loader=loader,
-        meter=MeanReduceDict(),
-        writer=writer,
-    )
-    train_step(model)
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda")
 def test_eval_step(
     model: YOLOX,
     inputs: TrainBatch,
@@ -166,7 +147,7 @@ def test_eval_step(
             ...
 
         @property
-        def value(self) -> tuple[float, dict[str, float]]:
+        def value(self) -> Tuple[float, Dict[str, float]]:
             return 0.99, {
                 "0.5": 0.99,
             }

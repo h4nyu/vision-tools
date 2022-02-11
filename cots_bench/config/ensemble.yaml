@@ -1,0 +1,31 @@
+device: cuda
+model_configs:
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.0.yaml
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.1.yaml
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.2.yaml
+  - /kaggle/input/packages/vision-tools/cots_bench/config/yolox.3.yaml
+  #
+
+image_width: 2560
+image_height: 1440
+original_width: 1280
+original_height: 720
+
+dataset_dir: /kaggle/input/tensorflow-great-barrier-reef
+conf_thr: 0.1
+iou_thr: 0.4
+
+n_splits: 5
+fold: 2
+iou_thresholds:
+  - 0.30
+  - 0.35
+  - 0.40
+  - 0.45
+  - 0.50
+  - 0.55
+  - 0.60
+  - 0.65
+  - 0.70
+  - 0.75
+  - 0.80

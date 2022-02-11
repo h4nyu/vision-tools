@@ -1,5 +1,6 @@
 from torch import Tensor
 import numpy as np, torch
+from typing import List, Tuple, Dict
 from vision_tools.metrics.average_precision import AveragePrecision
 
 
@@ -35,6 +36,6 @@ class MeanAveragePrecision:
             )
 
     @torch.no_grad()
-    def __call__(self) -> tuple[float, dict[int, float]]:
+    def __call__(self) -> Tuple[float, Dict[int, float]]:
         aps = {k: v() for k, v in self.aps.items()}
         return np.fromiter(aps.values(), dtype=float).mean(), aps

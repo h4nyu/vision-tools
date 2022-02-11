@@ -1,6 +1,6 @@
 import torch, numpy as np
 import itertools
-from typing import Optional
+from typing import Optional, Tuple, List, Dict
 from torch import nn, Tensor
 from vision_tools import (
     boxmaps_to_boxes,
@@ -12,8 +12,8 @@ class Anchors:
     def __init__(
         self,
         size: float = 1.0,
-        ratios: list[float] = [3 / 4, 1, 4 / 3],
-        scales: list[float] = [
+        ratios: List[float] = [3 / 4, 1, 4 / 3],
+        scales: List[float] = [
             1.0,
             (1 / 2) ** (1 / 2),
             2 ** (1 / 2),
@@ -27,7 +27,7 @@ class Anchors:
         self.scales = (
             pairs[:, 0].view(self.num_anchors, 1).expand((self.num_anchors, 2))
         ) * size
-        self.cache: dict[tuple[int, int], Tensor] = {}
+        self.cache: Dict[Tuple[int, int], Tensor] = {}
 
     @torch.no_grad()
     def __call__(self, images: Tensor, stride: int) -> Tensor:
@@ -79,7 +79,7 @@ class EmptyAnchors:
         use_cache: bool = True,
     ) -> None:
         self.use_cache = use_cache
-        self.cache: dict[tuple[int, int], Tensor] = {}
+        self.cache: Dict[Tuple[int, int], Tensor] = {}
 
     def __call__(self, ref_images: Tensor) -> Tensor:
         h, w = ref_images.shape[-2:]
@@ -105,7 +105,7 @@ class Anchor:
         use_cache: bool = True,
     ) -> None:
         self.use_cache = use_cache
-        self.cache: dict[tuple[int, int, int], Tensor] = {}
+        self.cache: Dict[Tuple[int, int, int], Tensor] = {}
 
     @torch.no_grad()
     def __call__(
@@ -122,7 +122,6 @@ class Anchor:
         grid_y, grid_x = torch.meshgrid(  # type:ignore
             torch.arange(height, dtype=torch.float32),
             torch.arange(width, dtype=torch.float32),
-            indexing="ij",
         )
         box_h = torch.ones((height, width), dtype=torch.float32)
         box_w = torch.ones((height, width), dtype=torch.float32)

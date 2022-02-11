@@ -7,7 +7,6 @@ from torch.utils.data import Dataset
 from dataclasses import dataclass
 import pandas as pd
 from toolz.curried import pipe, partition, map, filter
-from joblib import Memory
 import torchvision.transforms as T
 import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
@@ -17,7 +16,6 @@ from sklearn.model_selection import StratifiedKFold
 from vision_tools.interface import TrainBatch, TrainSample
 
 location = "/tmp"
-memory = Memory(location, verbose=0)
 
 
 Row = TypedDict(
@@ -67,7 +65,6 @@ def read_code_map(fp: str) -> dict[str, int]:
     return label_map
 
 
-@memory.cache
 def read_train_rows(root_dir: str) -> list[Row]:
     row_path = os.path.join(root_dir, "train.csv")
     code_path = os.path.join(root_dir, "unicode_translation.csv")

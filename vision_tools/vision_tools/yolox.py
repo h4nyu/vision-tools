@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from torch import Tensor
-from typing import Callable, TypedDict, Any
+from typing import Callable, Any, List, Tuple, Dict, Optional
+from typing_extensions import TypedDict
 from torch.cuda.amp import GradScaler, autocast
 import math
 from torchvision.ops import box_convert, batched_nms
@@ -31,21 +32,6 @@ class DecoupledHead(nn.Module):
             out_channels=hidden_channels,
             kernel_size=1,
             act=act,
-        )
-
-        self.obj_branch = nn.Sequential(
-            Conv(
-                in_channels=hidden_channels,
-                out_channels=hidden_channels,
-                kernel_size=3,
-                act=act,
-            ),
-            Conv(
-                in_channels=hidden_channels,
-                out_channels=hidden_channels,
-                kernel_size=3,
-                act=act,
-            ),
         )
 
         self.reg_branch = nn.Sequential(
@@ -116,10 +102,9 @@ class DecoupledHead(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         stem = self.stem(x)
         reg_feat = self.reg_branch(stem)
-        obj_feat = self.obj_branch(stem)
         cls_feat = self.cls_branch(stem)
         reg_out = self.reg_out(reg_feat)
-        obj_out = self.obj_out(obj_feat)
+        obj_out = self.obj_out(reg_feat)
         cls_out = self.cls_out(cls_feat)
         return torch.cat([reg_out, obj_out, cls_out], dim=1)
 
@@ -127,7 +112,7 @@ class DecoupledHead(nn.Module):
 class YOLOXHead(nn.Module):
     def __init__(
         self,
-        in_channels: list[int],
+        in_channels: List[int],
         hidden_channels: int,
         num_classes: int = 1,
         depthwise: bool = False,
@@ -146,7 +131,7 @@ class YOLOXHead(nn.Module):
             ]
         )
 
-    def forward(self, feats: list[Tensor]) -> list[Tensor]:
+    def forward(self, feats: List[Tensor]) -> List[Tensor]:
         return [m(x) for m, x in zip(self.heads, feats)]
 
 
@@ -157,33 +142,29 @@ class YOLOX(nn.Module):
         neck: FPNLike,
         hidden_channels: int,
         num_classes: int,
-        box_limit: int = 300,
-        box_iou_threshold: float = 0.5,
-        score_threshold: float = 0.5,
-        feat_range: tuple[int, int] = (3, 7),
+        feat_range: Tuple[int, int] = (3, 7),
+        head_range: Tuple[int, int] = (0, 3),
     ) -> None:
         super().__init__()
         self.backbone = backbone
         self.neck = neck
         self.feat_range = feat_range
+        self.head_range = head_range
         self.num_classes = num_classes
-        self.box_limit = box_limit
         self.strides = self.backbone.strides
-        self.box_strides = self.strides[self.feat_range[0] : self.feat_range[1]]
-        self.box_iou_threshold = box_iou_threshold
-        self.score_threshold = score_threshold
+        self.box_strides = self.neck.strides[self.head_range[0] : self.head_range[1]]
 
         self.box_head = YOLOXHead(
-            in_channels=backbone.channels[self.feat_range[0] : self.feat_range[1]],
+            in_channels=self.neck.channels[self.head_range[0] : self.head_range[1]],
             num_classes=num_classes,
             hidden_channels=hidden_channels,
         )
         self.anchor = Anchor()
 
-    def box_branch(self, feats: list[Tensor]) -> Tensor:
+    def box_branch(self, feats: List[Tensor]) -> Tensor:
         device = feats[0].device
         box_levels = self.box_head(feats)
-        yolo_box_list = []
+        yolo_box_List = []
         for pred, stride in zip(box_levels, self.box_strides):
             batch_size, num_outputs, height, width = pred.shape
             anchor_boxes = self.anchor(
@@ -204,49 +185,58 @@ class YOLOX(nn.Module):
                 ],
                 dim=-1,
             )
-            yolo_box_list.append(yolo_boxes)
-        yolo_batch = torch.cat(yolo_box_list, dim=1)
+            yolo_box_List.append(yolo_boxes)
+        yolo_batch = torch.cat(yolo_box_List, dim=1)
         return yolo_batch
 
-    def feats(self, x: Tensor) -> list[Tensor]:
+    def feats(self, x: Tensor) -> List[Tensor]:
         feats = self.backbone(x)
         feats = feats[self.feat_range[0] : self.feat_range[1]]
-        return self.neck(feats)
+        return self.neck(feats)[self.head_range[0] : self.head_range[1]]
+
+    def forward(self, image_batch: Tensor) -> Tensor:
+        feats = self.feats(image_batch)
+        return self.box_branch(feats)
+
+
+class ToBoxes:
+    def __init__(
+        self,
+        limit: int = 300,
+        iou_threshold: Optional[float] = None,
+        conf_threshold: float = 0.5,
+    ):
+        self.limit = limit
+        self.iou_threshold = iou_threshold
+        self.conf_threshold = conf_threshold
 
     @torch.no_grad()
-    def to_boxes(
-        self, yolo_batch: Tensor
-    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
-        score_batch, box_batch, lable_batch = [], [], []
+    def __call__(self, yolo_batch: Tensor) -> Dict[str, List[Tensor]]:
+        conf_batch, box_batch, label_batch = [], [], []
         device = yolo_batch.device
-        num_classes = self.num_classes
+        num_classes = yolo_batch.shape[-1] - 5
         for r in yolo_batch:
             scores = r[:, 4].sigmoid()
-            th_filter = scores > self.score_threshold
-            r = r[th_filter]
-            scores = scores[th_filter]
+            th_filter = scores > self.conf_threshold
+            scores, sort_idx = torch.sort(scores[th_filter], descending=True)
+            sort_idx = sort_idx[: self.limit]
+            r = r[th_filter][sort_idx]
             boxes = box_convert(r[:, :4], in_fmt="cxcywh", out_fmt="xyxy")
             lables = r[:, 5 : 5 + num_classes].argmax(-1).long()
-            nms_index = batched_nms(
-                boxes=boxes,
-                scores=scores,
-                idxs=lables,
-                iou_threshold=self.box_iou_threshold,
-            )[: self.box_limit]
-            box_batch.append(boxes[nms_index])
-            score_batch.append(scores[nms_index])
-            lable_batch.append(lables[nms_index])
-        return score_batch, box_batch, lable_batch
-
-    def forward(self, image_batch: Tensor) -> TrainBatch:
-        feats = self.feats(image_batch)
-        yolo_batch = self.box_branch(feats)
-        score_batch, box_batch, label_batch = self.to_boxes(yolo_batch)
-        return dict(
-            image_batch=image_batch,
-            box_batch=box_batch,
-            label_batch=label_batch,
-        )
+            if self.iou_threshold is not None:
+                nms_index = batched_nms(
+                    boxes=boxes,
+                    scores=scores,
+                    idxs=lables,
+                    iou_threshold=self.iou_threshold,
+                )
+                boxes = boxes[nms_index]
+                scores = scores[nms_index]
+                lables = lables[nms_index]
+            box_batch.append(boxes)
+            conf_batch.append(scores)
+            label_batch.append(lables)
+        return dict(box_batch=box_batch, conf_batch=conf_batch, label_batch=label_batch)
 
 
 class Criterion:
@@ -256,8 +246,6 @@ class Criterion:
         obj_weight: float = 1.0,
         box_weight: float = 1.0,
         cls_weight: float = 1.0,
-        assign_radius: float = 2.0,
-        assign_center_wight: float = 1.0,
     ) -> None:
         self.box_weight = box_weight
         self.cls_weight = cls_weight
@@ -265,15 +253,14 @@ class Criterion:
         self.assign = assign
 
         self.box_loss = CIoULoss()
-        # self.obj_loss = nn.BCEWithLogitsLoss(reduction="mean")
-        self.obj_loss = FocalLossWithLogits(reduction="sum")
+        self.obj_loss = nn.BCEWithLogitsLoss(reduction="sum")
         self.cls_loss = F.binary_cross_entropy_with_logits
 
     def __call__(
         self,
         model: YOLOX,
         inputs: TrainBatch,
-    ) -> tuple[Tensor, dict[str, Tensor]]:
+    ) -> Tuple[Tensor, Tensor, Dict[str, Tensor]]:
         images = inputs["image_batch"]
         gt_box_batch = inputs["box_batch"]
         gt_label_batch = inputs["label_batch"]
@@ -287,10 +274,9 @@ class Criterion:
         matched_count = pos_idx.sum()
 
         # 1-stage
-        obj_loss = (
-            self.obj_loss(pred_yolo_batch[..., 4], gt_yolo_batch[..., 4])
-            / matched_count
-        )
+        obj_loss = self.obj_loss(
+            pred_yolo_batch[..., 4], gt_yolo_batch[..., 4]
+        ) / matched_count.clamp(min=1)
         box_loss, cls_loss = (
             torch.tensor(0.0).to(device),
             torch.tensor(0.0).to(device),
@@ -317,6 +303,7 @@ class Criterion:
         )
         return (
             loss,
+            pred_yolo_batch,
             dict(loss=loss, obj_loss=obj_loss, box_loss=box_loss, cls_loss=cls_loss),
         )
 
@@ -324,10 +311,10 @@ class Criterion:
     def prepeare_box_gt(
         self,
         num_classes: int,
-        gt_box_batch: list[Tensor],
-        gt_label_batch: list[Tensor],
+        gt_box_batch: List[Tensor],
+        gt_label_batch: List[Tensor],
         pred_yolo_batch: Tensor,
-    ) -> tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor]:
         device = pred_yolo_batch.device
         gt_yolo_batch = torch.zeros(
             (pred_yolo_batch.size(0), pred_yolo_batch.size(1), 5 + num_classes),
@@ -338,7 +325,7 @@ class Criterion:
         for batch_idx, (gt_boxes, gt_labels, pred_yolo) in enumerate(
             zip(gt_box_batch, gt_label_batch, pred_yolo_batch)
         ):
-            if(len(gt_boxes) == 0):
+            if len(gt_boxes) == 0:
                 continue
             matched = self.assign(
                 gt_boxes=gt_boxes,

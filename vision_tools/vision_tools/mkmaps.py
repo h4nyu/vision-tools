@@ -1,19 +1,20 @@
 from torch import Tensor
-from typing import Literal, Callable
+from typing import Callable, List, Tuple
+from typing_extensions import Literal
 import torch
 from vision_tools import Number, resize_points
 
 MkMapsFn = Callable[
     [
-        list[Tensor],
-        list[Tensor],
-        tuple[int, int],
-        tuple[int, int],
+        List[Tensor],
+        List[Tensor],
+        Tuple[int, int],
+        Tuple[int, int],
     ],
     Tensor,
 ]
 
-MkBoxMapsFn = Callable[[list[Tensor], Tensor], Tensor]
+MkBoxMapsFn = Callable[[List[Tensor], Tensor], Tensor]
 
 
 class MkMapsBase:
@@ -22,20 +23,20 @@ class MkMapsBase:
     def _mkmaps(
         self,
         boxes: Tensor,
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Tensor:
         ...
 
     @torch.no_grad()
     def __call__(
         self,
-        box_batch: list[Tensor],
-        label_batch: list[Tensor],
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        box_batch: List[Tensor],
+        label_batch: List[Tensor],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Tensor:
-        hms: list[Tensor] = []
+        hms: List[Tensor] = []
         for boxes, labels in zip(box_batch, label_batch):
             hm = torch.cat(
                 [
@@ -65,8 +66,8 @@ class MkGaussianMaps(MkMapsBase):
     def _mkmaps(
         self,
         boxes: Tensor,
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Tensor:
         device = boxes.device
         h, w = hw
@@ -100,7 +101,7 @@ class MkGaussianMaps(MkMapsBase):
             weight = torch.ones((box_count, 1, 1, 1)).to(device)
         mounts = torch.exp(
             -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
-            / (2 * self.sigma ** 2)
+            / (2 * self.sigma**2)
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return heatmap
@@ -114,8 +115,8 @@ class MkFillMaps(MkMapsBase):
     def _mkmaps(
         self,
         boxes: Tensor,
-        hw: tuple[int, int],
-        original_hw: tuple[int, int],
+        hw: Tuple[int, int],
+        original_hw: Tuple[int, int],
     ) -> Tensor:
         device = boxes.device
         h, w = hw
@@ -176,10 +177,10 @@ class MkCenterBoxMaps:
     @torch.no_grad()
     def __call__(
         self,
-        box_batch: list[Tensor],
+        box_batch: List[Tensor],
         heatmaps: Tensor,
     ) -> Tensor:
-        bms: list[Tensor] = []
+        bms: List[Tensor] = []
         for boxes in box_batch:
             bms.append(self._mkmaps(boxes, heatmaps))
 
@@ -219,7 +220,7 @@ class MkPointMaps:
         weight = torch.ones((count, 1, 1, 1)).to(device)
         mounts = torch.exp(
             -(((grid_xy - grid_cxcy.long()) ** 2) / weight).sum(dim=1, keepdim=True)
-            / (2 * self.sigma ** 2)
+            / (2 * self.sigma**2)
         )
         heatmap, _ = mounts.max(dim=0, keepdim=True)
         return heatmap
@@ -227,12 +228,12 @@ class MkPointMaps:
     @torch.no_grad()
     def __call__(
         self,
-        point_batch: list[Tensor],
-        label_batch: list[Tensor],
+        point_batch: List[Tensor],
+        label_batch: List[Tensor],
         h: int,
         w: int,
     ) -> Tensor:
-        hms: list[Tensor] = []
+        hms: List[Tensor] = []
         for points, labels in zip(point_batch, label_batch):
             points = resize_points(points, scale_x=w, scale_y=h)
             hm = torch.cat(

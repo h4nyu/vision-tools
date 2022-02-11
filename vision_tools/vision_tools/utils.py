@@ -5,15 +5,15 @@ from torchvision.utils import (
     make_grid,
 )
 from PIL import Image, ImageDraw, ImageFont, ImageColor
-from torchvision.ops import masks_to_boxes, box_convert
+from torchvision.ops import box_convert
 import torch
-from typing import *
 from torch import Tensor
-import json
+import yaml
 import random
 import numpy as np
 import torch.nn.functional as F
-from typing import Optional, Callable
+from typing import Optional, Callable, Any, List, Generic, TypeVar, Tuple, Union, Dict
+from typing_extensions import Protocol
 from torch import nn
 from pathlib import Path
 from torch import Tensor
@@ -24,13 +24,15 @@ from vision_tools import (
 )
 from torchvision.utils import save_image
 from torch.nn.functional import interpolate
-from omegaconf import OmegaConf
+from .interface import (
+    TrainBatch,
+)
 
 
 logger = getLogger(__name__)
 
 
-def seed_everything(seed: int = 777) -> None:
+def seed_everything(seed: int = 3801) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -40,13 +42,13 @@ def seed_everything(seed: int = 777) -> None:
 # wait torchvision 0.12 release
 @torch.no_grad()
 def draw_keypoints(
-    image: torch.Tensor,
-    keypoints: torch.Tensor,
+    image: Tensor,
+    keypoints: Tensor,
     connectivity: Optional[List[Tuple[int, int]]] = None,
     colors: Optional[Union[str, Tuple[int, int, int]]] = None,
     radius: int = 2,
     width: int = 3,
-) -> torch.Tensor:
+) -> Tensor:
 
     """
     Draws Keypoints on given RGB image.
@@ -108,6 +110,46 @@ def draw_keypoints(
     )
 
 
+# wait torchvision 0.11 release in kaggle
+def masks_to_boxes(masks: Tensor) -> Tensor:
+    """
+    Compute the bounding boxes around the provided masks.
+    Returns a [N, 4] tensor containing bounding boxes. The boxes are in ``(x1, y1, x2, y2)`` format with
+    ``0 <= x1 < x2`` and ``0 <= y1 < y2``.
+    Args:
+        masks (Tensor[N, H, W]): masks to transform where N is the number of masks
+            and (H, W) are the spatial dimensions.
+    Returns:
+        Tensor[N, 4]: bounding boxes
+    """
+    if masks.numel() == 0:
+        return torch.zeros((0, 4), device=masks.device, dtype=torch.float)
+
+    n = masks.shape[0]
+
+    bounding_boxes = torch.zeros((n, 4), device=masks.device, dtype=torch.float)
+
+    for index, mask in enumerate(masks):
+        y, x = torch.where(mask != 0)
+
+        bounding_boxes[index, 0] = torch.min(x)
+        bounding_boxes[index, 1] = torch.min(y)
+        bounding_boxes[index, 2] = torch.max(x)
+        bounding_boxes[index, 3] = torch.max(y)
+
+    return bounding_boxes
+
+
+def load_config(path: Union[str, Path]) -> Dict[str, Any]:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+
+def save_config(path: Union[str, Path], config: Dict[str, Any]) -> None:
+    with open(path, "w") as f:
+        yaml.dump(config, f)
+
+
 class ToDevice:
     def __init__(
         self,
@@ -116,7 +158,7 @@ class ToDevice:
         self.device = device
 
     def __call__(
-        self, *args: Union[Tensor, list[Tensor]], **kargs: Union[Tensor, list[Tensor]]
+        self, *args: Union[Tensor, List[Tensor]], **kargs: Union[Tensor, List[Tensor]]
     ) -> Any:
         if kargs is not None:
             return {
@@ -180,7 +222,7 @@ class Checkpoint(Generic[T]):
 
         if model_path.exists() and model_path.exists():
             model.load_state_dict(torch.load(model_path))
-            conf = OmegaConf.load(self.checkpoint_path)
+            conf = load_config(self.checkpoint_path)
             score = conf.get("score", self.default_score)  # type: ignore
             self.score = score
 
@@ -205,7 +247,7 @@ class Checkpoint(Generic[T]):
             and self.comparator(self.score, score)
         ):
             torch.save(model.state_dict(), self.checkpoint_model_path)  # type: ignore
-            OmegaConf.save(config=dict(score=score), f=self.checkpoint_path)
+            save_config(self.checkpoint_path, dict(score=score))
             self.score = score
         if model is not None:
             torch.save(model.state_dict(), self.current_model_path)  # type: ignore
@@ -219,6 +261,7 @@ def draw(
     masks: Optional[Tensor] = None,
     boxes: Optional[Tensor] = None,
     points: Optional[Tensor] = None,
+    gt_boxes: Optional[Tensor] = None,
 ) -> Tensor:
     image = image.detach().to("cpu").float()
     if image.shape[0] == 1:
@@ -235,6 +278,8 @@ def draw(
         plot = draw_bounding_boxes(plot, boxes)
     if boxes is not None and len(boxes) > 0:
         plot = draw_bounding_boxes(plot, boxes)
+    if gt_boxes is not None and len(gt_boxes) > 0:
+        plot = draw_bounding_boxes(plot, boxes=gt_boxes, colors=["red"] * len(gt_boxes))
     if points is not None and len(points) > 0:
         plot = draw_keypoints(
             plot,
@@ -247,16 +292,35 @@ def draw(
 @torch.no_grad()
 def batch_draw(
     image_batch: Tensor,
-    box_batch: Optional[list[Tensor]] = None,
-    label_batch: Optional[list[Tensor]] = None,
-    point_batch: Optional[list[Tensor]] = None,
+    box_batch: Optional[List[Tensor]] = None,
+    label_batch: Optional[List[Tensor]] = None,
+    point_batch: Optional[List[Tensor]] = None,
+    gt_box_batch: Optional[List[Tensor]] = None,
 ) -> Tensor:
     empty_list = [None for _ in range(len(image_batch))]
     return make_grid(
         [
-            draw(image=image, boxes=boxes, points=points)
-            for image, boxes, points in zip(
-                image_batch, box_batch or empty_list, point_batch or empty_list
+            draw(image=image, boxes=boxes, points=points, gt_boxes=gt_boxes)
+            for image, boxes, points, gt_boxes in zip(
+                image_batch,
+                box_batch or empty_list,
+                point_batch or empty_list,
+                gt_box_batch or empty_list,
             )
         ]
     )
+
+
+def merge_batch(batches: List[TrainBatch]) -> TrainBatch:
+    image_batch = torch.cat([batch["image_batch"] for batch in batches])
+    box_batch, label_batch, conf_batch = [], [], []
+    for batch in batches:
+        box_batch.extend(batch["box_batch"])
+        label_batch.extend(batch["label_batch"])
+        conf_batch.extend(batch["conf_batch"])
+    return {
+        "image_batch": image_batch,
+        "box_batch": box_batch,
+        "label_batch": label_batch,
+        "conf_batch": conf_batch,
+    }

@@ -1,11 +1,11 @@
 import torch.nn as nn
 import torch
 from torch import Tensor
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple, List
 
 
 @torch.no_grad()
-def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> tuple[Tensor, Tensor]:
+def grid(h: int, w: int, dtype: Optional[torch.dtype] = None) -> Tuple[Tensor, Tensor]:
     grid_y, grid_x = torch.meshgrid(  # type:ignore
         torch.arange(h, dtype=dtype),
         torch.arange(w, dtype=dtype),
@@ -22,7 +22,7 @@ class ToPatches:
         self.patch_size = patch_size
         self.use_reflect = use_reflect
 
-    def __call__(self, images: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    def __call__(self, images: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         device = images.device
         b, c, h, w = images.shape
         pad_size = (
@@ -60,11 +60,11 @@ class MergePatchedMasks:
     ) -> None:
         self.patch_size = patch_size
 
-    def __call__(self, mask_batch: list[Tensor], patch_grid: Tensor) -> Tensor:
+    def __call__(self, mask_batch: List[Tensor], patch_grid: Tensor) -> Tensor:
         device = patch_grid.device
         last_grid = patch_grid[-1]
         out_size = last_grid + self.patch_size
-        out_batch: list[Tensor] = []
+        out_batch: List[Tensor] = []
         for masks, grid in zip(mask_batch, patch_grid):
             out_masks = torch.zeros(
                 (len(masks), int(out_size[1]), int(out_size[0])), dtype=masks.dtype

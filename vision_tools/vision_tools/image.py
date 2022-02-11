@@ -1,11 +1,12 @@
+from typing import Tuple
 from torch import Tensor, ByteTensor, FloatTensor
 
-RGB = tuple[int, int, int]
+RGB = Tuple[int, int, int]
 
 
 def inv_scale_and_pad(
-    original: tuple[int, int], padded: tuple[int, int]
-) -> tuple[float, tuple[float, float]]:
+    original: Tuple[int, int], padded: Tuple[int, int]
+) -> Tuple[float, Tuple[float, float]]:
     original_w, original_h = original
     padded_w, padded_h = padded
     original_longest = max(original)

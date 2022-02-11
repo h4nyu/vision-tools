@@ -1,15 +1,9 @@
 import torch, math, numpy as np
-from typing import Literal
 from torch import Tensor
 import torch.nn.functional as F
 from functools import partial
 from torchvision.ops import box_convert
-from typing import (
-    NewType,
-    Union,
-    Callable,
-    Any,
-)
+from typing import NewType, Union, Callable, Any, List, Tuple
 from torch import nn, Tensor
 from logging import getLogger
 from tqdm import tqdm
@@ -35,7 +29,6 @@ from .anchors import Anchor
 from torch.cuda.amp import GradScaler, autocast
 from torchvision.ops import nms
 from torch.utils.data import DataLoader
-from vision_tools.model_loader import ModelLoader
 
 from pathlib import Path
 
@@ -114,7 +107,7 @@ class _Head(nn.Module):
 class CenterNetHead(nn.Module):
     def __init__(
         self,
-        in_channels: list[int],
+        in_channels: List[int],
         hidden_channels: int,
         num_classes: int = 1,
         act: Callable = DefaultActivation,
@@ -132,11 +125,11 @@ class CenterNetHead(nn.Module):
             ]
         )
 
-    def forward(self, feats: list[Tensor]) -> list[Tensor]:
+    def forward(self, feats: List[Tensor]) -> List[Tensor]:
         return [m(x) for m, x in zip(self.heads, feats)]
 
 
-NetOutput = tuple[Tensor, Tensor, Tensor]  # label, pos, size, count
+NetOutput = Tuple[Tensor, Tensor, Tensor]  # label, pos, size, count
 
 
 class CenterNet(nn.Module):
@@ -194,7 +187,7 @@ class HMLoss(nn.Module):
         pos_loss = pos_loss.sum()
 
         neg_weight = (1 - gt) ** beta
-        neg_loss = neg_weight * (-(pred ** alpha) * torch.log(1 - pred) * neg_mask)
+        neg_loss = neg_weight * (-(pred**alpha) * torch.log(1 - pred) * neg_mask)
         neg_loss = neg_loss.sum()
         loss = (pos_loss + neg_loss) / pos_mask.sum().clamp(min=1.0)
         return loss
@@ -222,9 +215,9 @@ class HMLoss(nn.Module):
 #         self,
 #         images: Tensor,
 #         netout: NetOutput,
-#         gt_box_batch: list[Tensor],
-#         gt_label_batch: list[Tensor],
-#     ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+#         gt_box_batch: List[Tensor],
+#         gt_label_batch: List[Tensor],
+#     ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
 #         s_hm, s_bm, anchors = netout
 #         _, _, orig_h, orig_w = images.shape
 #         _, _, h, w = s_hm.shape
@@ -247,12 +240,12 @@ class HMLoss(nn.Module):
 #     def __call__(
 #         self,
 #         preds: Tensor,
-#         gt_box_batch: list[Tensor],
+#         gt_box_batch: List[Tensor],
 #         anchormap: Tensor,
 #     ) -> Tensor:
 #         device = preds.device
 #         _, _, h, w = preds.shape
-#         box_losses: list[Tensor] = []
+#         box_losses: List[Tensor] = []
 #         anchors = boxmap_to_boxes(anchormap)
 #         for diff_map, gt_boxes in zip(preds, gt_box_batch):
 #             if len(gt_boxes) == 0:
@@ -302,16 +295,16 @@ class ToBoxes:
     @torch.no_grad()
     def __call__(
         self, inputs: NetOutput
-    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
+    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
         heatmaps, boxmaps, anchormap = inputs
         device = heatmaps.device
         kpmaps = heatmaps * (
             (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
         )
         kpmaps, labelmaps = torch.max(kpmaps, dim=1)
-        box_batch: list[Tensor] = []
-        confidence_batch: list[Tensor] = []
-        label_batch: list[Tensor] = []
+        box_batch: List[Tensor] = []
+        confidence_batch: List[Tensor] = []
+        label_batch: List[Tensor] = []
         for km, lm, bm in zip(kpmaps, labelmaps, boxmaps):
             kp = torch.nonzero(km, as_tuple=False)  # type: ignore
             pos_idx = (kp[:, 0], kp[:, 1])
@@ -326,9 +319,9 @@ class ToBoxes:
                 boxes = bm[:, pos_idx[0], pos_idx[1]].t()
 
             unique_labels = labels.unique()
-            box_list: list[Tensor] = []
-            confidence_list: list[Tensor] = []
-            label_list: list[Tensor] = []
+            box_List: List[Tensor] = []
+            confidence_List: List[Tensor] = []
+            label_List: List[Tensor] = []
 
             for c in unique_labels:
                 cls_indices = labels == c
@@ -343,22 +336,22 @@ class ToBoxes:
                     c_confidences,
                     self.iou_threshold,
                 )[: self.limit]
-                box_list.append(c_boxes[nms_indices])
-                confidence_list.append(c_confidences[nms_indices])
-                label_list.append(c_labels[nms_indices])
+                box_List.append(c_boxes[nms_indices])
+                confidence_List.append(c_confidences[nms_indices])
+                label_List.append(c_labels[nms_indices])
 
-            if len(confidence_list) > 0:
-                confidences = torch.cat(confidence_list, dim=0)
+            if len(confidence_List) > 0:
+                confidences = torch.cat(confidence_List, dim=0)
             else:
                 confidences = torch.zeros(
                     0, device=confidences.device, dtype=confidences.dtype
                 )
-            if len(box_list) > 0:
-                boxes = torch.cat(box_list, dim=0)
+            if len(box_List) > 0:
+                boxes = torch.cat(box_List, dim=0)
             else:
                 boxes = torch.zeros(0, device=boxes.device, dtype=boxes.dtype)
-            if len(label_list) > 0:
-                labels = torch.cat(label_list, dim=0)
+            if len(label_List) > 0:
+                labels = torch.cat(label_List, dim=0)
             else:
                 labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
 
@@ -399,18 +392,18 @@ class ToPoints:
         heatmaps: Tensor,
         w: int,
         h: int,
-    ) -> tuple[list[Tensor], list[Tensor], list[Tensor]]:
+    ) -> Tuple[List[Tensor], List[Tensor], List[Tensor]]:
         device = heatmaps.device
         kpmaps = heatmaps * (
             (self.max_pool(heatmaps) == heatmaps) & (heatmaps > self.threshold)
         )
         kpmaps, labelmaps = torch.max(kpmaps, dim=1)
-        point_batch: list[Tensor] = []
-        confidence_batch: list[Tensor] = []
-        label_batch: list[Tensor] = []
+        point_batch: List[Tensor] = []
+        confidence_batch: List[Tensor] = []
+        label_batch: List[Tensor] = []
         _, _, hm_h, hm_w = heatmaps.shape
         for km, lm in zip(kpmaps, labelmaps):
-            kp = torch.nonzero(km, as_tuple=False)  # type: ignore
+            kp = torch.nonzero(km, as_Tuple=False)  # type: ignore
             pos_idx = (kp[:, 0], kp[:, 1])
             confidences = km[pos_idx]
             labels = lm[pos_idx]
@@ -420,9 +413,9 @@ class ToPoints:
                 scale_y=1 / hm_h,
             )
             unique_labels = labels.unique()
-            point_list: list[Tensor] = []
-            confidence_list: list[Tensor] = []
-            label_list: list[Tensor] = []
+            point_List: List[Tensor] = []
+            confidence_List: List[Tensor] = []
+            label_List: List[Tensor] = []
 
             for c in unique_labels:
                 cls_indices = labels == c
@@ -432,22 +425,22 @@ class ToPoints:
                 c_confidences = confidences[cls_indices]
                 c_labels = labels[cls_indices]
                 c_sort_indices = c_confidences.argsort(descending=True)
-                point_list.append(c_points[c_sort_indices])
-                confidence_list.append(c_confidences[c_sort_indices])
-                label_list.append(c_labels[c_sort_indices])
+                point_List.append(c_points[c_sort_indices])
+                confidence_List.append(c_confidences[c_sort_indices])
+                label_List.append(c_labels[c_sort_indices])
 
-            if len(confidence_list) > 0:
-                confidences = torch.cat(confidence_list, dim=0)
+            if len(confidence_List) > 0:
+                confidences = torch.cat(confidence_List, dim=0)
             else:
                 confidences = torch.zeros(
                     0, device=confidences.device, dtype=confidences.dtype
                 )
-            if len(point_list) > 0:
-                points = torch.cat(point_list, dim=0)
+            if len(point_List) > 0:
+                points = torch.cat(point_List, dim=0)
             else:
                 points = torch.zeros(0, device=points.device, dtype=points.dtype)
-            if len(label_list) > 0:
-                labels = torch.cat(label_list, dim=0)
+            if len(label_List) > 0:
+                labels = torch.cat(label_List, dim=0)
             else:
                 labels = torch.zeros(0, device=labels.device, dtype=labels.dtype)
 
