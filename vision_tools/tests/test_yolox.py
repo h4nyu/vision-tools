@@ -143,7 +143,7 @@ def test_eval_step(
         def reset(self) -> None:
             ...
 
-        def accumulate(self, pred: TrainBatch, gt: TrainBatch) -> None:
+        def update(self, pred: TrainBatch, gt: TrainBatch) -> None:
             ...
 
         @property

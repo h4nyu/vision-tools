@@ -83,17 +83,17 @@ class MaskAP:
         res = tp_count / (num_gt + num_preds - tp_count)
         return res.item()
 
-    def accumulate(self, pred_masks: Tensor, gt_masks: Tensor) -> float:
+    def update(self, pred_masks: Tensor, gt_masks: Tensor) -> float:
         value = self(pred_masks, gt_masks)
         self.num_samples += 1
         self.runing_value += value
         return value
 
-    def accumulate_batch(
+    def update_batch(
         self, pred_masks: List[Tensor], gt_masks: List[Tensor]
     ) -> None:
         for p, g in zip(pred_masks, gt_masks):
-            self.accumulate(p, g)
+            self.update(p, g)
 
     @torch.no_grad()
     def __call__(self, pred_masks: Tensor, gt_masks: Tensor) -> float:
@@ -178,7 +178,7 @@ class BoxMAP:
         res = tp_count / (num_gt + num_preds - tp_count)
         return res.item()
 
-    def accumulate(
+    def update(
         self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
     ) -> None:
         for p, g in zip(pred_box_batch, gt_box_batch):
@@ -224,7 +224,7 @@ class BoxAP:
         self.conf_list: List[Tensor] = []
         self.num_gts = 0
 
-    def accumulate(
+    def update(
         self,
         pred_box_batch: List[Tensor],
         pred_conf_batch: List[Tensor],
@@ -315,14 +315,14 @@ class MeanBoxAP:
         for ap in self.aps:
             ap.reset()
 
-    def accumulate(
+    def update(
         self,
         pred_box_batch: List[Tensor],
         pred_conf_batch: List[Tensor],
         gt_box_batch: List[Tensor],
     ) -> None:
         for ap in self.aps:
-            ap.accumulate(
+            ap.update(
                 pred_box_batch=pred_box_batch,
                 pred_conf_batch=pred_conf_batch,
                 gt_box_batch=gt_box_batch,
@@ -379,7 +379,7 @@ class MeanBoxF2:
             recall=np.mean(recalls),
         )
 
-    def accumulate(
+    def update(
         self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
     ) -> None:
         for pred_boxes, gt_boxes in zip(pred_box_batch, gt_box_batch):

@@ -240,7 +240,7 @@ def train(cfg: Dict[str, Any]) -> None:
                 scaler.unscale_(optimizer)
                 scaler.step(optimizer)
                 scaler.update()
-            train_meter.accumulate(valmap(lambda x: x.item(), other))
+            train_meter.update(valmap(lambda x: x.item(), other))
 
             if iteration % eval_interval == 0:
                 model.eval()
@@ -251,12 +251,12 @@ def train(cfg: Dict[str, Any]) -> None:
                         batch = to_device(**batch)
                         _, pred_yolo_batch, other = criterion(model, batch)
                         pred_batch = to_boxes(pred_yolo_batch)
-                        ap.accumulate(
+                        ap.update(
                             pred_batch["box_batch"],
                             pred_batch["conf_batch"],
                             batch["box_batch"],
                         )
-                        val_meter.accumulate(valmap(lambda x: x.item(), other))
+                        val_meter.update(valmap(lambda x: x.item(), other))
                     ap_score, ap_logs = ap.value
                     writer.add_scalar(f"val/ap", ap_score, iteration)
 
@@ -315,8 +315,8 @@ def evaluate(cfg_file: str) -> None:
         pred_sample = inference(sample["image"])
         gt_boxes = resize_boxes(sample["boxes"], box_scale)
 
-        metric.accumulate([pred_sample["boxes"]], [gt_boxes])
-        ap.accumulate([pred_sample["boxes"]], [pred_sample["confs"]], [gt_boxes])
+        metric.update([pred_sample["boxes"]], [gt_boxes])
+        ap.update([pred_sample["boxes"]], [pred_sample["confs"]], [gt_boxes])
 
         if len(gt_boxes) != len(pred_sample["boxes"]):
             extra_sequences.add(row["sequence"])

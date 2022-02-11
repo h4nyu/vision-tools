@@ -24,7 +24,7 @@ class MeterLike(Protocol):
     def value(self) -> Dict[str, Union[float, int]]:
         ...
 
-    def accumulate(self, log: Any) -> None:
+    def update(self, log: Any) -> None:
         ...
 
     def reset(self) -> None:
@@ -39,7 +39,7 @@ class MetricLike(Protocol[B]):
     def value(self) -> Tuple[float, Dict[str, Any]]:
         ...
 
-    def accumulate(self, pred: B, gt: B) -> None:
+    def update(self, pred: B, gt: B) -> None:
         ...
 
     def reset(self) -> None:

@@ -49,7 +49,7 @@ class TrainStep(Generic[T, B]):
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 if other is not None:
-                    self.meter.accumulate(valmap(lambda x: x.item(), other))
+                    self.meter.update(valmap(lambda x: x.item(), other))
             for k, v in self.meter.value.items():
                 self.writer.add_scalar(f"train/{k}", v, epoch)
             self.meter.reset()
@@ -87,7 +87,7 @@ class EvalStep(Generic[T, B]):
         for batch in tqdm(self.loader, total=len(self.loader)):
             batch = self.to_device(**batch)
             pred_batch = self.inference(model, batch)
-            self.metric.accumulate(pred_batch, batch)
+            self.metric.update(pred_batch, batch)
         score, other = self.metric.value
         self.writer.add_scalar(f"{self.metric_name}/score", score, epoch)
         for k, v in other.items():
