@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from typing_extensions import TypedDict
 import pandas as pd
 import os
+from toolz.curried import pipe, map
 
 
 Annotation = TypedDict(
@@ -16,13 +17,37 @@ Annotation = TypedDict(
 )
 
 
+def correct_species(
+    annotation: Annotation,
+) -> Annotation:
+    species = annotation["species"]
+    if(species == "bottlenose_dolhin"):
+        annotation["species"] = "bottlenose_dolphin"
+    elif(species == "kiler_whale"):
+        annotation["species"] = "killer_whale"
+    return annotation
+
 def cleansing(
     annotations: list[Annotation],
-) -> None:
-    return annotations
+) -> list[Annotation]:
+    return pipe(
+        annotations,
+        map(correct_species),
+        list,
+    )
+
+def summary(
+    annotations: list[Annotation],
+) -> dict:
+    all_species = pipe(annotations, map(lambda x: x["species"]), set)
+    return {
+        "species_count": len(all_species),
+        "all_species": all_species,
+    }
 
 
 def read_annotations(file_path: str) -> list:
+    print('read_annotations')
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
     for id, csv_row in df.iterrows():
