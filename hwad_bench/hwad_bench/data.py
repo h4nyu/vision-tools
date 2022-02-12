@@ -16,6 +16,12 @@ Annotation = TypedDict(
 )
 
 
+def cleansing(
+    annotations: list[Annotation],
+) -> None:
+    print(annotations)
+
+
 def read_annotations(file_path: str) -> list:
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
