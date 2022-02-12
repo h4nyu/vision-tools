@@ -21,17 +21,17 @@ def persist(key:str) -> Callable:
     return decorator
 
 def action(func:Any, args:list[Any]=[], kargs:dict[str,Any]={}, output_args: list[str]=[], output_kargs:dict[str,str] = {}) -> tuple[Any, list, dict]:
-    _kargs = {}
-    _args = []
     def wrapper(*args:Any, **kwargs:Any) -> Any:
+        _kargs = {}
+        _args = []
         for k, v in output_kargs.items():
             with open(v, 'rb') as fp:
                 _kargs[k] = pickle.load(fp)
         for k in output_args:
             with open(k, 'rb') as fp:
                 _args.append(pickle.load(fp))
-        res = func(*args, **{**kwargs, **_kargs})
-    return (wrapper, [*args, *_args], {**kargs, **_kargs})
+        res = func(*[*args, *_args], **{**kwargs, **_kargs})
+    return (wrapper, args, kargs)
 
 
 
