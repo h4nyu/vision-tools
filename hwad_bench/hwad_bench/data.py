@@ -21,7 +21,8 @@ def correct_species(
     annotation: Annotation,
 ) -> Annotation:
     species = annotation["species"]
-    if(species == "bottlenose_dolhin"):
+    if(species == "bottlenose_dolpin"):
+        print('aaa')
         annotation["species"] = "bottlenose_dolphin"
     elif(species == "kiler_whale"):
         annotation["species"] = "killer_whale"
@@ -47,7 +48,6 @@ def summary(
 
 
 def read_annotations(file_path: str) -> list:
-    print('read_annotations')
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
     for id, csv_row in df.iterrows():
