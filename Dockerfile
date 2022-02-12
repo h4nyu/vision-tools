@@ -33,4 +33,5 @@ WORKDIR /app
 COPY . .
 RUN pip install -e vision_tools[dev] \
     && pip install -e kuzushiji_bench \
-    && pip install -e cots_bench
+    && pip install -e cots_bench \
+    && pip install -e hwad_bench

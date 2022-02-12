@@ -1,0 +1,3 @@
+dataset:
+  root_dir: /app/datasets/hwad
+  train_annotation_path: /app/datasets/hwad/train.csv
