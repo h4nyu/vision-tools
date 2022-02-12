@@ -20,15 +20,18 @@ def persist(key:str) -> Callable:
         return wrapper
     return decorator
 
-def action(func:Any, args:list[Any]=[], kargs:dict[str,Any]={}, output_kargs:dict[str,str] = {}) -> tuple[Any, list, dict]:
+def action(func:Any, args:list[Any]=[], kargs:dict[str,Any]={}, output_args: list[str]=[], output_kargs:dict[str,str] = {}) -> tuple[Any, list, dict]:
     _kargs = {}
+    _args = []
     def wrapper(*args:Any, **kwargs:Any) -> Any:
-        _kargs = {}
         for k, v in output_kargs.items():
             with open(v, 'rb') as fp:
                 _kargs[k] = pickle.load(fp)
+        for k in output_args:
+            with open(k, 'rb') as fp:
+                _args.append(pickle.load(fp))
         res = func(*args, **{**kwargs, **_kargs})
-    return (wrapper, args, {**kargs, **_kargs})
+    return (wrapper, [*args, *_args], {**kargs, **_kargs})
 
 
 
@@ -41,7 +44,7 @@ def task_read_annotations() -> dict:
     }
 
 def task_cleansing() -> dict:
-    key = "clean_annotations"
+    key = "cleaned_annotations"
     return {
         'targets': [key],
         'file_dep': ["train_annotations"],
@@ -50,3 +53,12 @@ def task_cleansing() -> dict:
         })],
         'verbosity': 2,
     }
+
+
+def task_preview() -> dict:
+    return {
+        'file_dep': ["cleaned_annotations"],
+        "actions": [action(print, output_args=["cleaned_annotations"])],
+        'verbosity': 2,
+    }
+

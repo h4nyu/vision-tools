@@ -19,7 +19,7 @@ Annotation = TypedDict(
 def cleansing(
     annotations: list[Annotation],
 ) -> None:
-    print(annotations)
+    return annotations
 
 
 def read_annotations(file_path: str) -> list:
