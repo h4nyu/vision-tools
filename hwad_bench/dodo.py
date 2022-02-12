@@ -1,6 +1,4 @@
 def task_imports():
     return {
-        "actions": [
-            "echo  aa > text"
-        ],
+        "actions": ["echo  aa > text"],
     }
