@@ -8,7 +8,8 @@ import os
 Annotation = TypedDict(
     "Annotation",
     {
-        "image_id": str,
+        "id": int,
+        "image_file": str,
         "species": str,
         "individual_id": str,
     },
@@ -18,10 +19,11 @@ Annotation = TypedDict(
 def read_annotations(file_path: str) -> list:
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
-    for _, csv_row in df.iterrows():
+    for id, csv_row in df.iterrows():
         rows.append(
             Annotation(
-                image_id=os.path.basename(csv_row["image"]),
+                id=id,
+                image_file=os.path.basename(csv_row["image"]),
                 species=csv_row["species"],
                 individual_id=csv_row["individual_id"],
             )

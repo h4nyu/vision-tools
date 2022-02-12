@@ -21,6 +21,7 @@ docker-compose build app
 | Packages                                   | Description  |
 | :-                                         | :-           |
 | **[vision_tools](./vision_tools)**         | lib          |
+| **[coco_annotator](./coco_annotator)**     | coco annotator client |
 | **[kuzushiji_bench](./kuzushiji_bench)**   | kuzushiji    |
 | **[cots_bench](./cots_bench)**             | Detect crown-of-thorns starfish in underwater image data    |
 | **[hwad_bench](./hwad_bench)**             | Identify whales and dolphins by unique characteristics    |

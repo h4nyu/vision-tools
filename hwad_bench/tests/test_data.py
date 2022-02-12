@@ -10,3 +10,4 @@ def test_read_annotations() -> None:
     """
     annotations = read_annotations(dataset_cfg["train_annotation_path"])
     assert len(annotations) == 51033
+    print(annotations[0])
