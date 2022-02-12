@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 from typing_extensions import TypedDict
 import pandas as pd
 import os
-from toolz.curried import pipe, map
+from toolz.curried import pipe, map, groupby
 
 
 Annotation = TypedDict(
@@ -41,8 +41,11 @@ def summary(
     annotations: list[Annotation],
 ) -> dict:
     all_species = pipe(annotations, map(lambda x: x["species"]), set)
+    individual_id_count = pipe(annotations, map(lambda x: x["individual_id"]), set, len)
     return {
+        "count": len(annotations),
         "species_count": len(all_species),
+        "individual_id_count": individual_id_count,
         "all_species": all_species,
     }
 
