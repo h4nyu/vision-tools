@@ -3,16 +3,26 @@ from torch.utils.data import Dataset
 from typing_extensions import TypedDict
 import pandas as pd
 import os
+from pathlib import Path
+from typing import Any
 from toolz.curried import pipe, map, groupby
+from coco_annotator import CocoAnnotator
 
 
 Annotation = TypedDict(
     "Annotation",
     {
-        "id": int,
         "image_file": str,
         "species": str,
         "individual_id": str,
+    },
+)
+
+CocoImage = TypedDict(
+    "CocoImage",
+    {
+        "id": int,
+        "file_name": str,
     },
 )
 
@@ -37,6 +47,12 @@ def cleansing(
         list,
     )
 
+def fetch_coco_images(annotations:list[Annotation]) -> list[CocoImage]:
+    annotator = CocoAnnotator()
+    annotator.login(username="admin", password="admin")
+    images:list[Any] = annotator.image.filter(limit=len(annotations))
+    return images
+
 def summary(
     annotations: list[Annotation],
 ) -> dict:
@@ -49,14 +65,35 @@ def summary(
         "all_species": all_species,
     }
 
+def merge_to_coco_annotations(annotations:list[Annotation], coco_images:list[CocoImage]) -> dict[str, list]:
+    relation = pipe(coco_images, map(lambda x: (x["file_name"], x['id'])), dict)
+    coco_categories = []
+    coco_annotations = []
+    for i, annt in enumerate(annotations):
+        coco_categories.append({
+            "id": i,
+            "name": annt["individual_id"],
+            "supercategory": annt["species"],
+        })
+        coco_annotations.append({
+            "id": i,
+            "image_id": relation[annt["image_file"]],
+            "category_id": i,
+        })
+
+    return {
+        "images": coco_categories,
+        "categories": coco_categories,
+        "annotations": coco_annotations,
+    }
+
 
 def read_annotations(file_path: str) -> list:
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
-    for id, csv_row in df.iterrows():
+    for _, csv_row in df.iterrows():
         rows.append(
             Annotation(
-                id=id,
                 image_file=os.path.basename(csv_row["image"]),
                 species=csv_row["species"],
                 individual_id=csv_row["individual_id"],

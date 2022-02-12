@@ -31,7 +31,6 @@ Row = TypedDict(
     },
 )
 
-
 def read_train_rows(dataset_dir: str) -> List[Row]:
     row_path = os.path.join(dataset_dir, "train.corrected.csv")
     df = pd.read_csv(row_path)

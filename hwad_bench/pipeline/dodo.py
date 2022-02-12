@@ -1,73 +1,143 @@
 from __future__ import annotations
 from hwad_bench.data import cleansing
 import pandas as pd
+import json
 from vision_tools.utils import load_config
-from hwad_bench.data import read_annotations, summary
+from hwad_bench.data import (
+    read_annotations,
+    summary,
+    fetch_coco_images,
+    merge_to_coco_annotations,
+)
 from typing import Any, Callable
 import pickle
 from pathlib import Path
 from pprint import pprint
 
 
-dataset_cfg = load_config('../config/dataset.yaml')['dataset']
+dataset_cfg = load_config("../config/dataset.yaml")["dataset"]
 
 
-def persist(key:str, func:Callable) -> Callable:
-    def wrapper(*args:Any, **kwargs:Any) -> Any:
+def persist(key: str, func: Callable) -> Callable:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         res = func(*args, **kwargs)
-        with open(key, 'wb') as fp:
+        with open(key, "wb") as fp:
             pickle.dump(res, fp)
+
     return wrapper
 
-def action(func:Any, args:list[Any]=[], kwargs:dict[str,Any]={}, output_args: list[str]=[], output_kargs:dict[str,str] = {}) -> tuple[Any, list, dict]:
+
+def action(
+    func: Any,
+    args: list[Any] = [],
+    kwargs: dict[str, Any] = {},
+    output_args: list[str] = [],
+    output_kwargs: dict[str, str] = {},
+) -> tuple[Any, list, dict]:
     def wrapper() -> Any:
-        _kargs = {}
+        _kwargs = {}
         _args = []
-        for k, v in output_kargs.items():
-            with open(v, 'rb') as fp:
-                _kargs[k] = pickle.load(fp)
+        for k, v in output_kwargs.items():
+            with open(v, "rb") as fp:
+                _kwargs[k] = pickle.load(fp)
         for k in output_args:
-            with open(k, 'rb') as fp:
+            with open(k, "rb") as fp:
                 _args.append(pickle.load(fp))
-        res = func(*[*args, *_args], **{**kwargs, **_kargs})
+        res = func(*[*args, *_args], **{**kwargs, **_kwargs})
+
     return (wrapper, [], {})
+
+def pkl2json(a:str, b:str) -> None:
+    with open(a, "rb") as fp:
+        obj = pickle.load(fp)
+    with open(b, 'w') as fp:
+        json.dump(obj, fp)
 
 
 
 def task_read_annotations() -> dict:
     key = "train_annotations"
-    file = dataset_cfg['train_annotation_path']
+    file = dataset_cfg["train_annotation_path"]
     return {
-        'targets': [key],
-        'file_dep': [file],
+        "targets": [key],
+        "file_dep": [file],
         "actions": [action(persist(key, read_annotations), [file])],
     }
+
 
 def task_cleansing() -> dict:
     key = "cleaned_annotations"
     return {
-        'targets': [key],
-        'file_dep': ["train_annotations"],
-        "actions": [action(persist(key, cleansing), output_kargs={
-            "annotations": "train_annotations",
-        })],
+        "targets": [key],
+        "file_dep": ["train_annotations"],
+        "actions": [
+            action(
+                persist(key, cleansing),
+                output_kwargs={
+                    "annotations": "train_annotations",
+                },
+            )
+        ],
     }
 
 
 def task_summary() -> dict:
     key = "summary"
     return {
-        'targets': [key],
-        'file_dep': ["cleaned_annotations"],
-        "actions": [action(persist(key, summary), output_kargs={
-            "annotations": "cleaned_annotations"
-        })],
+        "targets": [key],
+        "file_dep": ["cleaned_annotations"],
+        "actions": [
+            action(
+                persist(key, summary),
+                output_kwargs={"annotations": "cleaned_annotations"},
+            )
+        ],
+    }
+
+
+def task_featch_coco_images() -> dict:
+    key = "coco_images"
+    return {
+        "targets": [key],
+        "file_dep": ["cleaned_annotations"],
+        "actions": [
+            action(
+                persist(key, fetch_coco_images),
+                output_kwargs={"annotations": "cleaned_annotations"},
+            )
+        ],
+    }
+
+
+def task_merge_to_coco_annotations() -> dict:
+    key = "coco_annotations"
+    file_deps = ["cleaned_annotations", "coco_images"]
+    return {
+        "targets": [key],
+        "file_dep": file_deps,
+        "actions": [
+            action(
+                persist(key, merge_to_coco_annotations),
+                output_args=file_deps,
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_save_coco_anntation() -> dict:
+    key = "coco_annotations.json"
+    return {
+        "file_dep": ["coco_annotations"],
+        "targets": [key],
+        "actions": [action(pkl2json, args=["coco_annotations", key])],
     }
 
 def task_preview() -> dict:
+    output_key = "summary"
     return {
-        'file_dep': ["summary"],
-        "actions": [action(pprint, output_args=["summary"])],
-        'uptodate': [False],
-        'verbosity': 2,
+        "file_dep": [output_key],
+        "actions": [action(pprint, output_args=[output_key])],
+        "uptodate": [False],
+        "verbosity": 2,
     }
