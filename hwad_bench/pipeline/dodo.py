@@ -6,7 +6,6 @@ from vision_tools.utils import load_config
 from hwad_bench.data import (
     read_annotations,
     summary,
-    fetch_coco_images,
     merge_to_coco_annotations,
 )
 from typing import Any, Callable
@@ -96,38 +95,9 @@ def task_summary() -> dict:
     }
 
 
-def task_featch_coco_images() -> dict:
-    key = "coco_images"
-    return {
-        "targets": [key],
-        "file_dep": ["cleaned_annotations"],
-        "actions": [
-            action(
-                persist(key, fetch_coco_images),
-                output_kwargs={"annotations": "cleaned_annotations"},
-            )
-        ],
-    }
-
-
-# def task_push_coco_categories() -> dict:
-#     key = "coco_categories"
-#     return {
-#         "targets": [key],
-#         "file_dep": ["cleaned_annotations"],
-#         "actions": [
-#             action(
-#                 persist(key, fetch_coco_categories),
-#                 output_kwargs={"annotations": "cleaned_annotations"},
-#             )
-#         ],
-#         "verbosity": 2,
-#     }
-
-
 def task_merge_to_coco_annotations() -> dict:
     key = "coco_annotations"
-    file_deps = ["cleaned_annotations", "coco_images"]
+    file_deps = ["cleaned_annotations"]
     return {
         "targets": [key],
         "file_dep": file_deps,

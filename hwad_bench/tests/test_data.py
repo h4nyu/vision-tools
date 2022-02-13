@@ -17,15 +17,7 @@ def test_rows(annotations: list[Annotation]) -> None:
 
 
 def test_merge_to_coco_annotations(annotations: list[Annotation]) -> None:
-    coco_images: list[Any] = [
-        {
-            "id": 1,
-            "file_name": "00021adfb725ed.jpg",
-            "width": 1280,
-            "height": 720,
-        },
-    ]
-    coco = merge_to_coco_annotations(annotations[:1], coco_images)
+    coco = merge_to_coco_annotations(annotations[:1])
     assert len(coco["annotations"]) == 1
     assert len(coco["categories"]) == 1
     assert len(coco["images"]) == 1

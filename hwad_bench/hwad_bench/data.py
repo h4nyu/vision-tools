@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted
-from coco_annotator import CocoAnnotator, CocoImage, CocoCategory
+from coco_annotator import CocoImage, CocoCategory
 
 
 Annotation = TypedDict(
@@ -17,10 +17,6 @@ Annotation = TypedDict(
         "individual_id": str,
     },
 )
-
-
-annotator = CocoAnnotator()
-annotator.login(username="admin", password="admin")
 
 
 def correct_species(
@@ -43,13 +39,6 @@ def cleansing(
         map(correct_species),
         list,
     )
-
-
-def fetch_coco_images(annotations: list[Annotation]) -> list[CocoImage]:
-    annotator = CocoAnnotator()
-    annotator.login(username="admin", password="admin")
-    images = annotator.image.filter(limit=len(annotations))
-    return images
 
 
 def summary(
@@ -77,10 +66,7 @@ def summary(
     }
 
 
-def merge_to_coco_annotations(
-    annotations: list[Annotation], coco_images: list[CocoImage]
-) -> dict[str, list]:
-    relation = pipe(coco_images, map(lambda x: (x["file_name"], x["id"])), dict)
+def merge_to_coco_annotations(annotations: list[Annotation]) -> dict[str, list]:
     coco_categories = pipe(
         annotations,
         map(lambda x: x["species"]),
@@ -101,11 +87,18 @@ def merge_to_coco_annotations(
         dict,
     )
     coco_annotations = []
+    coco_images: list[dict] = []
     for i, annt in enumerate(annotations):
+        coco_images.append(
+            {
+                "id": i,
+                "file_name": annt["image_file"],
+            }
+        )
         coco_annotations.append(
             {
                 "id": i,
-                "image_id": relation[annt["image_file"]],
+                "image_id": i,
                 "category_id": categories_id_map[annt["species"]],
             }
         )
