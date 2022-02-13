@@ -49,10 +49,10 @@ def action(
 
 
 def pkl2json(a: str, b: str) -> None:
-    with open(a, "rb") as fp:
-        obj = pickle.load(fp)
-    with open(b, "w") as fp:
-        json.dump(obj, fp)
+    with open(a, "rb") as afp:
+        obj = pickle.load(afp)
+    with open(b, "wt") as bfp:
+        json.dump(obj, bfp)
 
 
 def task_read_annotations() -> dict:
@@ -110,6 +110,21 @@ def task_featch_coco_images() -> dict:
     }
 
 
+# def task_push_coco_categories() -> dict:
+#     key = "coco_categories"
+#     return {
+#         "targets": [key],
+#         "file_dep": ["cleaned_annotations"],
+#         "actions": [
+#             action(
+#                 persist(key, fetch_coco_categories),
+#                 output_kwargs={"annotations": "cleaned_annotations"},
+#             )
+#         ],
+#         "verbosity": 2,
+#     }
+
+
 def task_merge_to_coco_annotations() -> dict:
     key = "coco_annotations"
     file_deps = ["cleaned_annotations", "coco_images"]
@@ -135,11 +150,11 @@ def task_save_coco_anntation() -> dict:
     }
 
 
-def task_preview() -> dict:
-    output_key = "summary"
-    return {
-        "file_dep": [output_key],
-        "actions": [action(pprint, output_args=[output_key])],
-        "uptodate": [False],
-        "verbosity": 2,
-    }
+# def task_preview() -> dict:
+#     output_key = "summary"
+#     return {
+#         "file_dep": [output_key],
+#         "actions": [action(pprint, output_args=[output_key])],
+#         "uptodate": [False],
+#         "verbosity": 2,
+#     }

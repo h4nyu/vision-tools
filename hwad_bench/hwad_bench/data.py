@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted
-from coco_annotator import CocoAnnotator
+from coco_annotator import CocoAnnotator, CocoImage, CocoCategory
 
 
 Annotation = TypedDict(
@@ -18,13 +18,9 @@ Annotation = TypedDict(
     },
 )
 
-CocoImage = TypedDict(
-    "CocoImage",
-    {
-        "id": int,
-        "file_name": str,
-    },
-)
+
+annotator = CocoAnnotator()
+annotator.login(username="admin", password="admin")
 
 
 def correct_species(
@@ -52,7 +48,7 @@ def cleansing(
 def fetch_coco_images(annotations: list[Annotation]) -> list[CocoImage]:
     annotator = CocoAnnotator()
     annotator.login(username="admin", password="admin")
-    images: list[Any] = annotator.image.filter(limit=len(annotations))
+    images = annotator.image.filter(limit=len(annotations))
     return images
 
 
@@ -85,26 +81,37 @@ def merge_to_coco_annotations(
     annotations: list[Annotation], coco_images: list[CocoImage]
 ) -> dict[str, list]:
     relation = pipe(coco_images, map(lambda x: (x["file_name"], x["id"])), dict)
-    coco_categories = []
+    coco_categories = pipe(
+        annotations,
+        map(lambda x: x["species"]),
+        set,
+        enumerate,
+        map(
+            lambda x: {
+                "id": x[0],
+                "name": x[1],
+                "supercategory": "animal",
+            }
+        ),
+        list,
+    )
+    categories_id_map = pipe(
+        coco_categories,
+        map(lambda x: (x["name"], x["id"])),
+        dict,
+    )
     coco_annotations = []
     for i, annt in enumerate(annotations):
-        coco_categories.append(
-            {
-                "id": i,
-                "name": annt["individual_id"],
-                "supercategory": annt["species"],
-            }
-        )
         coco_annotations.append(
             {
                 "id": i,
                 "image_id": relation[annt["image_file"]],
-                "category_id": i,
+                "category_id": categories_id_map[annt["species"]],
             }
         )
 
     return {
-        "images": coco_categories,
+        "images": coco_images,
         "categories": coco_categories,
         "annotations": coco_annotations,
     }

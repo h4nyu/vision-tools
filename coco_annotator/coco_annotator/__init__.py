@@ -2,6 +2,30 @@ from __future__ import annotations
 import os
 import requests
 from typing import Optional
+from typing_extensions import TypedDict
+
+CocoImage = TypedDict(
+    "CocoImage",
+    {
+        "id": int,
+        "file_name": str,
+    },
+)
+
+CocoCategory = TypedDict(
+    "CocoCategory",
+    {
+        'id': int,
+        "name": str,
+        "supercategory": str,
+        "deleted": bool,
+    },
+)
+CreateCategory = TypedDict('CreateCategory', {
+    "name": str,
+    "supercategory": str,
+})
+
 
 
 class ImageRoutes:
@@ -11,7 +35,7 @@ class ImageRoutes:
 
     def filter(
         self, per_page: Optional[int] = 1000, limit: Optional[int] = None
-    ) -> list[dict]:
+    ) -> list[CocoImage]:
         url = os.path.join(self.base_url)
         page = 1
         has_more = True
@@ -42,11 +66,11 @@ class CategoryRoutes:
 
     def filter(
         self, per_page: Optional[int] = 1000, limit: Optional[int] = None
-    ) -> list[dict]:
+    ) -> list[CocoCategory]:
         url = os.path.join(self.base_url)
         page = 1
         has_more = True
-        rows: list[dict] = []
+        rows: list[CocoCategory] = []
         while has_more:
             req = requests.get(
                 url,
@@ -65,13 +89,13 @@ class CategoryRoutes:
                 break
         return rows
 
-    def create(self, data: dict) -> dict:
+    def create(self, data: CreateCategory) -> CocoCategory:
         url = os.path.join(self.base_url)
         req = requests.post(url, cookies=self.root.cookies, json=data)
         req.raise_for_status()
         return req.json()
 
-    def get(self, id: int) -> dict:
+    def get(self, id: int) -> CocoCategory:
         url = os.path.join(self.base_url, str(id))
         req = requests.get(url, cookies=self.root.cookies)
         req.raise_for_status()
