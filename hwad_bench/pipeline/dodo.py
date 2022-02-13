@@ -47,12 +47,12 @@ def action(
 
     return (wrapper, [], {})
 
-def pkl2json(a:str, b:str) -> None:
+
+def pkl2json(a: str, b: str) -> None:
     with open(a, "rb") as fp:
         obj = pickle.load(fp)
-    with open(b, 'w') as fp:
+    with open(b, "w") as fp:
         json.dump(obj, fp)
-
 
 
 def task_read_annotations() -> dict:
@@ -92,6 +92,7 @@ def task_summary() -> dict:
                 output_kwargs={"annotations": "cleaned_annotations"},
             )
         ],
+        "verbosity": 2,
     }
 
 
@@ -132,6 +133,7 @@ def task_save_coco_anntation() -> dict:
         "targets": [key],
         "actions": [action(pkl2json, args=["coco_annotations", key])],
     }
+
 
 def task_preview() -> dict:
     output_key = "summary"

@@ -5,7 +5,7 @@ import pandas as pd
 import os
 from pathlib import Path
 from typing import Any
-from toolz.curried import pipe, map, groupby
+from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted
 from coco_annotator import CocoAnnotator
 
 
@@ -31,12 +31,13 @@ def correct_species(
     annotation: Annotation,
 ) -> Annotation:
     species = annotation["species"]
-    if(species == "bottlenose_dolpin"):
-        print('aaa')
+    if species == "bottlenose_dolpin":
+        print("aaa")
         annotation["species"] = "bottlenose_dolphin"
-    elif(species == "kiler_whale"):
+    elif species == "kiler_whale":
         annotation["species"] = "killer_whale"
     return annotation
+
 
 def cleansing(
     annotations: list[Annotation],
@@ -47,39 +48,60 @@ def cleansing(
         list,
     )
 
-def fetch_coco_images(annotations:list[Annotation]) -> list[CocoImage]:
+
+def fetch_coco_images(annotations: list[Annotation]) -> list[CocoImage]:
     annotator = CocoAnnotator()
     annotator.login(username="admin", password="admin")
-    images:list[Any] = annotator.image.filter(limit=len(annotations))
+    images: list[Any] = annotator.image.filter(limit=len(annotations))
     return images
+
 
 def summary(
     annotations: list[Annotation],
 ) -> dict:
     all_species = pipe(annotations, map(lambda x: x["species"]), set)
     individual_id_count = pipe(annotations, map(lambda x: x["individual_id"]), set, len)
+    class_freq = pipe(
+        annotations,
+        groupby(lambda x: x["individual_id"]),
+        valmap(len),
+        lambda x: x.values(),
+        frequencies,
+        lambda x: x.items(),
+        lambda x: sorted(x, key=lambda y: y[0]),
+        map(lambda x: {"class_size": x[0], "count": x[1]}),
+        list,
+    )
     return {
         "count": len(annotations),
         "species_count": len(all_species),
         "individual_id_count": individual_id_count,
         "all_species": all_species,
+        "class_freq": class_freq,
     }
 
-def merge_to_coco_annotations(annotations:list[Annotation], coco_images:list[CocoImage]) -> dict[str, list]:
-    relation = pipe(coco_images, map(lambda x: (x["file_name"], x['id'])), dict)
+
+def merge_to_coco_annotations(
+    annotations: list[Annotation], coco_images: list[CocoImage]
+) -> dict[str, list]:
+    relation = pipe(coco_images, map(lambda x: (x["file_name"], x["id"])), dict)
     coco_categories = []
     coco_annotations = []
     for i, annt in enumerate(annotations):
-        coco_categories.append({
-            "id": i,
-            "name": annt["individual_id"],
-            "supercategory": annt["species"],
-        })
-        coco_annotations.append({
-            "id": i,
-            "image_id": relation[annt["image_file"]],
-            "category_id": i,
-        })
+        coco_categories.append(
+            {
+                "id": i,
+                "name": annt["individual_id"],
+                "supercategory": annt["species"],
+            }
+        )
+        coco_annotations.append(
+            {
+                "id": i,
+                "image_id": relation[annt["image_file"]],
+                "category_id": i,
+            }
+        )
 
     return {
         "images": coco_categories,
