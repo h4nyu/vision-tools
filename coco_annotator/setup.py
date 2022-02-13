@@ -8,4 +8,5 @@ setup(
         "requests",
     ],
     package_data={"coco_annotator": ["py.typed"]},
+    extras_require={"dev": ["nanoid"]},
 )
