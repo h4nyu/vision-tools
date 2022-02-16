@@ -1,4 +1,5 @@
 datasets
+mongodb_data
 *.zip
 *.db
 signate.json

@@ -123,6 +123,10 @@ def read_annotations(file_path: str) -> list:
         )
     return rows
 
+def cp_files_in_coco(coco: dict, source_dir:str, dist_dir:str) -> list:
+    return []
+
+
 
 # # class HWADDataset(Dataset):
 # #     def __init__(

@@ -48,5 +48,5 @@ services:
       - MONGO_DATA_DIR=/data/db
       - MONGO_LOG_DIR=/dev/null
     volumes:
-      - "mongodb_data:/data/db"
+      - "./mongodb_data:/data/db"
     command: "mongod --smallfiles --logpath=/dev/null"
