@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted
 from coco_annotator import CocoImage, CocoCategory
+from PIL import Image as PILImage
+from nanoid import generate as nanoid
 
 
 Annotation = TypedDict(
@@ -111,7 +113,6 @@ def merge_to_coco_annotations(annotations: list[Annotation]) -> dict[str, list]:
     }
 
 
-
 def read_annotations(file_path: str) -> list:
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
@@ -125,14 +126,54 @@ def read_annotations(file_path: str) -> list:
         )
     return rows
 
+
 def read_json(path: str) -> dict:
     with open(path, "r") as f:
         return json.load(f)
 
-def create_croped_dataset(coco: dict, source_dir:str, dist_dir:str) -> dict:
-    print(coco)
-    return dict()
 
+def create_croped_dataset(
+    coco: dict, annotations: list[Annotation], source_dir: str, dist_dir: str
+) -> list[Annotation]:
+    image_map = pipe(
+        coco["images"],
+        map(lambda x: (x["id"], x)),
+        dict,
+    )
+    annotation_map = pipe(
+        annotations,
+        map(lambda x: (x["image_file"], x)),
+        dict,
+    )
+    print(annotation_map)
+    croped_annots: list[Annotation] = []
+    for annot in coco["annotations"]:
+        image = image_map[annot["image_id"]]
+        image_annot = annotation_map[image["file_name"]]
+        source_path = os.path.join(source_dir, image["file_name"])
+        im = PILImage.open(source_path)
+        coco_bbox = annot["bbox"]
+        bbox = [
+            coco_bbox[0],
+            coco_bbox[1],
+            coco_bbox[0] + coco_bbox[2],
+            coco_bbox[1] + coco_bbox[3],
+        ]
+        im_crop = im.crop(bbox)
+        stem = Path(image_annot["image_file"]).stem
+        dist_file_name = f"{stem}-{nanoid(size=4)}.png"
+        dist_path = os.path.join(dist_dir, dist_file_name)
+        im_crop.save(dist_path)
+        croped_annots.append(
+            Annotation(
+                {
+                    "image_file": dist_file_name,
+                    "species": image_annot["species"],
+                    "individual_id": image_annot["individual_id"],
+                }
+            )
+        )
+    return croped_annots
 
 
 # # class HWADDataset(Dataset):

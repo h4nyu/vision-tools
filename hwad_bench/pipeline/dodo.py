@@ -139,6 +139,7 @@ def task_create_croped_dataset() -> dict:
     key = "croped_dataset"
     return {
         "targets": [key],
+        "file_dep": ["coco_body_annotations"],
         "actions": [
             action(
                 persist(key, create_croped_dataset),
@@ -146,8 +147,8 @@ def task_create_croped_dataset() -> dict:
                     "coco": "coco_body_annotations",
                 },
                 kwargs={
-                    "source_dir": "/app/datatests/hwad-train-labeling-r3",
-                    "dist_dir": "/app/hwad_bench/store/hwad-train-croped-body",
+                    "source_dir": "/app/datasets/hwad-train-labeling-r3",
+                    "dist_dir": "/app/datasets/test-1",
                 },
             )
         ],
