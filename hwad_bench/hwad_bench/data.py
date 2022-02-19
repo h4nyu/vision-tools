@@ -1,6 +1,7 @@
 from __future__ import annotations
 from torch.utils.data import Dataset
 from typing_extensions import TypedDict
+import json
 import pandas as pd
 import os
 from pathlib import Path
@@ -110,6 +111,7 @@ def merge_to_coco_annotations(annotations: list[Annotation]) -> dict[str, list]:
     }
 
 
+
 def read_annotations(file_path: str) -> list:
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
@@ -123,8 +125,13 @@ def read_annotations(file_path: str) -> list:
         )
     return rows
 
-def cp_files_in_coco(coco: dict, source_dir:str, dist_dir:str) -> list:
-    return []
+def read_json(path: str) -> dict:
+    with open(path, "r") as f:
+        return json.load(f)
+
+def create_croped_dataset(coco: dict, source_dir:str, dist_dir:str) -> dict:
+    print(coco)
+    return dict()
 
 
 

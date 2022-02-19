@@ -7,6 +7,8 @@ from hwad_bench.data import (
     read_annotations,
     summary,
     merge_to_coco_annotations,
+    create_croped_dataset,
+    read_json,
 )
 from typing import Any, Callable
 import pickle
@@ -117,6 +119,39 @@ def task_save_coco_anntation() -> dict:
         "file_dep": ["coco_annotations"],
         "targets": [key],
         "actions": [action(pkl2json, args=["coco_annotations", key])],
+    }
+
+
+def task_read_body_annotation() -> dict:
+    key = "coco_body_annotations"
+    return {
+        "targets": [key],
+        "actions": [
+            action(
+                persist(key, read_json),
+                args=["/app/hwad_bench/store/hwad-train-labeling-r3-20.json"],
+            )
+        ],
+    }
+
+
+def task_create_croped_dataset() -> dict:
+    key = "croped_dataset"
+    return {
+        "targets": [key],
+        "actions": [
+            action(
+                persist(key, create_croped_dataset),
+                output_kwargs={
+                    "coco": "coco_body_annotations",
+                },
+                kwargs={
+                    "source_dir": "/app/datatests/hwad-train-labeling-r3",
+                    "dist_dir": "/app/hwad_bench/store/hwad-train-croped-body",
+                },
+            )
+        ],
+        "verbosity": 2,
     }
 
 
