@@ -27,7 +27,6 @@ def correct_species(
 ) -> Annotation:
     species = annotation["species"]
     if species == "bottlenose_dolpin":
-        print("aaa")
         annotation["species"] = "bottlenose_dolphin"
     elif species == "kiler_whale":
         annotation["species"] = "killer_whale"
@@ -145,7 +144,6 @@ def create_croped_dataset(
         map(lambda x: (x["image_file"], x)),
         dict,
     )
-    print(annotation_map)
     croped_annots: list[Annotation] = []
     for annot in coco["annotations"]:
         image = image_map[annot["image_id"]]
@@ -161,7 +159,8 @@ def create_croped_dataset(
         ]
         im_crop = im.crop(bbox)
         stem = Path(image_annot["image_file"]).stem
-        dist_file_name = f"{stem}-{nanoid(size=4)}.png"
+        suffix = Path(image_annot["image_file"]).suffix
+        dist_file_name = f"{stem}-{nanoid(size=4)}{suffix}"
         dist_path = os.path.join(dist_dir, dist_file_name)
         im_crop.save(dist_path)
         croped_annots.append(
@@ -174,6 +173,7 @@ def create_croped_dataset(
             )
         )
     return croped_annots
+
 
 
 # # class HWADDataset(Dataset):

@@ -19,12 +19,12 @@ from pprint import pprint
 dataset_cfg = load_config("../config/dataset.yaml")["dataset"]
 
 
+
 def persist(key: str, func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         res = func(*args, **kwargs)
         with open(key, "wb") as fp:
             pickle.dump(res, fp)
-
     return wrapper
 
 
@@ -136,15 +136,16 @@ def task_read_body_annotation() -> dict:
 
 
 def task_create_croped_dataset() -> dict:
-    key = "croped_dataset"
+    key = "croped_annotations"
     return {
         "targets": [key],
-        "file_dep": ["coco_body_annotations"],
+        "file_dep": ["coco_body_annotations", "cleaned_annotations"],
         "actions": [
             action(
                 persist(key, create_croped_dataset),
                 output_kwargs={
                     "coco": "coco_body_annotations",
+                    "annotations": "cleaned_annotations",
                 },
                 kwargs={
                     "source_dir": "/app/datasets/hwad-train-labeling-r3",
@@ -152,6 +153,16 @@ def task_create_croped_dataset() -> dict:
                 },
             )
         ],
+        "verbosity": 2,
+    }
+
+def task_save_croped_annotation() -> dict:
+    key = "croped.json"
+    dep = "croped_annotations"
+    return {
+        "targets": [key],
+        "file_dep": [dep],
+        "actions": [action(pkl2json, args=[dep, key])],
         "verbosity": 2,
     }
 
