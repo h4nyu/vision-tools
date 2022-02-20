@@ -154,7 +154,7 @@ def create_croped_dataset(
         lambda x: x.values(),
         filter(lambda x: len(x) == 1),
         map(lambda x: x[0]),
-        list
+        list,
     )
     annotation_map = pipe(
         annotations,

@@ -1,7 +1,11 @@
+import torch
+from torch import nn
+from hwad_bench.convnext import ConvNeXt
 
-import timm
 
 def test_model() -> None:
-    model_names = timm.list_models("convnext*")
-    print(model_names)
-    # m = timm.create_model('mobilenetv3_large_100', pretrained=True)
+    embedding_size = 2
+    model = ConvNeXt(name="convnext_tiny", embedding_size=embedding_size)
+    images = torch.randn(2, 3, 256, 256)
+    output = model(images)
+    assert output.shape == (2, embedding_size)
