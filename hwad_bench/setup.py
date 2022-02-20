@@ -6,8 +6,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "doit",
-        "import_deps",
-        "pygraphviz",
+        "timm",
     ],
     package_data={"cots_bench": ["py.typed"]},
 )
