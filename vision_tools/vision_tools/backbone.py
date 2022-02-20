@@ -1,8 +1,9 @@
-from torch import nn, Tensor
 from typing import Callable, List
-from .block import DefaultActivation, DWConv, ConvBnAct, Focus, CSP, SPP
-from efficientnet_pytorch import EfficientNet as _EfficientNet
 
+from efficientnet_pytorch import EfficientNet as _EfficientNet
+from torch import Tensor, nn
+
+from .block import CSP, SPP, ConvBnAct, DefaultActivation, DWConv, Focus
 
 efficientnet_channels = {
     "efficientnet-b0": [3, 16, 24, 40, 112, 320, 1280],

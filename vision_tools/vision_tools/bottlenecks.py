@@ -1,8 +1,10 @@
 import typing as t
-from torch import nn, Tensor
+
 import torch.nn.functional as F
-from .modules import Hswish, ConvBR2d, CSE2d, Mish
+from torch import Tensor, nn
 from typing_extensions import Literal
+
+from .modules import ConvBR2d, CSE2d, Hswish, Mish
 
 
 class MobileV3(nn.Module):

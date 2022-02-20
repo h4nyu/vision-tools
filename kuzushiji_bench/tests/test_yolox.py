@@ -1,14 +1,11 @@
+import os
+
 import pytest
 import torch
-import os
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.ops import box_convert
-from kuzushiji_bench.yolox import get_model, get_criterion, get_checkpoint, get_writer
-from vision_tools.assign import SimOTA
-from torch.utils.data import DataLoader
-from vision_tools.yolox import YOLOX, Criterion
-from vision_tools.interface import TrainBatch
-from vision_tools.utils import draw, batch_draw, seed_everything, load_config
+
 from kuzushiji_bench.data import (
     KuzushijiDataset,
     TrainTransform,
@@ -16,6 +13,11 @@ from kuzushiji_bench.data import (
     collate_fn,
     read_train_rows,
 )
+from kuzushiji_bench.yolox import get_checkpoint, get_criterion, get_model, get_writer
+from vision_tools.assign import SimOTA
+from vision_tools.interface import TrainBatch
+from vision_tools.utils import batch_draw, draw, load_config, seed_everything
+from vision_tools.yolox import YOLOX, Criterion
 
 cfg = load_config("/app/kuzushiji_bench/config/yolox.yaml")
 writer = get_writer(cfg)

@@ -1,9 +1,9 @@
-import torch
-from typing import *
-from torch import nn, optim, Tensor
-from torch.optim.optimizer import Optimizer, _params_t
-
 from collections.abc import Iterable
+from typing import *
+
+import torch
+from torch import Tensor, nn, optim
+from torch.optim.optimizer import Optimizer, _params_t
 
 
 def unitwise_norm(x: Tensor) -> Tensor:

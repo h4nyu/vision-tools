@@ -1,11 +1,12 @@
-import torch, numpy as np
 import itertools
-from typing import Optional, Tuple, List, Dict
-from torch import nn, Tensor
-from vision_tools import (
-    boxmaps_to_boxes,
-)
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import torch
+from torch import Tensor, nn
 from torchvision.ops import box_convert, clip_boxes_to_image
+
+from vision_tools import boxmaps_to_boxes
 
 
 class Anchors:

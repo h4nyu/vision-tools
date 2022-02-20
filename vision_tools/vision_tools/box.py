@@ -1,7 +1,8 @@
+from typing import Callable, Tuple, Union
+
 import torch
-from typing import Tuple, Union, Callable
 from torch import Tensor
-from torchvision.ops.boxes import box_iou, box_area
+from torchvision.ops.boxes import box_area, box_iou
 
 Number = Union[float, int]
 

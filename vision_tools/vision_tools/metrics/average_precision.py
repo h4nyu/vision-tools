@@ -1,7 +1,8 @@
+from typing import Any, List
+
+import numpy as np
 import torch
 from torch import Tensor
-from typing import Any, List
-import numpy as np
 from torchvision.ops.boxes import box_iou
 
 

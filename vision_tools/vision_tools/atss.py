@@ -1,7 +1,8 @@
 import torch
 from torch import Tensor
-from .assign import ClosestAssign
 from torchvision.ops.boxes import box_iou
+
+from .assign import ClosestAssign
 
 
 class ATSS:

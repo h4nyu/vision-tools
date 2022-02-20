@@ -9,12 +9,12 @@ import numpy as np
 import pandas as pd
 import PIL
 import torch
-from coco_annotator import CocoCategory, CocoImage
 from nanoid import generate as nanoid
-from toolz.curried import (filter, frequencies, groupby, map, pipe, sorted,
-                           valmap)
+from toolz.curried import filter, frequencies, groupby, map, pipe, sorted, valmap
 from torch.utils.data import Dataset
 from typing_extensions import TypedDict
+
+from coco_annotator import CocoCategory, CocoImage
 from vision_tools.interface import Classification
 
 Annotation = TypedDict(

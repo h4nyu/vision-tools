@@ -1,6 +1,5 @@
 import torch
 
-
 #      targets: Targets = [
 #          {
 #              "labels": torch.tensor([1, 0]).long(),

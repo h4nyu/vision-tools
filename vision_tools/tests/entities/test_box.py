@@ -1,11 +1,7 @@
 import torch
-from vision_tools.box import (
-    box_in_area,
-    box_hflip,
-    box_vflip,
-    box_padding,
-)
 import torch.nn.functional as F
+
+from vision_tools.box import box_hflip, box_in_area, box_padding, box_vflip
 
 
 def test_box_in_area() -> None:

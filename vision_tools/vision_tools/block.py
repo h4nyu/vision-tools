@@ -1,6 +1,7 @@
+from typing import Callable, List, Optional
+
 import torch
 from torch import Tensor, nn
-from typing import Callable, Optional, List
 
 DefaultActivation = nn.SiLU(inplace=True)
 

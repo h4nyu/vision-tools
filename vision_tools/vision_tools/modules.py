@@ -1,8 +1,10 @@
-import torch, math
+import math
 from typing import *
-from torch import nn, Tensor
 from typing import Optional
+
+import torch
 import torch.nn.functional as F
+from torch import Tensor, nn
 
 
 class SwishImplementation(torch.autograd.Function):

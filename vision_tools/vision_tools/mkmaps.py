@@ -1,7 +1,9 @@
-from torch import Tensor
 from typing import Callable, List, Tuple
-from typing_extensions import Literal
+
 import torch
+from torch import Tensor
+from typing_extensions import Literal
+
 from vision_tools import Number, resize_points
 
 MkMapsFn = Callable[

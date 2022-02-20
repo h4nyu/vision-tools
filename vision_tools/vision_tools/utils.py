@@ -1,33 +1,27 @@
-from torchvision.utils import (
-    draw_segmentation_masks,
-    save_image,
-    draw_bounding_boxes,
-    make_grid,
-)
-from PIL import Image, ImageDraw, ImageFont, ImageColor
-from torchvision.ops import box_convert
-import torch
-from torch import Tensor
-import yaml
 import random
-import numpy as np
-import torch.nn.functional as F
-from typing import Optional, Callable, Any, List, Generic, TypeVar, Tuple, Union, Dict
-from typing_extensions import Protocol
-from torch import nn
-from pathlib import Path
-from torch import Tensor
 from logging import getLogger
-from vision_tools import (
-    Number,
-    resize_points,
-)
-from torchvision.utils import save_image
-from torch.nn.functional import interpolate
-from .interface import (
-    TrainBatch,
-)
+from pathlib import Path
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
+import numpy as np
+import torch
+import torch.nn.functional as F
+import yaml
+from PIL import Image, ImageColor, ImageDraw, ImageFont
+from torch import Tensor, nn
+from torch.nn.functional import interpolate
+from torchvision.ops import box_convert
+from torchvision.utils import (
+    draw_bounding_boxes,
+    draw_segmentation_masks,
+    make_grid,
+    save_image,
+)
+from typing_extensions import Protocol
+
+from vision_tools import Number, resize_points
+
+from .interface import TrainBatch
 
 logger = getLogger(__name__)
 

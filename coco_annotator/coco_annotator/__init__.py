@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import os
-import requests
 from typing import Optional
+
+import requests
 from typing_extensions import TypedDict
 
 CocoImage = TypedDict(
@@ -15,17 +17,19 @@ CocoImage = TypedDict(
 CocoCategory = TypedDict(
     "CocoCategory",
     {
-        'id': int,
+        "id": int,
         "name": str,
         "supercategory": str,
         "deleted": bool,
     },
 )
-CreateCategory = TypedDict('CreateCategory', {
-    "name": str,
-    "supercategory": str,
-})
-
+CreateCategory = TypedDict(
+    "CreateCategory",
+    {
+        "name": str,
+        "supercategory": str,
+    },
+)
 
 
 class ImageRoutes:

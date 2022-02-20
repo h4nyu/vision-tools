@@ -1,44 +1,52 @@
-from typing import Any, Dict, Optional, List
-import torch
+import functools
 import os
-from tqdm import tqdm
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import torch
+import torch.nn.functional as F
 from ensemble_boxes import weighted_boxes_fusion
+from toolz.curried import count, filter, map, partition, pipe, valmap
 from torch import Tensor
 from torch.cuda.amp import GradScaler, autocast
-from torch.utils.data import Subset, DataLoader, RandomSampler
-from vision_tools.utils import seed_everything, Checkpoint, ToDevice
-from vision_tools.yolox import YOLOX, Criterion, ToBoxes
-from vision_tools.backbone import CSPDarknet, EfficientNet
-from vision_tools.neck import CSPPAFPN
-from vision_tools.yolox import YOLOX, Criterion
-from vision_tools.assign import SimOTA
-from vision_tools.optim import Lookahead
-import torch.nn.functional as F
 from torch.optim import Adam
-from vision_tools.utils import Checkpoint, load_config, batch_draw, merge_batch, draw
-from torchvision.transforms.functional import vflip, hflip
+from torch.utils.data import DataLoader, RandomSampler, Subset
 from torch.utils.tensorboard import SummaryWriter
-import functools
-from datetime import datetime
-from vision_tools.meter import MeanReduceDict
-from vision_tools.box import box_hflip, box_vflip, resize_boxes
-from vision_tools.step import TrainStep, EvalStep
-from vision_tools.interface import TrainBatch, Detection
-from vision_tools.batch_transform import BatchMosaic
-from vision_tools.metric import MeanBoxAP, MeanBoxF2
 from torchvision.ops import nms
+from torchvision.transforms.functional import hflip, vflip
+from tqdm import tqdm
+
 from cots_bench.data import (
     COTSDataset,
     TrainTransform,
     Transform,
-    read_train_rows,
     collate_fn,
-    kfold,
     filter_empty_boxes,
     keep_ratio,
+    kfold,
+    read_train_rows,
 )
+from vision_tools.assign import SimOTA
+from vision_tools.backbone import CSPDarknet, EfficientNet
+from vision_tools.batch_transform import BatchMosaic
+from vision_tools.box import box_hflip, box_vflip, resize_boxes
+from vision_tools.interface import Detection, TrainBatch
+from vision_tools.meter import MeanReduceDict
+from vision_tools.metric import MeanBoxAP, MeanBoxF2
+from vision_tools.neck import CSPPAFPN
+from vision_tools.optim import Lookahead
+from vision_tools.step import EvalStep, TrainStep
 from vision_tools.transforms import RandomCutAndPaste, Resize
-from toolz.curried import pipe, partition, map, filter, count, valmap
+from vision_tools.utils import (
+    Checkpoint,
+    ToDevice,
+    batch_draw,
+    draw,
+    load_config,
+    merge_batch,
+    seed_everything,
+)
+from vision_tools.yolox import YOLOX, Criterion, ToBoxes
 
 
 def get_model_name(cfg: Dict[str, Any]) -> str:

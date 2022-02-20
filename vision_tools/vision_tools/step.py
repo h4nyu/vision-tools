@@ -1,15 +1,15 @@
-import torch
-from torch import nn, Tensor
-from typing import Optional, Callable, Mapping, Any, TypeVar, Generic, Iterator, Tuple
-from torch.utils.data import Subset, DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from torch.cuda.amp import GradScaler, autocast
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-from .utils import ToDevice, Checkpoint
-from .interface import MeterLike, MetricLike
-from toolz import valmap
+from typing import Any, Callable, Generic, Iterator, Mapping, Optional, Tuple, TypeVar
 
+import torch
+from toolz import valmap
+from torch import Tensor, nn
+from torch.cuda.amp import GradScaler, autocast
+from torch.utils.data import DataLoader, Subset
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
+
+from .interface import MeterLike, MetricLike
+from .utils import Checkpoint, ToDevice
 
 B = TypeVar("B")
 T = TypeVar("T", bound=nn.Module)

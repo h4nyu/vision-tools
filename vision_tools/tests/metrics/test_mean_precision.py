@@ -1,7 +1,8 @@
-import torch
 import numpy as np
-from vision_tools.metrics import MeanPrecition
+import torch
 from torchvision.ops import box_convert
+
+from vision_tools.metrics import MeanPrecition
 
 gts = np.array(
     [

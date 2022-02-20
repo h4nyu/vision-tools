@@ -1,8 +1,6 @@
 import torch
-from vision_tools.bottlenecks import (
-    MobileV3,
-    SENextBottleneck2d,
-)
+
+from vision_tools.bottlenecks import MobileV3, SENextBottleneck2d
 
 
 def test_mobilev3() -> None:

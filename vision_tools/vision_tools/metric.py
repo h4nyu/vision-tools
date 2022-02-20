@@ -1,9 +1,10 @@
-import torch
-from torch import Tensor
-from typing import Tuple, List, Dict, Any
-import torch.nn.functional as F
-from torchvision.ops import box_iou
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
+import torch
+import torch.nn.functional as F
+from torch import Tensor
+from torchvision.ops import box_iou
 
 
 class MaskIou:
@@ -89,9 +90,7 @@ class MaskAP:
         self.runing_value += value
         return value
 
-    def update_batch(
-        self, pred_masks: List[Tensor], gt_masks: List[Tensor]
-    ) -> None:
+    def update_batch(self, pred_masks: List[Tensor], gt_masks: List[Tensor]) -> None:
         for p, g in zip(pred_masks, gt_masks):
             self.update(p, g)
 
@@ -178,9 +177,7 @@ class BoxMAP:
         res = tp_count / (num_gt + num_preds - tp_count)
         return res.item()
 
-    def update(
-        self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
-    ) -> None:
+    def update(self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]) -> None:
         for p, g in zip(pred_box_batch, gt_box_batch):
             res = self(p, g)
             self.num_samples += 1
@@ -379,9 +376,7 @@ class MeanBoxF2:
             recall=np.mean(recalls),
         )
 
-    def update(
-        self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]
-    ) -> None:
+    def update(self, pred_box_batch: List[Tensor], gt_box_batch: List[Tensor]) -> None:
         for pred_boxes, gt_boxes in zip(pred_box_batch, gt_box_batch):
             for i, iou_threshold in enumerate(self.iou_thresholds):
                 correct = self.correct_at_iou_thr(pred_boxes, gt_boxes, iou_threshold)

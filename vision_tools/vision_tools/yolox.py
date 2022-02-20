@@ -1,19 +1,19 @@
-import torch
-from torch import nn
-from torch import Tensor
-from typing import Callable, Any, List, Tuple, Dict, Optional
-from typing_extensions import TypedDict
-from torch.cuda.amp import GradScaler, autocast
 import math
-from torchvision.ops import box_convert, batched_nms
-import torch.nn.functional as F
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from .block import DefaultActivation, DWConv, ConvBnAct
-from .interface import FPNLike, BackboneLike, TrainBatch
-from .assign import SimOTA
-from .loss import CIoULoss, FocalLossWithLogits, DIoULoss
-from .anchors import Anchor
+import torch
+import torch.nn.functional as F
 from toolz import valmap
+from torch import Tensor, nn
+from torch.cuda.amp import GradScaler, autocast
+from torchvision.ops import batched_nms, box_convert
+from typing_extensions import TypedDict
+
+from .anchors import Anchor
+from .assign import SimOTA
+from .block import ConvBnAct, DefaultActivation, DWConv
+from .interface import BackboneLike, FPNLike, TrainBatch
+from .loss import CIoULoss, DIoULoss, FocalLossWithLogits
 
 
 class DecoupledHead(nn.Module):

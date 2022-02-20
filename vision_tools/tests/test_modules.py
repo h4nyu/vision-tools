@@ -1,9 +1,6 @@
 import torch
-from vision_tools.modules import (
-    Hswish,
-    Hsigmoid,
-    CSE2d,
-)
+
+from vision_tools.modules import CSE2d, Hsigmoid, Hswish
 
 
 def test_hswish() -> None:

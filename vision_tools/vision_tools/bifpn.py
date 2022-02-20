@@ -1,14 +1,17 @@
-import torch
 from typing import *
-from torch import nn, Tensor
+
+import torch
 import torch.nn.functional as F
+from torch import Tensor, nn
+
 from vision_tools import FP
+
 from .bottlenecks import SENextBottleneck2d
 from .modules import (
-    SeparableConvBR2d,
     Conv2dStaticSamePadding,
     MaxPool2dStaticSamePadding,
     MemoryEfficientSwish,
+    SeparableConvBR2d,
 )
 
 

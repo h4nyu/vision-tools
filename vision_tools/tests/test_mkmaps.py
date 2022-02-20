@@ -1,9 +1,9 @@
-import pytest, torch
-from vision_tools.mkmaps import MkGaussianMaps, MkPointMaps
+import pytest
+import torch
+
 from vision_tools.anchors import EmptyAnchors
-from vision_tools.centernet import (
-    ToBoxes,
-)
+from vision_tools.centernet import ToBoxes
+from vision_tools.mkmaps import MkGaussianMaps, MkPointMaps
 
 
 def test_mkmaps() -> None:

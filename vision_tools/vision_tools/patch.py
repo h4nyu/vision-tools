@@ -1,7 +1,8 @@
-import torch.nn as nn
+from typing import Callable, List, Optional, Tuple
+
 import torch
+import torch.nn as nn
 from torch import Tensor
-from typing import Callable, Optional, Tuple, List
 
 
 @torch.no_grad()

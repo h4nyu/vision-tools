@@ -1,7 +1,9 @@
-import torch
-from torch import nn, Tensor
 from typing import Callable, List
-from .block import DefaultActivation, ConvBnAct, CSP
+
+import torch
+from torch import Tensor, nn
+
+from .block import CSP, ConvBnAct, DefaultActivation
 
 
 class CSPPAFPN(nn.Module):

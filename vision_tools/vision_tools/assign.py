@@ -1,8 +1,9 @@
-import torch
 from typing import Tuple
+
+import torch
+import torch.nn.functional as F
 from torch import Tensor
 from torchvision.ops.boxes import box_iou
-import torch.nn.functional as F
 
 
 class ClosestAssign:

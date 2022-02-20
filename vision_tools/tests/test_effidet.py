@@ -1,14 +1,16 @@
-import torch
-import pytest
 from typing import Any
+
+import pytest
+import torch
+
+from vision_tools.anchors import Anchors
 from vision_tools.effidet import (
-    RegressionModel,
     ClassificationModel,
-    EfficientDet,
     Criterion,
+    EfficientDet,
+    RegressionModel,
     ToBoxes,
 )
-from vision_tools.anchors import Anchors
 
 
 def test_regression_model() -> None:

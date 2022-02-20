@@ -1,23 +1,18 @@
-from typing import Iterator
+from typing import Any, Dict, Iterator, Tuple
+
 import pytest
 import torch
-from typing import Any, Tuple, Dict
 from torch import optim
-from vision_tools.yolox import (
-    YOLOXHead,
-    DecoupledHead,
-    YOLOX,
-    Criterion,
-    TrainBatch,
-)
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from vision_tools.backbone import CSPDarknet
-from vision_tools.neck import CSPPAFPN
+
 from vision_tools.assign import SimOTA
-from vision_tools.utils import ToDevice
-from vision_tools.step import TrainStep, EvalStep
+from vision_tools.backbone import CSPDarknet
 from vision_tools.meter import MeanReduceDict
+from vision_tools.neck import CSPPAFPN
+from vision_tools.step import EvalStep, TrainStep
+from vision_tools.utils import ToDevice
+from vision_tools.yolox import YOLOX, Criterion, DecoupledHead, TrainBatch, YOLOXHead
 
 
 @pytest.fixture

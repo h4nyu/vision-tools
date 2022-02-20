@@ -1,39 +1,40 @@
+import os
+from typing import Dict, List, Tuple
+
+import numpy as np
+import PIL
 import pytest
 import torch
-import os
-import PIL
-from typing import Dict, List, Tuple
-import numpy as np
-from toolz.curried import pipe, partition, map, filter
+from toolz.curried import filter, map, partition, pipe
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.ops import box_convert
-from cots_bench.yolox import (
-    get_model,
-    get_criterion,
-    get_checkpoint,
-    get_writer,
-    get_tta_inference_one,
-    get_to_boxes,
-    EnsembleInferenceOne,
-)
-from vision_tools.assign import SimOTA
-from torch.utils.data import DataLoader
-from vision_tools.yolox import YOLOX, Criterion, ToBoxes
-from vision_tools.interface import TrainBatch
-from vision_tools.utils import draw, batch_draw, seed_everything, load_config, ToDevice
-from vision_tools.batch_transform import BatchRemovePadding
+
 from cots_bench.data import (
     COTSDataset,
+    InferenceTransform,
+    Row,
     TrainTransform,
     Transform,
     collate_fn,
-    InferenceTransform,
-    read_train_rows,
-    kfold,
-    Row,
     filter_empty_boxes,
+    kfold,
+    read_train_rows,
 )
-
+from cots_bench.yolox import (
+    EnsembleInferenceOne,
+    get_checkpoint,
+    get_criterion,
+    get_model,
+    get_to_boxes,
+    get_tta_inference_one,
+    get_writer,
+)
+from vision_tools.assign import SimOTA
+from vision_tools.batch_transform import BatchRemovePadding
+from vision_tools.interface import TrainBatch
+from vision_tools.utils import ToDevice, batch_draw, draw, load_config, seed_everything
+from vision_tools.yolox import YOLOX, Criterion, ToBoxes
 
 cfg = load_config(os.path.join(os.path.dirname(__file__), "../config/yolox.1.yaml"))
 cfg["device"] = "cpu"

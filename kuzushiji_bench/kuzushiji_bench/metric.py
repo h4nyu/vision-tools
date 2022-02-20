@@ -1,5 +1,5 @@
-from vision_tools.metric import BoxMAP
 from vision_tools.interface import TrainBatch
+from vision_tools.metric import BoxMAP
 
 
 class Metric:

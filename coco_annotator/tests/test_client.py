@@ -1,7 +1,8 @@
 import pytest
 from nanoid import generate
+from toolz.curried import filter, map, pipe
+
 from coco_annotator import CocoAnnotator
-from toolz.curried import pipe, map, filter
 
 
 @pytest.fixture

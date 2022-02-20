@@ -1,6 +1,8 @@
-import torch
 from typing import Tuple
+
+import torch
 from torch import Tensor
+
 from . import Number
 
 

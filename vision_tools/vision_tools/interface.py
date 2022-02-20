@@ -1,5 +1,6 @@
+from typing import Any, Callable, Dict, Generic, List, Tuple, TypeVar, Union
+
 from torch import Tensor
-from typing import Callable, Any, TypeVar, Generic, List, Dict, Tuple, Union
 from typing_extensions import Protocol, TypedDict
 
 
@@ -32,6 +33,7 @@ class MeterLike(Protocol):
 
 
 B = TypeVar("B", contravariant=True)
+
 
 class MetricLike(Protocol[B]):
     @property
