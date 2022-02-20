@@ -1,14 +1,17 @@
 from __future__ import annotations
+import torch
 from torch.utils.data import Dataset
 from typing_extensions import TypedDict
 import json
 import pandas as pd
+import numpy as np
 import os
 from pathlib import Path
 from typing import Any
 from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted
 from coco_annotator import CocoImage, CocoCategory
-from PIL import Image as PILImage
+from vision_tools.interface import Classification
+import PIL
 from nanoid import generate as nanoid
 
 
@@ -132,7 +135,11 @@ def read_json(path: str) -> dict:
 
 
 def create_croped_dataset(
-    coco: dict, annotations: list[Annotation], source_dir: str, dist_dir: str
+    coco: dict,
+    annotations: list[Annotation],
+    source_dir: str,
+    dist_dir: str,
+    padding: float = 0.05,
 ) -> list[Annotation]:
     image_map = pipe(
         coco["images"],
@@ -149,13 +156,15 @@ def create_croped_dataset(
         image = image_map[annot["image_id"]]
         image_annot = annotation_map[image["file_name"]]
         source_path = os.path.join(source_dir, image["file_name"])
-        im = PILImage.open(source_path)
+        im = PIL.Image.open(source_path)
         coco_bbox = annot["bbox"]
+        padding_x = coco_bbox[2] * padding
+        padding_y = coco_bbox[3] * padding
         bbox = [
-            coco_bbox[0],
-            coco_bbox[1],
-            coco_bbox[0] + coco_bbox[2],
-            coco_bbox[1] + coco_bbox[3],
+            coco_bbox[0] - padding_x,
+            coco_bbox[1] - padding_y,
+            coco_bbox[0] + coco_bbox[2] + padding_x,
+            coco_bbox[1] + coco_bbox[3] + padding_y,
         ]
         im_crop = im.crop(bbox)
         stem = Path(image_annot["image_file"]).stem
@@ -175,61 +184,24 @@ def create_croped_dataset(
     return croped_annots
 
 
+class HWADDataset(Dataset):
+    def __init__(
+        self,
+        rows: list[Annotation],
+        image_dir: str,
+    ) -> None:
+        self.rows = rows
+        self.image_dir = image_dir
 
-# # class HWADDataset(Dataset):
-# #     def __init__(
-# #         self,
-# #         rows: List[Row],
-# #         transform: Any,
-# #         random_cut_and_paste: Optional[RandomCutAndPaste] = None,
-# #     ) -> None:
-# #         self.rows = rows
-# #         self.transform = transform
-# #         self.random_cut_and_paste = random_cut_and_paste
+    def __len__(self) -> int:
+        return len(self.rows)
 
-# #     def __str__(self) -> str:
-# #         string = ""
-# #         string += "\tlen = %d\n" % len(self)
-# #         zero_count = pipe(self.rows, filter(lambda x: x["boxes"].shape[0] == 0), count)
-# #         non_zero_count = pipe(
-# #             self.rows, filter(lambda x: x["boxes"].shape[0] != 0), count
-# #         )
-# #         string += "\tzero_count     = %5d (%0.2f)\n" % (
-# #             zero_count,
-# #             zero_count / len(self.rows),
-# #         )
-# #         string += "\tnon_zero_count = %5d (%0.2f)\n" % (
-# #             non_zero_count,
-# #             non_zero_count / len(self.rows),
-# #         )
-# #         return string
-
-# #     def __len__(self) -> int:
-# #         return len(self.rows)
-
-# #     def __getitem__(self, idx: int) -> Tuple[Detection, Row]:
-# #         row = self.rows[idx]
-# #         id = row["image_id"]
-# #         video_id = row["video_id"]
-# #         video_frame = row["video_frame"]
-# #         image_path = row["image_path"]
-# #         img_arr = np.array(PIL.Image.open(image_path))
-# #         labels = torch.zeros(len(row["boxes"]))
-# #         transformed = self.transform(
-# #             image=img_arr,
-# #             bboxes=clip_boxes_to_image(row["boxes"], img_arr.shape[:2]),
-# #             labels=labels,
-# #         )
-# #         image = (transformed["image"] / 255).float()
-# #         boxes = torch.tensor(transformed["bboxes"]).float()
-# #         labels = torch.zeros(len(boxes)).long()
-# #         confs = torch.ones(len(labels)).float()
-# #         sample = Detection(
-# #             image=image,
-# #             boxes=boxes,
-# #             labels=labels,
-# #             confs=confs,
-# #         )
-# #         if self.random_cut_and_paste is not None:
-# #             sample = self.random_cut_and_paste(sample)
-# #         return sample, row
+    def __getitem__(self, idx: int) -> tuple[Classification, Annotation]:
+        row = self.rows[idx]
+        image_path = os.path.join(self.image_dir, row["image_file"])
+        img_arr = np.array(PIL.Image.open(image_path))
+        sample = Classification(
+            image=torch.from_numpy(img_arr),
+            labels=torch.from_numpy(img_arr),
+        )
+        return sample, row

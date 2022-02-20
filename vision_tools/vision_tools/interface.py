@@ -33,7 +33,6 @@ class MeterLike(Protocol):
 
 B = TypeVar("B", contravariant=True)
 
-
 class MetricLike(Protocol[B]):
     @property
     def value(self) -> Tuple[float, Dict[str, Any]]:
@@ -63,5 +62,13 @@ Detection = TypedDict(
         "boxes": Tensor,
         "labels": Tensor,
         "confs": Tensor,
+    },
+)
+
+Classification = TypedDict(
+    "Classification",
+    {
+        "image": Tensor,
+        "labels": Tensor,
     },
 )

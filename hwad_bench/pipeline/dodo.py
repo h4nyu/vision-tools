@@ -19,12 +19,12 @@ from pprint import pprint
 dataset_cfg = load_config("../config/dataset.yaml")["dataset"]
 
 
-
 def persist(key: str, func: Callable) -> Callable:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         res = func(*args, **kwargs)
         with open(key, "wb") as fp:
             pickle.dump(res, fp)
+
     return wrapper
 
 
@@ -155,6 +155,7 @@ def task_create_croped_dataset() -> dict:
         ],
         "verbosity": 2,
     }
+
 
 def task_save_croped_annotation() -> dict:
     key = "croped.json"

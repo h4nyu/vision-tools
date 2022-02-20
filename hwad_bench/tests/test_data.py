@@ -6,6 +6,7 @@ from hwad_bench.data import (
     Annotation,
     merge_to_coco_annotations,
     create_croped_dataset,
+    HWADDataset,
 )
 from vision_tools.utils import load_config
 
@@ -59,3 +60,18 @@ def test_create_croped_dataset() -> None:
     assert res[0]["image_file"].startswith("dummy")
     assert res[0]["individual_id"] == "indiviual-0"
     assert res[0]["species"] == "species-0"
+
+
+def test_dataset() -> None:
+    dataset = HWADDataset(
+        rows=[
+            {
+                "image_file": "dummy.png",
+                "species": "species-0",
+                "individual_id": "indiviual-0",
+            }
+        ],
+        image_dir="/app/test_data",
+    )
+    sample = dataset[0]
+    print(sample)
