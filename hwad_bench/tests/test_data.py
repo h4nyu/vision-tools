@@ -35,7 +35,11 @@ def test_create_croped_dataset() -> None:
             {
                 "id": 1,
                 "file_name": "dummy.png",
-            }
+            },
+            {
+                "id": 2,
+                "file_name": "dummy-1.png",
+            },
         ],
         "annotations": [
             {
@@ -43,7 +47,19 @@ def test_create_croped_dataset() -> None:
                 "image_id": 1,
                 "category_id": 1,
                 "bbox": [0, 0, 100, 200],
-            }
+            },
+            {
+                "id": 2,
+                "image_id": 2,
+                "category_id": 1,
+                "bbox": [0, 0, 100, 200],
+            },
+            {
+                "id": 3,
+                "image_id": 2,
+                "category_id": 1,
+                "bbox": [0, 0, 100, 200],
+            },
         ],
     }
     annotations: list[Any] = [
@@ -51,7 +67,12 @@ def test_create_croped_dataset() -> None:
             "image_file": "dummy.png",
             "species": "species-0",
             "individual_id": "indiviual-0",
-        }
+        },
+        {
+            "image_file": "dummy-1.png",
+            "species": "species-1",
+            "individual_id": "indiviual-1",
+        },
     ]
     res = create_croped_dataset(
         coco, annotations, "/app/test_data", "/app/test_outputs"

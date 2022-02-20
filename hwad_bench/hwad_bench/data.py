@@ -8,7 +8,7 @@ import numpy as np
 import os
 from pathlib import Path
 from typing import Any
-from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted
+from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted, filter
 from coco_annotator import CocoImage, CocoCategory
 from vision_tools.interface import Classification
 import PIL
@@ -146,13 +146,23 @@ def create_croped_dataset(
         map(lambda x: (x["id"], x)),
         dict,
     )
+
+    # filter multiple annotations
+    coco_annotations = pipe(
+        coco["annotations"],
+        groupby(lambda x: x["image_id"]),
+        lambda x: x.values(),
+        filter(lambda x: len(x) == 1),
+        map(lambda x: x[0]),
+        list
+    )
     annotation_map = pipe(
         annotations,
         map(lambda x: (x["image_file"], x)),
         dict,
     )
     croped_annots: list[Annotation] = []
-    for annot in coco["annotations"]:
+    for annot in coco_annotations:
         image = image_map[annot["image_id"]]
         image_annot = annotation_map[image["file_name"]]
         source_path = os.path.join(source_dir, image["file_name"])
