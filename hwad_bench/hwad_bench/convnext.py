@@ -1,6 +1,6 @@
-from torch import nn, Tensor
-from torch.nn import functional as F
 import timm
+from torch import Tensor, nn
+from torch.nn import functional as F
 
 
 class ConvNeXt(nn.Module):

@@ -1,14 +1,12 @@
 from __future__ import annotations as _
-import pytest
+
 from typing import Any
-from hwad_bench.data import (
-    read_annotations,
-    Annotation,
-    merge_to_coco_annotations,
-    create_croped_dataset,
-    HWADDataset,
-)
+
+import pytest
 from vision_tools.utils import load_config
+
+from hwad_bench.data import (Annotation, HWADDataset, create_croped_dataset,
+                             merge_to_coco_annotations, read_annotations)
 
 dataset_cfg = load_config("config/dataset.yaml")["dataset"]
 

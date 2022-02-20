@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="hwad_bench",
@@ -7,6 +7,7 @@ setup(
     install_requires=[
         "doit",
         "timm",
+        "pytorch-metric-learning",
     ],
     package_data={"cots_bench": ["py.typed"]},
 )

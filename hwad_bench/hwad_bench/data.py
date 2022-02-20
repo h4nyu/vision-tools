@@ -1,19 +1,21 @@
 from __future__ import annotations
-import torch
-from torch.utils.data import Dataset
-from typing_extensions import TypedDict
+
 import json
-import pandas as pd
-import numpy as np
 import os
 from pathlib import Path
 from typing import Any
-from toolz.curried import pipe, map, groupby, valmap, frequencies, sorted, filter
-from coco_annotator import CocoImage, CocoCategory
-from vision_tools.interface import Classification
-import PIL
-from nanoid import generate as nanoid
 
+import numpy as np
+import pandas as pd
+import PIL
+import torch
+from coco_annotator import CocoCategory, CocoImage
+from nanoid import generate as nanoid
+from toolz.curried import (filter, frequencies, groupby, map, pipe, sorted,
+                           valmap)
+from torch.utils.data import Dataset
+from typing_extensions import TypedDict
+from vision_tools.interface import Classification
 
 Annotation = TypedDict(
     "Annotation",

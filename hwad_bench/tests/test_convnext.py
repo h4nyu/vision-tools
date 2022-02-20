@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+
 from hwad_bench.convnext import ConvNeXt
 
 
