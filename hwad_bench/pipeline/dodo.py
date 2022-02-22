@@ -131,7 +131,7 @@ def task_read_body_annotation() -> dict:
         "actions": [
             action(
                 persist(key, read_json),
-                args=["/app/hwad_bench/store/hwad-train-labeling-r3-20.json"],
+                args=["/app/hwad_bench/store/pred-boxes.json"],
             )
         ],
     }
@@ -150,8 +150,8 @@ def task_create_croped_dataset() -> dict:
                     "annotations": "cleaned_annotations",
                 },
                 kwargs={
-                    "source_dir": "/app/datasets/hwad-train-labeling-r3",
-                    "dist_dir": "/app/datasets/test-1",
+                    "source_dir": "/app/datasets/hwad-train",
+                    "dist_dir": "/app/datasets/hwad-train-croped-body",
                 },
             )
         ],
