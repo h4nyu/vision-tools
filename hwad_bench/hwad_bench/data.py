@@ -196,7 +196,7 @@ def create_croped_dataset(
     return croped_annots
 
 
-class HWADDataset(Dataset):
+class HwadCropedDataset(Dataset):
     def __init__(
         self,
         rows: list[Annotation],

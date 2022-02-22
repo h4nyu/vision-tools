@@ -6,7 +6,7 @@ import pytest
 
 from hwad_bench.data import (
     Annotation,
-    HWADDataset,
+    HwadCropedDataset,
     create_croped_dataset,
     merge_to_coco_annotations,
     read_annotations,
@@ -87,7 +87,7 @@ def test_create_croped_dataset() -> None:
 
 
 def test_dataset() -> None:
-    dataset = HWADDataset(
+    dataset = HwadCropedDataset(
         rows=[
             {
                 "image_file": "dummy.png",
