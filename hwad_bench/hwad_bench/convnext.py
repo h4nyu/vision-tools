@@ -6,7 +6,7 @@ from toolz.curried import map, pipe
 from torch import Tensor, nn
 from torch.nn import functional as F
 
-from hwad_bench.data import Annotation, HwadCropedDataset
+from hwad_bench.data import Annotation, HwadCropedDataset, filter_annotations_by_fold
 from vision_tools.utils import Checkpoint, seed_everything
 
 
@@ -56,6 +56,8 @@ def train(
     model_cfg: dict,
     fold: int,
     annotations: list[Annotation],
+    fold_train: list[dict],
+    fold_val: list[dict],
     image_dir: str,
 ) -> None:
     seed_everything()
@@ -68,7 +70,17 @@ def train(
     saved_state = checkpoint.load("best")
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
-    dataset = HwadCropedDataset(
-        rows=annotations,
+    train_annots = filter_annotations_by_fold(
+        annotations, fold_train, min_samples=dataset_cfg["min_samples"]
+    )
+    val_annots = filter_annotations_by_fold(
+        annotations, fold_train, min_samples=dataset_cfg["min_samples"]
+    )
+    train_dataset = HwadCropedDataset(
+        rows=train_annots,
+        image_dir=image_dir,
+    )
+    val_dataset = HwadCropedDataset(
+        rows=val_annots,
         image_dir=image_dir,
     )

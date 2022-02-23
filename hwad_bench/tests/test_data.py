@@ -8,12 +8,14 @@ from hwad_bench.data import (
     Annotation,
     HwadCropedDataset,
     create_croped_dataset,
+    filter_annotations_by_fold,
     merge_to_coco_annotations,
     read_annotations,
+    read_csv,
 )
 from vision_tools.utils import load_config
 
-dataset_cfg = load_config("config/dataset.yaml")["dataset"]
+dataset_cfg = load_config("config/dataset.yaml")
 
 
 @pytest.fixture
@@ -98,4 +100,34 @@ def test_dataset() -> None:
         image_dir="/app/test_data",
     )
     sample = dataset[0]
-    print(sample)
+
+
+def test_filter_annotations_by_fold() -> None:
+
+    annotations: list[Any] = [
+        {
+            "image_file": "img0-box0.png",
+            "species": "species-0",
+            "individual_id": "indiviual-0",
+        },
+        {
+            "image_file": "img1--b0.png",
+            "species": "species-0",
+            "individual_id": "indiviual-1",
+        },
+    ]
+    fold = [
+        {
+            "image": "img0.jpg",
+            "individual_id": "indiviual-0",
+            "individual_samples": 10,
+        },
+        {
+            "image": "img1.png",
+            "individual_id": "indiviual-0",
+            "individual_samples": 3,
+        },
+    ]
+    filtered = filter_annotations_by_fold(annotations, fold, min_samples=5)
+    assert len(filtered) == 1
+    assert filtered[0]["image_file"] == "img0-box0.png"

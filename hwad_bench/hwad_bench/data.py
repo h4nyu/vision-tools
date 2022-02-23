@@ -137,6 +137,34 @@ def read_json(path: str) -> dict:
         return json.load(f)
 
 
+def read_csv(path: str) -> dict:
+    df = pd.read_csv(path)
+    return df[:1].to_dict(orient="records")
+
+
+def filter_annotations_by_fold(
+    annotations: list[Annotation],
+    fold: list[dict],
+    min_samples: int = 10,
+) -> list[Annotation]:
+    fold = pipe(
+        fold,
+        filter(lambda x: x["individual_samples"] >= min_samples),
+        list,
+    )
+    image_ids = pipe(
+        fold,
+        map(lambda x: Path(x["image"]).stem),
+        set,
+    )
+    filtered_annotations = []
+    for annt in annotations:
+        image_id = Path(annt["image_file"]).stem.split("-")[0]
+        if image_id in image_ids:
+            filtered_annotations.append(annt)
+    return filtered_annotations
+
+
 def create_croped_dataset(
     coco: dict,
     annotations: list[Annotation],

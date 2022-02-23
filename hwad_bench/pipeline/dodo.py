@@ -12,8 +12,10 @@ from hwad_bench.convnext import train
 from hwad_bench.data import (
     cleansing,
     create_croped_dataset,
+    filter_annotations_by_fold,
     merge_to_coco_annotations,
     read_annotations,
+    read_csv,
     read_json,
     summary,
 )
@@ -170,14 +172,45 @@ def task_save_croped_annotation() -> dict:
     }
 
 
+def task_read_fold_0_train() -> dict:
+    key = "fold_0_train"
+    dep = "/app/hwad_bench/store/cv-split/train-fold0.csv"
+    return {
+        "targets": [key],
+        "file_dep": [dep],
+        "actions": [
+            action(
+                persist(key, read_csv),
+                args=[dep],
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_read_fold_0_val() -> dict:
+    key = "fold_0_val"
+    dep = "/app/hwad_bench/store/cv-split/val-fold0.csv"
+    return {
+        "targets": [key],
+        "file_dep": [dep],
+        "actions": [
+            action(
+                persist(key, read_csv),
+                args=[dep],
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
 def task_train_convnext_fold_0() -> dict:
     key = "train_convnext_fold_0"
-    dep = "croped_annotations"
     dataset_cfg = load_config("../config/dataset.yaml")
     model_cfg = load_config("../config/convnext-base.yaml")
     return {
         "targets": [key],
-        "file_dep": [dep],
+        "file_dep": ["croped_annotations", "fold_0_train"],
         "actions": [
             action(
                 train,
@@ -189,6 +222,8 @@ def task_train_convnext_fold_0() -> dict:
                 },
                 output_kwargs={
                     "annotations": "croped_annotations",
+                    "fold_train": "fold_0_train",
+                    "fold_val": "fold_0_val",
                 },
             )
         ],
