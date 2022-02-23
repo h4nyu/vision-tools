@@ -10,7 +10,6 @@ from vision_tools.assign import SimOTA
 from vision_tools.backbone import CSPDarknet
 from vision_tools.meter import MeanReduceDict
 from vision_tools.neck import CSPPAFPN
-from vision_tools.step import EvalStep, TrainStep
 from vision_tools.utils import ToDevice
 from vision_tools.yolox import YOLOX, Criterion, DecoupledHead, TrainBatch, YOLOXHead
 
@@ -122,40 +121,3 @@ def test_criterion(
     model: YOLOX,
 ) -> None:
     criterion(model, inputs)
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="no cuda")
-def test_eval_step(
-    model: YOLOX,
-    inputs: TrainBatch,
-    loader: DataLoader[TrainBatch],
-) -> None:
-    model.to("cuda")
-    optimizer = optim.Adam(model.parameters())
-    writer = SummaryWriter()
-
-    class Metric:
-        def reset(self) -> None:
-            ...
-
-        def update(self, pred: TrainBatch, gt: TrainBatch) -> None:
-            ...
-
-        @property
-        def value(self) -> Tuple[float, Dict[str, float]]:
-            return 0.99, {
-                "0.5": 0.99,
-            }
-
-    class InferenceFn:
-        def __call__(self, m: YOLOX, batch: TrainBatch) -> TrainBatch:
-            return batch
-
-    eval_step = EvalStep[YOLOX, TrainBatch](
-        to_device=ToDevice("cuda"),
-        metric=Metric(),
-        inference=InferenceFn(),
-        loader=loader,
-        writer=writer,
-    )
-    eval_step(model)

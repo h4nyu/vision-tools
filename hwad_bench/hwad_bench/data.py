@@ -53,6 +53,7 @@ def summary(
 ) -> dict:
     all_species = pipe(annotations, map(lambda x: x["species"]), set)
     individual_id_count = pipe(annotations, map(lambda x: x["individual_id"]), set, len)
+    print(individual_id_count)
     class_freq = pipe(
         annotations,
         groupby(lambda x: x["individual_id"]),

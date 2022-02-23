@@ -1,4 +1,7 @@
+device: cuda
+name: convnext_small
+embedding_size: 512
+pretrained: true
+checkpoint_path: /app/hwad_bench/store
 
-
-model:
-  name: convnext_small
+fold: 0

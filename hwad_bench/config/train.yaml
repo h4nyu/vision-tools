@@ -1,0 +1,12 @@
+train_loader:
+  batch_size: 4
+  shuffle: true
+  num_workers: 4
+  drop_last: true
+
+val_loader:
+  batch_size: 6
+  num_workers: 4
+
+lr: 1.0e-3
+epochs: 999

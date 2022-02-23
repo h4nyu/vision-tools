@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
+from hwad_bench.convnext import train
 from hwad_bench.data import (
     cleansing,
     create_croped_dataset,
@@ -17,8 +18,6 @@ from hwad_bench.data import (
     summary,
 )
 from vision_tools.utils import load_config
-
-dataset_cfg = load_config("../config/dataset.yaml")["dataset"]
 
 
 def persist(key: str, func: Callable) -> Callable:
@@ -60,6 +59,7 @@ def pkl2json(a: str, b: str) -> None:
 
 def task_read_annotations() -> dict:
     key = "train_annotations"
+    dataset_cfg = load_config("../config/dataset.yaml")
     file = dataset_cfg["train_annotation_path"]
     return {
         "targets": [key],
@@ -170,11 +170,37 @@ def task_save_croped_annotation() -> dict:
     }
 
 
-# def task_preview() -> dict:
-#     output_key = "summary"
+def task_train_convnext_fold_0() -> dict:
+    key = "train_convnext_fold_0"
+    dep = "croped_annotations"
+    dataset_cfg = load_config("../config/dataset.yaml")
+    model_cfg = load_config("../config/convnext-base.yaml")
+    return {
+        "targets": [key],
+        "file_dep": [dep],
+        "actions": [
+            action(
+                train,
+                kwargs={
+                    "dataset_cfg": dataset_cfg,
+                    "model_cfg": model_cfg,
+                    "fold": 0,
+                    "image_dir": "/app/datasets/hwad-train-croped-body",
+                },
+                output_kwargs={
+                    "annotations": "croped_annotations",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+# def task_summary() -> dict:
+#     dep = "summary"
 #     return {
-#         "file_dep": [output_key],
-#         "actions": [action(pprint, output_args=[output_key])],
+#         "file_dep": [dep],
+#         "actions": [action(pprint, output_args=[dep])],
 #         "uptodate": [False],
 #         "verbosity": 2,
 #     }
