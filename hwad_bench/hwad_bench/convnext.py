@@ -74,7 +74,7 @@ def train(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
     )
     val_annots = filter_annotations_by_fold(
-        annotations, fold_train, min_samples=dataset_cfg["min_samples"]
+        annotations, fold_val, min_samples=dataset_cfg["min_samples"]
     )
     train_dataset = HwadCropedDataset(
         rows=train_annots,

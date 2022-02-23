@@ -139,7 +139,7 @@ def read_json(path: str) -> dict:
 
 def read_csv(path: str) -> dict:
     df = pd.read_csv(path)
-    return df[:1].to_dict(orient="records")
+    return df.to_dict(orient="records")
 
 
 def filter_annotations_by_fold(
