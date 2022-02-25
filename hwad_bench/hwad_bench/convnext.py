@@ -17,7 +17,7 @@ from hwad_bench.data import (
     filter_annotations_by_fold,
 )
 from vision_tools.meter import MeanReduceDict
-from vision_tools.utils import Checkpoint, seed_everything
+from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
 
 class ConvNeXt(nn.Module):
@@ -113,7 +113,8 @@ def train(
         collate_fn=collate_fn,
     )
     epoch_size = len(train_loader)
+    to_device = ToDevice(model_cfg["device"])
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
         for batch in tqdm(train_loader, total=epoch_size):
-            print(batch)
+            batch = to_device(**batch)
