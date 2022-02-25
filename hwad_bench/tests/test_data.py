@@ -7,6 +7,7 @@ import pytest
 from hwad_bench.data import (
     Annotation,
     HwadCropedDataset,
+    TrainTransform,
     create_croped_dataset,
     filter_annotations_by_fold,
     merge_to_coco_annotations,
@@ -98,6 +99,7 @@ def test_dataset() -> None:
             }
         ],
         image_dir="/app/test_data",
+        transform=TrainTransform(dataset_cfg),
     )
     sample = dataset[0]
 

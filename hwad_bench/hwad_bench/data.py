@@ -3,14 +3,18 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+import albumentations as A
+import cv2
 import numpy as np
 import pandas as pd
 import PIL
 import torch
+from albumentations.pytorch.transforms import ToTensorV2
 from nanoid import generate as nanoid
 from toolz.curried import filter, frequencies, groupby, map, pipe, sorted, valmap
+from torch import Tensor
 from torch.utils.data import Dataset
 from typing_extensions import TypedDict
 
@@ -225,14 +229,43 @@ def create_croped_dataset(
     return croped_annots
 
 
+TrainTransform = lambda cfg: A.Compose(
+    [
+        A.HueSaturationValue(
+            hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=cfg["hue_p"]
+        ),
+        A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
+        A.Resize(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            interpolation=cv2.INTER_NEAREST,
+        ),
+        ToTensorV2(),
+    ],
+)
+
+Transform = lambda cfg: A.Compose(
+    [
+        A.Resize(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            interpolation=cv2.INTER_NEAREST,
+        ),
+        ToTensorV2(),
+    ],
+)
+
+
 class HwadCropedDataset(Dataset):
     def __init__(
         self,
         rows: list[Annotation],
+        transform: Callable,
         image_dir: str,
     ) -> None:
         self.rows = rows
         self.image_dir = image_dir
+        self.transform = transform
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -240,9 +273,28 @@ class HwadCropedDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[Classification, Annotation]:
         row = self.rows[idx]
         image_path = os.path.join(self.image_dir, row["image_file"])
-        img_arr = np.array(PIL.Image.open(image_path))
+        im = PIL.Image.open(image_path)
+        if im.mode == "L":
+            im = im.convert("RGB")
+        img_arr = np.array(im)
+        transformed = self.transform(
+            image=img_arr,
+        )
+        image = (transformed["image"] / 255).float()
         sample = Classification(
-            image=torch.from_numpy(img_arr),
-            labels=torch.from_numpy(img_arr),
+            image=image,
+            labels=image,
         )
         return sample, row
+
+
+def collate_fn(batch: list[tuple[Classification, Annotation]]) -> dict[str, Tensor]:
+    images: list[Tensor] = []
+    label_batch: list[Tensor] = []
+    for row, _ in batch:
+        images.append(row["image"])
+        label_batch.append(row["labels"])
+    return dict(
+        image_batch=torch.stack(images),
+        label_batch=torch.stack(label_batch),
+    )

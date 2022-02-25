@@ -208,6 +208,7 @@ def task_train_convnext_fold_0() -> dict:
     key = "train_convnext_fold_0"
     dataset_cfg = load_config("../config/dataset.yaml")
     model_cfg = load_config("../config/convnext-base.yaml")
+    train_cfg = load_config("../config/train.yaml")
     return {
         "targets": [key],
         "file_dep": ["croped_annotations", "fold_0_train"],
@@ -217,6 +218,7 @@ def task_train_convnext_fold_0() -> dict:
                 kwargs={
                     "dataset_cfg": dataset_cfg,
                     "model_cfg": model_cfg,
+                    "train_cfg": train_cfg,
                     "fold": 0,
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },

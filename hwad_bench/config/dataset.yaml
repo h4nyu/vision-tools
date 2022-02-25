@@ -2,3 +2,6 @@ root_dir: /app/datasets/hwad
 train_annotation_path: /app/datasets/hwad/train.csv
 num_classes: 15587
 min_samples: 10
+image_width: 512
+image_height: 512
+hue_p: 0.9

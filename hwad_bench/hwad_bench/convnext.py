@@ -5,8 +5,18 @@ from pytorch_metric_learning.losses import ArcFaceLoss
 from toolz.curried import map, pipe
 from torch import Tensor, nn
 from torch.nn import functional as F
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from hwad_bench.data import Annotation, HwadCropedDataset, filter_annotations_by_fold
+from hwad_bench.data import (
+    Annotation,
+    HwadCropedDataset,
+    TrainTransform,
+    Transform,
+    collate_fn,
+    filter_annotations_by_fold,
+)
+from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, seed_everything
 
 
@@ -54,6 +64,7 @@ def get_checkpoint(cfg: dict) -> Checkpoint:
 def train(
     dataset_cfg: dict,
     model_cfg: dict,
+    train_cfg: dict,
     fold: int,
     annotations: list[Annotation],
     fold_train: list[dict],
@@ -79,8 +90,30 @@ def train(
     train_dataset = HwadCropedDataset(
         rows=train_annots,
         image_dir=image_dir,
+        transform=TrainTransform(dataset_cfg),
     )
     val_dataset = HwadCropedDataset(
         rows=val_annots,
         image_dir=image_dir,
+        transform=Transform(dataset_cfg),
     )
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=train_cfg["batch_size"],
+        shuffle=True,
+        num_workers=train_cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=train_cfg["batch_size"] * 2,
+        shuffle=True,
+        num_workers=train_cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+    epoch_size = len(train_loader)
+    for epoch in range(train_cfg["epochs"]):
+        train_meter = MeanReduceDict()
+        for batch in tqdm(train_loader, total=epoch_size):
+            print(batch)
