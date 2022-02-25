@@ -291,11 +291,13 @@ class HwadCropedDataset(Dataset):
         img_arr = np.array(im)
         transformed = self.transform(
             image=img_arr,
+            label=row["label"],
         )
         image = (transformed["image"] / 255).float()
+        label = torch.tensor(transformed["label"])
         sample = Classification(
             image=image,
-            labels=image,
+            label=label,
         )
         return sample, row
 
@@ -305,7 +307,7 @@ def collate_fn(batch: list[tuple[Classification, Annotation]]) -> dict[str, Tens
     label_batch: list[Tensor] = []
     for row, _ in batch:
         images.append(row["image"])
-        label_batch.append(row["labels"])
+        label_batch.append(row["label"])
     return dict(
         image_batch=torch.stack(images),
         label_batch=torch.stack(label_batch),

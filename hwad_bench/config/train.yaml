@@ -1,3 +1,4 @@
+use_amp: true
 lr: 1.0e-3
 epochs: 999
 batch_size: 4

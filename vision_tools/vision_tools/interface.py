@@ -71,6 +71,6 @@ Classification = TypedDict(
     "Classification",
     {
         "image": Tensor,
-        "labels": Tensor,
+        "label": Tensor,
     },
 )

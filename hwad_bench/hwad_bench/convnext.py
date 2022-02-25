@@ -4,7 +4,9 @@ import timm
 from pytorch_metric_learning.losses import ArcFaceLoss
 from toolz.curried import map, pipe
 from torch import Tensor, nn
+from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
+from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -67,7 +69,6 @@ def train(
     train_cfg: dict,
     fold: int,
     annotations: list[Annotation],
-    label_map: dict[str, int],
     fold_train: list[dict],
     fold_val: list[dict],
     image_dir: str,
@@ -116,14 +117,31 @@ def train(
     )
     epoch_size = len(train_loader)
     to_device = ToDevice(model_cfg["device"])
+    use_amp = train_cfg["use_amp"]
+    scaler = GradScaler(enabled=use_amp)
+    optimizer = Adam(
+        list(model.parameters()) + list(loss_fn.parameters()),
+        lr=train_cfg["lr"],
+    )
+
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
         model.train()
         for batch in tqdm(train_loader, total=epoch_size):
             batch = to_device(**batch)
-            embeddings = model(batch["image_batch"])
-            # F.one_hot(tensor, num_classes=-1)
-            # loss = loss_fn.compute_loss(
-            #     embeddings=embeddings,
-            #     batch["label_batch"], batch["label_weights"]
-            # )
+            image_batch = batch["image_batch"]
+            label_batch = batch["label_batch"]
+
+            optimizer.zero_grad()
+            with autocast(enabled=use_amp):
+                embeddings = model(image_batch)
+                loss = loss_fn(
+                    embeddings,
+                    label_batch,
+                )
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                scaler.step(optimizer)
+                scaler.update()
+
+            train_meter.update({"loss": loss.item()})
