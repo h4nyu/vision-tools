@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import timm
+import torch
 from pytorch_metric_learning.losses import ArcFaceLoss
 from toolz.curried import map, pipe
 from torch import Tensor, nn
@@ -92,7 +93,7 @@ def train(
     seed_everything()
     use_amp = train_cfg["use_amp"]
     eval_interval = train_cfg["eval_interval"]
-    devcie = model_cfg["device"]
+    device = model_cfg["device"]
     writer = get_writer({**train_cfg, **model_cfg})
 
     loss_fn = ArcFaceLoss(
