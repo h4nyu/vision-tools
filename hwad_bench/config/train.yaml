@@ -3,3 +3,4 @@ lr: 1.0e-3
 epochs: 999
 batch_size: 4
 num_workers: 4
+eval_interval: 100

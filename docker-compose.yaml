@@ -5,13 +5,13 @@ x-env: &env
   CODECOV_TOKEN: &CODECOV_TOKEN ${CODECOV_TOKEN}
   KAGGLE_USERNAME: &KAGGLE_USERNAME ${KAGGLE_USERNAME}
   KAGGLE_KEY: &KAGGLE_KEY ${KAGGLE_KEY}
-  
+
 
 x-app: &app
   shm_size: '30gb'
   image: "vision-tools-dev"
 
-  build: 
+  build:
     context: .
   volumes:
     - .:/app
@@ -22,8 +22,8 @@ x-app: &app
     - ./store/tensorflow-great-barrier-reef:/kaggle/input/tensorflow-great-barrier-reef
     - ./:/kaggle/input/packages/vision-tools/
     - ./cots_bench/runs:/runs/cots
-
     - ./kuzushiji_bench/runs:/runs/kuzushiji
+    - ./hwad_bench/pipeline/runs:/runs/hwad_bench
 
 
 

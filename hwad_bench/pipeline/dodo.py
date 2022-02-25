@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pickle
 from pathlib import Path
 from pprint import pprint
@@ -22,34 +23,42 @@ from hwad_bench.data import (
 from vision_tools.utils import load_config
 
 
-def persist(key: str, func: Callable) -> Callable:
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        res = func(*args, **kwargs)
-        with open(key, "wb") as fp:
-            pickle.dump(res, fp)
+class CacheAction:
+    def _persist(self, key: str, func: Callable) -> Callable:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            res = func(*args, **kwargs)
+            with open(key, "wb") as fp:
+                pickle.dump(res, fp)
 
-    return wrapper
+        return wrapper
+
+    def __call__(
+        self,
+        fn: Any,
+        args: list[Any] = [],
+        kwargs: dict[str, Any] = {},
+        output_args: list[str] = [],
+        output_kwargs: dict[str, str] = {},
+        key: str = None,
+    ) -> tuple[Any, list, dict]:
+        if key is not None:
+            fn = self._persist(key, fn)
+
+        def wrapper() -> Any:
+            _kwargs = {}
+            _args = []
+            for k, v in output_kwargs.items():
+                with open(v, "rb") as fp:
+                    _kwargs[k] = pickle.load(fp)
+            for v in output_args:
+                with open(v, "rb") as fp:
+                    _args.append(pickle.load(fp))
+            res = fn(*[*args, *_args], **{**kwargs, **_kwargs})
+
+        return (wrapper, [], {})
 
 
-def action(
-    func: Any,
-    args: list[Any] = [],
-    kwargs: dict[str, Any] = {},
-    output_args: list[str] = [],
-    output_kwargs: dict[str, str] = {},
-) -> tuple[Any, list, dict]:
-    def wrapper() -> Any:
-        _kwargs = {}
-        _args = []
-        for k, v in output_kwargs.items():
-            with open(v, "rb") as fp:
-                _kwargs[k] = pickle.load(fp)
-        for k in output_args:
-            with open(k, "rb") as fp:
-                _args.append(pickle.load(fp))
-        res = func(*[*args, *_args], **{**kwargs, **_kwargs})
-
-    return (wrapper, [], {})
+action = CacheAction()
 
 
 def pkl2json(a: str, b: str) -> None:
@@ -66,7 +75,7 @@ def task_read_annotations() -> dict:
     return {
         "targets": [key],
         "file_dep": [file],
-        "actions": [action(persist(key, read_annotations), [file])],
+        "actions": [action(key=key, fn=read_annotations, args=[file])],
     }
 
 
@@ -77,10 +86,11 @@ def task_cleansing() -> dict:
         "file_dep": ["train_annotations"],
         "actions": [
             action(
-                persist(key, cleansing),
+                cleansing,
                 output_kwargs={
                     "annotations": "train_annotations",
                 },
+                key=key,
             )
         ],
     }
@@ -93,7 +103,8 @@ def task_summary() -> dict:
         "file_dep": ["cleaned_annotations"],
         "actions": [
             action(
-                persist(key, summary),
+                key=key,
+                fn=summary,
                 output_kwargs={"annotations": "cleaned_annotations"},
             )
         ],
@@ -109,7 +120,8 @@ def task_merge_to_coco_annotations() -> dict:
         "file_dep": file_deps,
         "actions": [
             action(
-                persist(key, merge_to_coco_annotations),
+                key=key,
+                fn=merge_to_coco_annotations,
                 output_args=file_deps,
             )
         ],
@@ -132,7 +144,8 @@ def task_read_body_annotation() -> dict:
         "targets": [key],
         "actions": [
             action(
-                persist(key, read_json),
+                key=key,
+                fn=read_json,
                 args=["/app/hwad_bench/store/pred-boxes.json"],
             )
         ],
@@ -146,7 +159,8 @@ def task_create_croped_dataset() -> dict:
         "file_dep": ["coco_body_annotations", "cleaned_annotations"],
         "actions": [
             action(
-                persist(key, create_croped_dataset),
+                key=key,
+                fn=create_croped_dataset,
                 output_kwargs={
                     "coco": "coco_body_annotations",
                     "annotations": "cleaned_annotations",
@@ -167,7 +181,7 @@ def task_save_croped_annotation() -> dict:
     return {
         "targets": [key],
         "file_dep": [dep],
-        "actions": [action(pkl2json, args=[dep, key])],
+        "actions": [action(fn=pkl2json, args=[dep, key])],
         "verbosity": 2,
     }
 
@@ -180,7 +194,8 @@ def task_read_fold_0_train() -> dict:
         "file_dep": [dep],
         "actions": [
             action(
-                persist(key, read_csv),
+                key=key,
+                fn=read_csv,
                 args=[dep],
             )
         ],
@@ -196,7 +211,8 @@ def task_read_fold_0_val() -> dict:
         "file_dep": [dep],
         "actions": [
             action(
-                persist(key, read_csv),
+                key=key,
+                fn=read_csv,
                 args=[dep],
             )
         ],
@@ -214,7 +230,7 @@ def task_train_convnext_fold_0() -> dict:
         "file_dep": ["croped_annotations", "fold_0_train"],
         "actions": [
             action(
-                train,
+                fn=train,
                 kwargs={
                     "dataset_cfg": dataset_cfg,
                     "model_cfg": model_cfg,

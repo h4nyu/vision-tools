@@ -8,6 +8,7 @@ from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from hwad_bench.data import (
@@ -63,6 +64,21 @@ def get_checkpoint(cfg: dict) -> Checkpoint:
     return model
 
 
+def get_writer(cfg: dict) -> SummaryWriter:
+    model_name = get_model_name(cfg)
+    writer_name = pipe(
+        [
+            model_name,
+            cfg["lr"],
+        ],
+        map(str),
+        "-".join,
+    )
+    return SummaryWriter(
+        f"runs/{writer_name}",
+    )
+
+
 def train(
     dataset_cfg: dict,
     model_cfg: dict,
@@ -74,15 +90,20 @@ def train(
     image_dir: str,
 ) -> None:
     seed_everything()
+    use_amp = train_cfg["use_amp"]
+    eval_interval = train_cfg["eval_interval"]
     loss_fn = ArcFaceLoss(
         num_classes=dataset_cfg["num_classes"],
         embedding_size=model_cfg["embedding_size"],
     )
+    writer = get_writer({**train_cfg, **model_cfg})
     model = get_model(model_cfg)
     checkpoint = get_checkpoint(model_cfg)
     saved_state = checkpoint.load("best")
+    iteration = 0
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
+        iteration = saved_state.get("iteration", 0)
     model = model.to(model_cfg["device"])
     train_annots = filter_annotations_by_fold(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
@@ -117,7 +138,6 @@ def train(
     )
     epoch_size = len(train_loader)
     to_device = ToDevice(model_cfg["device"])
-    use_amp = train_cfg["use_amp"]
     scaler = GradScaler(enabled=use_amp)
     optimizer = Adam(
         list(model.parameters()) + list(loss_fn.parameters()),
@@ -127,6 +147,7 @@ def train(
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
         model.train()
+        iteration += 1
         for batch in tqdm(train_loader, total=epoch_size):
             batch = to_device(**batch)
             image_batch = batch["image_batch"]
@@ -145,3 +166,10 @@ def train(
                 scaler.update()
 
             train_meter.update({"loss": loss.item()})
+
+            if iteration % eval_interval == 0:
+                for k, v in train_meter.value.items():
+                    writer.add_scalar(f"train/{k}", v, iteration)
+
+                train_meter.reset()
+        writer.flush()
