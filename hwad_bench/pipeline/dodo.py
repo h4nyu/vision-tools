@@ -224,6 +224,7 @@ def task_train_convnext_fold_0() -> dict:
                 },
                 output_kwargs={
                     "annotations": "croped_annotations",
+                    "label_map": "label_map",
                     "fold_train": "fold_0_train",
                     "fold_val": "fold_0_val",
                 },

@@ -67,6 +67,7 @@ def train(
     train_cfg: dict,
     fold: int,
     annotations: list[Annotation],
+    label_map: dict[str, int],
     fold_train: list[dict],
     fold_val: list[dict],
     image_dir: str,
@@ -81,6 +82,7 @@ def train(
     saved_state = checkpoint.load("best")
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
+    model = model.to(model_cfg["device"])
     train_annots = filter_annotations_by_fold(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
     )
@@ -116,5 +118,12 @@ def train(
     to_device = ToDevice(model_cfg["device"])
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
+        model.train()
         for batch in tqdm(train_loader, total=epoch_size):
             batch = to_device(**batch)
+            embeddings = model(batch["image_batch"])
+            # F.one_hot(tensor, num_classes=-1)
+            # loss = loss_fn.compute_loss(
+            #     embeddings=embeddings,
+            #     batch["label_batch"], batch["label_weights"]
+            # )

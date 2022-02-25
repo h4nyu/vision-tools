@@ -27,6 +27,7 @@ Annotation = TypedDict(
         "image_file": str,
         "species": str,
         "individual_id": str,
+        "label": int,
     },
 )
 
@@ -125,12 +126,22 @@ def merge_to_coco_annotations(annotations: list[Annotation]) -> dict[str, list]:
 def read_annotations(file_path: str) -> list:
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
+    label_map = pipe(
+        df.iterrows(),
+        map(lambda x: x[1]["individual_id"]),
+        set,
+        sorted,
+        enumerate,
+        map(lambda x: (x[1], x[0])),
+        dict,
+    )
     for _, csv_row in df.iterrows():
         rows.append(
             Annotation(
                 image_file=os.path.basename(csv_row["image"]),
                 species=csv_row["species"],
                 individual_id=csv_row["individual_id"],
+                label=label_map[csv_row["individual_id"]],
             )
         )
     return rows
@@ -223,6 +234,7 @@ def create_croped_dataset(
                     "image_file": dist_file_name,
                     "species": image_annot["species"],
                     "individual_id": image_annot["individual_id"],
+                    "label": image_annot["label"],
                 }
             )
         )

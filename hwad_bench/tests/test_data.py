@@ -96,6 +96,7 @@ def test_dataset() -> None:
                 "image_file": "dummy.png",
                 "species": "species-0",
                 "individual_id": "indiviual-0",
+                "label": 0,
             }
         ],
         image_dir="/app/test_data",
@@ -111,11 +112,13 @@ def test_filter_annotations_by_fold() -> None:
             "image_file": "img0-box0.png",
             "species": "species-0",
             "individual_id": "indiviual-0",
+            "label": 1,
         },
         {
             "image_file": "img1--b0.png",
             "species": "species-0",
             "individual_id": "indiviual-1",
+            "label": 2,
         },
     ]
     fold = [
