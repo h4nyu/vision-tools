@@ -92,21 +92,31 @@ def train(
     seed_everything()
     use_amp = train_cfg["use_amp"]
     eval_interval = train_cfg["eval_interval"]
+    devcie = model_cfg["device"]
+    writer = get_writer({**train_cfg, **model_cfg})
+
     loss_fn = ArcFaceLoss(
         num_classes=dataset_cfg["num_classes"],
         embedding_size=model_cfg["embedding_size"],
     )
-    writer = get_writer({**train_cfg, **model_cfg})
-    model = get_model(model_cfg)
-    checkpoint = get_checkpoint(model_cfg)
+    model = get_model(model_cfg).to(device)
+    optimizer = Adam(
+        list(model.parameters()) + list(loss_fn.parameters()),
+        lr=train_cfg["lr"],
+    )
 
+    checkpoint = get_checkpoint(model_cfg)
     saved_state = checkpoint.load(train_cfg["resume"])
     iteration = 0
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
+        optimizer.load_state_dict(saved_state["optimizer"])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
-    model = model.to(model_cfg["device"])
     train_annots = filter_annotations_by_fold(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
     )
@@ -141,10 +151,6 @@ def train(
     epoch_size = len(train_loader)
     to_device = ToDevice(model_cfg["device"])
     scaler = GradScaler(enabled=use_amp)
-    optimizer = Adam(
-        list(model.parameters()) + list(loss_fn.parameters()),
-        lr=train_cfg["lr"],
-    )
 
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
@@ -178,6 +184,7 @@ def train(
                     {
                         "model": model.state_dict(),
                         "loss_fn": loss_fn.state_dict(),
+                        "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
                     },
                     target="latest",
