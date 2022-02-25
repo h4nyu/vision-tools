@@ -99,10 +99,12 @@ def train(
     writer = get_writer({**train_cfg, **model_cfg})
     model = get_model(model_cfg)
     checkpoint = get_checkpoint(model_cfg)
-    saved_state = checkpoint.load("best")
+
+    saved_state = checkpoint.load(train_cfg["resume"])
     iteration = 0
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
+        loss_fn.load_state_dict(saved_state["loss_fn"])
         iteration = saved_state.get("iteration", 0)
     model = model.to(model_cfg["device"])
     train_annots = filter_annotations_by_fold(
@@ -147,8 +149,8 @@ def train(
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
         model.train()
-        iteration += 1
         for batch in tqdm(train_loader, total=epoch_size):
+            iteration += 1
             batch = to_device(**batch)
             image_batch = batch["image_batch"]
             label_batch = batch["label_batch"]
@@ -172,4 +174,13 @@ def train(
                     writer.add_scalar(f"train/{k}", v, iteration)
 
                 train_meter.reset()
+                checkpoint.save(
+                    {
+                        "model": model.state_dict(),
+                        "loss_fn": loss_fn.state_dict(),
+                        "iteration": iteration,
+                    },
+                    target="latest",
+                )
+
         writer.flush()
