@@ -177,10 +177,26 @@ def train(
             train_meter.update({"loss": loss.item()})
 
             if iteration % eval_interval == 0:
+                model.eval()
+                val_meter = MeanReduceDict()
+                with torch.no_grad():
+                    for batch in val_loader:
+                        batch = to_device(**batch)
+                        image_batch = batch["image_batch"]
+                        label_batch = batch["label_batch"]
+                        embeddings = model(image_batch)
+                        loss = loss_fn(
+                            embeddings,
+                            label_batch,
+                        )
+                        val_meter.update({"loss": loss.item()})
+
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
 
-                train_meter.reset()
+                for k, v in val_meter.value.items():
+                    writer.add_scalar(f"val/{k}", v, iteration)
+
                 checkpoint.save(
                     {
                         "model": model.state_dict(),
@@ -190,5 +206,7 @@ def train(
                     },
                     target="latest",
                 )
+                train_meter.reset()
+                val_meter.reset()
 
         writer.flush()
