@@ -121,8 +121,8 @@ def train(
                 if torch.is_tensor(v):
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
-        best_loss = saved_state.get("loss", float("inf"))
-        best_score = saved_state.get("score", 0.0)
+        best_loss = saved_state.get("best_loss", float("inf"))
+        best_score = saved_state.get("best_score", 0.0)
     train_annots = filter_annotations_by_fold(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
     )
@@ -222,6 +222,8 @@ def train(
                             "iteration": iteration,
                             "score": score,
                             "loss": loss,
+                            "best_score": best_score,
+                            "best_loss": best_loss,
                         },
                         target="best_score",
                     )
@@ -236,6 +238,8 @@ def train(
                             "iteration": iteration,
                             "score": score,
                             "loss": loss,
+                            "best_score": best_score,
+                            "best_loss": best_loss,
                         },
                         target="best_loss",
                     )
@@ -245,7 +249,10 @@ def train(
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
+                        "score": score,
                         "loss": loss,
+                        "best_score": best_score,
+                        "best_loss": best_loss,
                     },
                     target="latest",
                 )
