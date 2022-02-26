@@ -10,10 +10,10 @@ class MeanAveragePrecisionK:
         self.reset()
 
     def reset(self) -> None:
-        self.precisions = []
+        self.precisions: list[float] = []
 
     def update(self, labels_at_k: Tensor, gt_labels: Tensor) -> None:
-        matching = labels_at_k == gt_labels
+        matching = labels_at_k == gt_labels.unsqueeze(1).expand(labels_at_k.shape)
         mask = matching.any(dim=1)
         matched_count = matching.int().argmax(dim=1) + 1
         precision = (1 / matched_count) * mask

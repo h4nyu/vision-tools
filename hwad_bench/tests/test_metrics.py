@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from hwad_bench.metric import MeanAveragePrecisionK
+from hwad_bench.metrics import MeanAveragePrecisionK
 
 
 @pytest.mark.parametrize(
@@ -19,6 +19,13 @@ def test_mean_average_precision_k(pred: list[int], expected: float) -> None:
     m = MeanAveragePrecisionK()
     gt_labels = torch.tensor([1]).long()
     pred_labels = torch.tensor([pred]).long()
-    m.update(gt_labels, pred_labels)
+    m.update(pred_labels, gt_labels)
     score, _ = m.value
     assert score == pytest.approx(expected)
+
+
+def test_mean_average_precision_k_shape() -> None:
+    m = MeanAveragePrecisionK()
+    gt_labels = torch.tensor([1, 1]).long()
+    pred_labels = torch.ones((2, 5)).long()
+    m.update(pred_labels, gt_labels)

@@ -20,6 +20,7 @@ from hwad_bench.data import (
     collate_fn,
     filter_annotations_by_fold,
 )
+from hwad_bench.metrics import MeanAveragePrecisionK
 from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
@@ -109,7 +110,8 @@ def train(
     checkpoint = get_checkpoint(model_cfg)
     saved_state = checkpoint.load(train_cfg["resume"])
     iteration = 0
-    best_score = float("inf")
+    best_score = 0.0
+    best_loss = float("inf")
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
@@ -119,7 +121,8 @@ def train(
                 if torch.is_tensor(v):
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
-        best_score = saved_state.get("score", float("inf"))
+        best_loss = saved_state.get("loss", float("inf"))
+        best_score = saved_state.get("score", 0.0)
     train_annots = filter_annotations_by_fold(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
     )
@@ -182,6 +185,7 @@ def train(
                 model.eval()
                 loss_fn.eval()
                 val_meter = MeanReduceDict()
+                metric = MeanAveragePrecisionK()
                 with torch.no_grad():
                     for batch in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
@@ -192,15 +196,27 @@ def train(
                             embeddings,
                             label_batch,
                         )
+                        logit = loss_fn.get_logits(embeddings)
+                        print(logit.shape)
+                        _, pred_label_batch = logit.topk(k=5, dim=1)
+                        print(label_batch.shape)
+                        print(pred_label_batch.shape)
+                        print(label_batch)
+                        print(pred_label_batch)
                         val_meter.update({"loss": loss.item()})
+                        metric.update(
+                            pred_label_batch,
+                            label_batch,
+                        )
 
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
 
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
-                score = val_meter.value["loss"]
-                if score < best_score:
+                loss = val_meter.value["loss"]
+                score, _ = metric.value
+                if score > best_score:
                     best_score = score
                     checkpoint.save(
                         {
@@ -209,8 +225,23 @@ def train(
                             "optimizer": optimizer.state_dict(),
                             "iteration": iteration,
                             "score": score,
+                            "loss": loss,
                         },
-                        target="best",
+                        target="best_score",
+                    )
+
+                if loss < best_loss:
+                    best_loss = loss
+                    checkpoint.save(
+                        {
+                            "model": model.state_dict(),
+                            "loss_fn": loss_fn.state_dict(),
+                            "optimizer": optimizer.state_dict(),
+                            "iteration": iteration,
+                            "score": score,
+                            "loss": loss,
+                        },
+                        target="best_loss",
                     )
                 checkpoint.save(
                     {
@@ -218,11 +249,12 @@ def train(
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
-                        "score": score,
+                        "loss": loss,
                     },
                     target="latest",
                 )
                 train_meter.reset()
                 val_meter.reset()
+                metric.reset()
 
         writer.flush()
