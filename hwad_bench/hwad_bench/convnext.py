@@ -109,6 +109,7 @@ def train(
     checkpoint = get_checkpoint(model_cfg)
     saved_state = checkpoint.load(train_cfg["resume"])
     iteration = 0
+    best_score = float("inf")
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
@@ -118,6 +119,7 @@ def train(
                 if torch.is_tensor(v):
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
+        best_score = saved_state.get("score", float("inf"))
     train_annots = filter_annotations_by_fold(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
     )
@@ -144,8 +146,8 @@ def train(
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=train_cfg["batch_size"] * 2,
-        shuffle=True,
+        batch_size=train_cfg["batch_size"],
+        shuffle=False,
         num_workers=train_cfg["num_workers"],
         collate_fn=collate_fn,
     )
@@ -180,7 +182,7 @@ def train(
                 model.eval()
                 val_meter = MeanReduceDict()
                 with torch.no_grad():
-                    for batch in val_loader:
+                    for batch in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
@@ -196,13 +198,26 @@ def train(
 
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
-
+                score = val_meter.value["loss"]
+                if score < best_score:
+                    best_score = score
+                    checkpoint.save(
+                        {
+                            "model": model.state_dict(),
+                            "loss_fn": loss_fn.state_dict(),
+                            "optimizer": optimizer.state_dict(),
+                            "iteration": iteration,
+                            "score": score,
+                        },
+                        target="best",
+                    )
                 checkpoint.save(
                     {
                         "model": model.state_dict(),
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
+                        "score": score,
                     },
                     target="latest",
                 )

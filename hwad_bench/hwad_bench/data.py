@@ -58,7 +58,6 @@ def summary(
 ) -> dict:
     all_species = pipe(annotations, map(lambda x: x["species"]), set)
     individual_id_count = pipe(annotations, map(lambda x: x["individual_id"]), set, len)
-    print(individual_id_count)
     class_freq = pipe(
         annotations,
         groupby(lambda x: x["individual_id"]),
@@ -246,6 +245,7 @@ TrainTransform = lambda cfg: A.Compose(
         A.HueSaturationValue(
             hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=cfg["hue_p"]
         ),
+        A.HorizontalFlip(p=0.5),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.Resize(
             height=cfg["image_height"],
@@ -312,3 +312,20 @@ def collate_fn(batch: list[tuple[Classification, Annotation]]) -> dict[str, Tens
         image_batch=torch.stack(images),
         label_batch=torch.stack(label_batch),
     )
+
+
+# @torch.no_grad()
+# def accuracy(output:Tensor, target:Tensor, topk:tuple[int, int]=(1, 5)) -> Tensor:
+#     """Computes the accuracy over the k top predictions for the specified values of k"""
+#     maxk = max(topk)
+#     batch_size = target.size(0)
+
+#     _, pred = output.topk(maxk, 1, True, True)
+#     pred = pred.t()
+#     correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+#     res = []
+#     for k in topk:
+#         correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
+#         res.append(correct_k.mul_(100.0 / batch_size))
+#     return res
