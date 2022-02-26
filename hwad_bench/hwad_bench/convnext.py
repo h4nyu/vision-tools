@@ -209,13 +209,14 @@ def train(
                             label_batch,
                         )
 
+                score, _ = metric.value
+                loss = val_meter.value["loss"]
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
-
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
-                loss = val_meter.value["loss"]
-                score, _ = metric.value
+                writer.add_scalar(f"val/score", score, iteration)
+
                 if score > best_score:
                     best_score = score
                     checkpoint.save(
