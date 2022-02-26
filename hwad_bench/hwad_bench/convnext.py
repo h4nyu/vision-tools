@@ -151,14 +151,14 @@ def train(
         num_workers=train_cfg["num_workers"],
         collate_fn=collate_fn,
     )
-    epoch_size = len(train_loader)
     to_device = ToDevice(model_cfg["device"])
     scaler = GradScaler(enabled=use_amp)
 
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
-        model.train()
-        for batch in tqdm(train_loader, total=epoch_size):
+        for batch in tqdm(train_loader, total=len(train_loader)):
+            model.train()
+            loss_fn.train()
             iteration += 1
             batch = to_device(**batch)
             image_batch = batch["image_batch"]
@@ -180,6 +180,7 @@ def train(
 
             if iteration % eval_interval == 0:
                 model.eval()
+                loss_fn.eval()
                 val_meter = MeanReduceDict()
                 with torch.no_grad():
                     for batch in tqdm(val_loader, total=len(val_loader)):
