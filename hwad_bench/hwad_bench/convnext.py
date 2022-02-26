@@ -197,12 +197,7 @@ def train(
                             label_batch,
                         )
                         logit = loss_fn.get_logits(embeddings)
-                        print(logit.shape)
                         _, pred_label_batch = logit.topk(k=5, dim=1)
-                        print(label_batch.shape)
-                        print(pred_label_batch.shape)
-                        print(label_batch)
-                        print(pred_label_batch)
                         val_meter.update({"loss": loss.item()})
                         metric.update(
                             pred_label_batch,
