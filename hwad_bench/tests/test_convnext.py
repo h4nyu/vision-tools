@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from hwad_bench.convnext import ConvNeXt
+from hwad_bench.convnext import ConvNeXt, MeanEmbeddingMatching
 
 
 def test_model() -> None:
@@ -10,3 +10,17 @@ def test_model() -> None:
     images = torch.randn(2, 3, 256, 256)
     output = model(images)
     assert output.shape == (2, embedding_size)
+
+
+def test_knn() -> None:
+    matching = MeanEmbeddingMatching()
+    embeddings = torch.tensor([[1, 2], [3, 4]]).float()
+    labels = torch.tensor([0, 3]).long()
+    matching.update(embeddings, labels)
+    matching.update(embeddings, labels)
+    index = matching.create_index()
+    assert index[0].shape == (2,)
+    tgt_embeddings = torch.tensor([[1, 2], [3, 4], [4, 3]]).float()
+    res = matching(tgt_embeddings)
+    matched = torch.topk(res, 2)[1]
+    assert matched.tolist() == [[0, 3], [3, 0], [3, 0]]

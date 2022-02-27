@@ -179,6 +179,23 @@ def filter_annotations_by_fold(
     return filtered_annotations
 
 
+def filter_in_annotations(
+    annotations: list[Annotation],
+    ref_annots: list[Annotation],
+) -> list[Annotation]:
+    individual_ids = pipe(
+        ref_annots,
+        map(lambda x: x["individual_id"]),
+        set,
+    )
+
+    return pipe(
+        annotations,
+        filter(lambda x: x["individual_id"] in individual_ids),
+        list,
+    )
+
+
 def create_croped_dataset(
     coco: dict,
     annotations: list[Annotation],
@@ -251,6 +268,13 @@ TrainTransform = lambda cfg: A.Compose(
             height=cfg["image_height"],
             width=cfg["image_width"],
             interpolation=cv2.INTER_NEAREST,
+        ),
+        A.RandomResizedCrop(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            scale=(0.8, 1.0),
+            interpolation=cv2.INTER_NEAREST,
+            p=cfg["random_resized_crop_p"],
         ),
         ToTensorV2(),
     ],

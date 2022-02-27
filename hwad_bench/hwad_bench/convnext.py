@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import timm
 import torch
+from pytorch_metric_learning.distances import CosineSimilarity
 from pytorch_metric_learning.losses import ArcFaceLoss
 from toolz.curried import map, pipe
 from torch import Tensor, nn
@@ -19,6 +20,7 @@ from hwad_bench.data import (
     Transform,
     collate_fn,
     filter_annotations_by_fold,
+    filter_in_annotations,
 )
 from hwad_bench.metrics import MeanAveragePrecisionK
 from vision_tools.meter import MeanReduceDict
@@ -35,6 +37,39 @@ class ConvNeXt(nn.Module):
         out = self.model(x)
         out = F.normalize(out, p=2, dim=1)
         return out
+
+
+class MeanEmbeddingMatching:
+    def __init__(self) -> None:
+        self.embeddings: dict[int, list[Tensor]] = {}
+        self.index: Tensor = torch.zeros(0, 0)
+        self.max_classes = 0
+        self.embedding_size = 0
+        self.distance = CosineSimilarity()
+
+    def update(self, embeddings: Tensor, labels: Tensor) -> None:
+        embeddings = F.normalize(embeddings, p=2, dim=1)
+        for label, embedding in zip(labels, embeddings):
+            label = int(label)
+            old_embedding = self.embeddings.get(label, [])
+            self.embeddings[label] = old_embedding + [embedding]
+            if self.max_classes < label:
+                self.max_classes = label
+            self.embedding_size = embedding.shape[-1]
+
+    def create_index(self) -> Tensor:
+        index = torch.zeros(self.max_classes + 1, self.embedding_size)
+        if len(list(self.embeddings.values())) > 0:
+            device = list(self.embeddings.values())[0][0]
+            index = index.to(device)
+
+        for label, embeddings in self.embeddings.items():
+            index[int(label)] = torch.mean(torch.stack(embeddings), dim=0)
+        self.index = index
+        return index
+
+    def __call__(self, embeddings: Tensor) -> Tensor:
+        return self.distance(embeddings, self.index)
 
 
 def get_model_name(cfg: dict) -> str:
@@ -72,6 +107,8 @@ def get_writer(cfg: dict) -> SummaryWriter:
         [
             model_name,
             cfg["lr"],
+            cfg["random_resized_crop_p"],
+            cfg["min_samples"],
         ],
         map(str),
         "-".join,
@@ -95,7 +132,7 @@ def train(
     use_amp = train_cfg["use_amp"]
     eval_interval = train_cfg["eval_interval"]
     device = model_cfg["device"]
-    writer = get_writer({**train_cfg, **model_cfg})
+    writer = get_writer({**train_cfg, **model_cfg, **dataset_cfg})
 
     loss_fn = ArcFaceLoss(
         num_classes=dataset_cfg["num_classes"],
@@ -126,13 +163,21 @@ def train(
     train_annots = filter_annotations_by_fold(
         annotations, fold_train, min_samples=dataset_cfg["min_samples"]
     )
-    val_annots = filter_annotations_by_fold(
-        annotations, fold_val, min_samples=dataset_cfg["min_samples"]
-    )
+
+    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
+
+    val_annots = filter_annotations_by_fold(annotations, fold_val, min_samples=0)
+    val_annots = filter_in_annotations(val_annots, reg_annots)
     train_dataset = HwadCropedDataset(
         rows=train_annots,
         image_dir=image_dir,
         transform=TrainTransform(dataset_cfg),
+    )
+
+    reg_dataset = HwadCropedDataset(
+        rows=reg_annots,
+        image_dir=image_dir,
+        transform=Transform(dataset_cfg),
     )
     val_dataset = HwadCropedDataset(
         rows=val_annots,
@@ -141,6 +186,14 @@ def train(
     )
     train_loader = DataLoader(
         train_dataset,
+        batch_size=train_cfg["batch_size"],
+        shuffle=True,
+        num_workers=train_cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+
+    reg_loader = DataLoader(
+        reg_dataset,
         batch_size=train_cfg["batch_size"],
         shuffle=True,
         num_workers=train_cfg["num_workers"],
@@ -160,9 +213,9 @@ def train(
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
         for batch in tqdm(train_loader, total=len(train_loader)):
+            iteration += 1
             model.train()
             loss_fn.train()
-            iteration += 1
             batch = to_device(**batch)
             image_batch = batch["image_batch"]
             label_batch = batch["label_batch"]
@@ -186,23 +239,33 @@ def train(
                 loss_fn.eval()
                 val_meter = MeanReduceDict()
                 metric = MeanAveragePrecisionK()
+                matching = MeanEmbeddingMatching()
                 with torch.no_grad():
+                    for batch in tqdm(reg_loader, total=len(reg_loader)):
+                        batch = to_device(**batch)
+                        image_batch = batch["image_batch"]
+                        label_batch = batch["label_batch"]
+                        embeddings = model(image_batch)
+                        matching.update(embeddings, label_batch)
+                    matching.create_index()
                     for batch in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
+
                         loss = loss_fn(
                             embeddings,
                             label_batch,
                         )
-                        logit = loss_fn.get_logits(embeddings)
-                        _, pred_label_batch = logit.topk(k=5, dim=1)
+                        distance = matching(embeddings)
+                        pred_label_batch = distance.topk(k=5, dim=1)[1]
                         val_meter.update({"loss": loss.item()})
                         metric.update(
                             pred_label_batch,
                             label_batch,
                         )
+                    matching.create_index()
 
                 score, _ = metric.value
                 loss = val_meter.value["loss"]
