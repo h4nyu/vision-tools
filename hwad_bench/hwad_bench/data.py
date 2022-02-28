@@ -16,6 +16,7 @@ from nanoid import generate as nanoid
 from toolz.curried import filter, frequencies, groupby, map, pipe, sorted, valmap
 from torch import Tensor
 from torch.utils.data import Dataset
+from torchvision.ops import box_area, box_convert
 from typing_extensions import TypedDict
 
 from coco_annotator import CocoCategory, CocoImage
@@ -196,6 +197,89 @@ def filter_in_annotations(
     )
 
 
+def select_center_box(
+    image_size: Tuple[int, int],
+    boxes: list[Tenosr],
+) -> Tensor:
+    image_center = torch.tensor([image_size[0] / 2, image_size[1] / 2])
+    box_center = (boxes[:, :2] + boxes[:, 2:]) / 2
+    distance = (box_center - image_center).pow(2).sum(dim=1)
+    return boxes[distance.argmin()]
+
+
+def select_largest_box(
+    boxes: list[Tenosr],
+) -> Tensor:
+    areas = box_area(boxes)
+    return boxes[areas.argmax()]
+
+
+def create_croped_boxes_largest_dataset(
+    coco: dict,
+    annotations: list[Annotation],
+    source_dir: str,
+    dist_dir: str,
+    padding: float = 0.05,
+) -> list[Annotation]:
+    image_map = pipe(
+        coco["images"],
+        map(lambda x: (x["id"], x)),
+        dict,
+    )
+    coco_annotations = pipe(
+        coco["annotations"],
+        groupby(lambda x: x["image_id"]),
+        lambda x: x.items(),
+        filter(lambda x: len(x[1]) > 1),
+        list,
+    )
+    annotation_map = pipe(
+        annotations,
+        map(lambda x: (x["image_file"], x)),
+        dict,
+    )
+    croped_annots: list[Annotation] = []
+    for image_id, coco_annots in coco_annotations:
+        image = image_map[image_id]
+        image_annot = annotation_map[image["file_name"]]
+        boxes = pipe(
+            coco_annots,
+            map(lambda x: torch.tensor(x["bbox"]).float()),
+            list,
+            lambda x: torch.stack(x),
+            lambda x: box_convert(x, in_fmt="xywh", out_fmt="xyxy"),
+        )
+        source_path = os.path.join(source_dir, image["file_name"])
+        im = PIL.Image.open(source_path)
+        box = select_largest_box(boxes)
+        coco_bbox = box_convert(box, in_fmt="xyxy", out_fmt="xywh").tolist()
+        padding_x = coco_bbox[2] * padding
+        padding_y = coco_bbox[3] * padding
+        bbox = [
+            coco_bbox[0] - padding_x,
+            coco_bbox[1] - padding_y,
+            coco_bbox[0] + coco_bbox[2] + padding_x,
+            coco_bbox[1] + coco_bbox[3] + padding_y,
+        ]
+        im_crop = im.crop(bbox)
+        stem = Path(image_annot["image_file"]).stem
+        suffix = Path(image_annot["image_file"]).suffix
+        dist_file_name = f"{stem}-{nanoid(size=4)}{suffix}"
+        dist_path = os.path.join(dist_dir, dist_file_name)
+        im_crop.save(dist_path)
+        croped_annots.append(
+            Annotation(
+                {
+                    "image_file": dist_file_name,
+                    "species": image_annot["species"],
+                    "individual_id": image_annot["individual_id"],
+                    "label": image_annot["label"],
+                }
+            )
+        )
+    return croped_annots
+
+
 def create_croped_dataset(
     coco: dict,
     annotations: list[Annotation],
@@ -336,20 +420,3 @@ def collate_fn(batch: list[tuple[Classification, Annotation]]) -> dict[str, Tens
         image_batch=torch.stack(images),
         label_batch=torch.stack(label_batch),
     )
-
-
-# @torch.no_grad()
-# def accuracy(output:Tensor, target:Tensor, topk:tuple[int, int]=(1, 5)) -> Tensor:
-#     """Computes the accuracy over the k top predictions for the specified values of k"""
-#     maxk = max(topk)
-#     batch_size = target.size(0)
-
-#     _, pred = output.topk(maxk, 1, True, True)
-#     pred = pred.t()
-#     correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-#     res = []
-#     for k in topk:
-#         correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-#         res.append(correct_k.mul_(100.0 / batch_size))
-#     return res

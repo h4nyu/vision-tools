@@ -8,6 +8,7 @@ from hwad_bench.data import (
     Annotation,
     HwadCropedDataset,
     TrainTransform,
+    create_croped_boxes_center_dataset,
     create_croped_dataset,
     filter_annotations_by_fold,
     merge_to_coco_annotations,
@@ -136,3 +137,57 @@ def test_filter_annotations_by_fold() -> None:
     filtered = filter_annotations_by_fold(annotations, fold, min_samples=5)
     assert len(filtered) == 1
     assert filtered[0]["image_file"] == "img0-box0.png"
+
+
+def test_create_croped_boxes_center_dataset() -> None:
+    coco = {
+        "images": [
+            {
+                "id": 1,
+                "file_name": "dummy.png",
+                "width": 100,
+                "height": 200,
+            },
+            {
+                "id": 2,
+                "file_name": "dummy-1.png",
+                "width": 100,
+                "height": 200,
+            },
+        ],
+        "annotations": [
+            {
+                "id": 1,
+                "image_id": 1,
+                "category_id": 1,
+                "bbox": [0, 0, 100, 100],
+            },
+            {
+                "id": 2,
+                "image_id": 1,
+                "category_id": 1,
+                "bbox": [0, 0, 100, 200],
+            },
+        ],
+    }
+    annotations: list[Any] = [
+        {
+            "image_file": "dummy.png",
+            "species": "species-0",
+            "individual_id": "indiviual-0",
+            "label": 0,
+        },
+        {
+            "image_file": "dummy-1.png",
+            "species": "species-1",
+            "individual_id": "indiviual-1",
+            "label": 1,
+        },
+    ]
+    res = create_croped_boxes_center_dataset(
+        coco, annotations, "/app/test_data", "/app/test_outputs"
+    )
+    assert len(res) == 1
+    assert res[0]["image_file"].startswith("dummy")
+    assert res[0]["individual_id"] == "indiviual-0"
+    assert res[0]["species"] == "species-0"
