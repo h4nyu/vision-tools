@@ -12,7 +12,6 @@ import pandas as pd
 from hwad_bench.convnext import train
 from hwad_bench.data import (
     cleansing,
-    create_croped_boxes_largest_dataset,
     create_croped_dataset,
     filter_annotations_by_fold,
     merge_to_coco_annotations,
@@ -139,31 +138,31 @@ def task_save_coco_anntation() -> dict:
     }
 
 
-def task_read_body_annotation() -> dict:
-    key = "coco_body_annotations"
+def task_read_train_box_annotations() -> dict:
+    key = "train_box_annotations"
     return {
         "targets": [key],
         "actions": [
             action(
                 key=key,
-                fn=read_json,
-                args=["/app/hwad_bench/store/pred-boxes.json"],
+                fn=read_csv,
+                args=["/app/hwad_bench/store/pred-r7-st.csv"],
             )
         ],
     }
 
 
-def task_create_croped_dataset() -> dict:
-    key = "croped_annotations"
+def task_create_train_croped_dataset() -> dict:
+    key = "train_croped_annotations"
     return {
         "targets": [key],
-        "file_dep": ["coco_body_annotations", "cleaned_annotations"],
+        "file_dep": ["train_box_annotations", "cleaned_annotations"],
         "actions": [
             action(
                 key=key,
                 fn=create_croped_dataset,
                 output_kwargs={
-                    "coco": "coco_body_annotations",
+                    "box_annotations": "train_box_annotations",
                     "annotations": "cleaned_annotations",
                 },
                 kwargs={
@@ -176,43 +175,9 @@ def task_create_croped_dataset() -> dict:
     }
 
 
-def task_create_croped_boxes_largest_dataset() -> dict:
-    key = "croped_boxes_largest_annotations"
-    return {
-        "targets": [key],
-        "file_dep": ["coco_body_annotations", "cleaned_annotations"],
-        "actions": [
-            action(
-                key=key,
-                fn=create_croped_boxes_largest_dataset,
-                output_kwargs={
-                    "coco": "coco_body_annotations",
-                    "annotations": "cleaned_annotations",
-                },
-                kwargs={
-                    "source_dir": "/app/datasets/hwad-train",
-                    "dist_dir": "/app/datasets/hwad-train-croped-boxes-largest-body",
-                },
-            )
-        ],
-        "verbosity": 2,
-    }
-
-
 def task_save_croped_annotation() -> dict:
     key = "croped.json"
-    dep = "croped_annotations"
-    return {
-        "targets": [key],
-        "file_dep": [dep],
-        "actions": [action(fn=pkl2json, args=[dep, key])],
-        "verbosity": 2,
-    }
-
-
-def task_save_croped_boxes_largest_annotation() -> dict:
-    key = "croped_boxes_largest.json"
-    dep = "croped_boxes_largest_annotations"
+    dep = "train_croped_annotations"
     return {
         "targets": [key],
         "file_dep": [dep],
@@ -262,7 +227,7 @@ def task_train_convnext_fold_0() -> dict:
     train_cfg = load_config("../config/train.yaml")
     return {
         "targets": [key],
-        "file_dep": ["croped_annotations", "fold_0_train"],
+        "file_dep": ["train_croped_annotations", "fold_0_train"],
         "actions": [
             action(
                 fn=train,
@@ -274,7 +239,7 @@ def task_train_convnext_fold_0() -> dict:
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },
                 output_kwargs={
-                    "annotations": "croped_annotations",
+                    "annotations": "train_croped_annotations",
                     "fold_train": "fold_0_train",
                     "fold_val": "fold_0_val",
                 },

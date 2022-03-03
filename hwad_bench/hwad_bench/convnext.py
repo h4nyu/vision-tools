@@ -134,6 +134,11 @@ def train(
     device = model_cfg["device"]
     writer = get_writer({**train_cfg, **model_cfg, **dataset_cfg})
 
+    train_annots = filter_annotations_by_fold(
+        annotations, fold_train, min_samples=train_cfg["min_samples"]
+    )
+
+    # TODO num_class
     loss_fn = ArcFaceLoss(
         num_classes=dataset_cfg["num_classes"],
         embedding_size=model_cfg["embedding_size"],
@@ -160,9 +165,6 @@ def train(
         iteration = saved_state.get("iteration", 0)
         best_loss = saved_state.get("best_loss", float("inf"))
         best_score = saved_state.get("best_score", 0.0)
-    train_annots = filter_annotations_by_fold(
-        annotations, fold_train, min_samples=dataset_cfg["min_samples"]
-    )
 
     reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
 
@@ -265,7 +267,6 @@ def train(
                             pred_label_batch,
                             label_batch,
                         )
-                    matching.create_index()
 
                 score, _ = metric.value
                 loss = val_meter.value["loss"]

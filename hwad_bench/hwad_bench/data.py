@@ -13,7 +13,7 @@ import PIL
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from nanoid import generate as nanoid
-from toolz.curried import filter, frequencies, groupby, map, pipe, sorted, valmap
+from toolz.curried import filter, frequencies, groupby, map, pipe, sorted, topk, valmap
 from torch import Tensor
 from torch.utils.data import Dataset
 from torchvision.ops import box_area, box_convert
@@ -197,135 +197,43 @@ def filter_in_annotations(
     )
 
 
-def select_center_box(
-    image_size: Tuple[int, int],
-    boxes: list[Tenosr],
-) -> Tensor:
-    image_center = torch.tensor([image_size[0] / 2, image_size[1] / 2])
-    box_center = (boxes[:, :2] + boxes[:, 2:]) / 2
-    distance = (box_center - image_center).pow(2).sum(dim=1)
-    return boxes[distance.argmin()]
-
-
-def select_largest_box(
-    boxes: list[Tenosr],
-) -> Tensor:
-    areas = box_area(boxes)
-    return boxes[areas.argmax()]
-
-
-def create_croped_boxes_largest_dataset(
-    coco: dict,
-    annotations: list[Annotation],
-    source_dir: str,
-    dist_dir: str,
-    padding: float = 0.05,
-) -> list[Annotation]:
-    image_map = pipe(
-        coco["images"],
-        map(lambda x: (x["id"], x)),
-        dict,
-    )
-    coco_annotations = pipe(
-        coco["annotations"],
-        groupby(lambda x: x["image_id"]),
-        lambda x: x.items(),
-        filter(lambda x: len(x[1]) > 1),
-        list,
-    )
-    annotation_map = pipe(
-        annotations,
-        map(lambda x: (x["image_file"], x)),
-        dict,
-    )
-    croped_annots: list[Annotation] = []
-    for image_id, coco_annots in coco_annotations:
-        image = image_map[image_id]
-        image_annot = annotation_map[image["file_name"]]
-        boxes = pipe(
-            coco_annots,
-            map(lambda x: torch.tensor(x["bbox"]).float()),
-            list,
-            lambda x: torch.stack(x),
-            lambda x: box_convert(x, in_fmt="xywh", out_fmt="xyxy"),
-        )
-        source_path = os.path.join(source_dir, image["file_name"])
-        im = PIL.Image.open(source_path)
-        box = select_largest_box(boxes)
-        coco_bbox = box_convert(box, in_fmt="xyxy", out_fmt="xywh").tolist()
-        padding_x = coco_bbox[2] * padding
-        padding_y = coco_bbox[3] * padding
-        bbox = [
-            coco_bbox[0] - padding_x,
-            coco_bbox[1] - padding_y,
-            coco_bbox[0] + coco_bbox[2] + padding_x,
-            coco_bbox[1] + coco_bbox[3] + padding_y,
-        ]
-        im_crop = im.crop(bbox)
-        stem = Path(image_annot["image_file"]).stem
-        suffix = Path(image_annot["image_file"]).suffix
-        dist_file_name = f"{stem}-{nanoid(size=4)}{suffix}"
-        dist_path = os.path.join(dist_dir, dist_file_name)
-        im_crop.save(dist_path)
-        croped_annots.append(
-            Annotation(
-                {
-                    "image_file": dist_file_name,
-                    "species": image_annot["species"],
-                    "individual_id": image_annot["individual_id"],
-                    "label": image_annot["label"],
-                }
-            )
-        )
-    return croped_annots
-
-
 def create_croped_dataset(
-    coco: dict,
+    box_annotations: list[dict],
     annotations: list[Annotation],
     source_dir: str,
     dist_dir: str,
     padding: float = 0.05,
 ) -> list[Annotation]:
-    image_map = pipe(
-        coco["images"],
-        map(lambda x: (x["id"], x)),
-        dict,
+    image_boxes = pipe(
+        box_annotations,
+        groupby(lambda x: x["image_id"]),
     )
 
-    # filter multiple annotations
-    coco_annotations = pipe(
-        coco["annotations"],
-        groupby(lambda x: x["image_id"]),
-        lambda x: x.values(),
-        filter(lambda x: len(x) == 1),
-        map(lambda x: x[0]),
-        list,
-    )
     annotation_map = pipe(
         annotations,
-        map(lambda x: (x["image_file"], x)),
+        map(lambda x: (Path(x["image_file"]).stem, x)),
         dict,
     )
     croped_annots: list[Annotation] = []
-    for annot in coco_annotations:
-        image = image_map[annot["image_id"]]
-        image_annot = annotation_map[image["file_name"]]
-        source_path = os.path.join(source_dir, image["file_name"])
+    for image_id in image_boxes.keys():
+        boxes = image_boxes[image_id]
+        (box,) = topk(1, boxes, key=lambda x: x["score"])
+        image_annot = annotation_map[image_id]
+        source_path = os.path.join(source_dir, image_annot["image_file"])
         im = PIL.Image.open(source_path)
-        coco_bbox = annot["bbox"]
-        padding_x = coco_bbox[2] * padding
-        padding_y = coco_bbox[3] * padding
-        bbox = [
-            coco_bbox[0] - padding_x,
-            coco_bbox[1] - padding_y,
-            coco_bbox[0] + coco_bbox[2] + padding_x,
-            coco_bbox[1] + coco_bbox[3] + padding_y,
+        box_width = box["x2"] - box["x1"]
+        box_height = box["y2"] - box["y1"]
+        padding_x = box_width * padding
+        padding_y = box_height * padding
+        croped_box = [
+            box["x1"] - padding_x,
+            box["y1"] - padding_y,
+            box["x2"] + padding_x,
+            box["y2"] + padding_y,
         ]
-        im_crop = im.crop(bbox)
-        stem = Path(image_annot["image_file"]).stem
+        im_crop = im.crop(croped_box)
         suffix = Path(image_annot["image_file"]).suffix
-        dist_file_name = f"{stem}-{nanoid(size=4)}{suffix}"
+        dist_file_name = f"{image_id}-{nanoid(size=4)}{suffix}"
         dist_path = os.path.join(dist_dir, dist_file_name)
         im_crop.save(dist_path)
         croped_annots.append(
@@ -346,7 +254,7 @@ TrainTransform = lambda cfg: A.Compose(
         A.HueSaturationValue(
             hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=cfg["hue_p"]
         ),
-        A.HorizontalFlip(p=0.5),
+        # A.HorizontalFlip(p=0.5),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.Resize(
             height=cfg["image_height"],
