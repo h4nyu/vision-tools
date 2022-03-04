@@ -227,7 +227,7 @@ def task_train_convnext_fold_0() -> dict:
     train_cfg = load_config("../config/train.yaml")
     return {
         "targets": [key],
-        "file_dep": ["train_croped_annotations", "fold_0_train"],
+        "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
         "actions": [
             action(
                 fn=train,
