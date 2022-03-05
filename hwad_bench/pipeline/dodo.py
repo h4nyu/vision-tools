@@ -175,6 +175,20 @@ def task_create_train_croped_dataset() -> dict:
     }
 
 
+def task_read_test_box_annotations() -> dict:
+    key = "test_box_annotations"
+    return {
+        "targets": [key],
+        "actions": [
+            action(
+                key=key,
+                fn=read_csv,
+                args=["/app/hwad_bench/store/pred-test.csv"],
+            )
+        ],
+    }
+
+
 def task_create_test_croped_dataset() -> dict:
     key = "test_croped_annotations"
     return {
@@ -185,10 +199,10 @@ def task_create_test_croped_dataset() -> dict:
                 key=key,
                 fn=create_croped_dataset,
                 output_kwargs={
-                    "box_annotations": "train_box_annotations",
+                    "box_annotations": "test_box_annotations",
                 },
                 kwargs={
-                    "source_dir": "/app/datasets/hwad-train",
+                    "source_dir": "/app/datasets/hwad-test",
                     "dist_dir": "/app/datasets/hwad-test-croped-body",
                 },
             )
