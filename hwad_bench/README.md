@@ -1,5 +1,5 @@
 ```mermaid
-flowchart LR
+flowchart TB
 train.csv --> read_annotations((read_annotations))
 read_annotations --> train_annotations
 train_annotations --> cleansing((cleansing)) --> cleaned_annotations
@@ -16,5 +16,11 @@ train0((train_convnext_fold_0)) --> convnext_fold_0
 convnext_fold_0 --> create_train_matcher0((create_train_matcher)) --> train_matcher_fold_0
 fold_0_train --> create_train_matcher0((create_train_matcher))
 train_croped_annotations --> create_train_matcher0((create_train_matcher))
+train_matcher_fold_0 --> evaluate_fold0((evaluate_fold)) --> predict_cfg
+convnext_fold_0 --> evaluate_fold0((evaluate_fold)) 
+fold_0_val --> evaluate_fold0((evaluate_fold)) 
+
 test_box_annotations --> create_croped_dataset1((create_croped_dataset)) --> test_croped_annotations
+predict_cfg --> predict_fold_0((predict_fold)) --> submission_fold_0
+convnext_fold_0 --> predict_fold_0((predict_fold))
 ```
