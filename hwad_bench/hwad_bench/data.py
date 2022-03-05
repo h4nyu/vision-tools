@@ -325,13 +325,19 @@ class HwadCropedDataset(Dataset):
         return sample, row
 
 
-def collate_fn(batch: list[tuple[Classification, Annotation]]) -> dict[str, Tensor]:
+def collate_fn(
+    batch: list[tuple[Classification, Annotation]]
+) -> tuple[dict[str, Tensor], list[Annotation]]:
     images: list[Tensor] = []
     label_batch: list[Tensor] = []
-    for row, _ in batch:
+    annots: list[Annotation] = []
+    for row, annt in batch:
         images.append(row["image"])
         label_batch.append(row["label"])
-    return dict(
-        image_batch=torch.stack(images),
-        label_batch=torch.stack(label_batch),
+    return (
+        dict(
+            image_batch=torch.stack(images),
+            label_batch=torch.stack(label_batch),
+        ),
+        annots,
     )
