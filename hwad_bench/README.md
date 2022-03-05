@@ -2,10 +2,10 @@
 flowchart LR
 train.csv --> read_annotations((read_annotations))
 read_annotations --> train_annotations
-train_annotations --> cleansing((cleansing)) --> cleaned_annotations --> summary((summary))
-pred-r7-st.csv --> read_csv((read_csv)) --> train_box_annotations --> pkl2json((pkl2json)) --> croped.json
+train_annotations --> cleansing((cleansing)) --> cleaned_annotations
+pred-r7-st.csv --> read_csv((read_csv)) --> train_box_annotations
 cleaned_annotations --> create_croped_dataset0((create_croped_dataset)) --> train_croped_annotations
-train_box_annotations --> create_train_croped_dataset((create_train_croped_dataset))
+train_box_annotations --> create_croped_dataset0
 train-fold0.csv --> read_csv0((read_csv)) --> fold_0_train
 val-fold0.csv --> read_csv1((read_csv)) --> fold_0_val
 train_croped_annotations --> train0((train_convnext_fold_0))
