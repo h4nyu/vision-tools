@@ -66,12 +66,47 @@ def test_create_croped_dataset() -> None:
         },
     ]
     res = create_croped_dataset(
-        box_annotations, annotations, "/app/test_data", "/app/test_outputs"
+        box_annotations=box_annotations,
+        annotations=annotations,
+        source_dir="/app/test_data",
+        dist_dir="/app/test_outputs",
+        suffix=".png",
     )
-    # assert len(res) == 1
-    # assert res[0]["image_file"].startswith("dummy")
-    # assert res[0]["individual_id"] == "indiviual-0"
-    # assert res[0]["species"] == "species-0"
+    assert len(res) == 1
+    assert res[0]["image_file"].startswith("dummy")
+    assert res[0]["individual_id"] == "indiviual-0"
+    assert res[0]["species"] == "species-0"
+
+
+def test_create_test_croped_dataset() -> None:
+    box_annotations = [
+        {
+            "image_id": "dummy",
+            "x1": 20,
+            "y1": 30,
+            "x2": 40,
+            "y2": 200,
+            "score": 0.9,
+        },
+        {
+            "image_id": "dummy",
+            "x1": 20,
+            "y1": 30,
+            "x2": 40,
+            "y2": 50,
+            "score": 0.5,
+        },
+    ]
+    res = create_croped_dataset(
+        box_annotations=box_annotations,
+        source_dir="/app/test_data",
+        dist_dir="/app/test_outputs",
+        suffix=".png",
+    )
+    assert len(res) == 1
+    assert res[0]["image_file"].startswith("dummy")
+    assert res[0]["individual_id"] is None
+    assert res[0]["species"] is None
 
 
 def test_train_dataset() -> None:

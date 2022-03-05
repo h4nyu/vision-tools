@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import albumentations as A
 import cv2
@@ -26,9 +26,9 @@ Annotation = TypedDict(
     "Annotation",
     {
         "image_file": str,
-        "species": str,
-        "individual_id": str,
-        "label": int,
+        "species": Optional[str],
+        "individual_id": Optional[str],
+        "label": Optional[int],
     },
 )
 
@@ -199,10 +199,11 @@ def filter_in_annotations(
 
 def create_croped_dataset(
     box_annotations: list[dict],
-    annotations: list[Annotation],
     source_dir: str,
     dist_dir: str,
     padding: float = 0.05,
+    annotations: Optional[list[Annotation]] = None,
+    suffix: str = ".jpg",
 ) -> list[Annotation]:
     image_boxes = pipe(
         box_annotations,
@@ -210,7 +211,7 @@ def create_croped_dataset(
     )
 
     annotation_map = pipe(
-        annotations,
+        annotations or [],
         map(lambda x: (Path(x["image_file"]).stem, x)),
         dict,
     )
@@ -218,8 +219,7 @@ def create_croped_dataset(
     for image_id in image_boxes.keys():
         boxes = image_boxes[image_id]
         (box,) = topk(1, boxes, key=lambda x: x["score"])
-        image_annot = annotation_map[image_id]
-        source_path = os.path.join(source_dir, image_annot["image_file"])
+        source_path = os.path.join(source_dir, f"{image_id}{suffix}")
         im = PIL.Image.open(source_path)
         box_width = box["x2"] - box["x1"]
         box_height = box["y2"] - box["y1"]
@@ -232,7 +232,14 @@ def create_croped_dataset(
             box["y2"] + padding_y,
         ]
         im_crop = im.crop(croped_box)
-        suffix = Path(image_annot["image_file"]).suffix
+        image_annot = annotation_map.get(
+            image_id,
+            {
+                "species": None,
+                "individual_id": None,
+                "label": None,
+            },
+        )
         dist_file_name = f"{image_id}-{nanoid(size=4)}{suffix}"
         dist_path = os.path.join(dist_dir, dist_file_name)
         im_crop.save(dist_path)

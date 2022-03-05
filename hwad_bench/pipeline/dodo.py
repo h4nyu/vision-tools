@@ -175,6 +175,28 @@ def task_create_train_croped_dataset() -> dict:
     }
 
 
+def task_create_test_croped_dataset() -> dict:
+    key = "test_croped_annotations"
+    return {
+        "targets": [key],
+        "file_dep": ["test_box_annotations"],
+        "actions": [
+            action(
+                key=key,
+                fn=create_croped_dataset,
+                output_kwargs={
+                    "box_annotations": "train_box_annotations",
+                },
+                kwargs={
+                    "source_dir": "/app/datasets/hwad-train",
+                    "dist_dir": "/app/datasets/hwad-test-croped-body",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
 def task_save_croped_annotation() -> dict:
     key = "croped.json"
     dep = "train_croped_annotations"
