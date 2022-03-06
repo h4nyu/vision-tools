@@ -327,8 +327,6 @@ def evaluate(
 
     reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
     val_annots = filter_annotations_by_fold(annotations, fold_val, min_samples=0)
-    val_annots = filter_in_annotations(val_annots, reg_annots)
-
     reg_dataset = HwadCropedDataset(
         rows=reg_annots,
         image_dir=image_dir,

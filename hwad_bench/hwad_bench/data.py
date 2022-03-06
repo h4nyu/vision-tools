@@ -404,6 +404,7 @@ def search_threshold(
         map(lambda x: x["individual_id"]),
         set,
     )
+    print(len(val_annotations), len(train_annotations))
     new_individual_ids = val_individual_ids - train_individual_ids
 
     val_annotations = pipe(
@@ -418,6 +419,8 @@ def search_threshold(
         ),
         list,
     )
+
+    count = 0
     val_annot_map = pipe(
         val_annotations,
         map(
@@ -434,7 +437,6 @@ def search_threshold(
         dict,
     )
     results = []
-
     for thr in thresholds:
         metric = MeanAveragePrecisionK()
         thr_submissions = add_new_individual(submissions, thr)
