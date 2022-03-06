@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, List, Optional
 
 import albumentations as A
 import cv2
@@ -29,6 +29,16 @@ Annotation = TypedDict(
         "species": Optional[str],
         "individual_id": Optional[str],
         "label": Optional[int],
+        "individual_samples": Optional[int],
+    },
+)
+
+Submission = TypedDict(
+    "Submission",
+    {
+        "image_file": str,
+        "distances": List[float],
+        "individual_ids": List[str],
     },
 )
 
@@ -42,16 +52,6 @@ def correct_species(
     elif species == "kiler_whale":
         annotation["species"] = "killer_whale"
     return annotation
-
-
-def cleansing(
-    annotations: list[Annotation],
-) -> list[Annotation]:
-    return pipe(
-        annotations,
-        map(correct_species),
-        list,
-    )
 
 
 def summary(
@@ -135,6 +135,11 @@ def read_annotations(file_path: str) -> list:
         map(lambda x: (x[1], x[0])),
         dict,
     )
+    individual_samples = pipe(
+        df.iterrows(),
+        groupby(lambda x: x[1]["individual_id"]),
+        valmap(len),
+    )
     for _, csv_row in df.iterrows():
         rows.append(
             Annotation(
@@ -142,8 +147,14 @@ def read_annotations(file_path: str) -> list:
                 species=csv_row["species"],
                 individual_id=csv_row["individual_id"],
                 label=label_map[csv_row["individual_id"]],
+                individual_samples=individual_samples[csv_row["individual_id"]],
             )
         )
+    rows = pipe(
+        rows,
+        map(correct_species),
+        list,
+    )
     return rows
 
 
@@ -250,6 +261,7 @@ def create_croped_dataset(
                     "species": image_annot["species"],
                     "individual_id": image_annot["individual_id"],
                     "label": image_annot["label"],
+                    "individual_samples": image_annot["individual_samples"],
                 }
             )
         )
@@ -261,7 +273,6 @@ TrainTransform = lambda cfg: A.Compose(
         A.HueSaturationValue(
             hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=cfg["hue_p"]
         ),
-        # A.HorizontalFlip(p=0.5),
         A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.Resize(
             height=cfg["image_height"],

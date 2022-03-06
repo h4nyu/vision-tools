@@ -117,6 +117,7 @@ def test_train_dataset() -> None:
                 "species": "species-0",
                 "individual_id": "indiviual-0",
                 "label": 0,
+                "individual_samples": 10,
             }
         ],
         image_dir="/app/test_data",

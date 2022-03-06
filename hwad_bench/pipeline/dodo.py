@@ -11,10 +11,8 @@ import pandas as pd
 
 from hwad_bench.convnext import evaluate, train
 from hwad_bench.data import (
-    cleansing,
     create_croped_dataset,
     filter_annotations_by_fold,
-    merge_to_coco_annotations,
     read_annotations,
     read_csv,
     read_json,
@@ -79,62 +77,19 @@ def task_read_annotations() -> dict:
     }
 
 
-def task_cleansing() -> dict:
-    key = "cleaned_annotations"
+def task_summary() -> dict:
+    key = "summary"
     return {
         "targets": [key],
         "file_dep": ["train_annotations"],
         "actions": [
             action(
-                cleansing,
-                output_kwargs={
-                    "annotations": "train_annotations",
-                },
-                key=key,
-            )
-        ],
-    }
-
-
-def task_summary() -> dict:
-    key = "summary"
-    return {
-        "targets": [key],
-        "file_dep": ["cleaned_annotations"],
-        "actions": [
-            action(
                 key=key,
                 fn=summary,
-                output_kwargs={"annotations": "cleaned_annotations"},
+                output_kwargs={"annotations": "train_annotations"},
             )
         ],
         "verbosity": 2,
-    }
-
-
-def task_merge_to_coco_annotations() -> dict:
-    key = "coco_annotations"
-    file_deps = ["cleaned_annotations"]
-    return {
-        "targets": [key],
-        "file_dep": file_deps,
-        "actions": [
-            action(
-                key=key,
-                fn=merge_to_coco_annotations,
-                output_args=file_deps,
-            )
-        ],
-        "verbosity": 2,
-    }
-
-
-def task_save_coco_anntation() -> dict:
-    key = "coco_annotations.json"
-    return {
-        "file_dep": ["coco_annotations"],
-        "targets": [key],
-        "actions": [action(pkl2json, args=["coco_annotations", key])],
     }
 
 
@@ -156,14 +111,14 @@ def task_create_train_croped_dataset() -> dict:
     key = "train_croped_annotations"
     return {
         "targets": [key],
-        "file_dep": ["train_box_annotations", "cleaned_annotations"],
+        "file_dep": ["train_box_annotations", "train_annotations"],
         "actions": [
             action(
                 key=key,
                 fn=create_croped_dataset,
                 output_kwargs={
                     "box_annotations": "train_box_annotations",
-                    "annotations": "cleaned_annotations",
+                    "annotations": "train_annotations",
                 },
                 kwargs={
                     "source_dir": "/app/datasets/hwad-train",
@@ -315,11 +270,11 @@ def task_evaluate_convnext_fold_0() -> dict:
     }
 
 
-# def task_summary() -> dict:
-#     dep = "summary"
-#     return {
-#         "file_dep": [dep],
-#         "actions": [action(pprint, output_args=[dep])],
-#         "uptodate": [False],
-#         "verbosity": 2,
-#     }
+def task_preview() -> dict:
+    dep = "train_annotations"
+    return {
+        "file_dep": [dep],
+        "actions": [action(pprint, output_args=[dep])],
+        "uptodate": [False],
+        "verbosity": 2,
+    }

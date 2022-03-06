@@ -16,6 +16,7 @@ from tqdm import tqdm
 from hwad_bench.data import (
     Annotation,
     HwadCropedDataset,
+    Submission,
     TrainTransform,
     Transform,
     collate_fn,
@@ -337,7 +338,7 @@ def evaluate(
     fold_train: list[dict],
     fold_val: list[dict],
     image_dir: str,
-) -> None:
+) -> list[Submission]:
     seed_everything()
     device = model_cfg["device"]
     writer = get_writer({**train_cfg, **model_cfg, **dataset_cfg})
@@ -402,7 +403,7 @@ def evaluate(
         embeddings = model(image_batch)
         matcher.update(embeddings, label_batch)
     matcher.create_index()
-    rows: list[dict] = []
+    rows: list[Submission] = []
     for batch, batch_annots in tqdm(val_loader, total=len(val_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
@@ -413,15 +414,15 @@ def evaluate(
         for pred_topk, annot, distances in zip(
             pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
         ):
-            topk_distances = pipe(
-                zip(distances, pred_topk),
-                map(lambda x: (label_id_map[x[1]], x[0])),
-                dict,
+            individual_ids = pipe(
+                pred_topk,
+                map(lambda x: label_id_map[x]),
+                list,
             )
-            row = {
-                "image_file": annot["image_file"],
-                "topk_distances": topk_distances,
-            }
+            row = Submission(
+                image_file=annot["image_file"],
+                distances=distances,
+                individual_ids=individual_ids,
+            )
             rows.append(row)
-            print(row)
     return rows
