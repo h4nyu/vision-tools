@@ -27,4 +27,5 @@ test_box_annotations --> create_croped_dataset1((create_croped_dataset)) --> tes
 fold_0_threshold --> inference0((inference)) --> fold_0_submissions
 convnext_fold_0 --> inference0
 test_croped_annotations --> inference0
+train_croped_annotations --> inference0
 ```
