@@ -337,7 +337,7 @@ class HwadCropedDataset(Dataset):
         img_arr = np.array(im)
         transformed = self.transform(
             image=img_arr,
-            label=row["label"],
+            label=row["label"] or 0,
         )
         image = (transformed["image"] / 255).float()
         label = torch.tensor(transformed["label"])
