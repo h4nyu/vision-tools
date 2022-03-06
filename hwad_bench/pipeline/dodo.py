@@ -16,6 +16,7 @@ from hwad_bench.data import (
     read_annotations,
     read_csv,
     read_json,
+    search_threshold,
     summary,
 )
 from vision_tools.utils import load_config
@@ -166,6 +167,44 @@ def task_create_test_croped_dataset() -> dict:
     }
 
 
+def task_fold_0_val_annotations() -> dict:
+    key = "fold_0_val_annotations"
+    return {
+        "targets": [key],
+        "file_dep": ["train_croped_annotations", "fold_0_val"],
+        "actions": [
+            action(
+                key=key,
+                fn=filter_annotations_by_fold,
+                output_kwargs={
+                    "annotations": "train_croped_annotations",
+                    "fold": "fold_0_val",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_fold_0_train_annotations() -> dict:
+    key = "fold_0_train_annotations"
+    return {
+        "targets": [key],
+        "file_dep": ["train_croped_annotations", "fold_0_train"],
+        "actions": [
+            action(
+                key=key,
+                fn=filter_annotations_by_fold,
+                output_kwargs={
+                    "annotations": "train_croped_annotations",
+                    "fold": "fold_0_train",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
 def task_save_croped_annotation() -> dict:
     key = "croped.json"
     dep = "train_croped_annotations"
@@ -271,7 +310,7 @@ def task_evaluate_convnext_fold_0() -> dict:
 
 
 def task_preview() -> dict:
-    dep = "train_annotations"
+    dep = "fold_0_train_annotations"
     return {
         "file_dep": [dep],
         "actions": [action(pprint, output_args=[dep])],

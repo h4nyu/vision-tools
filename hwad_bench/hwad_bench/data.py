@@ -183,7 +183,7 @@ def read_csv(path: str) -> dict:
 def filter_annotations_by_fold(
     annotations: list[Annotation],
     fold: list[dict],
-    min_samples: int = 10,
+    min_samples: int = 0,
 ) -> list[Annotation]:
     fold = pipe(
         fold,
