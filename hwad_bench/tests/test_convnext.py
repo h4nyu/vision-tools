@@ -20,7 +20,7 @@ def test_knn() -> None:
     matcher.update(embeddings, labels)
     index = matcher.create_index()
     assert index[0].shape == (2,)
-    tgt_embeddings = torch.tensor([[1, 2], [3, 4], [4, 3]]).float()
+    tgt_embeddings = torch.tensor([[1, 2], [3, 4], [-4, -3]]).float()
     res = matcher(tgt_embeddings)
-    matched = torch.topk(res, 2)[1]
-    assert matched.tolist() == [[0, 3], [3, 0], [3, 0]]
+    values, matched = torch.topk(res, 2)
+    assert matched.tolist() == [[0, 3], [3, 0], [0, 3]]

@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from hwad_bench.convnext import create_train_matcher, evaluate, train
+from hwad_bench.convnext import evaluate, train
 from hwad_bench.data import (
     cleansing,
     create_croped_dataset,
@@ -267,35 +267,6 @@ def task_train_convnext_fold_0() -> dict:
         "actions": [
             action(
                 fn=train,
-                kwargs={
-                    "dataset_cfg": dataset_cfg,
-                    "model_cfg": model_cfg,
-                    "train_cfg": train_cfg,
-                    "fold": 0,
-                    "image_dir": "/app/datasets/hwad-train-croped-body",
-                },
-                output_kwargs={
-                    "annotations": "train_croped_annotations",
-                    "fold_train": "fold_0_train",
-                    "fold_val": "fold_0_val",
-                },
-            )
-        ],
-        "verbosity": 2,
-    }
-
-
-def task_train_matcher_fold_0() -> dict:
-    key = "train_matcher_fold_0"
-    dataset_cfg = load_config("../config/dataset.yaml")
-    model_cfg = load_config("../config/convnext-base.yaml")
-    train_cfg = load_config("../config/train.yaml")
-    return {
-        "targets": [key],
-        "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
-        "actions": [
-            action(
-                fn=create_train_matcher,
                 kwargs={
                     "dataset_cfg": dataset_cfg,
                     "model_cfg": model_cfg,

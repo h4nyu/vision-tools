@@ -334,6 +334,7 @@ def collate_fn(
     for row, annt in batch:
         images.append(row["image"])
         label_batch.append(row["label"])
+        annots.append(annt)
     return (
         dict(
             image_batch=torch.stack(images),

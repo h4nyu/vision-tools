@@ -58,7 +58,7 @@ class MeanEmbeddingMmatcher:
             self.embedding_size = embedding.shape[-1]
 
     def create_index(self) -> Tensor:
-        index = torch.zeros(self.max_classes + 1, self.embedding_size)
+        index = torch.full((self.max_classes + 1, self.embedding_size), float("nan"))
         if len(list(self.embeddings.values())) > 0:
             device = list(self.embeddings.values())[0][0]
             index = index.to(device)
@@ -66,10 +66,11 @@ class MeanEmbeddingMmatcher:
         for label, embeddings in self.embeddings.items():
             index[int(label)] = torch.mean(torch.stack(embeddings), dim=0)
         self.index = index
+        print(index)
         return index
 
     def __call__(self, embeddings: Tensor) -> Tensor:
-        return self.distance(embeddings, self.index)
+        return self.distance(embeddings, self.index).nan_to_num(float("-inf"))
 
 
 def get_model_name(cfg: dict) -> str:
@@ -328,60 +329,6 @@ def train(
 
 
 @torch.no_grad()
-def create_train_matcher(
-    dataset_cfg: dict,
-    model_cfg: dict,
-    train_cfg: dict,
-    fold: int,
-    annotations: list[Annotation],
-    fold_train: list[dict],
-    fold_val: list[dict],
-    image_dir: str,
-) -> MeanEmbeddingMmatcher:
-    device = model_cfg["device"]
-    writer = get_writer({**train_cfg, **model_cfg, **dataset_cfg})
-    model = get_model(model_cfg).to(device)
-    checkpoint = get_checkpoint(model_cfg)
-    saved_state = checkpoint.load("latest")
-    iteration = 0
-    best_score = 0.0
-    best_loss = float("inf")
-    if saved_state is not None:
-        model.load_state_dict(saved_state["model"])
-        iteration = saved_state.get("iteration", 0)
-        best_loss = saved_state.get("best_loss", float("inf"))
-        best_score = saved_state.get("best_score", 0.0)
-    print(f"Loaded checkpoint from iteration {iteration}")
-    print(f"Best score: {best_score}")
-    print(f"Best loss: {best_loss}")
-
-    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
-    reg_dataset = HwadCropedDataset(
-        rows=reg_annots,
-        image_dir=image_dir,
-        transform=Transform(dataset_cfg),
-    )
-    reg_loader = DataLoader(
-        reg_dataset,
-        batch_size=train_cfg["batch_size"],
-        shuffle=True,
-        num_workers=train_cfg["num_workers"],
-        collate_fn=collate_fn,
-    )
-    to_device = ToDevice(model_cfg["device"])
-    model.eval()
-    matcher = MeanEmbeddingMmatcher()
-    for batch, batch_annots in tqdm(reg_loader, total=len(reg_loader)):
-        batch = to_device(**batch)
-        image_batch = batch["image_batch"]
-        label_batch = batch["label_batch"]
-        embeddings = model(image_batch)
-        matcher.update(embeddings, label_batch)
-    matcher.create_index()
-    return matcher
-
-
-@torch.no_grad()
 def evaluate(
     dataset_cfg: dict,
     model_cfg: dict,
@@ -410,7 +357,7 @@ def evaluate(
     print(f"Best score: {best_score}")
     print(f"Best loss: {best_loss}")
 
-    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
+    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)[:10]
     val_annots = filter_annotations_by_fold(annotations, fold_val, min_samples=0)
     val_annots = filter_in_annotations(val_annots, reg_annots)
 
@@ -428,7 +375,7 @@ def evaluate(
     reg_loader = DataLoader(
         reg_dataset,
         batch_size=train_cfg["batch_size"],
-        shuffle=True,
+        shuffle=False,
         num_workers=train_cfg["num_workers"],
         collate_fn=collate_fn,
     )
@@ -445,27 +392,54 @@ def evaluate(
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
     matcher = MeanEmbeddingMmatcher()
-    for batch, batch_annots in tqdm(reg_loader, total=len(reg_loader)):
+    label_id_map = {}
+    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
+        ids = pipe(batch_annot, map(lambda x: x["individual_id"]), list)
+        for id, label in zip(ids, label_batch):
+            label_id_map[int(label)] = id
         embeddings = model(image_batch)
         matcher.update(embeddings, label_batch)
     matcher.create_index()
+    res: list[dict] = []
     for batch, batch_annots in tqdm(val_loader, total=len(val_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
         distance = matcher(embeddings)
-        a, pred_label_batch = distance.topk(k=5, dim=1)
-        print(a)
-        assert False
+        topk_distance, pred_label_batch = distance.topk(k=5, dim=1)
+        for pred_topk, annot, distances in zip(
+            pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
+        ):
+            print(list(label_id_map.keys()))
+            topk_distances = pipe(
+                zip(distances, pred_topk), map(lambda x: label_id_map[x[1]]), list
+            )
+            print(topk_distances)
+            row = {
+                "individual_id": annot["individual_id"],
+                "topk_distance": distances,
+                # "topk": pred_topk,
+            }
+            print(pred_topk)
+            # pred_label = [label_id_map[label] for label in pred_label]
+            # res.append(
+            #     {
+            #         "individual_id": annot["individual_id"],
+            #         "topk": pred_label,
+            #         "label": label,
+            #     }
+            # )
 
-        metric.update(
-            pred_label_batch,
-            label_batch,
-        )
+        # assert False
 
-    score, _ = metric.value
-    print(f"Score: {score}")
+    #     metric.update(
+    #         pred_label_batch,
+    #         label_batch,
+    #     )
+
+    # score, _ = metric.value
+    # print(f"Score: {score}")
