@@ -8,19 +8,17 @@ cleaned_annotations --> create_croped_dataset0((create_croped_dataset)) --> trai
 train_box_annotations --> create_croped_dataset0
 train-fold0.csv --> read_csv0((read_csv)) --> fold_0_train
 val-fold0.csv --> read_csv1((read_csv)) --> fold_0_val
-train_croped_annotations --> train0((train_convnext_fold_0))
-fold_0_train --> train0
-fold_0_val --> train0
+train_croped_annotations --> filter_by_fold0((filter_by_fold)) --> fold_0_train_annotations
+fold_0_train --> filter_by_fold0
+train_croped_annotations --> filter_by_fold1((filter_by_fold)) --> fold_0_val_annotations
+fold_0_val --> filter_by_fold1
+
+fold_0_train_annotations --> train0((train_convnext_fold_0))
+fold_0_val_annotations --> train0
 pred-test.csv --> read_csv2((read_csv)) --> test_box_annotations
 train0((train_convnext_fold_0)) --> convnext_fold_0
-convnext_fold_0 --> create_train_matcher0((create_train_matcher)) --> train_matcher_fold_0
-fold_0_train --> create_train_matcher0((create_train_matcher))
-train_croped_annotations --> create_train_matcher0((create_train_matcher))
-train_matcher_fold_0 --> evaluate_fold0((evaluate_fold)) --> predict_cfg
 convnext_fold_0 --> evaluate_fold0((evaluate_fold)) 
-fold_0_val --> evaluate_fold0((evaluate_fold)) 
+fold_0_train_annotations --> evaluate_fold0((evaluate_fold))
+fold_0_val_annotations --> evaluate_fold0
 
-test_box_annotations --> create_croped_dataset1((create_croped_dataset)) --> test_croped_annotations
-predict_cfg --> predict_fold_0((predict_fold)) --> submission_fold_0
-convnext_fold_0 --> predict_fold_0((predict_fold))
 ```
