@@ -22,4 +22,8 @@ fold_0_val_annotations --> evaluate_fold0
 fold_0_val_submissions --> search_threshold((search_threshold)) --> fold_0_threshold
 fold_0_val_annotations --> search_threshold
 fold_0_train_annotations --> search_threshold
+
+fold_0_threshold --> inference0((inference)) --> fold_0_submissions
+convnext_fold_0 --> inference0
+test_box_annotations --> inference0
 ```
