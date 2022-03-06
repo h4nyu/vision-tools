@@ -295,6 +295,7 @@ def task_evaluate_convnext_fold_0() -> dict:
         "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
         "actions": [
             action(
+                key=key,
                 fn=evaluate,
                 kwargs={
                     "dataset_cfg": dataset_cfg,

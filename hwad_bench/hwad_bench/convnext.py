@@ -66,7 +66,6 @@ class MeanEmbeddingMmatcher:
         for label, embeddings in self.embeddings.items():
             index[int(label)] = torch.mean(torch.stack(embeddings), dim=0)
         self.index = index
-        print(index)
         return index
 
     def __call__(self, embeddings: Tensor) -> Tensor:
@@ -357,7 +356,7 @@ def evaluate(
     print(f"Best score: {best_score}")
     print(f"Best loss: {best_loss}")
 
-    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)[:10]
+    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
     val_annots = filter_annotations_by_fold(annotations, fold_val, min_samples=0)
     val_annots = filter_in_annotations(val_annots, reg_annots)
 
@@ -403,7 +402,7 @@ def evaluate(
         embeddings = model(image_batch)
         matcher.update(embeddings, label_batch)
     matcher.create_index()
-    res: list[dict] = []
+    rows: list[dict] = []
     for batch, batch_annots in tqdm(val_loader, total=len(val_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
@@ -414,32 +413,15 @@ def evaluate(
         for pred_topk, annot, distances in zip(
             pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
         ):
-            print(list(label_id_map.keys()))
             topk_distances = pipe(
-                zip(distances, pred_topk), map(lambda x: label_id_map[x[1]]), list
+                zip(distances, pred_topk),
+                map(lambda x: (label_id_map[x[1]], x[0])),
+                dict,
             )
-            print(topk_distances)
             row = {
-                "individual_id": annot["individual_id"],
-                "topk_distance": distances,
-                # "topk": pred_topk,
+                "image_file": annot["image_file"],
+                "topk_distances": topk_distances,
             }
-            print(pred_topk)
-            # pred_label = [label_id_map[label] for label in pred_label]
-            # res.append(
-            #     {
-            #         "individual_id": annot["individual_id"],
-            #         "topk": pred_label,
-            #         "label": label,
-            #     }
-            # )
-
-        # assert False
-
-    #     metric.update(
-    #         pred_label_batch,
-    #         label_batch,
-    #     )
-
-    # score, _ = metric.value
-    # print(f"Score: {score}")
+            rows.append(row)
+            print(row)
+    return rows
