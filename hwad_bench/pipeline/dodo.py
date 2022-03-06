@@ -9,13 +9,14 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from hwad_bench.convnext import evaluate, train
+from hwad_bench.convnext import evaluate, inference, train
 from hwad_bench.data import (
     create_croped_dataset,
     filter_annotations_by_fold,
     read_annotations,
     read_csv,
     read_json,
+    save_submission,
     search_threshold,
     summary,
 )
@@ -351,8 +352,59 @@ def task_fold_0_search_threshold() -> dict:
     }
 
 
+def task_fold_0_submissions() -> dict:
+    key = "fold_0_submissions"
+    dataset_cfg = load_config("../config/dataset.yaml")
+    model_cfg = load_config("../config/convnext-base.yaml")
+    train_cfg = load_config("../config/train.yaml")
+    return {
+        "targets": [key],
+        "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
+        "actions": [
+            action(
+                key=key,
+                fn=inference,
+                kwargs={
+                    "dataset_cfg": dataset_cfg,
+                    "model_cfg": model_cfg,
+                    "train_cfg": train_cfg,
+                    "train_image_dir": "/app/datasets/hwad-train-croped-body",
+                    "test_image_dir": "/app/datasets/hwad-test-croped-body",
+                },
+                output_kwargs={
+                    "train_annotations": "train_croped_annotations",
+                    "test_annotations": "test_croped_annotations",
+                    "search_thresholds": "fold_0_search_threshold",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_fold_0_submission_csv() -> dict:
+    key = "fold_0_submission.csv"
+    return {
+        "targets": [key],
+        "file_dep": ["fold_0_submissions"],
+        "actions": [
+            action(
+                key=key,
+                fn=save_submission,
+                kwargs={
+                    "output_path": key,
+                },
+                output_kwargs={
+                    "submissions": "fold_0_submissions",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
 def task_preview() -> dict:
-    dep = "fold_0_search_threshold"
+    dep = "fold_0_submission.csv"
     return {
         "file_dep": [dep],
         "actions": [action(pprint, output_args=[dep])],

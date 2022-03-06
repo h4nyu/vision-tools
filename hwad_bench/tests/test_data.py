@@ -15,6 +15,7 @@ from hwad_bench.data import (
     merge_to_coco_annotations,
     read_annotations,
     read_csv,
+    save_submission,
     search_threshold,
 )
 from vision_tools.utils import load_config
@@ -225,3 +226,15 @@ def test_add_new_individual() -> None:
     )
     assert len(res) == 1
     assert res[0]["individual_ids"][3] == "new_individual"
+
+
+def test_save_submission() -> None:
+    submissions: list[Any] = [
+        dict(
+            image_file="img0-xxxxx.jpg",
+            individual_ids=["tr-0", "tr-1", "tr-1", "tr-1", "tr-1"],
+        )
+    ]
+    rows = save_submission(submissions, "/app/test_outputs/submissions.csv")
+    assert len(rows) == 1
+    assert rows[0]["image"] == "img0.jpg"

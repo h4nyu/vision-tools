@@ -3,7 +3,7 @@ from __future__ import annotations
 import timm
 import torch
 from pytorch_metric_learning.losses import ArcFaceLoss
-from toolz.curried import map, pipe
+from toolz.curried import map, pipe, topk
 from torch import Tensor, nn
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
@@ -18,6 +18,7 @@ from hwad_bench.data import (
     Submission,
     TrainTransform,
     Transform,
+    add_new_individual,
     collate_fn,
     filter_annotations_by_fold,
     filter_in_annotations,
@@ -391,4 +392,100 @@ def evaluate(
                 individual_ids=individual_ids,
             )
             rows.append(row)
+    return rows
+
+
+@torch.no_grad()
+def inference(
+    dataset_cfg: dict,
+    model_cfg: dict,
+    train_cfg: dict,
+    train_annotations: list[Annotation],
+    test_annotations: list[Annotation],
+    search_thresholds: list[dict],
+    train_image_dir: str,
+    test_image_dir: str,
+) -> list[Submission]:
+    seed_everything()
+    device = model_cfg["device"]
+    writer = get_writer({**train_cfg, **model_cfg, **dataset_cfg})
+    model = get_model(model_cfg).to(device)
+    checkpoint = get_checkpoint(model_cfg)
+    saved_state = checkpoint.load("latest")
+    iteration = 0
+    best_score = 0.0
+    best_loss = float("inf")
+    if saved_state is not None:
+        model.load_state_dict(saved_state["model"])
+        iteration = saved_state.get("iteration", 0)
+        best_loss = saved_state.get("best_loss", float("inf"))
+        best_score = saved_state.get("best_score", 0.0)
+    print(f"Loaded checkpoint from iteration {iteration}")
+    print(f"Best score: {best_score}")
+    print(f"Best loss: {best_loss}")
+
+    train_dataset = HwadCropedDataset(
+        rows=train_annotations,
+        image_dir=train_image_dir,
+        transform=Transform(dataset_cfg),
+    )
+    test_dataset = HwadCropedDataset(
+        rows=test_annotations,
+        image_dir=test_image_dir,
+        transform=Transform(dataset_cfg),
+    )
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=train_cfg["batch_size"],
+        shuffle=False,
+        num_workers=train_cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=train_cfg["batch_size"],
+        shuffle=False,
+        num_workers=train_cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+    to_device = ToDevice(model_cfg["device"])
+    threshold = topk(1, search_thresholds, key=lambda x: x["score"])[0]["threshold"]
+    print(f"Threshold: {threshold}")
+    model.eval()
+    matcher = MeanEmbeddingMmatcher()
+    label_id_map = {}
+    for batch, batch_annot in tqdm(train_loader, total=len(train_loader)):
+        batch = to_device(**batch)
+        image_batch = batch["image_batch"]
+        label_batch = batch["label_batch"]
+        ids = pipe(batch_annot, map(lambda x: x["individual_id"]), list)
+        for id, label in zip(ids, label_batch):
+            label_id_map[int(label)] = id
+        embeddings = model(image_batch)
+        matcher.update(embeddings, label_batch)
+    matcher.create_index()
+    rows: list[Submission] = []
+    for batch, batch_annots in tqdm(test_loader, total=len(test_loader)):
+        batch = to_device(**batch)
+        image_batch = batch["image_batch"]
+        label_batch = batch["label_batch"]
+        embeddings = model(image_batch)
+        distance = matcher(embeddings)
+        topk_distance, pred_label_batch = distance.topk(k=5, dim=1)
+        for pred_topk, annot, distances in zip(
+            pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
+        ):
+            individual_ids = pipe(
+                pred_topk,
+                map(lambda x: label_id_map[x]),
+                list,
+            )
+            row = Submission(
+                image_file=annot["image_file"],
+                distances=distances,
+                individual_ids=individual_ids,
+            )
+            rows.append(row)
+    rows = add_new_individual(rows, threshold)
     return rows

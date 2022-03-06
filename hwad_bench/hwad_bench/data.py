@@ -375,7 +375,7 @@ def add_new_individual(
     for sub in submissions:
         has_added = False
         individua_ids = []
-        new_sub = {
+        new_sub: Any = {
             **sub,
         }
         for (id, distance) in zip(sub["individual_ids"], sub["distances"]):
@@ -393,7 +393,7 @@ def search_threshold(
     val_annotations: list[Annotation],
     submissions: list[Submission],
     thresholds: list[float],
-) -> float:
+) -> list[dict]:
     train_individual_ids = pipe(
         train_annotations,
         map(lambda x: x["individual_id"]),
@@ -468,10 +468,19 @@ def search_threshold(
         )
     return results
 
-    # print(label_map)
 
-    # # ids = pipe(
-    # #     annotations,
-    # #     map(lambda x: x["individual_id"]),
-    # #     set,
-    # # )
+def save_submission(
+    submissions: list[Submission],
+    output_path: str,
+) -> list[dict]:
+    rows: list[dict] = []
+    for sub in submissions:
+        image_id = sub["image_file"].split("-")[0]
+        row = {
+            "image": f"{image_id}.jpg",
+            "predictions": " ".join(sub["individual_ids"]),
+        }
+        rows.append(row)
+    df = pd.DataFrame(rows)
+    df.to_csv(output_path, index=False)
+    return rows
