@@ -9,11 +9,13 @@ from hwad_bench.data import (
     Annotation,
     HwadCropedDataset,
     TrainTransform,
+    add_new_individual,
     create_croped_dataset,
     filter_annotations_by_fold,
     merge_to_coco_annotations,
     read_annotations,
     read_csv,
+    search_threshold,
 )
 from vision_tools.utils import load_config
 
@@ -160,3 +162,66 @@ def test_filter_annotations_by_fold() -> None:
     filtered = filter_annotations_by_fold(annotations, fold, min_samples=5)
     assert len(filtered) == 1
     assert filtered[0]["image_file"] == "img0-box0.png"
+
+
+def test_search_thresold() -> None:
+    val_annotations: list[Any] = [
+        {
+            "image_file": "img0-box0.png",
+            "species": "species-0",
+            "individual_id": "val-0",
+            "label": 1,
+        },
+        {
+            "image_file": "img1--b0.png",
+            "species": "species-0",
+            "individual_id": "tr-0",
+            "label": 2,
+        },
+    ]
+    train_annotations: list[Any] = [
+        {
+            "image_file": "img0-box0.png",
+            "species": "species-0",
+            "individual_id": "tr-0",
+            "label": 1,
+        },
+        {
+            "image_file": "img1--b0.png",
+            "species": "species-0",
+            "individual_id": "tr-1",
+            "label": 2,
+        },
+    ]
+    submissions: list[Any] = [
+        dict(
+            image_file="img0-box0.png",
+            distances=[0.9, 0.8, 0.7, 0.6, 0.5],
+            individual_ids=["tr-0", "tr-1", "tr-1", "tr-1", "tr-1"],
+        ),
+    ]
+
+    res = search_threshold(
+        train_annotations=train_annotations,
+        val_annotations=val_annotations,
+        submissions=submissions,
+        thresholds=[0.5, 0.95],
+    )
+    assert res == [{"threshold": 0.5, "score": 0.0}, {"threshold": 0.95, "score": 1.0}]
+
+
+def test_add_new_individual() -> None:
+    submissions: list[Any] = [
+        dict(
+            image_file="img0.jpg",
+            distances=[0.9, 0.8, 0.7, 0.6, 0.5],
+            individual_ids=["tr-0", "tr-1", "tr-1", "tr-1", "tr-1"],
+        ),
+    ]
+
+    res = add_new_individual(
+        submissions=submissions,
+        threshold=0.7,
+    )
+    assert len(res) == 1
+    assert res[0]["individual_ids"][3] == "new_individual"

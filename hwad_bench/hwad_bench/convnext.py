@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import timm
 import torch
-from pytorch_metric_learning.distances import CosineSimilarity
 from pytorch_metric_learning.losses import ArcFaceLoss
 from toolz.curried import map, pipe
 from torch import Tensor, nn
@@ -27,6 +26,8 @@ from hwad_bench.metrics import MeanAveragePrecisionK
 from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
+from .matchers import MeanEmbeddingMmatcher
+
 
 class ConvNeXt(nn.Module):
     def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
@@ -38,39 +39,6 @@ class ConvNeXt(nn.Module):
         out = self.model(x)
         out = F.normalize(out, p=2, dim=1)
         return out
-
-
-class MeanEmbeddingMmatcher:
-    def __init__(self) -> None:
-        self.embeddings: dict[int, list[Tensor]] = {}
-        self.index: Tensor = torch.zeros(0, 0)
-        self.max_classes = 0
-        self.embedding_size = 0
-        self.distance = CosineSimilarity()
-
-    def update(self, embeddings: Tensor, labels: Tensor) -> None:
-        embeddings = F.normalize(embeddings, p=2, dim=1)
-        for label, embedding in zip(labels, embeddings):
-            label = int(label)
-            old_embedding = self.embeddings.get(label, [])
-            self.embeddings[label] = old_embedding + [embedding]
-            if self.max_classes < label:
-                self.max_classes = label
-            self.embedding_size = embedding.shape[-1]
-
-    def create_index(self) -> Tensor:
-        index = torch.full((self.max_classes + 1, self.embedding_size), float("nan"))
-        if len(list(self.embeddings.values())) > 0:
-            device = list(self.embeddings.values())[0][0]
-            index = index.to(device)
-
-        for label, embeddings in self.embeddings.items():
-            index[int(label)] = torch.mean(torch.stack(embeddings), dim=0)
-        self.index = index
-        return index
-
-    def __call__(self, embeddings: Tensor) -> Tensor:
-        return self.distance(embeddings, self.index).nan_to_num(float("-inf"))
 
 
 def get_model_name(cfg: dict) -> str:

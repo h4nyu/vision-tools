@@ -13,7 +13,17 @@ import PIL
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from nanoid import generate as nanoid
-from toolz.curried import filter, frequencies, groupby, map, pipe, sorted, topk, valmap
+from toolz.curried import (
+    filter,
+    frequencies,
+    groupby,
+    map,
+    mapcat,
+    pipe,
+    sorted,
+    topk,
+    valmap,
+)
 from torch import Tensor
 from torch.utils.data import Dataset
 from torchvision.ops import box_area, box_convert
@@ -21,6 +31,8 @@ from typing_extensions import TypedDict
 
 from coco_annotator import CocoCategory, CocoImage
 from vision_tools.interface import Classification
+
+from .metrics import MeanAveragePrecisionK
 
 Annotation = TypedDict(
     "Annotation",
@@ -353,3 +365,111 @@ def collate_fn(
         ),
         annots,
     )
+
+
+def add_new_individual(
+    submissions: list[Submission],
+    threshold: float,
+) -> list[Submission]:
+    new_submissions = []
+    for sub in submissions:
+        has_added = False
+        individua_ids = []
+        new_sub = {
+            **sub,
+        }
+        for (id, distance) in zip(sub["individual_ids"], sub["distances"]):
+            if not has_added and distance < threshold:
+                individua_ids.append("new_individual")
+                has_added = True
+            individua_ids.append(id)
+        new_sub["individual_ids"] = individua_ids[: len(sub["individual_ids"])]
+        new_submissions.append(new_sub)
+    return new_submissions
+
+
+def search_threshold(
+    train_annotations: list[Annotation],
+    val_annotations: list[Annotation],
+    submissions: list[Submission],
+    thresholds: list[float],
+) -> float:
+    train_individual_ids = pipe(
+        train_annotations,
+        map(lambda x: x["individual_id"]),
+        set,
+    )
+    val_individual_ids = pipe(
+        val_annotations,
+        map(lambda x: x["individual_id"]),
+        set,
+    )
+    new_individual_ids = val_individual_ids - train_individual_ids
+
+    val_annotations = pipe(
+        val_annotations,
+        map(
+            lambda x: {
+                **x,
+                "individual_id": "new_individual"
+                if x["individual_id"] in new_individual_ids
+                else x["individual_id"],
+            }
+        ),
+        list,
+    )
+    val_annot_map = pipe(
+        val_annotations,
+        map(
+            lambda x: (x["image_file"], x),
+        ),
+        dict,
+    )
+    all_individual_ids = train_individual_ids | set(["new_individual"])
+    label_map = pipe(
+        all_individual_ids,
+        sorted,
+        enumerate,
+        map(lambda x: (x[1], x[0])),
+        dict,
+    )
+    results = []
+
+    for thr in thresholds:
+        metric = MeanAveragePrecisionK()
+        thr_submissions = add_new_individual(submissions, thr)
+        for sub in thr_submissions:
+            labels_at_k = (
+                pipe(
+                    sub["individual_ids"],
+                    map(lambda x: label_map[x]),
+                    list,
+                    torch.tensor,
+                )
+                .long()
+                .unsqueeze(0)
+            )
+            annot = val_annot_map[sub["image_file"]]
+            labels = pipe(
+                [annot["individual_id"]],
+                map(lambda x: label_map[x]),
+                list,
+                torch.tensor,
+            ).long()
+            metric.update(labels_at_k, labels)
+        score, _ = metric.value
+        results.append(
+            {
+                "threshold": thr,
+                "score": score,
+            }
+        )
+    return results
+
+    # print(label_map)
+
+    # # ids = pipe(
+    # #     annotations,
+    # #     map(lambda x: x["individual_id"]),
+    # #     set,
+    # # )
