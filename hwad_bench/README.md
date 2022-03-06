@@ -18,7 +18,7 @@ fold_0_val_annotations --> train0
 pred-test.csv --> read_csv2((read_csv)) --> test_box_annotations
 train0((train_convnext_fold_0)) --> convnext_fold_0
 convnext_fold_0 --> evaluate_fold0((evaluate_fold)) 
-fold_0_train_annotations --> evaluate_fold0((evaluate_fold))
+fold_0_train_annotations --> evaluate_fold0((evaluate_fold)) --> fold_0_val_submissions
 fold_0_val_annotations --> evaluate_fold0
 
 ```
