@@ -383,7 +383,7 @@ def task_fold_0_submissions() -> dict:
 
 
 def task_fold_0_submission_csv() -> dict:
-    key = "fold_0_submission.csv"
+    key = "fold_0_submission_csv"
     return {
         "targets": [key],
         "file_dep": ["fold_0_submissions"],
@@ -392,7 +392,7 @@ def task_fold_0_submission_csv() -> dict:
                 key=key,
                 fn=save_submission,
                 kwargs={
-                    "output_path": key,
+                    "output_path": "fold_0_submission.csv",
                 },
                 output_kwargs={
                     "submissions": "fold_0_submissions",
