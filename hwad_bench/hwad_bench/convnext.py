@@ -178,6 +178,7 @@ def train(
         #     for k, v in state.items():
         #         if torch.is_tensor(v):
         #             state[k] = v.to(device)
+        scheduler.load_state_dict(saved_state["scheduler"])
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
     print(f"iteration: {iteration}")
@@ -205,7 +206,7 @@ def train(
                 scaler.unscale_(optimizer)
                 scaler.step(optimizer)
                 scaler.update()
-                scheduler.step(iteration)
+            scheduler.step()
 
             train_meter.update({"loss": loss.item()})
 
@@ -251,6 +252,7 @@ def train(
                             "model": model.state_dict(),
                             "loss_fn": loss_fn.state_dict(),
                             "optimizer": optimizer.state_dict(),
+                            "schedule": scheduler.state_dict(),
                             "iteration": iteration,
                             "score": score,
                             "best_score": best_score,
@@ -263,6 +265,7 @@ def train(
                         "model": model.state_dict(),
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
+                        "schedule": scheduler.state_dict(),
                         "iteration": iteration,
                         "score": score,
                         "loss": loss,
