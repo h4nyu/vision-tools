@@ -266,13 +266,11 @@ def task_train_convnext_fold_0() -> dict:
                     "dataset_cfg": dataset_cfg,
                     "model_cfg": model_cfg,
                     "train_cfg": train_cfg,
-                    "fold": 0,
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },
                 output_kwargs={
-                    "annotations": "train_croped_annotations",
-                    "fold_train": "fold_0_train",
-                    "fold_val": "fold_0_val",
+                    "train_annotations": "fold_0_train_annotations",
+                    "val_annotations": "fold_0_val_annotations",
                 },
             )
         ],

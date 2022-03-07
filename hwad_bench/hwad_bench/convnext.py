@@ -3,7 +3,7 @@ from __future__ import annotations
 import timm
 import torch
 from pytorch_metric_learning.losses import ArcFaceLoss
-from toolz.curried import map, pipe, topk
+from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
@@ -92,10 +92,8 @@ def train(
     dataset_cfg: dict,
     model_cfg: dict,
     train_cfg: dict,
-    fold: int,
-    annotations: list[Annotation],
-    fold_train: list[dict],
-    fold_val: list[dict],
+    train_annotations: list[Annotation],
+    val_annotations: list[Annotation],
     image_dir: str,
 ) -> None:
     seed_everything()
@@ -103,56 +101,25 @@ def train(
     eval_interval = train_cfg["eval_interval"]
     device = model_cfg["device"]
     writer = get_writer({**train_cfg, **model_cfg, **dataset_cfg})
-
-    train_annots = filter_annotations_by_fold(
-        annotations, fold_train, min_samples=train_cfg["min_samples"]
+    cleaned_annoations = pipe(
+        train_annotations,
+        filter(lambda x: x["individual_samples"] >= train_cfg["min_samples"]),
+        list,
     )
-
-    # TODO num_class
-    loss_fn = ArcFaceLoss(
-        num_classes=dataset_cfg["num_classes"],
-        embedding_size=model_cfg["embedding_size"],
-    )
-    model = get_model(model_cfg).to(device)
-    optimizer = Adam(
-        list(model.parameters()) + list(loss_fn.parameters()),
-        lr=train_cfg["lr"],
-    )
-
-    checkpoint = get_checkpoint(model_cfg)
-    saved_state = checkpoint.load(train_cfg["resume"])
-    iteration = 0
-    best_score = 0.0
-    best_loss = float("inf")
-    if saved_state is not None:
-        model.load_state_dict(saved_state["model"])
-        loss_fn.load_state_dict(saved_state["loss_fn"])
-        optimizer.load_state_dict(saved_state["optimizer"])
-        for state in optimizer.state.values():
-            for k, v in state.items():
-                if torch.is_tensor(v):
-                    state[k] = v.to(device)
-        iteration = saved_state.get("iteration", 0)
-        best_loss = saved_state.get("best_loss", float("inf"))
-        best_score = saved_state.get("best_score", 0.0)
-
-    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
-
-    val_annots = filter_annotations_by_fold(annotations, fold_val, min_samples=0)
-    val_annots = filter_in_annotations(val_annots, reg_annots)
     train_dataset = HwadCropedDataset(
-        rows=train_annots,
+        rows=cleaned_annoations,
         image_dir=image_dir,
         transform=TrainTransform(dataset_cfg),
     )
 
     reg_dataset = HwadCropedDataset(
-        rows=reg_annots,
+        rows=train_annotations,
         image_dir=image_dir,
         transform=Transform(dataset_cfg),
     )
+
     val_dataset = HwadCropedDataset(
-        rows=val_annots,
+        rows=filter_in_annotations(val_annotations, train_annotations),
         image_dir=image_dir,
         transform=Transform(dataset_cfg),
     )
@@ -179,6 +146,35 @@ def train(
         num_workers=train_cfg["num_workers"],
         collate_fn=collate_fn,
     )
+
+    # TODO num_class
+    loss_fn = ArcFaceLoss(
+        num_classes=train_dataset.num_classes,
+        embedding_size=model_cfg["embedding_size"],
+    )
+    model = get_model(model_cfg).to(device)
+    optimizer = Adam(
+        list(model.parameters()) + list(loss_fn.parameters()),
+        lr=train_cfg["lr"],
+    )
+
+    checkpoint = get_checkpoint(model_cfg)
+    saved_state = checkpoint.load(train_cfg["resume"])
+    iteration = 0
+    best_score = 0.0
+    best_loss = float("inf")
+    if saved_state is not None:
+        model.load_state_dict(saved_state["model"])
+        loss_fn.load_state_dict(saved_state["loss_fn"])
+        optimizer.load_state_dict(saved_state["optimizer"])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device)
+        iteration = saved_state.get("iteration", 0)
+        best_loss = saved_state.get("best_loss", float("inf"))
+        best_score = saved_state.get("best_score", 0.0)
+
     to_device = ToDevice(model_cfg["device"])
     scaler = GradScaler(enabled=use_amp)
 
@@ -225,13 +221,18 @@ def train(
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
-
                         loss = loss_fn(
                             embeddings,
                             label_batch,
                         )
                         distance = matcher(embeddings)
                         pred_label_batch = distance.topk(k=5, dim=1)[1]
+                        label_batch = pipe(
+                            label_batch.tolist(),
+                            map(lambda x: reg_dataset.label_map[val_dataset.id_map[x]]),
+                            list,
+                            torch.tensor,
+                        ).to(label_batch)
                         val_meter.update({"loss": loss.item()})
                         metric.update(
                             pred_label_batch,

@@ -126,6 +126,9 @@ def test_train_dataset() -> None:
         image_dir="/app/test_data",
         transform=TrainTransform(dataset_cfg),
     )
+    assert dataset.label_map == {"indiviual-0": 0}
+    assert dataset.id_map == {0: "indiviual-0"}
+    assert dataset.num_classes == 1
     for i in range(10):
         sample, _ = dataset[0]
         writer.add_image(f"aug", sample["image"], i)
