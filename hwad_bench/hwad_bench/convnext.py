@@ -27,7 +27,7 @@ from hwad_bench.metrics import MeanAveragePrecisionK
 from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
-from .matchers import MeanEmbeddingMmatcher
+from .matchers import MeanEmbeddingMatcher
 
 
 class ConvNeXt(nn.Module):
@@ -214,7 +214,7 @@ def train(
                 model.eval()
                 loss_fn.eval()
                 metric = MeanAveragePrecisionK()
-                matcher = MeanEmbeddingMmatcher()
+                matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
                     for batch, _ in tqdm(reg_loader, total=len(reg_loader)):
                         batch = to_device(**batch)
@@ -340,7 +340,7 @@ def evaluate(
     model.eval()
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
-    matcher = MeanEmbeddingMmatcher()
+    matcher = MeanEmbeddingMatcher()
     label_id_map = {}
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
@@ -435,7 +435,7 @@ def inference(
     threshold = topk(1, search_thresholds, key=lambda x: x["score"])[0]["threshold"]
     print(f"Threshold: {threshold}")
     model.eval()
-    matcher = MeanEmbeddingMmatcher()
+    matcher = MeanEmbeddingMatcher()
     label_id_map = {}
     for batch, batch_annot in tqdm(train_loader, total=len(train_loader)):
         batch = to_device(**batch)
