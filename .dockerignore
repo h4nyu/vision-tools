@@ -1,6 +1,7 @@
 **/datasets
 **/store
 **/runs
+**/pipeline
 kaggle.json
 .git
 .cache
