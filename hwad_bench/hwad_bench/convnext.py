@@ -3,11 +3,12 @@ from __future__ import annotations
 import timm
 import torch
 from pytorch_metric_learning.losses import ArcFaceLoss
+from timm.scheduler.cosine_lr import CosineLRScheduler
 from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
-from torch.optim import Adam
+from torch.optim import Adam, AdamW
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -154,31 +155,44 @@ def train(
         embedding_size=model_cfg["embedding_size"],
     )
     model = get_model(model_cfg).to(device)
-    optimizer = Adam(
+    optimizer = AdamW(
         list(model.parameters()) + list(loss_fn.parameters()),
         lr=train_cfg["lr"],
+        weight_decay=train_cfg["weight_decay"],
     )
 
     checkpoint = get_checkpoint(model_cfg)
     saved_state = checkpoint.load(train_cfg["resume"])
     iteration = 0
     best_score = 0.0
+    scheduler = CosineLRScheduler(
+        optimizer,
+        t_initial=200,
+        lr_min=1e-4,
+        warmup_t=20,
+        warmup_lr_init=5e-5,
+        warmup_prefix=True,
+    )
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
-        optimizer.load_state_dict(saved_state["optimizer"])
-        for state in optimizer.state.values():
-            for k, v in state.items():
-                if torch.is_tensor(v):
-                    state[k] = v.to(device)
+        # optimizer.load_state_dict(saved_state["optimizer"])
+        # for state in optimizer.state.values():
+        #     for k, v in state.items():
+        #         if torch.is_tensor(v):
+        #             state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
+    print(f"iteration: {iteration}")
+    print(f"best_score: {best_score}")
 
     to_device = ToDevice(model_cfg["device"])
     scaler = GradScaler(enabled=use_amp)
 
-    for epoch in range(train_cfg["epochs"]):
+    for _ in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
+        epoch = iteration // len(train_loader)
+        scheduler.step(epoch)
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
             iteration += 1
             model.train()
@@ -234,6 +248,9 @@ def train(
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
                 writer.add_scalar(f"val/score", score, iteration)
+                writer.add_scalar(
+                    f"train/lr", scheduler.get_epoch_values(epoch), iteration
+                )
 
                 if score > best_score:
                     best_score = score

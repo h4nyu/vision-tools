@@ -1,8 +1,10 @@
 use_amp: true
-lr: 0.0001
 epochs: 999
 batch_size: 8
 num_workers: 8
 eval_interval: 2000
 resume: latest
 min_samples: 5
+lr: 4.0e-3
+weight_decay: 0.05
+warmup_t: 20
