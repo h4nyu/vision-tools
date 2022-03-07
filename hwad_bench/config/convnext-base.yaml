@@ -3,5 +3,5 @@ name: convnext_small
 embedding_size: 512
 pretrained: true
 checkpoint_path: /app/hwad_bench/store
-
+version: v1
 fold: 0

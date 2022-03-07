@@ -49,6 +49,7 @@ def get_model_name(cfg: dict) -> str:
             cfg["fold"],
             cfg["embedding_size"],
             cfg["pretrained"],
+            cfg["version"],
         ],
         map(str),
         "-".join,
@@ -162,7 +163,6 @@ def train(
     saved_state = checkpoint.load(train_cfg["resume"])
     iteration = 0
     best_score = 0.0
-    best_loss = float("inf")
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
@@ -172,7 +172,6 @@ def train(
                 if torch.is_tensor(v):
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
-        best_loss = saved_state.get("best_loss", float("inf"))
         best_score = saved_state.get("best_score", 0.0)
 
     to_device = ToDevice(model_cfg["device"])
@@ -180,7 +179,7 @@ def train(
 
     for epoch in range(train_cfg["epochs"]):
         train_meter = MeanReduceDict()
-        for batch in tqdm(train_loader, total=len(train_loader)):
+        for batch, _ in tqdm(train_loader, total=len(train_loader)):
             iteration += 1
             model.train()
             loss_fn.train()
@@ -205,46 +204,35 @@ def train(
             if iteration % eval_interval == 0:
                 model.eval()
                 loss_fn.eval()
-                val_meter = MeanReduceDict()
                 metric = MeanAveragePrecisionK()
                 matcher = MeanEmbeddingMmatcher()
                 with torch.no_grad():
-                    for batch in tqdm(reg_loader, total=len(reg_loader)):
+                    for batch, _ in tqdm(reg_loader, total=len(reg_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
                         matcher.update(embeddings, label_batch)
                     matcher.create_index()
-                    for batch in tqdm(val_loader, total=len(val_loader)):
+                    for batch, annots in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
-                        label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
-                        loss = loss_fn(
-                            embeddings,
-                            label_batch,
-                        )
                         distance = matcher(embeddings)
                         pred_label_batch = distance.topk(k=5, dim=1)[1]
                         label_batch = pipe(
-                            label_batch.tolist(),
-                            map(lambda x: reg_dataset.label_map[val_dataset.id_map[x]]),
+                            annots,
+                            map(lambda x: reg_dataset.label_map[x["individual_id"]]),
                             list,
                             torch.tensor,
                         ).to(label_batch)
-                        val_meter.update({"loss": loss.item()})
                         metric.update(
                             pred_label_batch,
                             label_batch,
                         )
-
                 score, _ = metric.value
-                loss = val_meter.value["loss"]
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
-                for k, v in val_meter.value.items():
-                    writer.add_scalar(f"val/{k}", v, iteration)
                 writer.add_scalar(f"val/score", score, iteration)
 
                 if score > best_score:
@@ -256,28 +244,11 @@ def train(
                             "optimizer": optimizer.state_dict(),
                             "iteration": iteration,
                             "score": score,
-                            "loss": loss,
                             "best_score": best_score,
-                            "best_loss": best_loss,
                         },
                         target="best_score",
                     )
 
-                if loss < best_loss:
-                    best_loss = loss
-                    checkpoint.save(
-                        {
-                            "model": model.state_dict(),
-                            "loss_fn": loss_fn.state_dict(),
-                            "optimizer": optimizer.state_dict(),
-                            "iteration": iteration,
-                            "score": score,
-                            "loss": loss,
-                            "best_score": best_score,
-                            "best_loss": best_loss,
-                        },
-                        target="best_loss",
-                    )
                 checkpoint.save(
                     {
                         "model": model.state_dict(),
@@ -287,12 +258,10 @@ def train(
                         "score": score,
                         "loss": loss,
                         "best_score": best_score,
-                        "best_loss": best_loss,
                     },
                     target="latest",
                 )
                 train_meter.reset()
-                val_meter.reset()
                 metric.reset()
 
         writer.flush()
