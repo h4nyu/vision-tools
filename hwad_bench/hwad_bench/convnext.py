@@ -220,6 +220,8 @@ def train(
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         embeddings = model(image_batch)
+                        logit = loss_fn.get_logits(embeddings)
+                        pred_label_batch = logit.topk(k=5, dim=1)[1]
                         label_batch = pipe(
                             annots,
                             map(lambda x: train_dataset.label_map[x["individual_id"]]),
@@ -230,7 +232,12 @@ def train(
                             embeddings,
                             label_batch,
                         )
+                        metric.update(
+                            pred_label_batch,
+                            label_batch,
+                        )
                     val_meter.update({"loss": loss.item()})
+                    score, _ = metric.value
                 score, _ = metric.value
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
@@ -238,6 +245,7 @@ def train(
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
                 writer.add_scalar(f"val/loss", val_meter.value["loss"], iteration)
+                writer.add_scalar(f"val/score", score, iteration)
                 writer.add_scalar(f"train/lr", scheduler.get_last_lr()[0], iteration)
 
                 if score > best_score:
