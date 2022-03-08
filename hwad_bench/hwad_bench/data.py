@@ -27,6 +27,7 @@ from toolz.curried import (
 from torch import Tensor
 from torch.utils.data import Dataset
 from torchvision.ops import box_area, box_convert
+from tqdm import tqdm
 from typing_extensions import TypedDict
 
 from coco_annotator import CocoCategory, CocoImage
@@ -453,7 +454,7 @@ def search_threshold(
         dict,
     )
     results = []
-    for thr in thresholds:
+    for thr in tqdm(thresholds):
         metric = MeanAveragePrecisionK()
         thr_submissions = add_new_individual(submissions, thr)
         for sub in thr_submissions:

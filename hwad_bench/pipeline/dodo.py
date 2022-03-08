@@ -7,6 +7,7 @@ from pathlib import Path
 from pprint import pprint
 from typing import Any, Callable
 
+import numpy as np
 import pandas as pd
 
 from hwad_bench.convnext import evaluate, inference, train
@@ -278,7 +279,7 @@ def task_train_convnext_fold_0() -> dict:
     }
 
 
-def task_evaluate_convnext_fold_0() -> dict:
+def task_fold_0_val_submissions() -> dict:
     key = "fold_0_val_submissions"
     dataset_cfg = load_config("../config/dataset.yaml")
     model_cfg = load_config("../config/convnext-base.yaml")
@@ -298,9 +299,8 @@ def task_evaluate_convnext_fold_0() -> dict:
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },
                 output_kwargs={
-                    "annotations": "train_croped_annotations",
-                    "fold_train": "fold_0_train",
-                    "fold_val": "fold_0_val",
+                    "train_annotations": "fold_0_train_annotations",
+                    "val_annotations": "fold_0_val_annotations",
                 },
             )
         ],
@@ -315,29 +315,13 @@ def task_fold_0_search_threshold() -> dict:
         "file_dep": [
             "fold_0_val_submissions",
             "fold_0_train_annotations",
-            "fold_0_val_annotations",
         ],
         "actions": [
             action(
                 key=key,
                 fn=search_threshold,
                 kwargs={
-                    "thresholds": [
-                        0.2,
-                        0.3,
-                        0.31,
-                        0.32,
-                        0.33,
-                        0.34,
-                        0.35,
-                        0.36,
-                        0.37,
-                        0.38,
-                        0.39,
-                        0.4,
-                        0.45,
-                        0.5,
-                    ],
+                    "thresholds": np.linspace(0.0, 1.0, 100).tolist(),
                 },
                 output_kwargs={
                     "train_annotations": "fold_0_train_annotations",
@@ -402,7 +386,7 @@ def task_fold_0_submission_csv() -> dict:
 
 
 def task_preview() -> dict:
-    dep = "fold_0_submission.csv"
+    dep = "fold_0_search_threshold"
     return {
         "file_dep": [dep],
         "actions": [action(pprint, output_args=[dep])],

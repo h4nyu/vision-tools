@@ -280,9 +280,8 @@ def evaluate(
     model_cfg: dict,
     train_cfg: dict,
     fold: int,
-    annotations: list[Annotation],
-    fold_train: list[dict],
-    fold_val: list[dict],
+    train_annotations: list[Annotation],
+    val_annotations: list[Annotation],
     image_dir: str,
 ) -> list[Submission]:
     seed_everything()
@@ -303,15 +302,13 @@ def evaluate(
     print(f"Best score: {best_score}")
     print(f"Best loss: {best_loss}")
 
-    reg_annots = filter_annotations_by_fold(annotations, fold_train, min_samples=0)
-    val_annots = filter_annotations_by_fold(annotations, fold_val, min_samples=0)
     reg_dataset = HwadCropedDataset(
-        rows=reg_annots,
+        rows=train_annotations,
         image_dir=image_dir,
         transform=Transform(dataset_cfg),
     )
     val_dataset = HwadCropedDataset(
-        rows=val_annots,
+        rows=val_annotations,
         image_dir=image_dir,
         transform=Transform(dataset_cfg),
     )
@@ -341,9 +338,6 @@ def evaluate(
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
-        ids = pipe(batch_annot, map(lambda x: x["individual_id"]), list)
-        for id, label in zip(ids, label_batch):
-            label_id_map[int(label)] = id
         embeddings = model(image_batch)
         matcher.update(embeddings, label_batch)
     matcher.create_index()
@@ -359,7 +353,7 @@ def evaluate(
         ):
             individual_ids = pipe(
                 pred_topk,
-                map(lambda x: label_id_map[x]),
+                map(lambda x: reg_dataset.id_map[x]),
                 list,
             )
             row = Submission(
