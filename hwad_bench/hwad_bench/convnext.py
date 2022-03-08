@@ -120,7 +120,7 @@ def train(
     )
 
     val_dataset = HwadCropedDataset(
-        rows=filter_in_annotations(val_annotations, train_annotations),
+        rows=filter_in_annotations(val_annotations, cleaned_annoations),
         image_dir=image_dir,
         transform=Transform(dataset_cfg),
     )
@@ -173,11 +173,11 @@ def train(
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
-        # optimizer.load_state_dict(saved_state["optimizer"])
-        # for state in optimizer.state.values():
-        #     for k, v in state.items():
-        #         if torch.is_tensor(v):
-        #             state[k] = v.to(device)
+        optimizer.load_state_dict(saved_state["optimizer"])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device)
         scheduler.load_state_dict(saved_state["scheduler"])
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
@@ -214,35 +214,30 @@ def train(
                 model.eval()
                 loss_fn.eval()
                 metric = MeanAveragePrecisionK()
-                matcher = MeanEmbeddingMatcher()
+                val_meter = MeanReduceDict()
                 with torch.no_grad():
-                    for batch, _ in tqdm(reg_loader, total=len(reg_loader)):
-                        batch = to_device(**batch)
-                        image_batch = batch["image_batch"]
-                        label_batch = batch["label_batch"]
-                        embeddings = model(image_batch)
-                        matcher.update(embeddings, label_batch)
-                    matcher.create_index()
                     for batch, annots in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         embeddings = model(image_batch)
-                        distance = matcher(embeddings)
-                        pred_label_batch = distance.topk(k=5, dim=1)[1]
                         label_batch = pipe(
                             annots,
-                            map(lambda x: reg_dataset.label_map[x["individual_id"]]),
+                            map(lambda x: train_dataset.label_map[x["individual_id"]]),
                             list,
                             torch.tensor,
                         ).to(label_batch)
-                        metric.update(
-                            pred_label_batch,
+                        loss = loss_fn(
+                            embeddings,
                             label_batch,
                         )
+                    val_meter.update({"loss": loss.item()})
                 score, _ = metric.value
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
-                writer.add_scalar(f"val/score", score, iteration)
+
+                for k, v in val_meter.value.items():
+                    writer.add_scalar(f"val/{k}", v, iteration)
+                writer.add_scalar(f"val/loss", val_meter.value["loss"], iteration)
                 writer.add_scalar(f"train/lr", scheduler.get_last_lr()[0], iteration)
 
                 if score > best_score:
@@ -252,7 +247,7 @@ def train(
                             "model": model.state_dict(),
                             "loss_fn": loss_fn.state_dict(),
                             "optimizer": optimizer.state_dict(),
-                            "schedule": scheduler.state_dict(),
+                            "scheduler": scheduler.state_dict(),
                             "iteration": iteration,
                             "score": score,
                             "best_score": best_score,
@@ -265,7 +260,7 @@ def train(
                         "model": model.state_dict(),
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
-                        "schedule": scheduler.state_dict(),
+                        "scheduler": scheduler.state_dict(),
                         "iteration": iteration,
                         "score": score,
                         "loss": loss,
@@ -358,8 +353,7 @@ def evaluate(
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
-        distance = matcher(embeddings)
-        topk_distance, pred_label_batch = distance.topk(k=5, dim=1)
+        topk_distance, pred_label_batch = matcher(embeddings, k=5)
         for pred_topk, annot, distances in zip(
             pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
         ):
@@ -453,8 +447,7 @@ def inference(
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
-        distance = matcher(embeddings)
-        topk_distance, pred_label_batch = distance.topk(k=5, dim=1)
+        topk_distance, pred_label_batch = matcher(embeddings, k=5)
         for pred_topk, annot, distances in zip(
             pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
         ):
