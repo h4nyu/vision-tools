@@ -296,6 +296,7 @@ TrainTransform = lambda cfg: A.Compose(
             height=cfg["image_height"],
             width=cfg["image_width"],
             scale=(0.8, 1.0),
+            ratio=(0.9, 1.1),
             interpolation=cv2.INTER_NEAREST,
             p=cfg["random_resized_crop_p"],
         ),
