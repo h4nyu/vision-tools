@@ -113,15 +113,8 @@ def train(
         image_dir=image_dir,
         transform=TrainTransform(dataset_cfg),
     )
-
-    reg_dataset = HwadCropedDataset(
-        rows=train_annotations,
-        image_dir=image_dir,
-        transform=Transform(dataset_cfg),
-    )
-
     val_dataset = HwadCropedDataset(
-        rows=filter_in_annotations(val_annotations, cleaned_annoations),
+        rows=val_annotations,
         image_dir=image_dir,
         transform=Transform(dataset_cfg),
     )
@@ -132,15 +125,6 @@ def train(
         num_workers=train_cfg["num_workers"],
         collate_fn=collate_fn,
     )
-
-    reg_loader = DataLoader(
-        reg_dataset,
-        batch_size=train_cfg["batch_size"],
-        shuffle=True,
-        num_workers=train_cfg["num_workers"],
-        collate_fn=collate_fn,
-    )
-
     val_loader = DataLoader(
         val_dataset,
         batch_size=train_cfg["batch_size"],
@@ -151,7 +135,7 @@ def train(
 
     # TODO num_class
     loss_fn = ArcFaceLoss(
-        num_classes=train_dataset.num_classes,
+        num_classes=train_cfg["num_classes"],
         embedding_size=model_cfg["embedding_size"],
     )
     model = get_model(model_cfg).to(device)
@@ -186,7 +170,6 @@ def train(
     print(f"best_score: {best_score}")
     to_device = ToDevice(model_cfg["device"])
     scaler = GradScaler(enabled=use_amp)
-
     for _ in range((train_cfg["total_steps"] - iteration) // len(train_loader)):
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
@@ -279,7 +262,6 @@ def train(
                 )
                 train_meter.reset()
                 metric.reset()
-
         writer.flush()
 
 
@@ -342,7 +324,6 @@ def evaluate(
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
     matcher = MeanEmbeddingMatcher()
-    label_id_map = {}
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]

@@ -5,9 +5,10 @@ num_workers: 6
 eval_interval: 1000
 resume: latest
 min_samples: 0
-lr: 1.0e-4
+lr: 2.0e-4
 weight_decay: 0.05
 warmup_t: 20
 steps_per_epoch: 100
 total_steps: 70000
 pct_start: 0.1
+num_classes: 15587
