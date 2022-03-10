@@ -45,8 +45,9 @@ class ConvNeXt(nn.Module):
 def get_model_name(cfg: dict) -> str:
     return pipe(
         [
-            cfg["name"],
+            "fold",
             cfg["fold"],
+            cfg["name"],
             cfg["embedding_size"],
             cfg["pretrained"],
             cfg["version"],
