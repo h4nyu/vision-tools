@@ -9,5 +9,5 @@ lr: 1.0e-4
 weight_decay: 0.05
 warmup_t: 20
 steps_per_epoch: 100
-total_steps: 60000
+total_steps: 70000
 pct_start: 0.1
