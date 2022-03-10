@@ -137,7 +137,7 @@ def train(
     loss_fn = ArcFaceLoss(
         num_classes=train_cfg["num_classes"],
         embedding_size=model_cfg["embedding_size"],
-    )
+    ).to(device)
     model = get_model(model_cfg).to(device)
     optimizer = optim.AdamW(
         list(model.parameters()) + list(loss_fn.parameters()),
@@ -174,25 +174,25 @@ def train(
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
             iteration += 1
-            model.train()
-            loss_fn.train()
-            batch = to_device(**batch)
-            image_batch = batch["image_batch"]
-            label_batch = batch["label_batch"]
-            optimizer.zero_grad()
-            with autocast(enabled=use_amp):
-                embeddings = model(image_batch)
-                loss = loss_fn(
-                    embeddings,
-                    label_batch,
-                )
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                scaler.step(optimizer)
-                scaler.update()
-            scheduler.step()
+            # model.train()
+            # loss_fn.train()
+            # batch = to_device(**batch)
+            # image_batch = batch["image_batch"]
+            # label_batch = batch["label_batch"]
+            # optimizer.zero_grad()
+            # with autocast(enabled=use_amp):
+            #     embeddings = model(image_batch)
+            #     loss = loss_fn(
+            #         embeddings,
+            #         label_batch,
+            #     )
+            #     scaler.scale(loss).backward()
+            #     scaler.unscale_(optimizer)
+            #     scaler.step(optimizer)
+            #     scaler.update()
+            # scheduler.step()
 
-            train_meter.update({"loss": loss.item()})
+            # train_meter.update({"loss": loss.item()})
 
             if iteration % eval_interval == 0:
                 model.eval()
@@ -203,15 +203,10 @@ def train(
                     for batch, annots in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
+                        label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
                         logit = loss_fn.get_logits(embeddings)
                         pred_label_batch = logit.topk(k=5, dim=1)[1]
-                        label_batch = pipe(
-                            annots,
-                            map(lambda x: train_dataset.label_map[x["individual_id"]]),
-                            list,
-                            torch.tensor,
-                        ).to(label_batch)
                         loss = loss_fn(
                             embeddings,
                             label_batch,
