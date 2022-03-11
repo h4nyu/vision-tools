@@ -283,20 +283,16 @@ def create_croped_dataset(
 
 TrainTransform = lambda cfg: A.Compose(
     [
-        A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
         A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],
             interpolation=cv2.INTER_NEAREST,
         ),
-        A.RandomResizedCrop(
-            height=cfg["image_height"],
-            width=cfg["image_width"],
-            scale=(0.8, 1.0),
-            ratio=(0.9, 1.1),
-            interpolation=cv2.INTER_NEAREST,
-            p=cfg["random_resized_crop_p"],
+        A.HueSaturationValue(
+            hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=cfg["hue_p"]
         ),
+        A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
+        A.HorizontalFlip(p=0.5),
         ToTensorV2(),
     ],
 )

@@ -163,7 +163,6 @@ def train(
             for k, v in state.items():
                 if torch.is_tensor(v):
                     state[k] = v.to(device)
-        scheduler.load_state_dict(saved_state["scheduler"])
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
     print(f"iteration: {iteration}")
@@ -174,25 +173,25 @@ def train(
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
             iteration += 1
-            # model.train()
-            # loss_fn.train()
-            # batch = to_device(**batch)
-            # image_batch = batch["image_batch"]
-            # label_batch = batch["label_batch"]
-            # optimizer.zero_grad()
-            # with autocast(enabled=use_amp):
-            #     embeddings = model(image_batch)
-            #     loss = loss_fn(
-            #         embeddings,
-            #         label_batch,
-            #     )
-            #     scaler.scale(loss).backward()
-            #     scaler.unscale_(optimizer)
-            #     scaler.step(optimizer)
-            #     scaler.update()
-            # scheduler.step()
+            model.train()
+            loss_fn.train()
+            batch = to_device(**batch)
+            image_batch = batch["image_batch"]
+            label_batch = batch["label_batch"]
+            optimizer.zero_grad()
+            with autocast(enabled=use_amp):
+                embeddings = model(image_batch)
+                loss = loss_fn(
+                    embeddings,
+                    label_batch,
+                )
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                scaler.step(optimizer)
+                scaler.update()
+            scheduler.step(iteration)
 
-            # train_meter.update({"loss": loss.item()})
+            train_meter.update({"loss": loss.item()})
 
             if iteration % eval_interval == 0:
                 model.eval()
@@ -234,7 +233,6 @@ def train(
                             "model": model.state_dict(),
                             "loss_fn": loss_fn.state_dict(),
                             "optimizer": optimizer.state_dict(),
-                            "scheduler": scheduler.state_dict(),
                             "iteration": iteration,
                             "score": score,
                             "best_score": best_score,
@@ -247,7 +245,6 @@ def train(
                         "model": model.state_dict(),
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
-                        "scheduler": scheduler.state_dict(),
                         "iteration": iteration,
                         "score": score,
                         "loss": loss,
