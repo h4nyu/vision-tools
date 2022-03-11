@@ -1,14 +1,14 @@
 use_amp: true
 epochs: 999
-batch_size: 16
+batch_size: 8
 num_workers: 6
 eval_interval: 1000
 resume: latest
 min_samples: 0
-lr: 2.0e-4
+lr: 4.0e-4
 weight_decay: 0.05
 warmup_t: 20
 steps_per_epoch: 100
-total_steps: 80000
+total_steps: 100000
 pct_start: 0.1
 num_classes: 15587

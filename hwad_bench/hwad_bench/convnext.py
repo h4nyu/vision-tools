@@ -81,6 +81,7 @@ def get_writer(cfg: dict) -> SummaryWriter:
             cfg["lr"],
             cfg["random_resized_crop_p"],
             cfg["min_samples"],
+            cfg["batch_size"],
         ],
         map(str),
         "-".join,
@@ -214,7 +215,7 @@ def train(
                             pred_label_batch,
                             label_batch,
                         )
-                    val_meter.update({"loss": loss.item()})
+                        val_meter.update({"loss": loss.item()})
                     score, _ = metric.value
                 score, _ = metric.value
                 for k, v in train_meter.value.items():
@@ -225,6 +226,9 @@ def train(
                 writer.add_scalar(f"val/loss", val_meter.value["loss"], iteration)
                 writer.add_scalar(f"val/score", score, iteration)
                 writer.add_scalar(f"train/lr", scheduler.get_last_lr()[0], iteration)
+                train_meter.reset()
+                metric.reset()
+                val_meter.reset()
 
                 if score > best_score:
                     best_score = score
@@ -252,8 +256,6 @@ def train(
                     },
                     target="latest",
                 )
-                train_meter.reset()
-                metric.reset()
         writer.flush()
 
 
@@ -298,7 +300,7 @@ def evaluate(
 
     reg_loader = DataLoader(
         reg_dataset,
-        batch_size=train_cfg["batch_size"],
+        batch_size=train_cfg["batch_size"] * 2,
         shuffle=False,
         num_workers=train_cfg["num_workers"],
         collate_fn=collate_fn,
@@ -316,6 +318,7 @@ def evaluate(
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
     matcher = MeanEmbeddingMatcher()
+
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
@@ -406,14 +409,10 @@ def inference(
     print(f"Threshold: {threshold}")
     model.eval()
     matcher = MeanEmbeddingMatcher()
-    label_id_map = {}
     for batch, batch_annot in tqdm(train_loader, total=len(train_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
-        ids = pipe(batch_annot, map(lambda x: x["individual_id"]), list)
-        for id, label in zip(ids, label_batch):
-            label_id_map[int(label)] = id
         embeddings = model(image_batch)
         matcher.update(embeddings, label_batch)
     matcher.create_index()
@@ -429,7 +428,7 @@ def inference(
         ):
             individual_ids = pipe(
                 pred_topk,
-                map(lambda x: label_id_map[x]),
+                map(lambda x: train_dataset.id_map[x]),
                 list,
             )
             row = Submission(

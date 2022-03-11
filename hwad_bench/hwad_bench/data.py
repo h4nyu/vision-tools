@@ -319,6 +319,16 @@ class HwadCropedDataset(Dataset):
         self.rows = rows
         self.image_dir = image_dir
         self.transform = transform
+        self.id_map = pipe(
+            rows,
+            map(lambda x: (x["label"], x["individual_id"])),
+            dict,
+        )
+        self.label_map = pipe(
+            rows,
+            map(lambda x: (x["individual_id"], x["label"])),
+            dict,
+        )
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -332,7 +342,7 @@ class HwadCropedDataset(Dataset):
         img_arr = np.array(im)
         transformed = self.transform(
             image=img_arr,
-            label=row["label"],
+            label=row["label"] or 0,
         )
         image = (transformed["image"] / 255).float()
         label = torch.tensor(transformed["label"])
