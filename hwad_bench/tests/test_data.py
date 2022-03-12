@@ -22,6 +22,8 @@ from vision_tools.utils import load_config
 
 dataset_cfg = load_config("config/dataset.yaml")
 
+train_cfg = load_config("config/train.yaml")
+
 writer = SummaryWriter("/app/hwad_bench/pipeline/runs/test")
 
 
@@ -112,7 +114,7 @@ def test_create_test_croped_dataset() -> None:
     assert res[0]["species"] is None
 
 
-def test_train_dataset() -> None:
+def test_aug() -> None:
     dataset = HwadCropedDataset(
         rows=[
             {
@@ -124,12 +126,9 @@ def test_train_dataset() -> None:
             }
         ],
         image_dir="/app/test_data",
-        transform=TrainTransform(dataset_cfg),
+        transform=TrainTransform(train_cfg),
     )
-    assert dataset.label_map == {"indiviual-0": 0}
-    assert dataset.id_map == {0: "indiviual-0"}
-    assert dataset.num_classes == 1
-    for i in range(10):
+    for i in range(100):
         sample, _ = dataset[0]
         writer.add_image(f"aug", sample["image"], i)
     writer.flush()

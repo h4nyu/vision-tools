@@ -112,12 +112,12 @@ def train(
     train_dataset = HwadCropedDataset(
         rows=cleaned_annoations,
         image_dir=image_dir,
-        transform=TrainTransform(dataset_cfg),
+        transform=TrainTransform(train_cfg),
     )
     val_dataset = HwadCropedDataset(
         rows=val_annotations,
         image_dir=image_dir,
-        transform=Transform(dataset_cfg),
+        transform=Transform(train_cfg),
     )
     train_loader = DataLoader(
         train_dataset,
@@ -290,12 +290,12 @@ def evaluate(
     reg_dataset = HwadCropedDataset(
         rows=train_annotations,
         image_dir=image_dir,
-        transform=Transform(dataset_cfg),
+        transform=Transform(train_cfg),
     )
     val_dataset = HwadCropedDataset(
         rows=val_annotations,
         image_dir=image_dir,
-        transform=Transform(dataset_cfg),
+        transform=Transform(train_cfg),
     )
 
     reg_loader = DataLoader(
@@ -382,12 +382,12 @@ def inference(
     train_dataset = HwadCropedDataset(
         rows=train_annotations,
         image_dir=train_image_dir,
-        transform=Transform(dataset_cfg),
+        transform=Transform(train_cfg),
     )
     test_dataset = HwadCropedDataset(
         rows=test_annotations,
         image_dir=test_image_dir,
-        transform=Transform(dataset_cfg),
+        transform=Transform(train_cfg),
     )
     train_loader = DataLoader(
         train_dataset,
