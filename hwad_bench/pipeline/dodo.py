@@ -252,11 +252,10 @@ def task_read_fold_0_val() -> dict:
     }
 
 
-def task_train_convnext_fold_0() -> dict:
-    key = "train_convnext_fold_0"
+def task_fold_0_train_model() -> dict:
+    key = "fold_0_train_model"
     dataset_cfg = load_config("../config/dataset.yaml")
     model_cfg = load_config("../config/convnext-base.yaml")
-    train_cfg = load_config("../config/train.yaml")
     return {
         "targets": [key],
         "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
@@ -266,7 +265,6 @@ def task_train_convnext_fold_0() -> dict:
                 kwargs={
                     "dataset_cfg": dataset_cfg,
                     "model_cfg": model_cfg,
-                    "train_cfg": train_cfg,
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },
                 output_kwargs={
@@ -283,7 +281,6 @@ def task_fold_0_val_submissions() -> dict:
     key = "fold_0_val_submissions"
     dataset_cfg = load_config("../config/dataset.yaml")
     model_cfg = load_config("../config/convnext-base.yaml")
-    train_cfg = load_config("../config/train.yaml")
     return {
         "targets": [key],
         "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
@@ -294,7 +291,6 @@ def task_fold_0_val_submissions() -> dict:
                 kwargs={
                     "dataset_cfg": dataset_cfg,
                     "model_cfg": model_cfg,
-                    "train_cfg": train_cfg,
                     "fold": 0,
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },
@@ -338,7 +334,6 @@ def task_fold_0_submissions() -> dict:
     key = "fold_0_submissions"
     dataset_cfg = load_config("../config/dataset.yaml")
     model_cfg = load_config("../config/convnext-base.yaml")
-    train_cfg = load_config("../config/train.yaml")
     return {
         "targets": [key],
         "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
@@ -349,7 +344,6 @@ def task_fold_0_submissions() -> dict:
                 kwargs={
                     "dataset_cfg": dataset_cfg,
                     "model_cfg": model_cfg,
-                    "train_cfg": train_cfg,
                     "train_image_dir": "/app/datasets/hwad-train-croped-body",
                     "test_image_dir": "/app/datasets/hwad-test-croped-body",
                 },

@@ -61,6 +61,14 @@ class NearestMatcher:
 
     def __call__(self, embeddings: Tensor, k: int) -> tuple[Tensor, Tensor]:
         distance = self.distance(embeddings, self.embeddings)
-        matched_distance, indices = distance.topk(k, dim=1)
+        print(distance)
+        matched_distance, indices = distance.sort(
+            dim=1,
+            descending=True,
+        )
+        print(matched_distance, indices)
         matched_labels = self.labels[indices]
+        for matched_distance, matched_label in zip(matched_distance, matched_labels):
+            print(matched_distance, matched_label.unique(return_inverse=True))
+            print(matched_distance, matched_label)
         return matched_distance, matched_labels

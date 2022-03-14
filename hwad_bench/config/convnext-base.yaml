@@ -5,3 +5,28 @@ pretrained: true
 checkpoint_path: /app/hwad_bench/store
 version: v1
 fold: 0
+
+use_amp: true
+epochs: 999
+batch_size: 25
+num_workers: 6
+eval_interval: 1000
+resume: best_score
+min_samples: 4
+lr: 1.0e-4
+weight_decay: 0.05
+steps_per_epoch: 100
+lr_patience: 2
+lr_factor: 0.9
+total_steps: 50_000
+warmup_stemps: 5_000
+num_classes: 15587
+
+affine_p: 0.0
+image_width: 512
+image_height: 512
+hue_p: 0.0
+brightness_contrast_p: 0.0
+to_gray_p: 0.0
+random_resized_crop_p: 1.0
+hflip_p: 0.0

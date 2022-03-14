@@ -288,13 +288,15 @@ TrainTransform = lambda cfg: A.Compose(
             shear=(-10, 10),
             translate_percent=(-0.1, 0.1),
             interpolation=cv2.INTER_NEAREST,
-            p=1.0,
+            p=cfg["affine_p"],
         ),
-        A.ToGray(p=0.1),
+        A.ToGray(p=cfg["to_gray_p"]),
         A.HueSaturationValue(
             hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=10, p=cfg["hue_p"]
         ),
-        A.RandomBrightnessContrast(brightness_limit=0.10, contrast_limit=0.10, p=0.9),
+        A.RandomBrightnessContrast(
+            brightness_limit=0.10, contrast_limit=0.10, p=cfg["brightness_contrast_p"]
+        ),
         A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],

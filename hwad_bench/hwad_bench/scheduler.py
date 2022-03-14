@@ -40,11 +40,8 @@ class WarmupReduceLROnPlaetou(_LRScheduler):
         )
         self.last_epoch = -1
 
-    def step(self, metrics: Union[Tensor, float], epoch: Optional[int] = None) -> None:  # type: ignore
-        if epoch is None:
-            self.last_epoch += 1
-        else:
-            self.last_epoch = epoch
+    def step(self, metrics: Union[Tensor, float]) -> None:  # type: ignore
+        self.last_epoch += 1
 
         if self.last_epoch < self.warmup_steps:
             self.warmup.step(self.last_epoch)
