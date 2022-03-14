@@ -208,6 +208,25 @@ class Checkpoint:
         torch.save(state, path)  # type: ignore
 
 
+class EarlyStopping:
+    def __init__(
+        self,
+        patience: int,
+    ) -> None:
+        self.patience = patience
+        self.reset()
+
+    def reset(self) -> None:
+        self.counter = 0
+
+    def step(
+        self,
+        score: dict,
+    ) -> None:
+        path = self.root_dir / f"{target}.pth"
+        torch.save(state, path)  # type: ignore
+
+
 @torch.no_grad()
 def draw(
     image: Tensor,

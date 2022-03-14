@@ -50,10 +50,9 @@ def get_model_name(cfg: dict) -> str:
             cfg["name"],
             cfg["embedding_size"],
             cfg["pretrained"],
-            cfg["version"],
         ],
         map(str),
-        "-".join,
+        "_".join,
     )
 
 
@@ -78,13 +77,15 @@ def get_writer(cfg: dict) -> SummaryWriter:
     writer_name = pipe(
         [
             model_name,
+            cfg["version"],
             cfg["lr"],
             cfg["random_resized_crop_p"],
             cfg["min_samples"],
             cfg["batch_size"],
+            cfg["hflip_p"],
         ],
         map(str),
-        "-".join,
+        "_".join,
     )
     return SummaryWriter(
         f"runs/{writer_name}",
@@ -114,8 +115,13 @@ def train(
         image_dir=image_dir,
         transform=TrainTransform(train_cfg),
     )
+    reg_dataset = HwadCropedDataset(
+        rows=train_annotations,
+        image_dir=image_dir,
+        transform=Transform(train_cfg),
+    )
     val_dataset = HwadCropedDataset(
-        rows=val_annotations,
+        rows=filter_in_annotations(val_annotations, train_annotations),
         image_dir=image_dir,
         transform=Transform(train_cfg),
     )
@@ -128,6 +134,13 @@ def train(
     )
     val_loader = DataLoader(
         val_dataset,
+        batch_size=train_cfg["batch_size"],
+        shuffle=False,
+        num_workers=train_cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+    reg_loader = DataLoader(
+        reg_dataset,
         batch_size=train_cfg["batch_size"],
         shuffle=False,
         num_workers=train_cfg["num_workers"],
@@ -154,7 +167,7 @@ def train(
         optimizer,
         total_steps=train_cfg["total_steps"],
         max_lr=train_cfg["lr"],
-        pct_start=train_cfg["pct_start"],
+        pct_start=train_cfg["warmup_steps"] / train_cfg["total_steps"],
     )
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
@@ -199,14 +212,22 @@ def train(
                 loss_fn.eval()
                 metric = MeanAveragePrecisionK()
                 val_meter = MeanReduceDict()
+                matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
+
+                    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
+                        batch = to_device(**batch)
+                        image_batch = batch["image_batch"]
+                        label_batch = batch["label_batch"]
+                        embeddings = model(image_batch)
+                        matcher.update(embeddings, label_batch)
+                    matcher.create_index()
                     for batch, annots in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
-                        logit = loss_fn.get_logits(embeddings)
-                        pred_label_batch = logit.topk(k=5, dim=1)[1]
+                        _, pred_label_batch = matcher(embeddings, k=5)
                         loss = loss_fn(
                             embeddings,
                             label_batch,
