@@ -7,7 +7,7 @@ from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
-from torch.optim.lr_scheduler import ReduceLROnPlateau  # type: ignore
+from torch.optim.lr_scheduler import OneCycleLR  # type: ignore
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -164,19 +164,16 @@ def train(
     saved_state = checkpoint.load(model_cfg["resume"])
     iteration = 0
     best_score = 0.0
-    scheduler = WarmupReduceLROnPlaetou(
+    scheduler = OneCycleLR(
         optimizer,
-        mode="max",
+        total_steps=model_cfg["total_steps"],
         max_lr=model_cfg["lr"],
-        warmup_steps=model_cfg["warmup_steps"],
-        factor=model_cfg["lr_factor"],
-        patience=model_cfg["lr_patience"],
+        pct_start=model_cfg["warmup_steps"] / model_cfg["total_steps"],
     )
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
         optimizer.load_state_dict(saved_state["optimizer"])
-        scheduler.load_state_dict(saved_state["scheduler"])
         for state in optimizer.state.values():
             for k, v in state.items():
                 if torch.is_tensor(v):
@@ -208,6 +205,7 @@ def train(
                 scaler.step(optimizer)
                 scaler.update()
 
+            scheduler.step(iteration)
             train_meter.update({"loss": loss.item()})
 
             if iteration % eval_interval == 0:
@@ -242,7 +240,6 @@ def train(
                         val_meter.update({"loss": loss.item()})
                     score, _ = metric.value
                 score, _ = metric.value
-                scheduler.step(score)
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
 
@@ -264,7 +261,6 @@ def train(
                             "model": model.state_dict(),
                             "loss_fn": loss_fn.state_dict(),
                             "optimizer": optimizer.state_dict(),
-                            "scheduler": scheduler.state_dict(),
                             "iteration": iteration,
                             "score": score,
                             "best_score": best_score,
@@ -277,10 +273,8 @@ def train(
                         "model": model.state_dict(),
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
-                        "scheduler": scheduler.state_dict(),
                         "iteration": iteration,
                         "score": score,
-                        "loss": loss,
                         "best_score": best_score,
                     },
                     target="latest",
