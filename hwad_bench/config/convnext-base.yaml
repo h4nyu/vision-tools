@@ -18,8 +18,8 @@ weight_decay: 0.05
 steps_per_epoch: 100
 lr_patience: 2
 lr_factor: 0.9
-total_steps: 50_000
-warmup_steps: 5_000
+total_steps: 30_000
+warmup_steps: 3_000
 num_classes: 15587
 
 affine_p: 0.0
@@ -30,3 +30,4 @@ brightness_contrast_p: 0.0
 to_gray_p: 0.0
 random_resized_crop_p: 1.0
 hflip_p: 0.5
+rot90_p: 0.5

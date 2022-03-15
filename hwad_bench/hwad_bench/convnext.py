@@ -58,6 +58,7 @@ def get_model_name(cfg: dict) -> str:
             cfg["batch_size"],
             cfg["hflip_p"],
             cfg["affine_p"],
+            # cfg["rot90_p"],
         ],
         map(str),
         "_".join,

@@ -303,6 +303,7 @@ TrainTransform = lambda cfg: A.Compose(
             interpolation=cv2.INTER_NEAREST,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
+        # A.RandomRotate90(p=cfg["rot90_p"]),
         ToTensorV2(),
     ],
 )
