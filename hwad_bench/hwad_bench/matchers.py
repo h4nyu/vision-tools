@@ -72,7 +72,7 @@ class NearestMatcher:
             zip(all_matched_distance, all_matched_labels)
         ):
             topk_distance, topk_label = [], []
-            unique_labels = set()
+            unique_labels: set[int] = set()
             for distance, label in zip(distance, labels):
                 if len(unique_labels) >= k:
                     break
