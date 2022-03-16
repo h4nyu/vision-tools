@@ -60,15 +60,30 @@ class NearestMatcher:
         self.labels = torch.cat(self.labels_list, dim=0)
 
     def __call__(self, embeddings: Tensor, k: int) -> tuple[Tensor, Tensor]:
-        distance = self.distance(embeddings, self.embeddings)
-        print(distance)
-        matched_distance, indices = distance.sort(
+        all_distance = self.distance(embeddings, self.embeddings)
+        all_matched_distance, indices = all_distance.sort(
             dim=1,
             descending=True,
         )
-        print(matched_distance, indices)
-        matched_labels = self.labels[indices]
-        for matched_distance, matched_label in zip(matched_distance, matched_labels):
-            print(matched_distance, matched_label.unique(return_inverse=True))
-            print(matched_distance, matched_label)
-        return matched_distance, matched_labels
+        all_matched_labels = self.labels[indices]
+        matched_distance = torch.full((embeddings.shape[0], k), float("nan"))
+        matched_labels = torch.full((embeddings.shape[0], k), float("nan"))
+        for i, (distance, labels) in enumerate(
+            zip(all_matched_distance, all_matched_labels)
+        ):
+            topk_distance, topk_label = [], []
+            unique_labels = set()
+            for distance, label in zip(distance, labels):
+                if len(unique_labels) >= k:
+                    break
+                if label not in unique_labels:
+                    topk_distance.append(float(distance))
+                    topk_label.append(int(label))
+                    unique_labels.add(label)
+            left = k - len(topk_distance)
+            if left > 0:
+                topk_distance += [topk_distance[-1]] * left
+                topk_label += [topk_label[-1]] * left
+            matched_distance[i] = torch.tensor(topk_distance)
+            matched_labels[i] = torch.tensor(topk_label)
+        return matched_distance.to(embeddings), matched_labels.to(self.labels)

@@ -21,6 +21,7 @@ from hwad_bench.data import (
 from vision_tools.utils import load_config
 
 dataset_cfg = load_config("config/dataset.yaml")
+model_cfg = load_config("config/convnext-base.yaml")
 
 train_cfg = load_config("config/train.yaml")
 
@@ -126,7 +127,7 @@ def test_aug() -> None:
             }
         ],
         image_dir="/app/test_data",
-        transform=TrainTransform(train_cfg),
+        transform=TrainTransform(model_cfg),
     )
     for i in range(100):
         sample, _ = dataset[0]
