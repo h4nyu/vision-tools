@@ -28,7 +28,7 @@ from hwad_bench.scheduler import WarmupReduceLROnPlaetou
 from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
-from .matchers import MeanEmbeddingMatcher
+from .matchers import MeanEmbeddingMatcher, NearestMatcher
 
 
 class ConvNeXt(nn.Module):
@@ -339,7 +339,8 @@ def evaluate(
     model.eval()
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
-    matcher = MeanEmbeddingMatcher()
+    # matcher = MeanEmbeddingMatcher()
+    matcher = NearestMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
