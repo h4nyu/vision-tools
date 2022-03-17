@@ -2,12 +2,12 @@ model_name: convnext_tiny
 embedding_size: 512
 pretrained: true
 num_classes: 128
-image_height: 1024
-image_width: 1024
+image_height: 512
+image_width: 512
 fold_id: 0
 n_splits: 5
 image_dir: "/app/tl_sandbox/pipeline/images"
-batch_size: 2
+batch_size: 8
 lr: 1.0e-3
 hflip_p: 0.5
 vflip_p: 0.5
