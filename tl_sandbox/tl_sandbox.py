@@ -32,6 +32,31 @@ Transform = lambda cfg: A.Compose(
     ],
 )
 
+TrainTransform = lambda cfg: A.Compose(
+    [
+        A.Resize(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            interpolation=cv2.INTER_NEAREST,
+        ),
+        A.HorizontalFlip(p=cfg["hflip_p"]),
+        A.VerticalFlip(p=cfg["vflip_p"]),
+        A.RandomRotate90(p=cfg["rot90_p"]),
+        ToTensorV2(),
+    ],
+)
+
+Transform = lambda cfg: A.Compose(
+    [
+        A.Resize(
+            height=cfg["image_height"],
+            width=cfg["image_width"],
+            interpolation=cv2.INTER_NEAREST,
+        ),
+        ToTensorV2(),
+    ],
+)
+
 
 def kfold(
     rows: Any,
@@ -74,7 +99,7 @@ class DrawingDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> tuple[dict, dict]:
+    def __getitem__(self, idx: int) -> dict:
         row = self.rows.iloc[idx]
         image_path = os.path.join(self.image_dir, row["file_name"])
         im = PIL.Image.open(image_path).convert("RGB")
@@ -90,7 +115,7 @@ class DrawingDataset(Dataset):
             image=image,
             label=label,
         )
-        return sample, row
+        return sample
 
 
 class ConvNeXt(nn.Module):
@@ -98,10 +123,12 @@ class ConvNeXt(nn.Module):
         super().__init__()
         self.name = name
         self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
+        self.reg_head = nn.Linear(embedding_size, 1)
 
     def forward(self, x: Tensor) -> Tensor:
         out = self.model(x)
         out = F.normalize(out, p=2, dim=1)
+        out = self.reg_head(out)
         return out
 
 
@@ -117,21 +144,24 @@ class LtConvNext(LightningModule):
             embedding_size=cfg["embedding_size"],
             pretrained=cfg["pretrained"],
         )
-        self.loss_fn = ArcFaceLoss(
-            num_classes=cfg["num_classes"],
-            embedding_size=cfg["embedding_size"],
-        )
+        self.loss_fn = nn.L1Loss()
 
     def configure_optimizers(self) -> Any:
         return torch.optim.SGD(self.model.parameters(), lr=self.cfg["lr"])
 
     def forward(self, batch: Any) -> Tensor:  # type: ignore
-        x, y = batch
-        embeddings = self.model(x)
-        loss = self.loss_fn(embeddings, y)
+        images = batch["image"]
+        labels = batch["label"]
+        preds = self.model(images)
+        loss = self.loss_fn(preds, labels)
         return loss
 
     def training_step(self, batch, batch_idx) -> Tensor:  # type: ignore
+        loss = self(batch)
+        self.log("train/loss", loss)
+        return loss
+
+    def validation_step(self, batch, batch_idx) -> Tensor:  # type: ignore
         loss = self(batch)
         self.log("train/loss", loss)
         return loss
@@ -168,7 +198,7 @@ class LtDrawingDataModule(LightningDataModule):
 def train(cfg: dict, rows: Any) -> None:
     lt = LtConvNext(cfg)
     trainer = Trainer()
-    data = LtDrawingDataModule(rows, cfg)
+    data = LtDrawingDataModule(rows[:10], cfg)
     trainer.fit(lt, data)
 
 
