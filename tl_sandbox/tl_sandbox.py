@@ -13,6 +13,7 @@ import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from pandas import DataFrame
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_metric_learning.losses import ArcFaceLoss
 from sklearn.model_selection import StratifiedKFold
 from toolz.curried import filter, map, pipe, topk
@@ -75,15 +76,18 @@ def kfold(
 
 class Writer(SummaryWriter):
     def __init__(self, cfg: dict) -> None:
-        writer_name = pipe(
-            cfg.items(),
-            map(lambda x: f"{x[0]}-{x[1]}"),
-            "_".join,
-        )
         super().__init__(
-            f"pipeline/lightning_logs/{writer_name}",
+            f"pipeline/lightning_logs/{get_cfg_name(cfg)}",
             flush_secs=5,
         )
+
+
+def get_cfg_name(cfg: dict) -> str:
+    return pipe(
+        cfg.items(),
+        map(lambda x: f"{x[0]}-{x[1]}"),
+        "_".join,
+    )
 
 
 class DrawingDataset(Dataset):
@@ -164,7 +168,7 @@ class LtConvNext(LightningModule):
 
     def validation_step(self, batch, batch_idx) -> Tensor:  # type: ignore
         loss = self(batch)
-        self.log("train/loss", loss)
+        self.log("val/loss", loss)
         return loss
 
 
@@ -198,7 +202,11 @@ class LtDrawingDataModule(LightningDataModule):
 
 def train(cfg: dict, rows: Any) -> None:
     lt = LtConvNext(cfg)
-    trainer = Trainer()
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=os.path.join("/app/pipeline/checkpoints", get_cfg_name(cfg)),
+        monitor="val/loss",
+    )
+    trainer = Trainer(callbacks=[checkpoint_callback])
     data = LtDrawingDataModule(rows[:10], cfg)
     trainer.fit(lt, data)
 
