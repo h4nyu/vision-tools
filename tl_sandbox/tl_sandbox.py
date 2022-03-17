@@ -42,6 +42,7 @@ TrainTransform = lambda cfg: A.Compose(
         A.HorizontalFlip(p=cfg["hflip_p"]),
         A.VerticalFlip(p=cfg["vflip_p"]),
         A.RandomRotate90(p=cfg["rot90_p"]),
+        A.RandomGridShuffle(p=cfg["grid_shuffle_p"], grid=(2, 2)),
         ToTensorV2(),
     ],
 )
@@ -80,7 +81,7 @@ class Writer(SummaryWriter):
             "_".join,
         )
         super().__init__(
-            f"runs/{writer_name}",
+            f"pipeline/lightning_logs/{writer_name}",
             flush_secs=5,
         )
 
