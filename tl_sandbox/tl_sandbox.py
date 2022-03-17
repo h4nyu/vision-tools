@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 import albumentations as A
 import cv2
@@ -11,13 +11,14 @@ import PIL
 import timm
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
+from pandas import DataFrame
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_metric_learning.losses import ArcFaceLoss
 from sklearn.model_selection import StratifiedKFold
 from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn, optim
 from torch.nn import functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 
 Transform = lambda cfg: A.Compose(
@@ -33,14 +34,16 @@ Transform = lambda cfg: A.Compose(
 
 
 def kfold(
-    annotations: pd.DataFrame, n_splits: int, fold_id: 0
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+    rows: Any,
+    n_splits: int,
+    fold_id: int,
+) -> tuple[Any, Any]:
     skf = StratifiedKFold(n_splits=n_splits)
-    x = list(range(len(annotations)))
-    y = annotations["cost"].values // 1000
+    x = list(range(len(rows)))
+    y = rows["cost"].values // 1000
     for i, (train_index, test_index) in enumerate(skf.split(x, y)):
         if i == fold_id:
-            return annotations.iloc[train_index], annotations.iloc[test_index]
+            return rows.iloc[train_index], rows.iloc[test_index]
     raise ValueError("fold_id is out of range")
 
 
@@ -60,11 +63,11 @@ class Writer(SummaryWriter):
 class DrawingDataset(Dataset):
     def __init__(
         self,
-        annotations: pd.DataFrame,
+        rows: Any,
         transform: Any,
         image_dir: str,
     ) -> None:
-        self.rows = annotations
+        self.rows = rows
         self.image_dir = image_dir
         self.transform = transform
 
@@ -135,21 +138,37 @@ class LtConvNext(LightningModule):
 
 
 class LtDrawingDataModule(LightningDataModule):
-    def __init__(self, dataset: DrawingDataset, batch_size: int = 32):
+    def __init__(self, annotations: DataFrame, cfg: dict) -> None:
         super().__init__()
-        self.batch_size = batch_size
-        self.train_dataset = train_dataset
+        self.cfg = cfg
+        self.annotations = annotations
 
-    def setup(self, stage: Optional[str] = None):
-        self.mnist_test = MNIST(self.data_dir, train=False)
-        mnist_full = MNIST(self.data_dir, train=True)
-        self.mnist_train, self.mnist_val = random_split(mnist_full, [55000, 5000])
+    def setup(self, stage: Optional[str] = None) -> None:
+        train_rows, val_rows = kfold(
+            self.annotations, n_splits=self.cfg["n_splits"], fold_id=self.cfg["fold_id"]
+        )
+        self.train_set = DrawingDataset(
+            rows=train_rows,
+            transform=Transform(self.cfg),
+            image_dir=self.cfg["image_dir"],
+        )
+        self.val_set = DrawingDataset(
+            rows=val_rows,
+            transform=Transform(self.cfg),
+            image_dir=self.cfg["image_dir"],
+        )
+
+    def train_dataloader(self) -> DataLoader:
+        return DataLoader(self.train_set, batch_size=self.cfg["batch_size"])
+
+    def val_dataloader(self) -> DataLoader:
+        return DataLoader(self.val_set, batch_size=self.cfg["batch_size"])
 
 
-def train(cfg: dict, annotations: pd.DataFrame) -> None:
+def train(cfg: dict, annotations: Any) -> None:
     lt = LtConvNext(cfg)
     trainer = Trainer()
 
 
-def eda(annotations: pd.DataFrame) -> None:
+def eda(annotations: Any) -> None:
     ...

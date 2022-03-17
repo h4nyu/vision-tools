@@ -8,14 +8,14 @@ from vision_tools.utils import load_config
 cfg = load_config("/app/tl_sandbox/config/baseline.yaml")
 
 with open("/app/tl_sandbox/pipeline/data.pkl", "rb") as fp:
-    annotations = pickle.load(fp)
+    rows = pickle.load(fp)
 
 writer = Writer(cfg)
 
 
 def test_aug() -> None:
     dataset = DrawingDataset(
-        annotations=annotations,
+        rows=rows,
         transform=Transform(cfg),
         image_dir="/app/tl_sandbox/pipeline/images",
     )
@@ -25,6 +25,6 @@ def test_aug() -> None:
 
 
 def test_kfold() -> None:
-    tra, val = kfold(annotations, 5, 0)
+    tra, val = kfold(rows, 5, 0)
     assert len(tra) == 80
     assert len(val) == 20
