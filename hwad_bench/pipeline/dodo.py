@@ -10,7 +10,6 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from hwad_bench.convnext import evaluate, inference, train
 from hwad_bench.data import (
     create_croped_dataset,
     filter_annotations_by_fold,
@@ -21,6 +20,7 @@ from hwad_bench.data import (
     search_threshold,
     summary,
 )
+from hwad_bench.models import evaluate, inference, train
 from vision_tools.utils import load_config
 
 

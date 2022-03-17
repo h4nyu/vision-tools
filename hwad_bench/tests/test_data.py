@@ -3,7 +3,6 @@ from __future__ import annotations as _
 from typing import Any
 
 import pytest
-from torch.utils.tensorboard import SummaryWriter
 
 from hwad_bench.data import (
     Annotation,
@@ -18,6 +17,7 @@ from hwad_bench.data import (
     save_submission,
     search_threshold,
 )
+from hwad_bench.models import get_writer
 from vision_tools.utils import load_config
 
 dataset_cfg = load_config("config/dataset.yaml")
@@ -25,7 +25,8 @@ model_cfg = load_config("config/convnext-base.yaml")
 
 train_cfg = load_config("config/train.yaml")
 
-writer = SummaryWriter("/app/hwad_bench/pipeline/runs/test")
+
+writer = get_writer(model_cfg)
 
 
 @pytest.fixture
@@ -119,7 +120,7 @@ def test_aug() -> None:
     dataset = HwadCropedDataset(
         rows=[
             {
-                "image_file": "dummy.png",
+                "image_file": "/app/datasets/hwad-train-croped-body/0a0cedc8ac6499-4_eF.jpg",
                 "species": "species-0",
                 "individual_id": "indiviual-0",
                 "label": 0,

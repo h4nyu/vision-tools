@@ -284,9 +284,9 @@ def create_croped_dataset(
 TrainTransform = lambda cfg: A.Compose(
     [
         A.Affine(
-            rotate=(-15, 15),
-            shear=(-10, 10),
-            translate_percent=(-0.1, 0.1),
+            rotate=(cfg["rot0"], cfg["rot1"]),
+            shear=(cfg["shear0"], cfg["shear1"]),
+            translate_percent=(cfg["trans0"], cfg["trans1"]),
             interpolation=cv2.INTER_NEAREST,
             p=cfg["affine_p"],
         ),
@@ -303,7 +303,6 @@ TrainTransform = lambda cfg: A.Compose(
             interpolation=cv2.INTER_NEAREST,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
-        A.RandomRotate90(p=cfg["rot90_p"]),
         ToTensorV2(),
     ],
 )

@@ -43,23 +43,10 @@ class ConvNeXt(nn.Module):
         return out
 
 
-def get_model_name(cfg: dict) -> str:
+def get_cfg_name(cfg: dict) -> str:
     return pipe(
-        [
-            "fold",
-            cfg["fold"],
-            cfg["name"],
-            cfg["embedding_size"],
-            cfg["pretrained"],
-            cfg["version"],
-            cfg["lr"],
-            cfg["min_samples"],
-            cfg["batch_size"],
-            cfg["hflip_p"],
-            cfg["affine_p"],
-            cfg["rot90_p"],
-        ],
-        map(str),
+        cfg.values(),
+        map(lambda x: f"{x}"),
         "_".join,
     )
 
@@ -75,22 +62,14 @@ def get_model(cfg: dict) -> ConvNeXt:
 
 def get_checkpoint(cfg: dict) -> Checkpoint:
     model = Checkpoint(
-        root_dir=get_model_name(cfg),
+        root_dir=get_cfg_name(cfg),
     )
     return model
 
 
 def get_writer(cfg: dict) -> SummaryWriter:
-    model_name = get_model_name(cfg)
-    writer_name = pipe(
-        [
-            model_name,
-        ],
-        map(str),
-        "_".join,
-    )
     return SummaryWriter(
-        f"runs/{writer_name}",
+        f"/app/hwad_bench/pipeline/runs/{get_cfg_name(cfg)}",
     )
 
 

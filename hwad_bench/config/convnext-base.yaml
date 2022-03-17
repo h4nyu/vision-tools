@@ -25,9 +25,15 @@ num_classes: 15587
 image_width: 512
 image_height: 512
 
-affine_p: 0.0
+affine_p: 1.0
+rot0: 0.0
+rot1: 0.0
+shear0: -10
+shear1: 10
+trans0: 0.0
+trans1: 0.0
+
 hue_p: 0.0
 brightness_contrast_p: 0.0
 to_gray_p: 0.0
 hflip_p: 0.5
-rot90_p: 0.5

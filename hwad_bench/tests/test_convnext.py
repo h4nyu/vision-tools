@@ -1,7 +1,7 @@
 import torch
 from torch import nn, optim
 
-from hwad_bench.convnext import ConvNeXt
+from hwad_bench.models import ConvNeXt
 
 
 def test_model() -> None:
