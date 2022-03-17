@@ -2,3 +2,5 @@ model_name: convnext_tiny
 embedding_size: 512
 pretrained: true
 num_classes: 128
+image_height: 512
+image_width: 512

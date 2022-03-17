@@ -51,7 +51,7 @@ class DrawingDataset(Dataset):
         transform: Any,
         image_dir: str,
     ) -> None:
-        self.annotations = annotations
+        self.rows = annotations
         self.image_dir = image_dir
         self.transform = transform
 
@@ -59,18 +59,17 @@ class DrawingDataset(Dataset):
         return len(self.annotations)
 
     def __getitem__(self, idx: int) -> tuple[dict, dict]:
-        row = self.rows[idx]
-        image_path = os.path.join(self.image_dir, row["image_file"])
-        im = PIL.Image.open(image_path)
+        row = self.rows.iloc[idx]
+        image_path = os.path.join(self.image_dir, row["file_name"])
+        im = PIL.Image.open(image_path).convert("RGB")
         if im.mode == "L":
             im = im.convert("RGB")
         img_arr = np.array(im)
         transformed = self.transform(
             image=img_arr,
-            label=row["label"] or 0,
         )
         image = (transformed["image"] / 255).float()
-        label = torch.tensor(transformed["label"])
+        label = torch.tensor(row["cost"])
         sample = dict(
             image=image,
             label=label,

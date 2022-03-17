@@ -19,6 +19,6 @@ def test_aug() -> None:
         transform=Transform(cfg),
         image_dir="/app/tl_sandbox/pipeline/images",
     )
-    for i in range(100):
+    for i in range(1):
         sample, _ = dataset[0]
         writer.add_image(f"aug", sample["image"], i)
