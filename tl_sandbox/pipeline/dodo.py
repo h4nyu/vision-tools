@@ -21,7 +21,7 @@ def task_train() -> dict:
                 kwargs={
                     "cfg": cfg,
                 },
-                output_kwargs={"annotations": "data.pkl"},
+                output_kwargs={"rows": "data.pkl"},
             )
         ],
         "verbosity": 2,

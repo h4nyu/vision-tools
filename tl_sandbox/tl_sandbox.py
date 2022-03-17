@@ -72,7 +72,7 @@ class DrawingDataset(Dataset):
         self.transform = transform
 
     def __len__(self) -> int:
-        return len(self.annotations)
+        return len(self.rows)
 
     def __getitem__(self, idx: int) -> tuple[dict, dict]:
         row = self.rows.iloc[idx]
@@ -138,14 +138,14 @@ class LtConvNext(LightningModule):
 
 
 class LtDrawingDataModule(LightningDataModule):
-    def __init__(self, annotations: DataFrame, cfg: dict) -> None:
+    def __init__(self, rows: DataFrame, cfg: dict) -> None:
         super().__init__()
         self.cfg = cfg
-        self.annotations = annotations
+        self.rows = rows
 
     def setup(self, stage: Optional[str] = None) -> None:
         train_rows, val_rows = kfold(
-            self.annotations, n_splits=self.cfg["n_splits"], fold_id=self.cfg["fold_id"]
+            self.rows, n_splits=self.cfg["n_splits"], fold_id=self.cfg["fold_id"]
         )
         self.train_set = DrawingDataset(
             rows=train_rows,
@@ -165,10 +165,12 @@ class LtDrawingDataModule(LightningDataModule):
         return DataLoader(self.val_set, batch_size=self.cfg["batch_size"])
 
 
-def train(cfg: dict, annotations: Any) -> None:
+def train(cfg: dict, rows: Any) -> None:
     lt = LtConvNext(cfg)
     trainer = Trainer()
+    data = LtDrawingDataModule(rows, cfg)
+    trainer.fit(lt, data)
 
 
-def eda(annotations: Any) -> None:
+def eda(rows: Any) -> None:
     ...
