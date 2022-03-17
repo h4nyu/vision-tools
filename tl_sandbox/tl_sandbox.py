@@ -41,6 +41,7 @@ def kfold(
     for i, (train_index, test_index) in enumerate(skf.split(x, y)):
         if i == fold_id:
             return annotations.iloc[train_index], annotations.iloc[test_index]
+    raise ValueError("fold_id is out of range")
 
 
 class Writer(SummaryWriter):
