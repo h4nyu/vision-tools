@@ -13,6 +13,7 @@ import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_metric_learning.losses import ArcFaceLoss
+from sklearn.model_selection import StratifiedKFold
 from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn, optim
 from torch.nn import functional as F
@@ -29,6 +30,17 @@ Transform = lambda cfg: A.Compose(
         ToTensorV2(),
     ],
 )
+
+
+def kfold(
+    annotations: pd.DataFrame, n_splits: int, fold_id: 0
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    skf = StratifiedKFold(n_splits=n_splits)
+    x = list(range(len(annotations)))
+    y = annotations["cost"].values // 1000
+    for i, (train_index, test_index) in enumerate(skf.split(x, y)):
+        if i == fold_id:
+            return annotations.iloc[train_index], annotations.iloc[test_index]
 
 
 class Writer(SummaryWriter):
@@ -90,7 +102,10 @@ class ConvNeXt(nn.Module):
 
 
 class LtConvNext(LightningModule):
-    def __init__(self, cfg: dict) -> None:
+    def __init__(
+        self,
+        cfg: dict,
+    ) -> None:
         super().__init__()
         self.cfg = cfg
         self.model = ConvNeXt(
@@ -118,8 +133,21 @@ class LtConvNext(LightningModule):
         return loss
 
 
+class LtDrawingDataModule(LightningDataModule):
+    def __init__(self, dataset: DrawingDataset, batch_size: int = 32):
+        super().__init__()
+        self.batch_size = batch_size
+        self.train_dataset = train_dataset
+
+    def setup(self, stage: Optional[str] = None):
+        self.mnist_test = MNIST(self.data_dir, train=False)
+        mnist_full = MNIST(self.data_dir, train=True)
+        self.mnist_train, self.mnist_val = random_split(mnist_full, [55000, 5000])
+
+
 def train(cfg: dict, annotations: pd.DataFrame) -> None:
     lt = LtConvNext(cfg)
+    trainer = Trainer()
 
 
 def eda(annotations: pd.DataFrame) -> None:
