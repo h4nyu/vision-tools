@@ -29,5 +29,5 @@ affine_p: 0.0
 hue_p: 0.0
 brightness_contrast_p: 0.0
 to_gray_p: 0.0
-hflip_p: 0.0
+hflip_p: 0.5
 rot90_p: 0.0
