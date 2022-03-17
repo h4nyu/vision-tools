@@ -13,9 +13,11 @@ import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_metric_learning.losses import ArcFaceLoss
+from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn, optim
 from torch.nn import functional as F
 from torch.utils.data import Dataset
+from torch.utils.tensorboard import SummaryWriter
 
 Transform = lambda cfg: A.Compose(
     [
@@ -27,6 +29,19 @@ Transform = lambda cfg: A.Compose(
         ToTensorV2(),
     ],
 )
+
+
+class Writer(SummaryWriter):
+    def __init__(self, cfg: dict) -> None:
+        writer_name = pipe(
+            cfg.items(),
+            map(lambda x: f"{x[0]}-{x[1]}"),
+            "_".join,
+        )
+        super().__init__(
+            f"runs/{writer_name}",
+            flush_secs=5,
+        )
 
 
 class DrawingDataset(Dataset):
