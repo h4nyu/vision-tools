@@ -152,7 +152,7 @@ class LtConvNext(LightningModule):
         self.loss_fn = nn.L1Loss()
 
     def configure_optimizers(self) -> Any:
-        return torch.optim.SGD(self.model.parameters(), lr=self.cfg["lr"])
+        return torch.optim.AdamW(self.model.parameters(), lr=self.cfg["lr"])
 
     def forward(self, batch: Any) -> Tensor:  # type: ignore
         images = batch["image"]
@@ -203,11 +203,11 @@ class LtDrawingDataModule(LightningDataModule):
 def train(cfg: dict, rows: Any) -> None:
     lt = LtConvNext(cfg)
     checkpoint_callback = ModelCheckpoint(
-        dirpath=os.path.join("/app/pipeline/checkpoints", get_cfg_name(cfg)),
+        dirpath=os.path.join("/app/tl_sandbox/pipeline/checkpoints", get_cfg_name(cfg)),
         monitor="val/loss",
     )
-    trainer = Trainer(callbacks=[checkpoint_callback])
-    data = LtDrawingDataModule(rows[:10], cfg)
+    trainer = Trainer(callbacks=[checkpoint_callback], gpus=[1], precision=16)
+    data = LtDrawingDataModule(rows, cfg)
     trainer.fit(lt, data)
 
 
