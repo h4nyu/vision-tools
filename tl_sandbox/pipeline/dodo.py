@@ -1,38 +1,38 @@
 from __future__ import annotations
-from typing import Any, Callable
-import pickle
+
+from pprint import pprint
+
+from tl_sandbox import train
+from vision_tools.pipeline import CacheAction
+from vision_tools.utils import load_config
+
+action = CacheAction()
 
 
-class CacheAction:
-    def _persist(self, key: str, func: Callable) -> Callable:
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            res = func(*args, **kwargs)
-            with open(key, "wb") as fp:
-                pickle.dump(res, fp)
+def task_train() -> dict:
+    key = "fold_0_train_model"
+    cfg = load_config("../config/baseline.yaml")
+    return {
+        "targets": [key],
+        "file_dep": [],
+        "actions": [
+            action(
+                fn=train,
+                kwargs={
+                    "cfg": cfg,
+                },
+                output_kwargs={"annotations": "data.pkl"},
+            )
+        ],
+        "verbosity": 2,
+    }
 
-        return wrapper
 
-    def __call__(
-        self,
-        fn: Any,
-        args: list[Any] = [],
-        kwargs: dict[str, Any] = {},
-        output_args: list[str] = [],
-        output_kwargs: dict[str, str] = {},
-        key: str = None,
-    ) -> tuple[Any, list, dict]:
-        if key is not None:
-            fn = self._persist(key, fn)
-
-        def wrapper() -> Any:
-            _kwargs = {}
-            _args = []
-            for k, v in output_kwargs.items():
-                with open(v, "rb") as fp:
-                    _kwargs[k] = pickle.load(fp)
-            for v in output_args:
-                with open(v, "rb") as fp:
-                    _args.append(pickle.load(fp))
-            res = fn(*[*args, *_args], **{**kwargs, **_kwargs})
-
-        return (wrapper, [], {})
+def task_preview() -> dict:
+    dep = "data.pkl"
+    return {
+        "file_dep": [dep],
+        "actions": [action(pprint, output_args=[dep])],
+        "uptodate": [False],
+        "verbosity": 2,
+    }
