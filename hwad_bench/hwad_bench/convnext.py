@@ -339,8 +339,8 @@ def evaluate(
     model.eval()
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
-    matcher = MeanEmbeddingMatcher()
-    # matcher = NearestMatcher()
+    # matcher = MeanEmbeddingMatcher()
+    matcher = NearestMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
