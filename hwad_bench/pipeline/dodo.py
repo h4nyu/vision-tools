@@ -192,7 +192,11 @@ def task_fold_0_train_annotations() -> dict:
     key = "fold_0_train_annotations"
     return {
         "targets": [key],
-        "file_dep": ["train_croped_annotations", "fold_0_train"],
+        "file_dep": [
+            "train_croped_annotations",
+            "fold_0_train",
+            "train_croped_annotations",
+        ],
         "actions": [
             action(
                 key=key,
@@ -258,7 +262,11 @@ def task_fold_0_train_model() -> dict:
     model_cfg = load_config("../config/convnext-base.yaml")
     return {
         "targets": [key],
-        "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
+        "file_dep": [
+            "train_croped_annotations",
+            "fold_0_val_annotations",
+            "fold_0_train_annotations",
+        ],
         "actions": [
             action(
                 fn=train,

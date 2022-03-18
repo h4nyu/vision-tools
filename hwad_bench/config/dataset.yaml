@@ -1,2 +1,3 @@
-root_dir: /app/datasets/hwad
-train_annotation_path: /app/datasets/hwad/train.csv
+train_annotation_path: /app/hwad_bench/store/train.csv
+num_workers: 12
+device: cuda

@@ -109,21 +109,21 @@ def train(
         train_dataset,
         batch_size=model_cfg["batch_size"],
         shuffle=True,
-        num_workers=model_cfg["num_workers"],
+        num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=model_cfg["batch_size"],
         shuffle=False,
-        num_workers=model_cfg["num_workers"],
+        num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
     reg_loader = DataLoader(
         reg_dataset,
         batch_size=model_cfg["batch_size"],
         shuffle=False,
-        num_workers=model_cfg["num_workers"],
+        num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
 
@@ -303,7 +303,7 @@ def evaluate(
         reg_dataset,
         batch_size=model_cfg["batch_size"] * 2,
         shuffle=False,
-        num_workers=model_cfg["num_workers"],
+        num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
 
@@ -311,7 +311,7 @@ def evaluate(
         val_dataset,
         batch_size=model_cfg["batch_size"],
         shuffle=False,
-        num_workers=model_cfg["num_workers"],
+        num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
     to_device = ToDevice(model_cfg["device"])
@@ -394,7 +394,7 @@ def inference(
         train_dataset,
         batch_size=model_cfg["batch_size"],
         shuffle=False,
-        num_workers=model_cfg["num_workers"],
+        num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
 
@@ -402,7 +402,7 @@ def inference(
         test_dataset,
         batch_size=model_cfg["batch_size"],
         shuffle=False,
-        num_workers=model_cfg["num_workers"],
+        num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
     to_device = ToDevice(model_cfg["device"])
