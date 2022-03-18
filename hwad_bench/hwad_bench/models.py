@@ -84,7 +84,7 @@ def train(
     use_amp = model_cfg["use_amp"]
     eval_interval = model_cfg["eval_interval"]
     device = model_cfg["device"]
-    writer = get_writer({**model_cfg, **dataset_cfg})
+    writer = get_writer(model_cfg)
     cleaned_annoations = pipe(
         train_annotations,
         filter(lambda x: x["individual_samples"] >= model_cfg["min_samples"]),
