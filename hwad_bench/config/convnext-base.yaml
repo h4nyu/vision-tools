@@ -1,4 +1,3 @@
-device: cuda
 name: convnext_small
 embedding_size: 512
 pretrained: true

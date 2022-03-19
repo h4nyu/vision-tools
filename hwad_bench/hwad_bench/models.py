@@ -28,7 +28,31 @@ from hwad_bench.scheduler import WarmupReduceLROnPlaetou
 from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
-from .matchers import MeanEmbeddingMatcher, NearestMatcher
+from .matchers import MeanEmbeddingMatcher
+
+
+class GeM(nn.Module):
+    def __init__(self, p: int = 3, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.p = nn.Parameter(torch.ones(1) * p)
+        self.eps = eps
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.avg_pool2d(x.clamp(min=self.eps).pow(self.p), (x.size(-2), x.size(-1))).pow(
+            1.0 / self.p
+        )
+
+    def __repr__(self) -> str:
+        return (
+            self.__class__.__name__
+            + "("
+            + "p="
+            + "{:.4f}".format(self.p.data.tolist()[0])
+            + ", "
+            + "eps="
+            + str(self.eps)
+            + ")"
+        )
 
 
 class ConvNeXt(nn.Module):
@@ -83,7 +107,7 @@ def train(
     seed_everything()
     use_amp = model_cfg["use_amp"]
     eval_interval = model_cfg["eval_interval"]
-    device = model_cfg["device"]
+    device = dataset_cfg["device"]
     writer = get_writer(model_cfg)
     cleaned_annoations = pipe(
         train_annotations,
@@ -161,7 +185,7 @@ def train(
         best_score = saved_state.get("best_score", 0.0)
     print(f"iteration: {iteration}")
     print(f"best_score: {best_score}")
-    to_device = ToDevice(model_cfg["device"])
+    to_device = ToDevice(device)
     scaler = GradScaler(enabled=use_amp)
     for _ in range((model_cfg["total_steps"] - iteration) // len(train_loader)):
         train_meter = MeanReduceDict()
@@ -271,8 +295,8 @@ def evaluate(
     image_dir: str,
 ) -> list[Submission]:
     seed_everything()
-    device = model_cfg["device"]
-    writer = get_writer({**model_cfg, **model_cfg, **dataset_cfg})
+    device = dataset_cfg["device"]
+    writer = get_writer(model_cfg)
     model = get_model(model_cfg).to(device)
     checkpoint = get_checkpoint(model_cfg)
     saved_state = checkpoint.load("latest")
@@ -314,12 +338,12 @@ def evaluate(
         num_workers=dataset_cfg["num_workers"],
         collate_fn=collate_fn,
     )
-    to_device = ToDevice(model_cfg["device"])
+    to_device = ToDevice(device)
     model.eval()
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
-    # matcher = MeanEmbeddingMatcher()
-    matcher = NearestMatcher()
+    matcher = MeanEmbeddingMatcher()
+    # matcher = NearestMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
