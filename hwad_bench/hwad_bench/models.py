@@ -61,9 +61,14 @@ class ConvNeXt(nn.Module):
         self.name = name
         self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
 
+        self.pooling = GeM()
+        self.embedding = nn.LazyLinear(embedding_size)
+
     def forward(self, x: Tensor) -> Tensor:
-        out = self.model(x)
-        out = F.normalize(out, p=2, dim=1)
+        features = self.model.forward_features(x)
+        pooled_features = self.pooling(features).flatten(1)
+        embedding = self.embedding(pooled_features)
+        out = F.normalize(embedding, p=2, dim=1)
         return out
 
 
