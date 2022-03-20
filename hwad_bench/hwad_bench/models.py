@@ -347,7 +347,7 @@ def evaluate(
 
     reg_loader = DataLoader(
         reg_dataset,
-        batch_size=cfg["batch_size"] * 2,
+        batch_size=cfg["batch_size"],
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
