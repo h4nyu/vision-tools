@@ -20,7 +20,7 @@ from hwad_bench.data import (
 from hwad_bench.models import get_writer
 from vision_tools.utils import load_config
 
-cfg = load_config("config/experiment.1.yaml")
+cfg = load_config("config/experiment.0.yaml")
 
 
 writer = get_writer(cfg)

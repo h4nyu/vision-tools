@@ -22,8 +22,8 @@ weight_decay: 0.05
 steps_per_epoch: 100
 lr_patience: 2
 lr_factor: 0.9
-total_steps: 50_000
-warmup_steps: 5_000
+total_steps: 55_000
+warmup_steps: 4_000
 num_classes: 15587
 
 image_width: 512
@@ -34,8 +34,12 @@ rot0: 0
 rot1: 0
 shear0: -10
 shear1: 10
-trans0: 0.0
-trans1: 0.0
+trans0: -0.1
+trans1: 0.1
+scale0: 0.6
+scale1: 1.4
+ratio0: 0.75
+ratio1: 1.33
 
 brightness: 0.1
 contrast: 0.2

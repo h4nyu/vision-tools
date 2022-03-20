@@ -37,6 +37,10 @@ shear0: -10
 shear1: 10
 trans0: 0.0
 trans1: 0.0
+scale0: 1.0
+scale1: 1.0
+ratio0: 1.0
+ratio1: 1.0
 
 brightness: 0.1
 contrast: 0.2

@@ -249,13 +249,13 @@ def create_croped_dataset(
         box_height = box["y2"] - box["y1"]
         padding_x = box_width * padding
         padding_y = box_height * padding
-        # croped_box = [
-        #     box["x1"] - padding_x,
-        #     box["y1"] - padding_y,
-        #     box["x2"] + padding_x,
-        #     box["y2"] + padding_y,
-        # ]
-        # im_crop = im.crop(croped_box)
+        croped_box = [
+            box["x1"] - padding_x,
+            box["y1"] - padding_y,
+            box["x2"] + padding_x,
+            box["y2"] + padding_y,
+        ]
+        im_crop = im.crop(croped_box)
         image_annot = annotation_map.get(
             image_id,
             {
@@ -266,7 +266,7 @@ def create_croped_dataset(
         )
         dist_file_name = f"{image_id}.box{suffix}"
         dist_path = os.path.join(dist_dir, dist_file_name)
-        # im_crop.save(dist_path)
+        im_crop.save(dist_path)
         croped_annots.append(
             Annotation(
                 {
@@ -299,10 +299,12 @@ TrainTransform = lambda cfg: A.Compose(
             hue=cfg["saturation"],
             p=cfg["color_jitter_p"],
         ),
-        A.Resize(
+        A.RandomResizedCrop(
             height=cfg["image_height"],
             width=cfg["image_width"],
-            interpolation=cv2.INTER_NEAREST,
+            scale=(cfg["scale0"], cfg["scale1"]),
+            ratio=(cfg["ratio0"], cfg["ratio1"]),
+            p=1.0,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
         ToTensorV2(),
