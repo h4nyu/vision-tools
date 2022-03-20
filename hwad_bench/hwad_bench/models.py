@@ -128,7 +128,6 @@ def train(
     image_dir: str,
 ) -> None:
     seed_everything()
-    print(train_rows)
     use_amp = cfg["use_amp"]
     eval_interval = cfg["eval_interval"]
     device = cfg["device"]
