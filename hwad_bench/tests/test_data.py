@@ -20,7 +20,7 @@ from hwad_bench.data import (
 from hwad_bench.models import get_writer
 from vision_tools.utils import load_config
 
-cfg = load_config("config/experiment.0.yaml")
+cfg = load_config("config/experiment.1.yaml")
 
 
 writer = get_writer(cfg)
@@ -127,10 +127,10 @@ def test_aug() -> None:
         image_dir="/app/test_data",
         transform=TrainTransform(cfg),
     )
-    for i in range(100):
+    for i in range(20):
         sample, _ = dataset[0]
         writer.add_image(f"aug", sample["image"], i)
-    writer.flush()
+        writer.flush()
 
 
 def test_filter_rows_by_fold() -> None:
