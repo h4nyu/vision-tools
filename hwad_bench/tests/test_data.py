@@ -120,7 +120,7 @@ def test_aug() -> None:
     dataset = HwadCropedDataset(
         rows=[
             {
-                "image_file": "/app/datasets/hwad-train-croped-body/0a0cedc8ac6499-4_eF.jpg",
+                "image_file": "/app/datasets/hwad-train-croped-body/0a0cedc8ac6499-89Fx.jpg",
                 "species": "species-0",
                 "individual_id": "indiviual-0",
                 "label": 0,

@@ -28,7 +28,7 @@ from hwad_bench.scheduler import WarmupReduceLROnPlaetou
 from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
-from .matchers import MeanEmbeddingMatcher
+from .matchers import MeanEmbeddingMatcher, NearestMatcher
 
 
 class GeM(nn.Module):
@@ -60,15 +60,11 @@ class ConvNeXt(nn.Module):
         super().__init__()
         self.name = name
         self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
-
-        self.pooling = GeM()
         self.embedding = nn.LazyLinear(embedding_size)
 
     def forward(self, x: Tensor) -> Tensor:
-        features = self.model.forward_features(x)
-        pooled_features = self.pooling(features).flatten(1)
-        embedding = self.embedding(pooled_features)
-        out = F.normalize(embedding, p=2, dim=1)
+        out = self.model(x)
+        out = F.normalize(out, p=2, dim=1)
         return out
 
 
@@ -347,8 +343,8 @@ def evaluate(
     model.eval()
     val_meter = MeanReduceDict()
     metric = MeanAveragePrecisionK()
-    matcher = MeanEmbeddingMatcher()
-    # matcher = NearestMatcher()
+    # matcher = MeanEmbeddingMatcher()
+    matcher = NearestMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)

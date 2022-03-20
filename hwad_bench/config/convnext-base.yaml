@@ -23,14 +23,17 @@ image_width: 512
 image_height: 512
 
 affine_p: 1.0
-rot0: 0.0
-rot1: 0.0
+rot0: 0
+rot1: 0
 shear0: -10
 shear1: 10
 trans0: 0.0
 trans1: 0.0
 
-hue_p: 0.0
-brightness_contrast_p: 0.0
+brightness: 0.1
+contrast: 0.2
+saturation: 0.2
+hue: 0.01
+color_jitter_p: 1.0
 to_gray_p: 0.0
 hflip_p: 0.5
