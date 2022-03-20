@@ -179,6 +179,7 @@ def train(
         num_classes=cfg["num_classes"],
         embedding_size=cfg["embedding_size"],
     ).to(device)
+    print(device)
     model = get_model(cfg).to(device)
     optimizer = optim.AdamW(
         list(model.parameters()) + list(loss_fn.parameters()),

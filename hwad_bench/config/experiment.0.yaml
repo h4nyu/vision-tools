@@ -1,5 +1,5 @@
 # device
-device: cuda:1
+device: cuda:0
 num_workers: 12
 # data
 train_annotation_path: /app/hwad_bench/store/train.csv
