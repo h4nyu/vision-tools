@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Any, Optional
+
 import timm
 import torch
+from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_metric_learning.losses import ArcFaceLoss
 from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn, optim
@@ -20,8 +23,8 @@ from hwad_bench.data import (
     Transform,
     add_new_individual,
     collate_fn,
-    filter_annotations_by_fold,
-    filter_in_annotations,
+    filter_in_rows,
+    filter_rows_by_fold,
 )
 from hwad_bench.metrics import MeanAveragePrecisionK
 from hwad_bench.scheduler import WarmupReduceLROnPlaetou
@@ -38,9 +41,9 @@ class GeM(nn.Module):
         self.eps = eps
 
     def forward(self, x: Tensor) -> Tensor:
-        return F.avg_pool2d(x.clamp(min=self.eps).pow(self.p), (x.size(-2), x.size(-1))).pow(
-            1.0 / self.p
-        )
+        return F.avg_pool2d(
+            x.clamp(min=self.eps).pow(self.p), (x.size(-2), x.size(-1))
+        ).pow(1.0 / self.p)
 
     def __repr__(self) -> str:
         return (
@@ -69,11 +72,31 @@ class ConvNeXt(nn.Module):
 
 
 def get_cfg_name(cfg: dict) -> str:
-    return pipe(
-        cfg.values(),
-        map(lambda x: f"{x}"),
-        "_".join,
-    )
+    keys = [
+        "name",
+        "embedding_size",
+        "fold",
+        "version",
+        "min_samples",
+        "lr",
+        "image_width",
+        "image_height",
+        "affine_p",
+        "rot0",
+        "rot1",
+        "shear0",
+        "shear1",
+        "trans0",
+        "trans1",
+        "color_jitter_p",
+        "brightness",
+        "contrast",
+        "saturation",
+        "hue",
+        "to_gray_p",
+        "hflip_p",
+    ]
+    return "_".join([str(cfg[k]) for k in keys])
 
 
 def get_model(cfg: dict) -> ConvNeXt:
@@ -99,80 +122,80 @@ def get_writer(cfg: dict) -> SummaryWriter:
 
 
 def train(
-    dataset_cfg: dict,
-    model_cfg: dict,
-    train_annotations: list[Annotation],
-    val_annotations: list[Annotation],
+    cfg: dict,
+    train_rows: list[Annotation],
+    val_rows: list[Annotation],
     image_dir: str,
 ) -> None:
     seed_everything()
-    use_amp = model_cfg["use_amp"]
-    eval_interval = model_cfg["eval_interval"]
-    device = dataset_cfg["device"]
-    writer = get_writer(model_cfg)
-    cleaned_annoations = pipe(
-        train_annotations,
-        filter(lambda x: x["individual_samples"] >= model_cfg["min_samples"]),
+    print(train_rows)
+    use_amp = cfg["use_amp"]
+    eval_interval = cfg["eval_interval"]
+    device = cfg["device"]
+    writer = get_writer(cfg)
+    cleaned_rows = pipe(
+        train_rows,
+        filter(lambda x: x["individual_samples"] >= cfg["min_samples"]),
         list,
     )
     train_dataset = HwadCropedDataset(
-        rows=cleaned_annoations,
+        rows=cleaned_rows,
         image_dir=image_dir,
-        transform=TrainTransform(model_cfg),
+        transform=TrainTransform(cfg),
     )
     reg_dataset = HwadCropedDataset(
-        rows=train_annotations,
+        rows=train_rows,
         image_dir=image_dir,
-        transform=Transform(model_cfg),
+        transform=Transform(cfg),
     )
     val_dataset = HwadCropedDataset(
-        rows=filter_in_annotations(val_annotations, train_annotations),
+        rows=filter_in_rows(val_rows, train_rows),
         image_dir=image_dir,
-        transform=Transform(model_cfg),
+        transform=Transform(cfg),
     )
     train_loader = DataLoader(
         train_dataset,
-        batch_size=model_cfg["batch_size"],
+        batch_size=cfg["batch_size"],
         shuffle=True,
-        num_workers=dataset_cfg["num_workers"],
+        num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=model_cfg["batch_size"],
+        batch_size=cfg["batch_size"],
         shuffle=False,
-        num_workers=dataset_cfg["num_workers"],
+        num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
     reg_loader = DataLoader(
         reg_dataset,
-        batch_size=model_cfg["batch_size"],
+        batch_size=cfg["batch_size"],
         shuffle=False,
-        num_workers=dataset_cfg["num_workers"],
+        num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
 
     # TODO num_class
     loss_fn = ArcFaceLoss(
-        num_classes=model_cfg["num_classes"],
-        embedding_size=model_cfg["embedding_size"],
+        num_classes=cfg["num_classes"],
+        embedding_size=cfg["embedding_size"],
     ).to(device)
-    model = get_model(model_cfg).to(device)
+    model = get_model(cfg).to(device)
     optimizer = optim.AdamW(
         list(model.parameters()) + list(loss_fn.parameters()),
-        lr=model_cfg["lr"],
-        weight_decay=model_cfg["weight_decay"],
+        lr=cfg["lr"],
+        weight_decay=cfg["weight_decay"],
     )
 
-    checkpoint = get_checkpoint(model_cfg)
-    saved_state = checkpoint.load(model_cfg["resume"])
+    checkpoint = get_checkpoint(cfg)
+    saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
     best_score = 0.0
     scheduler = OneCycleLR(
         optimizer,
-        total_steps=model_cfg["total_steps"],
-        max_lr=model_cfg["lr"],
-        pct_start=model_cfg["warmup_steps"] / model_cfg["total_steps"],
+        total_steps=cfg["total_steps"],
+        max_lr=cfg["lr"],
+        pct_start=cfg["warmup_steps"] / cfg["total_steps"],
     )
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
@@ -188,7 +211,7 @@ def train(
     print(f"best_score: {best_score}")
     to_device = ToDevice(device)
     scaler = GradScaler(enabled=use_amp)
-    for _ in range((model_cfg["total_steps"] - iteration) // len(train_loader)):
+    for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
             iteration += 1
@@ -242,7 +265,6 @@ def train(
                             label_batch,
                         )
                         val_meter.update({"loss": loss.item()})
-                    score, _ = metric.value
                 score, _ = metric.value
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
@@ -288,18 +310,17 @@ def train(
 
 @torch.no_grad()
 def evaluate(
-    dataset_cfg: dict,
-    model_cfg: dict,
+    cfg: dict,
     fold: int,
-    train_annotations: list[Annotation],
-    val_annotations: list[Annotation],
+    train_rows: list[Annotation],
+    val_rows: list[Annotation],
     image_dir: str,
 ) -> list[Submission]:
     seed_everything()
-    device = dataset_cfg["device"]
-    writer = get_writer(model_cfg)
-    model = get_model(model_cfg).to(device)
-    checkpoint = get_checkpoint(model_cfg)
+    device = cfg["device"]
+    writer = get_writer(cfg)
+    model = get_model(cfg).to(device)
+    checkpoint = get_checkpoint(cfg)
     saved_state = checkpoint.load("latest")
     iteration = 0
     best_score = 0.0
@@ -314,29 +335,29 @@ def evaluate(
     print(f"Best loss: {best_loss}")
 
     reg_dataset = HwadCropedDataset(
-        rows=train_annotations,
+        rows=train_rows,
         image_dir=image_dir,
-        transform=Transform(model_cfg),
+        transform=Transform(cfg),
     )
     val_dataset = HwadCropedDataset(
-        rows=val_annotations,
+        rows=val_rows,
         image_dir=image_dir,
-        transform=Transform(model_cfg),
+        transform=Transform(cfg),
     )
 
     reg_loader = DataLoader(
         reg_dataset,
-        batch_size=model_cfg["batch_size"] * 2,
+        batch_size=cfg["batch_size"] * 2,
         shuffle=False,
-        num_workers=dataset_cfg["num_workers"],
+        num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=model_cfg["batch_size"],
+        batch_size=cfg["batch_size"],
         shuffle=False,
-        num_workers=dataset_cfg["num_workers"],
+        num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
     to_device = ToDevice(device)
@@ -379,19 +400,18 @@ def evaluate(
 
 @torch.no_grad()
 def inference(
-    dataset_cfg: dict,
-    model_cfg: dict,
-    train_annotations: list[Annotation],
-    test_annotations: list[Annotation],
+    cfg: dict,
+    train_rows: list[Annotation],
+    test_rows: list[Annotation],
     search_thresholds: list[dict],
     train_image_dir: str,
     test_image_dir: str,
 ) -> list[Submission]:
     seed_everything()
-    device = model_cfg["device"]
-    writer = get_writer({**model_cfg, **model_cfg, **dataset_cfg})
-    model = get_model(model_cfg).to(device)
-    checkpoint = get_checkpoint(model_cfg)
+    device = cfg["device"]
+    writer = get_writer(cfg)
+    model = get_model(cfg).to(device)
+    checkpoint = get_checkpoint(cfg)
     saved_state = checkpoint.load("latest")
     iteration = 0
     best_score = 0.0
@@ -406,31 +426,31 @@ def inference(
     print(f"Best loss: {best_loss}")
 
     train_dataset = HwadCropedDataset(
-        rows=train_annotations,
+        rows=train_rows,
         image_dir=train_image_dir,
-        transform=Transform(model_cfg),
+        transform=Transform(cfg),
     )
     test_dataset = HwadCropedDataset(
-        rows=test_annotations,
+        rows=test_rows,
         image_dir=test_image_dir,
-        transform=Transform(model_cfg),
+        transform=Transform(cfg),
     )
     train_loader = DataLoader(
         train_dataset,
-        batch_size=model_cfg["batch_size"],
+        batch_size=cfg["batch_size"],
         shuffle=False,
-        num_workers=dataset_cfg["num_workers"],
+        num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
 
     test_loader = DataLoader(
         test_dataset,
-        batch_size=model_cfg["batch_size"],
+        batch_size=cfg["batch_size"],
         shuffle=False,
-        num_workers=dataset_cfg["num_workers"],
+        num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
-    to_device = ToDevice(model_cfg["device"])
+    to_device = ToDevice(cfg["device"])
     threshold = topk(1, search_thresholds, key=lambda x: x["score"])[0]["threshold"]
     print(f"Threshold: {threshold}")
     model.eval()

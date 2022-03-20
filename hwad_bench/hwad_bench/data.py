@@ -68,12 +68,12 @@ def correct_species(
 
 
 def summary(
-    annotations: list[Annotation],
+    rows: list[Annotation],
 ) -> dict:
-    all_species = pipe(annotations, map(lambda x: x["species"]), set)
-    individual_id_count = pipe(annotations, map(lambda x: x["individual_id"]), set, len)
+    all_species = pipe(rows, map(lambda x: x["species"]), set)
+    individual_id_count = pipe(rows, map(lambda x: x["individual_id"]), set, len)
     class_freq = pipe(
-        annotations,
+        rows,
         groupby(lambda x: x["individual_id"]),
         valmap(len),
         lambda x: x.values(),
@@ -84,7 +84,7 @@ def summary(
         list,
     )
     return {
-        "count": len(annotations),
+        "count": len(rows),
         "species_count": len(all_species),
         "individual_id_count": individual_id_count,
         "all_species": all_species,
@@ -92,9 +92,9 @@ def summary(
     }
 
 
-def merge_to_coco_annotations(annotations: list[Annotation]) -> dict[str, list]:
+def merge_to_coco_rows(rows: list[Annotation]) -> dict[str, list]:
     coco_categories = pipe(
-        annotations,
+        rows,
         map(lambda x: x["species"]),
         set,
         enumerate,
@@ -112,16 +112,16 @@ def merge_to_coco_annotations(annotations: list[Annotation]) -> dict[str, list]:
         map(lambda x: (x["name"], x["id"])),
         dict,
     )
-    coco_annotations = []
+    coco_rows = []
     coco_images: list[dict] = []
-    for i, annt in enumerate(annotations):
+    for i, annt in enumerate(rows):
         coco_images.append(
             {
                 "id": i,
                 "file_name": annt["image_file"],
             }
         )
-        coco_annotations.append(
+        coco_rows.append(
             {
                 "id": i,
                 "image_id": i,
@@ -132,11 +132,11 @@ def merge_to_coco_annotations(annotations: list[Annotation]) -> dict[str, list]:
     return {
         "images": coco_images,
         "categories": coco_categories,
-        "annotations": coco_annotations,
+        "rows": coco_rows,
     }
 
 
-def read_annotations(file_path: str) -> list:
+def read_rows(file_path: str) -> list:
     df = pd.read_csv(file_path)
     rows: list[Annotation] = []
     label_map = pipe(
@@ -181,8 +181,8 @@ def read_csv(path: str) -> dict:
     return df.to_dict(orient="records")
 
 
-def filter_annotations_by_fold(
-    annotations: list[Annotation],
+def filter_rows_by_fold(
+    rows: list[Annotation],
     fold: list[dict],
     min_samples: int = 0,
 ) -> list[Annotation]:
@@ -196,16 +196,16 @@ def filter_annotations_by_fold(
         map(lambda x: Path(x["image"]).stem),
         set,
     )
-    filtered_annotations = []
-    for annt in annotations:
-        image_id = Path(annt["image_file"]).stem.split("-")[0]
+    filtered_rows = []
+    for annt in rows:
+        image_id = Path(annt["image_file"]).stem.split(".")[0]
         if image_id in image_ids:
-            filtered_annotations.append(annt)
-    return filtered_annotations
+            filtered_rows.append(annt)
+    return filtered_rows
 
 
-def filter_in_annotations(
-    annotations: list[Annotation],
+def filter_in_rows(
+    rows: list[Annotation],
     ref_annots: list[Annotation],
 ) -> list[Annotation]:
     individual_ids = pipe(
@@ -215,27 +215,27 @@ def filter_in_annotations(
     )
 
     return pipe(
-        annotations,
+        rows,
         filter(lambda x: x["individual_id"] in individual_ids),
         list,
     )
 
 
 def create_croped_dataset(
-    box_annotations: list[dict],
+    box_rows: list[dict],
     source_dir: str,
     dist_dir: str,
     padding: float = 0.05,
-    annotations: Optional[list[Annotation]] = None,
+    rows: Optional[list[Annotation]] = None,
     suffix: str = ".jpg",
 ) -> list[Annotation]:
     image_boxes = pipe(
-        box_annotations,
+        box_rows,
         groupby(lambda x: x["image_id"]),
     )
 
     annotation_map = pipe(
-        annotations or [],
+        rows or [],
         map(lambda x: (Path(x["image_file"]).stem, x)),
         dict,
     )
@@ -249,13 +249,13 @@ def create_croped_dataset(
         box_height = box["y2"] - box["y1"]
         padding_x = box_width * padding
         padding_y = box_height * padding
-        croped_box = [
-            box["x1"] - padding_x,
-            box["y1"] - padding_y,
-            box["x2"] + padding_x,
-            box["y2"] + padding_y,
-        ]
-        im_crop = im.crop(croped_box)
+        # croped_box = [
+        #     box["x1"] - padding_x,
+        #     box["y1"] - padding_y,
+        #     box["x2"] + padding_x,
+        #     box["y2"] + padding_y,
+        # ]
+        # im_crop = im.crop(croped_box)
         image_annot = annotation_map.get(
             image_id,
             {
@@ -264,9 +264,9 @@ def create_croped_dataset(
                 "label": None,
             },
         )
-        dist_file_name = f"{image_id}-{nanoid(size=4)}{suffix}"
+        dist_file_name = f"{image_id}.box{suffix}"
         dist_path = os.path.join(dist_dir, dist_file_name)
-        im_crop.save(dist_path)
+        # im_crop.save(dist_path)
         croped_annots.append(
             Annotation(
                 {
@@ -278,6 +278,7 @@ def create_croped_dataset(
                 }
             )
         )
+    print(croped_annots)
     return croped_annots
 
 
@@ -296,7 +297,7 @@ TrainTransform = lambda cfg: A.Compose(
             contrast=cfg["contrast"],
             saturation=cfg["saturation"],
             hue=cfg["saturation"],
-            p=cfg["color_jitter_p"]
+            p=cfg["color_jitter_p"],
         ),
         A.Resize(
             height=cfg["image_height"],
@@ -405,26 +406,26 @@ def add_new_individual(
 
 
 def search_threshold(
-    train_annotations: list[Annotation],
-    val_annotations: list[Annotation],
+    train_rows: list[Annotation],
+    val_rows: list[Annotation],
     submissions: list[Submission],
     thresholds: list[float],
 ) -> list[dict]:
     train_individual_ids = pipe(
-        train_annotations,
+        train_rows,
         map(lambda x: x["individual_id"]),
         set,
     )
     val_individual_ids = pipe(
-        val_annotations,
+        val_rows,
         map(lambda x: x["individual_id"]),
         set,
     )
-    print(len(val_annotations), len(train_annotations))
+    print(len(val_rows), len(train_rows))
     new_individual_ids = val_individual_ids - train_individual_ids
 
-    val_annotations = pipe(
-        val_annotations,
+    val_rows = pipe(
+        val_rows,
         map(
             lambda x: {
                 **x,
@@ -438,7 +439,7 @@ def search_threshold(
 
     count = 0
     val_annot_map = pipe(
-        val_annotations,
+        val_rows,
         map(
             lambda x: (x["image_file"], x),
         ),

@@ -1,6 +1,8 @@
 # device
-device: cuda
+device: cuda:1
 num_workers: 12
+# data
+train_annotation_path: /app/hwad_bench/store/train.csv
 
 # model
 name: convnext_small

@@ -9,19 +9,25 @@ from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
+from doit import get_var
 
 from hwad_bench.data import (
     create_croped_dataset,
-    filter_annotations_by_fold,
-    read_annotations,
+    filter_rows_by_fold,
     read_csv,
     read_json,
+    read_rows,
     save_submission,
     search_threshold,
     summary,
 )
 from hwad_bench.models import evaluate, inference, train
 from vision_tools.utils import load_config
+
+DOIT_CONFIG = {
+    "backend": "json",
+    "dep_file": "doit-db.json",
+}
 
 
 class CacheAction:
@@ -60,6 +66,7 @@ class CacheAction:
 
 
 action = CacheAction()
+cfg = load_config(get_var("cfg"))
 
 
 def pkl2json(a: str, b: str) -> None:
@@ -69,14 +76,13 @@ def pkl2json(a: str, b: str) -> None:
         json.dump(obj, bfp)
 
 
-def task_read_annotations() -> dict:
-    key = "train_annotations"
-    dataset_cfg = load_config("../config/dataset.yaml")
-    file = dataset_cfg["train_annotation_path"]
+def task_read_rows() -> dict:
+    key = "train_rows"
+    file = cfg["train_annotation_path"]
     return {
         "targets": [key],
         "file_dep": [file],
-        "actions": [action(key=key, fn=read_annotations, args=[file])],
+        "actions": [action(key=key, fn=read_rows, args=[file])],
     }
 
 
@@ -84,20 +90,20 @@ def task_summary() -> dict:
     key = "summary"
     return {
         "targets": [key],
-        "file_dep": ["train_annotations"],
+        "file_dep": ["train_rows"],
         "actions": [
             action(
                 key=key,
                 fn=summary,
-                output_kwargs={"annotations": "train_annotations"},
+                output_kwargs={"rows": "train_rows"},
             )
         ],
         "verbosity": 2,
     }
 
 
-def task_read_train_box_annotations() -> dict:
-    key = "train_box_annotations"
+def task_read_train_box_rows() -> dict:
+    key = "train_box_rows"
     return {
         "targets": [key],
         "actions": [
@@ -111,17 +117,17 @@ def task_read_train_box_annotations() -> dict:
 
 
 def task_create_train_croped_dataset() -> dict:
-    key = "train_croped_annotations"
+    key = "train_croped_rows"
     return {
         "targets": [key],
-        "file_dep": ["train_box_annotations", "train_annotations"],
+        "file_dep": ["train_box_rows", "train_rows"],
         "actions": [
             action(
                 key=key,
                 fn=create_croped_dataset,
                 output_kwargs={
-                    "box_annotations": "train_box_annotations",
-                    "annotations": "train_annotations",
+                    "box_rows": "train_box_rows",
+                    "rows": "train_rows",
                 },
                 kwargs={
                     "source_dir": "/app/datasets/hwad-train",
@@ -133,8 +139,8 @@ def task_create_train_croped_dataset() -> dict:
     }
 
 
-def task_read_test_box_annotations() -> dict:
-    key = "test_box_annotations"
+def task_read_test_box_rows() -> dict:
+    key = "test_box_rows"
     return {
         "targets": [key],
         "actions": [
@@ -148,16 +154,16 @@ def task_read_test_box_annotations() -> dict:
 
 
 def task_create_test_croped_dataset() -> dict:
-    key = "test_croped_annotations"
+    key = "test_croped_rows"
     return {
         "targets": [key],
-        "file_dep": ["test_box_annotations"],
+        "file_dep": ["test_box_rows"],
         "actions": [
             action(
                 key=key,
                 fn=create_croped_dataset,
                 output_kwargs={
-                    "box_annotations": "test_box_annotations",
+                    "box_rows": "test_box_rows",
                 },
                 kwargs={
                     "source_dir": "/app/datasets/hwad-test",
@@ -169,17 +175,17 @@ def task_create_test_croped_dataset() -> dict:
     }
 
 
-def task_fold_0_val_annotations() -> dict:
-    key = "fold_0_val_annotations"
+def task_fold_0_val_rows() -> dict:
+    key = "fold_0_val_rows"
     return {
         "targets": [key],
-        "file_dep": ["train_croped_annotations", "fold_0_val"],
+        "file_dep": ["train_croped_rows", "fold_0_val"],
         "actions": [
             action(
                 key=key,
-                fn=filter_annotations_by_fold,
+                fn=filter_rows_by_fold,
                 output_kwargs={
-                    "annotations": "train_croped_annotations",
+                    "rows": "train_croped_rows",
                     "fold": "fold_0_val",
                 },
             )
@@ -188,21 +194,20 @@ def task_fold_0_val_annotations() -> dict:
     }
 
 
-def task_fold_0_train_annotations() -> dict:
-    key = "fold_0_train_annotations"
+def task_fold_0_train_rows() -> dict:
+    key = "fold_0_train_rows"
     return {
         "targets": [key],
         "file_dep": [
-            "train_croped_annotations",
+            "train_croped_rows",
             "fold_0_train",
-            "train_croped_annotations",
         ],
         "actions": [
             action(
                 key=key,
-                fn=filter_annotations_by_fold,
+                fn=filter_rows_by_fold,
                 output_kwargs={
-                    "annotations": "train_croped_annotations",
+                    "rows": "train_croped_rows",
                     "fold": "fold_0_train",
                 },
             )
@@ -213,7 +218,7 @@ def task_fold_0_train_annotations() -> dict:
 
 def task_save_croped_annotation() -> dict:
     key = "croped.json"
-    dep = "train_croped_annotations"
+    dep = "train_croped_rows"
     return {
         "targets": [key],
         "file_dep": [dep],
@@ -258,26 +263,24 @@ def task_read_fold_0_val() -> dict:
 
 def task_fold_0_train_model() -> dict:
     key = "fold_0_train_model"
-    dataset_cfg = load_config("../config/dataset.yaml")
-    model_cfg = load_config("../config/convnext-base.yaml")
+    cfg = load_config(get_var("cfg"))
     return {
         "targets": [key],
         "file_dep": [
-            "train_croped_annotations",
-            "fold_0_val_annotations",
-            "fold_0_train_annotations",
+            "train_croped_rows",
+            "fold_0_val_rows",
+            "fold_0_train_rows",
         ],
         "actions": [
             action(
                 fn=train,
                 kwargs={
-                    "dataset_cfg": dataset_cfg,
-                    "model_cfg": model_cfg,
+                    "cfg": cfg,
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },
                 output_kwargs={
-                    "train_annotations": "fold_0_train_annotations",
-                    "val_annotations": "fold_0_val_annotations",
+                    "train_rows": "fold_0_train_rows",
+                    "val_rows": "fold_0_val_rows",
                 },
             )
         ],
@@ -287,24 +290,21 @@ def task_fold_0_train_model() -> dict:
 
 def task_fold_0_val_submissions() -> dict:
     key = "fold_0_val_submissions"
-    dataset_cfg = load_config("../config/dataset.yaml")
-    model_cfg = load_config("../config/convnext-base.yaml")
     return {
         "targets": [key],
-        "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
+        "file_dep": ["train_croped_rows", "fold_0_train", "fold_0_val"],
         "actions": [
             action(
                 key=key,
                 fn=evaluate,
                 kwargs={
-                    "dataset_cfg": dataset_cfg,
-                    "model_cfg": model_cfg,
+                    "cfg": cfg,
                     "fold": 0,
                     "image_dir": "/app/datasets/hwad-train-croped-body",
                 },
                 output_kwargs={
-                    "train_annotations": "fold_0_train_annotations",
-                    "val_annotations": "fold_0_val_annotations",
+                    "train_rows": "fold_0_train_rows",
+                    "val_rows": "fold_0_val_rows",
                 },
             )
         ],
@@ -318,7 +318,7 @@ def task_fold_0_search_threshold() -> dict:
         "targets": [key],
         "file_dep": [
             "fold_0_val_submissions",
-            "fold_0_train_annotations",
+            "fold_0_train_rows",
         ],
         "actions": [
             action(
@@ -328,8 +328,8 @@ def task_fold_0_search_threshold() -> dict:
                     "thresholds": np.linspace(0.0, 1.0, 100).tolist(),
                 },
                 output_kwargs={
-                    "train_annotations": "fold_0_train_annotations",
-                    "val_annotations": "fold_0_val_annotations",
+                    "train_rows": "fold_0_train_rows",
+                    "val_rows": "fold_0_val_rows",
                     "submissions": "fold_0_val_submissions",
                 },
             )
@@ -340,24 +340,21 @@ def task_fold_0_search_threshold() -> dict:
 
 def task_fold_0_submissions() -> dict:
     key = "fold_0_submissions"
-    dataset_cfg = load_config("../config/dataset.yaml")
-    model_cfg = load_config("../config/convnext-base.yaml")
     return {
         "targets": [key],
-        "file_dep": ["train_croped_annotations", "fold_0_train", "fold_0_val"],
+        "file_dep": ["train_croped_rows", "fold_0_train", "fold_0_val"],
         "actions": [
             action(
                 key=key,
                 fn=inference,
                 kwargs={
-                    "dataset_cfg": dataset_cfg,
-                    "model_cfg": model_cfg,
+                    "cfg": cfg,
                     "train_image_dir": "/app/datasets/hwad-train-croped-body",
                     "test_image_dir": "/app/datasets/hwad-test-croped-body",
                 },
                 output_kwargs={
-                    "train_annotations": "train_croped_annotations",
-                    "test_annotations": "test_croped_annotations",
+                    "train_rows": "train_croped_rows",
+                    "test_rows": "test_croped_rows",
                     "search_thresholds": "fold_0_search_threshold",
                 },
             )

@@ -1,4 +1,4 @@
-from __future__ import annotations as _
+from __future__ import annotations
 
 from typing import Any
 
@@ -10,43 +10,40 @@ from hwad_bench.data import (
     TrainTransform,
     add_new_individual,
     create_croped_dataset,
-    filter_annotations_by_fold,
-    merge_to_coco_annotations,
-    read_annotations,
+    filter_rows_by_fold,
+    merge_to_coco_rows,
     read_csv,
+    read_rows,
     save_submission,
     search_threshold,
 )
 from hwad_bench.models import get_writer
 from vision_tools.utils import load_config
 
-dataset_cfg = load_config("config/dataset.yaml")
-model_cfg = load_config("config/convnext-base.yaml")
-
-train_cfg = load_config("config/train.yaml")
+cfg = load_config("config/experiment.1.yaml")
 
 
-writer = get_writer(model_cfg)
+writer = get_writer(cfg)
 
 
 @pytest.fixture
-def annotations() -> list[Annotation]:
-    return read_annotations(dataset_cfg["train_annotation_path"])
+def rows() -> list[Annotation]:
+    return read_rows(cfg["train_annotation_path"])
 
 
-def test_rows(annotations: list[Annotation]) -> None:
-    assert len(annotations) == 51033
+def test_rows(rows: list[Annotation]) -> None:
+    assert len(rows) == 51033
 
 
-def test_merge_to_coco_annotations(annotations: list[Annotation]) -> None:
-    coco = merge_to_coco_annotations(annotations[:1])
-    assert len(coco["annotations"]) == 1
+def test_merge_to_coco_rows(rows: list[Annotation]) -> None:
+    coco = merge_to_coco_rows(rows[:1])
+    assert len(coco["rows"]) == 1
     assert len(coco["categories"]) == 1
     assert len(coco["images"]) == 1
 
 
 def test_create_croped_dataset() -> None:
-    box_annotations = [
+    box_rows = [
         {
             "image_id": "dummy",
             "x1": 20,
@@ -64,7 +61,7 @@ def test_create_croped_dataset() -> None:
             "score": 0.5,
         },
     ]
-    annotations: list[Any] = [
+    rows: list[Any] = [
         {
             "image_file": "dummy.png",
             "species": "species-0",
@@ -73,8 +70,8 @@ def test_create_croped_dataset() -> None:
         },
     ]
     res = create_croped_dataset(
-        box_annotations=box_annotations,
-        annotations=annotations,
+        box_rows=box_rows,
+        rows=rows,
         source_dir="/app/test_data",
         dist_dir="/app/test_outputs",
         suffix=".png",
@@ -86,7 +83,7 @@ def test_create_croped_dataset() -> None:
 
 
 def test_create_test_croped_dataset() -> None:
-    box_annotations = [
+    box_rows = [
         {
             "image_id": "dummy",
             "x1": 20,
@@ -105,7 +102,7 @@ def test_create_test_croped_dataset() -> None:
         },
     ]
     res = create_croped_dataset(
-        box_annotations=box_annotations,
+        box_rows=box_rows,
         source_dir="/app/test_data",
         dist_dir="/app/test_outputs",
         suffix=".png",
@@ -120,7 +117,7 @@ def test_aug() -> None:
     dataset = HwadCropedDataset(
         rows=[
             {
-                "image_file": "/app/datasets/hwad-train-croped-body/0a0cedc8ac6499-89Fx.jpg",
+                "image_file": "/app/datasets/hwad-train-croped-body/0a0cedc8ac6499.box.jpg",
                 "species": "species-0",
                 "individual_id": "indiviual-0",
                 "label": 0,
@@ -128,7 +125,7 @@ def test_aug() -> None:
             }
         ],
         image_dir="/app/test_data",
-        transform=TrainTransform(model_cfg),
+        transform=TrainTransform(cfg),
     )
     for i in range(100):
         sample, _ = dataset[0]
@@ -136,9 +133,9 @@ def test_aug() -> None:
     writer.flush()
 
 
-def test_filter_annotations_by_fold() -> None:
+def test_filter_rows_by_fold() -> None:
 
-    annotations: list[Any] = [
+    rows: list[Any] = [
         {
             "image_file": "img0-box0.png",
             "species": "species-0",
@@ -164,13 +161,13 @@ def test_filter_annotations_by_fold() -> None:
             "individual_samples": 3,
         },
     ]
-    filtered = filter_annotations_by_fold(annotations, fold, min_samples=5)
+    filtered = filter_rows_by_fold(rows, fold, min_samples=5)
     assert len(filtered) == 1
     assert filtered[0]["image_file"] == "img0-box0.png"
 
 
 def test_search_thresold() -> None:
-    val_annotations: list[Any] = [
+    val_rows: list[Any] = [
         {
             "image_file": "img0-box0.png",
             "species": "species-0",
@@ -184,7 +181,7 @@ def test_search_thresold() -> None:
             "label": 2,
         },
     ]
-    train_annotations: list[Any] = [
+    train_rows: list[Any] = [
         {
             "image_file": "img0-box0.png",
             "species": "species-0",
@@ -207,8 +204,8 @@ def test_search_thresold() -> None:
     ]
 
     res = search_threshold(
-        train_annotations=train_annotations,
-        val_annotations=val_annotations,
+        train_rows=train_rows,
+        val_rows=val_rows,
         submissions=submissions,
         thresholds=[0.5, 0.95],
     )
