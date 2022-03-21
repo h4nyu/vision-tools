@@ -38,8 +38,6 @@ trans0: -0.1
 trans1: 0.1
 scale0: 0.6
 scale1: 1.4
-ratio0: 0.75
-ratio1: 1.33
 
 brightness: 0.1
 contrast: 0.2

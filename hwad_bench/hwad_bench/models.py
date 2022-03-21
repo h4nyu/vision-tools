@@ -90,8 +90,6 @@ def get_cfg_name(cfg: dict) -> str:
         "trans1",
         "scale0",
         "scale1",
-        "ratio0",
-        "ratio1",
         "color_jitter_p",
         "brightness",
         "contrast",

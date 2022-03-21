@@ -289,6 +289,7 @@ TrainTransform = lambda cfg: A.Compose(
             shear=(cfg["shear0"], cfg["shear1"]),
             translate_percent=(cfg["trans0"], cfg["trans1"]),
             interpolation=cv2.INTER_NEAREST,
+            scale=(cfg["scale0"], cfg["scale1"]),
             p=cfg["affine_p"],
         ),
         A.ToGray(p=cfg["to_gray_p"]),
@@ -299,11 +300,10 @@ TrainTransform = lambda cfg: A.Compose(
             hue=cfg["saturation"],
             p=cfg["color_jitter_p"],
         ),
-        A.RandomResizedCrop(
+        A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],
-            scale=(cfg["scale0"], cfg["scale1"]),
-            ratio=(cfg["ratio0"], cfg["ratio1"]),
+            interpolation=cv2.INTER_NEAREST,
             p=1.0,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
