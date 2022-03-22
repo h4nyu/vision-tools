@@ -100,7 +100,7 @@ def get_model(cfg: dict) -> Any:
             pretrained=cfg["pretrained"],
             embedding_size=cfg["embedding_size"],
         )
-    if cfg["name"] in ["efficientnet_b6"]:
+    if cfg["name"] in ["efficientnet_b6", "efficientnet_b5"]:
         return EfficientNet(
             name=cfg["name"],
             pretrained=cfg["pretrained"],
@@ -194,12 +194,12 @@ def train(
     saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
     best_score = 0.0
-    scheduler = OneCycleLR(
-        optimizer,
-        total_steps=cfg["total_steps"],
-        max_lr=cfg["lr"],
-        pct_start=cfg["warmup_steps"] / cfg["total_steps"],
-    )
+    # scheduler = OneCycleLR(
+    #     optimizer,
+    #     total_steps=cfg["total_steps"],
+    #     max_lr=cfg["lr"],
+    #     pct_start=cfg["warmup_steps"] / cfg["total_steps"],
+    # )
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
@@ -240,8 +240,8 @@ def train(
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
-            scheduler.step(iteration)
-            train_meter.update({"loss": loss.item()})
+            # scheduler.step(iteration)
+            train_meter.update({"loss": loss.item() * accumulate_steps})
 
             if iteration % eval_interval == 0:
                 model.eval()
@@ -384,6 +384,7 @@ def eval_epoch(
             },
             target="best_score",
         )
+    print(f"score: {score}")
     metric.reset()
     val_meter.reset()
 

@@ -5,9 +5,9 @@ num_workers: 8
 train_annotation_path: /app/hwad_bench/store/train.csv
 
 # model
-name: convnext_small
+name: efficientnet_b5
 fold: 0
-version: v4
+version: v5
 
 embedding_size: 512
 pretrained: true
@@ -18,17 +18,17 @@ batch_size: 16
 eval_interval: 2000
 resume: latest
 min_samples: 0
-lr: 1.5e-4
+lr: 2.0e-4
 weight_decay: 0.05
 lr_patience: 2
 lr_factor: 0.9
-total_steps: 80_000
+total_steps: 120_000
 warmup_steps: 4_000
-accumulate_steps: 1
+accumulate_steps: 4
 num_classes: 15587
 
-image_width: 512
-image_height: 512
+image_width: 640
+image_height: 640
 
 affine_p: 1.0
 rot0: 0
@@ -40,10 +40,10 @@ trans1: 0.1
 scale0: 0.6
 scale1: 1.4
 
-brightness: 0.1
-contrast: 0.2
-saturation: 0.2
-hue: 0.01
-color_jitter_p: 1.0
+brightness_limit: 0.1
+contrast_limit: 0.1
+sat_shift_limit: 10
+hue_shift_limit: 5
+val_shift_limit: 10
 to_gray_p: 0.1
 hflip_p: 0.5

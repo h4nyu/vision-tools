@@ -290,12 +290,8 @@ def task_fold_0_train_model() -> dict:
 
 def task_eval_epoch() -> dict:
     cfg = load_config(get_var("cfg"))
+    key = "eval_epoch"
     return {
-        "file_dep": [
-            "train_croped_rows",
-            "fold_0_val_rows",
-            "fold_0_train_rows",
-        ],
         "actions": [
             action(
                 fn=eval_epoch,
@@ -309,7 +305,6 @@ def task_eval_epoch() -> dict:
                 },
             )
         ],
-        "verbosity": 2,
     }
 
 

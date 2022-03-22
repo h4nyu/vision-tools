@@ -292,14 +292,18 @@ TrainTransform = lambda cfg: A.Compose(
             scale=(cfg["scale0"], cfg["scale1"]),
             p=cfg["affine_p"],
         ),
-        A.ToGray(p=cfg["to_gray_p"]),
-        A.ColorJitter(
-            brightness=cfg["brightness"],
-            contrast=cfg["contrast"],
-            saturation=cfg["saturation"],
-            hue=cfg["saturation"],
-            p=cfg["color_jitter_p"],
+        A.RandomBrightnessContrast(
+            brightness_limit=cfg["brightness_limit"],
+            contrast_limit=cfg["contrast_limit"],
+            p=1.0,
         ),
+        A.HueSaturationValue(
+            hue_shift_limit=cfg["hue_shift_limit"],
+            sat_shift_limit=cfg["sat_shift_limit"],
+            val_shift_limit=cfg["val_shift_limit"],
+            p=1.0,
+        ),
+        A.ToGray(p=cfg["to_gray_p"]),
         A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],
