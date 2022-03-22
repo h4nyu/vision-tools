@@ -21,7 +21,7 @@ from hwad_bench.data import (
     search_threshold,
     summary,
 )
-from hwad_bench.models import evaluate, inference, train
+from hwad_bench.models import eval_epoch, evaluate, inference, train
 from vision_tools.utils import load_config
 
 DOIT_CONFIG = {
@@ -274,6 +274,31 @@ def task_fold_0_train_model() -> dict:
         "actions": [
             action(
                 fn=train,
+                kwargs={
+                    "cfg": cfg,
+                    "image_dir": "/app/datasets/hwad-train-croped-body",
+                },
+                output_kwargs={
+                    "train_rows": "fold_0_train_rows",
+                    "val_rows": "fold_0_val_rows",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_eval_epoch() -> dict:
+    cfg = load_config(get_var("cfg"))
+    return {
+        "file_dep": [
+            "train_croped_rows",
+            "fold_0_val_rows",
+            "fold_0_train_rows",
+        ],
+        "actions": [
+            action(
+                fn=eval_epoch,
                 kwargs={
                     "cfg": cfg,
                     "image_dir": "/app/datasets/hwad-train-croped-body",

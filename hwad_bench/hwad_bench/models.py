@@ -71,43 +71,42 @@ class ConvNeXt(nn.Module):
         return out
 
 
+class EfficientNet(nn.Module):
+    def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
+        super().__init__()
+        self.name = name
+        self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
+        self.embedding = nn.LazyLinear(embedding_size)
+
+    def forward(self, x: Tensor) -> Tensor:
+        out = self.model(x)
+        out = F.normalize(out, p=2, dim=1)
+        return out
+
+
 def get_cfg_name(cfg: dict) -> str:
     keys = [
         "name",
-        "embedding_size",
         "fold",
         "version",
-        "min_samples",
-        "lr",
-        "image_width",
-        "image_height",
-        "affine_p",
-        "rot0",
-        "rot1",
-        "shear0",
-        "shear1",
-        "trans0",
-        "trans1",
-        "scale0",
-        "scale1",
-        "color_jitter_p",
-        "brightness",
-        "contrast",
-        "saturation",
-        "hue",
-        "to_gray_p",
-        "hflip_p",
     ]
     return "_".join([str(cfg[k]) for k in keys])
 
 
-def get_model(cfg: dict) -> ConvNeXt:
-    model = ConvNeXt(
-        name=cfg["name"],
-        pretrained=cfg["pretrained"],
-        embedding_size=cfg["embedding_size"],
-    )
-    return model
+def get_model(cfg: dict) -> Any:
+    if cfg["name"] in ["convnext_small"]:
+        return ConvNeXt(
+            name=cfg["name"],
+            pretrained=cfg["pretrained"],
+            embedding_size=cfg["embedding_size"],
+        )
+    if cfg["name"] in ["efficientnet_b6"]:
+        return EfficientNet(
+            name=cfg["name"],
+            pretrained=cfg["pretrained"],
+            embedding_size=cfg["embedding_size"],
+        )
+    raise Exception(f"Unknown model name: {cfg['name']}")
 
 
 def get_checkpoint(cfg: dict) -> Checkpoint:
@@ -133,6 +132,8 @@ def train(
     use_amp = cfg["use_amp"]
     eval_interval = cfg["eval_interval"]
     device = cfg["device"]
+    accumulate_steps = cfg["accumulate_steps"]
+    cfg_name = get_cfg_name(cfg)
     writer = get_writer(cfg)
     cleaned_rows = pipe(
         train_rows,
@@ -209,6 +210,7 @@ def train(
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
+    print(f"cfg: {cfg_name}")
     print(f"iteration: {iteration}")
     print(f"best_score: {best_score}")
     to_device = ToDevice(device)
@@ -222,92 +224,168 @@ def train(
             batch = to_device(**batch)
             image_batch = batch["image_batch"]
             label_batch = batch["label_batch"]
-            optimizer.zero_grad()
             with autocast(enabled=use_amp):
                 embeddings = model(image_batch)
-                loss = loss_fn(
-                    embeddings,
-                    label_batch,
+                loss = (
+                    loss_fn(
+                        embeddings,
+                        label_batch,
+                    )
+                    / accumulate_steps
                 )
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)
-                scaler.step(optimizer)
-                scaler.update()
 
+                scaler.scale(loss).backward()
+                if iteration % accumulate_steps == 0:
+                    scaler.unscale_(optimizer)
+                    scaler.step(optimizer)
+                    scaler.update()
+                    optimizer.zero_grad()
             scheduler.step(iteration)
             train_meter.update({"loss": loss.item()})
 
             if iteration % eval_interval == 0:
                 model.eval()
                 loss_fn.eval()
-                metric = MeanAveragePrecisionK()
                 val_meter = MeanReduceDict()
-                matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
-
-                    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
-                        batch = to_device(**batch)
-                        image_batch = batch["image_batch"]
-                        label_batch = batch["label_batch"]
-                        embeddings = model(image_batch)
-                        matcher.update(embeddings, label_batch)
-                    matcher.create_index()
                     for batch, annots in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
-                        _, pred_label_batch = matcher(embeddings, k=5)
                         loss = loss_fn(
                             embeddings,
                             label_batch,
                         )
-                        metric.update(
-                            pred_label_batch,
-                            label_batch,
-                        )
                         val_meter.update({"loss": loss.item()})
-                score, _ = metric.value
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
 
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
                 writer.add_scalar(f"val/loss", val_meter.value["loss"], iteration)
-                writer.add_scalar(f"val/score", score, iteration)
                 writer.add_scalar(
                     f"train/lr", [x["lr"] for x in optimizer.param_groups][0], iteration
                 )
                 train_meter.reset()
-                metric.reset()
                 val_meter.reset()
-
-                if score > best_score:
-                    best_score = score
-                    checkpoint.save(
-                        {
-                            "model": model.state_dict(),
-                            "loss_fn": loss_fn.state_dict(),
-                            "optimizer": optimizer.state_dict(),
-                            "iteration": iteration,
-                            "score": score,
-                            "best_score": best_score,
-                        },
-                        target="best_score",
-                    )
-
                 checkpoint.save(
                     {
                         "model": model.state_dict(),
                         "loss_fn": loss_fn.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
-                        "score": score,
                         "best_score": best_score,
                     },
                     target="latest",
                 )
         writer.flush()
+
+
+@torch.no_grad()
+def eval_epoch(
+    cfg: dict,
+    train_rows: list[Annotation],
+    val_rows: list[Annotation],
+    image_dir: str,
+) -> None:
+    seed_everything()
+    eval_interval = cfg["eval_interval"]
+    device = cfg["device"]
+    cfg_name = get_cfg_name(cfg)
+    writer = get_writer(cfg)
+    reg_dataset = HwadCropedDataset(
+        rows=train_rows,
+        image_dir=image_dir,
+        transform=Transform(cfg),
+    )
+    val_dataset = HwadCropedDataset(
+        rows=filter_in_rows(val_rows, train_rows),
+        image_dir=image_dir,
+        transform=Transform(cfg),
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+    reg_loader = DataLoader(
+        reg_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+
+    model = get_model(cfg).to(device)
+    loss_fn = ArcFaceLoss(
+        num_classes=cfg["num_classes"],
+        embedding_size=cfg["embedding_size"],
+    ).to(device)
+    optimizer = optim.AdamW(
+        list(model.parameters()) + list(loss_fn.parameters()),
+        lr=cfg["lr"],
+        weight_decay=cfg["weight_decay"],
+    )
+    checkpoint = get_checkpoint(cfg)
+    saved_state = checkpoint.load(cfg["resume"])
+    iteration = 0
+    best_score = 0.0
+    if saved_state is not None:
+        model.load_state_dict(saved_state["model"])
+        loss_fn.load_state_dict(saved_state["loss_fn"])
+        optimizer.load_state_dict(saved_state["optimizer"])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device)
+        iteration = saved_state.get("iteration", 0)
+        best_score = saved_state.get("best_score", 0.0)
+    print(f"cfg: {cfg_name}")
+    print(f"iteration: {iteration}")
+    print(f"best_score: {best_score}")
+    to_device = ToDevice(device)
+
+    model.eval()
+    metric = MeanAveragePrecisionK()
+    val_meter = MeanReduceDict()
+    matcher = MeanEmbeddingMatcher()
+    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
+        batch = to_device(**batch)
+        image_batch = batch["image_batch"]
+        label_batch = batch["label_batch"]
+        embeddings = model(image_batch)
+        matcher.update(embeddings, label_batch)
+    matcher.create_index()
+    for batch, annots in tqdm(val_loader, total=len(val_loader)):
+        batch = to_device(**batch)
+        image_batch = batch["image_batch"]
+        label_batch = batch["label_batch"]
+        embeddings = model(image_batch)
+        _, pred_label_batch = matcher(embeddings, k=5)
+        metric.update(
+            pred_label_batch,
+            label_batch,
+        )
+    score, _ = metric.value
+    writer.add_scalar(f"val/score", score, iteration)
+    if score < best_score:
+        best_score = score
+        checkpoint.save(
+            {
+                "model": model.state_dict(),
+                "loss_fn": loss_fn.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "iteration": iteration,
+                "score": score,
+                "best_score": best_score,
+            },
+            target="best_score",
+        )
+    metric.reset()
+    val_meter.reset()
 
 
 @torch.no_grad()
