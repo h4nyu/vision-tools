@@ -64,10 +64,13 @@ class ConvNeXt(nn.Module):
         self.name = name
         self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
         self.embedding = nn.LazyLinear(embedding_size)
+        self.pooling = GeM()
 
     def forward(self, x: Tensor) -> Tensor:
-        out = self.model(x)
-        out = F.normalize(out, p=2, dim=1)
+        features = self.model.forward_features(x)
+        pooled_features = self.pooling(features).flatten(1)
+        embedding = self.embedding(pooled_features)
+        out = F.normalize(embedding, p=2, dim=1)
         return out
 
 
@@ -77,10 +80,13 @@ class EfficientNet(nn.Module):
         self.name = name
         self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
         self.embedding = nn.LazyLinear(embedding_size)
+        self.pooling = GeM()
 
     def forward(self, x: Tensor) -> Tensor:
-        out = self.model(x)
-        out = F.normalize(out, p=2, dim=1)
+        features = self.model.forward_features(x)
+        pooled_features = self.pooling(features).flatten(1)
+        embedding = self.embedding(pooled_features)
+        out = F.normalize(embedding, p=2, dim=1)
         return out
 
 
@@ -194,12 +200,12 @@ def train(
     saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
     best_score = 0.0
-    # scheduler = OneCycleLR(
-    #     optimizer,
-    #     total_steps=cfg["total_steps"],
-    #     max_lr=cfg["lr"],
-    #     pct_start=cfg["warmup_steps"] / cfg["total_steps"],
-    # )
+    scheduler = OneCycleLR(
+        optimizer,
+        total_steps=cfg["total_steps"],
+        max_lr=cfg["lr"],
+        pct_start=cfg["warmup_steps"] / cfg["total_steps"],
+    )
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
@@ -240,7 +246,7 @@ def train(
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
-            # scheduler.step(iteration)
+            scheduler.step(iteration)
             train_meter.update({"loss": loss.item() * accumulate_steps})
 
             if iteration % eval_interval == 0:

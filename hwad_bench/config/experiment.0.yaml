@@ -18,7 +18,7 @@ batch_size: 16
 eval_interval: 2000
 resume: latest
 min_samples: 0
-lr: 2.0e-4
+lr: 1.0e-3
 weight_decay: 0.05
 lr_patience: 2
 lr_factor: 0.9
