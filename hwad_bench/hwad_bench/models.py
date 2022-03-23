@@ -70,7 +70,6 @@ class ConvNeXt(nn.Module):
         features = self.model.forward_features(x)
         pooled_features = self.pooling(features).flatten(1)
         embedding = self.embedding(pooled_features)
-        out = F.normalize(embedding, p=2, dim=1)
         return out
 
 
@@ -86,15 +85,13 @@ class EfficientNet(nn.Module):
         features = self.model.forward_features(x)
         pooled_features = self.pooling(features).flatten(1)
         embedding = self.embedding(pooled_features)
-        out = F.normalize(embedding, p=2, dim=1)
-        return out
+        return embedding
 
 
 def get_cfg_name(cfg: dict) -> str:
     keys = [
-        "name",
-        "fold",
         "version",
+        "fold",
     ]
     return "_".join([str(cfg[k]) for k in keys])
 
@@ -106,7 +103,7 @@ def get_model(cfg: dict) -> Any:
             pretrained=cfg["pretrained"],
             embedding_size=cfg["embedding_size"],
         )
-    if cfg["name"] in ["efficientnet_b6", "efficientnet_b5"]:
+    if cfg["name"].startswith("efficientnet"):
         return EfficientNet(
             name=cfg["name"],
             pretrained=cfg["pretrained"],
@@ -215,8 +212,8 @@ def train(
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
-    model = torch.nn.DataParallel(model, device_ids=[0, 1]).to(device)
-    # loss_fn = torch.nn.DataParallel(loss_fn, device_ids=[0, 1]).to(device)
+    model = model.to(device)
+    loss_fn = loss_fn.to(device)
     print(f"cfg: {cfg_name}")
     print(f"iteration: {iteration}")
     print(f"best_score: {best_score}")
@@ -242,12 +239,13 @@ def train(
                 )
 
                 scaler.scale(loss).backward()
-                if iteration % accumulate_steps == 0:
-                    scaler.step(optimizer)
-                    scaler.update()
-                    optimizer.zero_grad()
-            scheduler.step(iteration)
-            train_meter.update({"loss": loss.item() * accumulate_steps})
+                # if iteration % accumulate_steps == 0:
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
+                scheduler.step(iteration)
+            # train_meter.update({"loss": loss.item() * accumulate_steps})
+            train_meter.update({"loss": loss.item()})
 
             if iteration % eval_interval == 0:
                 model.eval()

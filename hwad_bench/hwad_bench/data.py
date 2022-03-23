@@ -311,6 +311,7 @@ TrainTransform = lambda cfg: A.Compose(
             p=1.0,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
+        A.Normalize(),
         ToTensorV2(),
     ],
 )
@@ -322,6 +323,7 @@ Transform = lambda cfg: A.Compose(
             width=cfg["image_width"],
             interpolation=cv2.INTER_NEAREST,
         ),
+        A.Normalize(),
         ToTensorV2(),
     ],
 )
