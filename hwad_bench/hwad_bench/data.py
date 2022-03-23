@@ -288,7 +288,7 @@ TrainTransform = lambda cfg: A.Compose(
             rotate=(cfg["rot0"], cfg["rot1"]),
             shear=(cfg["shear0"], cfg["shear1"]),
             translate_percent=(cfg["trans0"], cfg["trans1"]),
-            interpolation=cv2.INTER_NEAREST,
+            interpolation=cv2.INTER_CUBIC,
             scale=(cfg["scale0"], cfg["scale1"]),
             p=cfg["affine_p"],
         ),
@@ -307,7 +307,7 @@ TrainTransform = lambda cfg: A.Compose(
         A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],
-            interpolation=cv2.INTER_NEAREST,
+            interpolation=cv2.INTER_CUBIC,
             p=1.0,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
@@ -321,7 +321,7 @@ Transform = lambda cfg: A.Compose(
         A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],
-            interpolation=cv2.INTER_NEAREST,
+            interpolation=cv2.INTER_CUBIC,
         ),
         A.Normalize(),
         ToTensorV2(),

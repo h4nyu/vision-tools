@@ -103,7 +103,7 @@ def get_model(cfg: dict) -> Any:
             pretrained=cfg["pretrained"],
             embedding_size=cfg["embedding_size"],
         )
-    if cfg["name"].startswith("efficientnet"):
+    if "efficientnet" in cfg["name"]:
         return EfficientNet(
             name=cfg["name"],
             pretrained=cfg["pretrained"],
