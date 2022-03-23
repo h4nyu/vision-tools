@@ -239,13 +239,12 @@ def train(
                 )
 
                 scaler.scale(loss).backward()
-                # if iteration % accumulate_steps == 0:
-                scaler.step(optimizer)
-                scaler.update()
-                optimizer.zero_grad()
+                if iteration % accumulate_steps == 0:
+                    scaler.step(optimizer)
+                    scaler.update()
+                    optimizer.zero_grad()
                 scheduler.step(iteration)
-            # train_meter.update({"loss": loss.item() * accumulate_steps})
-            train_meter.update({"loss": loss.item()})
+            train_meter.update({"loss": loss.item() * accumulate_steps})
 
             if iteration % eval_interval == 0:
                 model.eval()
