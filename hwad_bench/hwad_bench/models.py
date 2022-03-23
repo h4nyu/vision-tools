@@ -79,7 +79,7 @@ class EfficientNet(nn.Module):
         super().__init__()
         self.name = name
         self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
-        self.embedding = nn.LazyLinear(embedding_size)
+        self.embedding = nn.Linear(self.model.num_features, embedding_size)
         self.pooling = GeM()
 
     def forward(self, x: Tensor) -> Tensor:
@@ -187,9 +187,8 @@ def train(
     loss_fn = ArcFaceLoss(
         num_classes=cfg["num_classes"],
         embedding_size=cfg["embedding_size"],
-    ).to(device)
-    print(device)
-    model = get_model(cfg).to(device)
+    )
+    model = get_model(cfg)
     optimizer = optim.AdamW(
         list(model.parameters()) + list(loss_fn.parameters()),
         lr=cfg["lr"],
@@ -216,6 +215,8 @@ def train(
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
+    model = torch.nn.DataParallel(model, device_ids=[0, 1]).to(device)
+    # loss_fn = torch.nn.DataParallel(loss_fn, device_ids=[0, 1]).to(device)
     print(f"cfg: {cfg_name}")
     print(f"iteration: {iteration}")
     print(f"best_score: {best_score}")
@@ -242,7 +243,6 @@ def train(
 
                 scaler.scale(loss).backward()
                 if iteration % accumulate_steps == 0:
-                    scaler.unscale_(optimizer)
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
