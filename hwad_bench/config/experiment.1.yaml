@@ -1,29 +1,30 @@
 # device
 device: cuda
-num_workers: 12
+num_workers: 6
 # data
 train_annotation_path: /app/hwad_bench/store/train.csv
 
 # model
 name: tf_efficientnet_b5_ns
+fold: 0
+version: v7
+
 embedding_size: 512
 pretrained: true
-version: v6
-fold: 0
 
 use_amp: true
 epochs: 999
 batch_size: 16
 eval_interval: 1000
 resume: latest
-min_samples: 4
-lr: 1.0e-4
-accumulate_steps: 1
+min_samples: 0
+lr: 1.5e-4
 weight_decay: 0.05
 lr_patience: 2
 lr_factor: 0.9
 total_steps: 120_000
 warmup_steps: 4_000
+accumulate_steps: 8
 num_classes: 15587
 
 image_width: 640
