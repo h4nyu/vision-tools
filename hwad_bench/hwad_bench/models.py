@@ -70,7 +70,7 @@ class ConvNeXt(nn.Module):
         features = self.model.forward_features(x)
         pooled_features = self.pooling(features).flatten(1)
         embedding = self.embedding(pooled_features)
-        return out
+        return embedding
 
 
 class EfficientNet(nn.Module):
@@ -196,11 +196,15 @@ def train(
     saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
     best_score = 0.0
-    scheduler = OneCycleLR(
-        optimizer,
-        total_steps=cfg["total_steps"],
-        max_lr=cfg["lr"],
-        pct_start=cfg["warmup_steps"] / cfg["total_steps"],
+    scheduler = (
+        OneCycleLR(
+            optimizer,
+            total_steps=cfg["total_steps"],
+            max_lr=cfg["lr"],
+            pct_start=cfg["warmup_steps"] / cfg["total_steps"],
+        )
+        if cfg["use_scheduler"]
+        else None
     )
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
@@ -243,7 +247,8 @@ def train(
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
-                scheduler.step(iteration)
+                if scheduler is not None:
+                    scheduler.step(iteration)
             train_meter.update({"loss": loss.item() * accumulate_steps})
 
             if iteration % eval_interval == 0:
@@ -448,7 +453,7 @@ def evaluate(
     model.eval()
     val_meter = MeanReduceDict()
     # metric = MeanAveragePrecisionK()
-    matcher = MeanEmbeddingMatcher()
+    # matcher = MeanEmbeddingMatcher()
     matcher = NearestMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
