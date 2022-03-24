@@ -262,6 +262,7 @@ def create_croped_dataset(
                 "species": None,
                 "individual_id": None,
                 "label": None,
+                "individual_samples": None,
             },
         )
         dist_file_name = f"{image_id}.box{suffix}"

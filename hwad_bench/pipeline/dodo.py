@@ -263,7 +263,6 @@ def task_read_fold_0_val() -> dict:
 
 def task_fold_0_train_model() -> dict:
     key = "fold_0_train_model"
-    cfg = load_config(get_var("cfg"))
     return {
         "targets": [key],
         "file_dep": [
@@ -289,7 +288,6 @@ def task_fold_0_train_model() -> dict:
 
 
 def task_eval_epoch() -> dict:
-    cfg = load_config(get_var("cfg"))
     key = "eval_epoch"
     return {
         "actions": [
@@ -362,7 +360,12 @@ def task_fold_0_submissions() -> dict:
     key = "fold_0_submissions"
     return {
         "targets": [key],
-        "file_dep": ["train_croped_rows", "fold_0_train", "fold_0_val"],
+        "file_dep": [
+            "test_croped_rows",
+            "train_croped_rows",
+            "fold_0_train",
+            "fold_0_val",
+        ],
         "actions": [
             action(
                 key=key,
