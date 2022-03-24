@@ -501,7 +501,7 @@ def save_submission(
 ) -> list[dict]:
     rows: list[dict] = []
     for sub in submissions:
-        image_id = sub["image_file"].split("-")[0]
+        image_id = sub["image_file"].split(".")[0]
         row = {
             "image": f"{image_id}.jpg",
             "predictions": " ".join(sub["individual_ids"]),
