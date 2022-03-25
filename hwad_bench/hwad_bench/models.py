@@ -88,6 +88,34 @@ class EfficientNet(nn.Module):
         return embedding
 
 
+class Criterion(nn.Module):
+    def __init__(
+        self,
+        embedding_size: int,
+        num_classes: int,
+        num_supclasses: int,
+        alpha: float = 1.0,
+    ) -> None:
+        super().__init__()
+        self.embedding_size = embedding_size
+        self.num_classes = num_classes
+        self.num_supclasses = num_supclasses
+        self.arcface = ArcFaceLoss(
+            num_classes=num_classes,
+            embedding_size=embedding_size,
+        )
+        self.alpha = alpha
+        self.supcls_fc = nn.Linear(embedding_size, self.num_supclasses)
+
+    def forward(
+        self, embeddings: Tensor, labels: Tensor, suplabels: Tensor
+    ) -> dict[str, Tensor]:
+        cls_loss = self.arcface(embeddings, labels)
+        supcls_loss = F.cross_entropy(self.supcls_fc(embeddings), suplabels)
+        loss = cls_loss + self.alpha * supcls_loss
+        return {"loss": loss, "cls_loss": cls_loss, "supcls_loss": supcls_loss}
+
+
 def get_cfg_name(cfg: dict) -> str:
     keys = [
         "version",

@@ -361,7 +361,7 @@ def task_fold_0_submissions() -> dict:
     return {
         "targets": [key],
         "file_dep": [
-            "test_croped_rows",
+            # "test_croped_rows",
             "train_croped_rows",
             "fold_0_train",
             "fold_0_val",
