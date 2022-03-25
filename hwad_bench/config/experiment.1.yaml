@@ -1,5 +1,5 @@
 # device
-device: cuda
+device: cuda:0
 num_workers: 6
 # data
 train_annotation_path: /app/hwad_bench/store/train.csv
@@ -16,9 +16,11 @@ use_amp: true
 epochs: 999
 batch_size: 16
 eval_interval: 1000
+use_scheduler: false
 resume: latest
 min_samples: 0
 lr: 1.5e-4
+final_div_factor: 1.0e2
 weight_decay: 0.05
 lr_patience: 2
 lr_factor: 0.9

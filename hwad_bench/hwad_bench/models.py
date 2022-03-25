@@ -202,6 +202,7 @@ def train(
             total_steps=cfg["total_steps"],
             max_lr=cfg["lr"],
             pct_start=cfg["warmup_steps"] / cfg["total_steps"],
+            final_div_factor=cfg["final_div_factor"],
         )
         if cfg["use_scheduler"]
         else None
@@ -314,14 +315,14 @@ def eval_epoch(
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=cfg["batch_size"],
+        batch_size=cfg["batch_size"] // 2,
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
     reg_loader = DataLoader(
         reg_dataset,
-        batch_size=cfg["batch_size"],
+        batch_size=cfg["batch_size"] // 2,
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
@@ -543,7 +544,7 @@ def inference(
     threshold = topk(1, search_thresholds, key=lambda x: x["score"])[0]["threshold"]
     print(f"Threshold: {threshold}")
     model.eval()
-    matcher = MeanEmbeddingMatcher()
+    matcher = NearestMatcher()
     for batch, batch_annot in tqdm(train_loader, total=len(train_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
