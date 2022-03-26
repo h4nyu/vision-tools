@@ -289,7 +289,6 @@ def train(
                 metric = MeanAveragePrecisionK()
                 matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
-
                     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
