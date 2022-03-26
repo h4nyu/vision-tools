@@ -5,9 +5,9 @@ num_workers: 6
 train_annotation_path: /app/hwad_bench/store/train.csv
 
 # model
-name: tf_efficientnet_b7_ns
+name: tf_efficientnet_b5_ns
 fold: 0
-version: v9
+version: v10
 
 embedding_size: 512
 pretrained: true
@@ -15,7 +15,7 @@ pretrained: true
 use_amp: true
 epochs: 999
 batch_size: 8
-eval_interval: 5000
+eval_interval: 4000
 use_scheduler: true
 resume: latest
 min_samples: 0
@@ -33,8 +33,8 @@ image_width: 640
 image_height: 640
 
 affine_p: 1.0
-rot0: 0
-rot1: 0
+rot0: -10
+rot1: 10
 shear0: -10
 shear1: 10
 trans0: -0.1
