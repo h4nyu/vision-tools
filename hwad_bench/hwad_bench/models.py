@@ -223,6 +223,7 @@ def train(
     checkpoint = get_checkpoint(cfg)
     saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
+    score = 0.0
     best_score = 0.0
     scheduler = (
         OneCycleLR(
@@ -245,6 +246,7 @@ def train(
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
+        socore = saved_state.get("score", 0.0)
     model = model.to(device)
     loss_fn = loss_fn.to(device)
     print(f"cfg: {cfg_name}")
@@ -284,17 +286,33 @@ def train(
                 model.eval()
                 loss_fn.eval()
                 val_meter = MeanReduceDict()
+                metric = MeanAveragePrecisionK()
+                matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
+
+                    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
+                        batch = to_device(**batch)
+                        image_batch = batch["image_batch"]
+                        label_batch = batch["label_batch"]
+                        embeddings = model(image_batch)
+                        matcher.update(embeddings, label_batch)
+                    matcher.create_index()
                     for batch, annots in tqdm(val_loader, total=len(val_loader)):
                         batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
+                        _, pred_label_batch = matcher(embeddings, k=5)
                         loss = loss_fn(
                             embeddings,
                             label_batch,
                         )
+                        metric.update(
+                            pred_label_batch,
+                            label_batch,
+                        )
                         val_meter.update({"loss": loss.item()})
+                score, _ = metric.value
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
 
@@ -304,8 +322,23 @@ def train(
                 writer.add_scalar(
                     f"train/lr", [x["lr"] for x in optimizer.param_groups][0], iteration
                 )
+                writer.add_scalar(f"val/score", score, iteration)
                 train_meter.reset()
                 val_meter.reset()
+
+            if score < best_score:
+                best_score = score
+                checkpoint.save(
+                    {
+                        "model": model.state_dict(),
+                        "loss_fn": loss_fn.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                        "iteration": iteration,
+                        "score": score,
+                        "best_score": best_score,
+                    },
+                    target="best_score",
+                )
                 checkpoint.save(
                     {
                         "model": model.state_dict(),
@@ -316,6 +349,8 @@ def train(
                     },
                     target="latest",
                 )
+                metric.reset()
+                val_meter.reset()
         writer.flush()
 
 
@@ -481,8 +516,6 @@ def evaluate(
     to_device = ToDevice(device)
     model.eval()
     val_meter = MeanReduceDict()
-    # metric = MeanAveragePrecisionK()
-    # matcher = MeanEmbeddingMatcher()
     matcher = NearestMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
@@ -522,6 +555,7 @@ def inference(
     train_rows: list[Annotation],
     test_rows: list[Annotation],
     search_thresholds: list[dict],
+    threshold: Optional[float],
     train_image_dir: str,
     test_image_dir: str,
 ) -> list[Submission]:
@@ -569,8 +603,11 @@ def inference(
         collate_fn=collate_fn,
     )
     to_device = ToDevice(cfg["device"])
-    threshold = topk(1, search_thresholds, key=lambda x: x["score"])[0]["threshold"]
-    print(f"Threshold: {threshold}")
+    _threshold = (
+        threshold
+        or topk(1, search_thresholds, key=lambda x: x["score"])[0]["threshold"]
+    )
+    print(f"Threshold: {_threshold}")
     model.eval()
     matcher = NearestMatcher()
     for batch, batch_annot in tqdm(train_loader, total=len(train_loader)):
@@ -601,5 +638,5 @@ def inference(
                 individual_ids=individual_ids,
             )
             rows.append(row)
-    rows = add_new_individual(rows, threshold)
+    rows = add_new_individual(rows, _threshold)
     return rows

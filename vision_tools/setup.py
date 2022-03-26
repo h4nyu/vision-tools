@@ -30,6 +30,7 @@ setup(
             "codecov",
             "signate",
             "types-PyYAML",
+            "notebook",
         ]
     },
 )

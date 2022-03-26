@@ -15,7 +15,7 @@ pretrained: true
 use_amp: true
 epochs: 999
 batch_size: 8
-eval_interval: 4000
+eval_interval: 5000
 use_scheduler: true
 resume: latest
 min_samples: 0
