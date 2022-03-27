@@ -312,7 +312,7 @@ TrainTransform = lambda cfg: A.Compose(
             p=1.0,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
-        A.Normalize(),
+        # A.Normalize(),
         ToTensorV2(),
     ],
 )
