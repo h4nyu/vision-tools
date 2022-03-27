@@ -110,7 +110,6 @@ class Criterion(nn.Module):
     def forward(
         self, embeddings: Tensor, labels: Tensor, suplabels: Tensor
     ) -> dict[str, Tensor]:
-        print(labels)
         cls_loss = self.arcface(embeddings, labels)
         supcls_loss = F.cross_entropy(self.supcls_fc(embeddings), suplabels)
         loss = cls_loss + self.alpha * supcls_loss
