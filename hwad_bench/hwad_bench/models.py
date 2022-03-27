@@ -252,6 +252,7 @@ def train(
     print(f"cfg: {cfg_name}")
     print(f"iteration: {iteration}")
     print(f"best_score: {best_score}")
+    print(f"score: {score}")
     to_device = ToDevice(device)
     scaler = GradScaler(enabled=use_amp)
     for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
@@ -325,19 +326,19 @@ def train(
                 train_meter.reset()
                 val_meter.reset()
 
-            if score < best_score:
-                best_score = score
-                checkpoint.save(
-                    {
-                        "model": model.state_dict(),
-                        "loss_fn": loss_fn.state_dict(),
-                        "optimizer": optimizer.state_dict(),
-                        "iteration": iteration,
-                        "score": score,
-                        "best_score": best_score,
-                    },
-                    target="best_score",
-                )
+                if score > best_score:
+                    best_score = score
+                    checkpoint.save(
+                        {
+                            "model": model.state_dict(),
+                            "loss_fn": loss_fn.state_dict(),
+                            "optimizer": optimizer.state_dict(),
+                            "iteration": iteration,
+                            "score": score,
+                            "best_score": best_score,
+                        },
+                        target="best_score",
+                    )
                 checkpoint.save(
                     {
                         "model": model.state_dict(),

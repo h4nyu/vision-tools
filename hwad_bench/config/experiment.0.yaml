@@ -17,14 +17,14 @@ epochs: 999
 batch_size: 8
 eval_interval: 5000
 use_scheduler: false
-resume: latest
+resume: best_score
 min_samples: 4
-lr: 1.5e-4
+lr: 1.0e-4
 final_div_factor: 100
 weight_decay: 0.05
 lr_patience: 2
 lr_factor: 0.9
-total_steps: 120_000
+total_steps: 200_000
 warmup_steps: 4_000
 accumulate_steps: 16
 num_classes: 15587
@@ -33,14 +33,14 @@ image_width: 640
 image_height: 640
 
 affine_p: 1.0
-rot0: -10
-rot1: 10
-shear0: -10
-shear1: 10
-trans0: -0.1
-trans1: 0.1
-scale0: 0.6
-scale1: 1.4
+rot0: -5
+rot1: 5
+shear0: -5
+shear1: 5
+trans0: -0.125
+trans1: 0.125
+scale0: 0.75
+scale1: 1.25
 
 brightness_limit: 0.1
 contrast_limit: 0.1
