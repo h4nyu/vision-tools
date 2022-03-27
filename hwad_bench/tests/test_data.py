@@ -118,7 +118,7 @@ def test_aug() -> None:
         rows=[
             {
                 "image_file": "/app/datasets/hwad-train-croped-body/0a0cedc8ac6499.box.jpg",
-                "species": "species-0",
+                "species": "fin_whale",
                 "individual_id": "indiviual-0",
                 "label": 0,
                 "individual_samples": 10,

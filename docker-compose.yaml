@@ -36,6 +36,7 @@ services:
       KAGGLE_KEY: *KAGGLE_KEY
       CODECOV_TOKEN: *CODECOV_TOKEN
       CONFIG_FILE:
+      NVIDIA_VISIBLE_DEVICES:
 
   tensorboard:
     <<: *app

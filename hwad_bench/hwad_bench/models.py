@@ -110,6 +110,7 @@ class Criterion(nn.Module):
     def forward(
         self, embeddings: Tensor, labels: Tensor, suplabels: Tensor
     ) -> dict[str, Tensor]:
+        print(labels)
         cls_loss = self.arcface(embeddings, labels)
         supcls_loss = F.cross_entropy(self.supcls_fc(embeddings), suplabels)
         loss = cls_loss + self.alpha * supcls_loss
@@ -208,10 +209,10 @@ def train(
         collate_fn=collate_fn,
     )
 
-    # TODO num_class
-    loss_fn = ArcFaceLoss(
+    loss_fn = Criterion(
         num_classes=cfg["num_classes"],
         embedding_size=cfg["embedding_size"],
+        num_supclasses=cfg["num_supclasses"],
     )
     model = get_model(cfg)
     optimizer = optim.AdamW(
@@ -247,8 +248,8 @@ def train(
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
         socore = saved_state.get("score", 0.0)
-    model = model.to(device)
-    loss_fn = loss_fn.to(device)
+    model = nn.DataParallel(model).to(device)  # type: ignore
+    loss_fn = nn.DataParallel(loss_fn).to(device)  # type: ignore
     print(f"cfg: {cfg_name}")
     print(f"iteration: {iteration}")
     print(f"best_score: {best_score}")
@@ -261,18 +262,20 @@ def train(
             iteration += 1
             model.train()
             loss_fn.train()
-            batch = to_device(**batch)
+            # batch = to_device(**batch)
             image_batch = batch["image_batch"]
             label_batch = batch["label_batch"]
+            suplabel_batch = batch["suplabel_batch"]
             with autocast(enabled=use_amp):
                 embeddings = model(image_batch)
                 loss = (
                     loss_fn(
                         embeddings,
                         label_batch,
-                    )
+                        suplabel_batch,
+                    )["loss"]
                     / accumulate_steps
-                )
+                ).mean()
 
                 scaler.scale(loss).backward()
                 if iteration % accumulate_steps == 0:
@@ -291,22 +294,22 @@ def train(
                 matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
                     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
-                        batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         embeddings = model(image_batch)
                         matcher.update(embeddings, label_batch)
                     matcher.create_index()
                     for batch, annots in tqdm(val_loader, total=len(val_loader)):
-                        batch = to_device(**batch)
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
+                        suplabel_batch = batch["suplabel_batch"]
                         embeddings = model(image_batch)
                         _, pred_label_batch = matcher(embeddings, k=5)
                         loss = loss_fn(
                             embeddings,
                             label_batch,
-                        )
+                            suplabel_batch,
+                        )["loss"].mean()
                         metric.update(
                             pred_label_batch,
                             label_batch,

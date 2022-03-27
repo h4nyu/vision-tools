@@ -13,6 +13,7 @@ import PIL
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from nanoid import generate as nanoid
+from sklearn.preprocessing import LabelEncoder
 from toolz.curried import (
     filter,
     frequencies,
@@ -53,6 +54,41 @@ Submission = TypedDict(
         "distances": List[float],
         "individual_ids": List[str],
     },
+)
+
+SpecieLabels = pipe(
+    [
+        "beluga",
+        "blue_whale",
+        "brydes_whale",
+        "cuviers_beaked_whale",
+        "false_killer_whale",
+        "fin_whale",
+        "gray_whale",
+        "humpback_whale",
+        "killer_whale",
+        "long_finned_pilot_whale",
+        "melon_headed_whale",
+        "minke_whale",
+        "pygmy_killer_whale",
+        "sei_whale",
+        "short_finned_pilot_whale",
+        "southern_right_whale",
+        "bottlenose_dolphin",
+        "commersons_dolphin",
+        "common_dolphin",
+        "dusky_dolphin",
+        "frasiers_dolphin",
+        "pantropic_spotted_dolphin",
+        "rough_toothed_dolphin",
+        "spinner_dolphin",
+        "spotted_dolphin",
+        "white_sided_dolphin",
+    ],
+    sorted,
+    enumerate,
+    map(lambda x: (x[1], x[0])),
+    dict,
 )
 
 
@@ -353,7 +389,7 @@ class HwadCropedDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> tuple[Classification, Annotation]:
+    def __getitem__(self, idx: int) -> tuple[dict[str, Tensor], Annotation]:
         row = self.rows[idx]
         image_path = os.path.join(self.image_dir, row["image_file"])
         im = PIL.Image.open(image_path)
@@ -362,31 +398,36 @@ class HwadCropedDataset(Dataset):
         img_arr = np.array(im)
         transformed = self.transform(
             image=img_arr,
-            label=row["label"] or 0,
         )
         image = (transformed["image"] / 255).float()
-        label = torch.tensor(transformed["label"])
-        sample = Classification(
+        label = torch.tensor(row["label"] or 0)
+        species = row["species"]
+        suplabel = torch.tensor(SpecieLabels[species] if species is not None else 0)
+        sample = dict(
             image=image,
             label=label,
+            suplabel=suplabel,
         )
         return sample, row
 
 
 def collate_fn(
-    batch: list[tuple[Classification, Annotation]]
+    batch: list[tuple[dict[str, Tensor], Annotation]]
 ) -> tuple[dict[str, Tensor], list[Annotation]]:
     images: list[Tensor] = []
     label_batch: list[Tensor] = []
+    suplabel_batch: list[Tensor] = []
     annots: list[Annotation] = []
     for row, annt in batch:
         images.append(row["image"])
         label_batch.append(row["label"])
+        suplabel_batch.append(row["suplabel"])
         annots.append(annt)
     return (
         dict(
             image_batch=torch.stack(images),
             label_batch=torch.stack(label_batch),
+            suplabel_batch=torch.stack(suplabel_batch),
         ),
         annots,
     )

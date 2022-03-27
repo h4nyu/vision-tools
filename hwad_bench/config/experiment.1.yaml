@@ -28,6 +28,7 @@ total_steps: 200_000
 warmup_steps: 4_000
 accumulate_steps: 16
 num_classes: 15587
+num_superclasses: 25
 
 image_width: 640
 image_height: 640
