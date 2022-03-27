@@ -305,6 +305,7 @@ TrainTransform = lambda cfg: A.Compose(
             p=1.0,
         ),
         A.ToGray(p=cfg["to_gray_p"]),
+        A.Blur(p=cfg["blur_p"]),
         A.Resize(
             height=cfg["image_height"],
             width=cfg["image_width"],
@@ -312,7 +313,6 @@ TrainTransform = lambda cfg: A.Compose(
             p=1.0,
         ),
         A.HorizontalFlip(p=cfg["hflip_p"]),
-        # A.Normalize(),
         ToTensorV2(),
     ],
 )
@@ -324,7 +324,6 @@ Transform = lambda cfg: A.Compose(
             width=cfg["image_width"],
             interpolation=cv2.INTER_CUBIC,
         ),
-        A.Normalize(),
         ToTensorV2(),
     ],
 )

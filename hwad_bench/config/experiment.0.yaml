@@ -42,10 +42,11 @@ trans1: 0.125
 scale0: 0.75
 scale1: 1.25
 
-brightness_limit: 0.3
+brightness_limit: 0.25
 contrast_limit: 0.01
 sat_shift_limit: 10
 hue_shift_limit: 5
 val_shift_limit: 10
 to_gray_p: 0.1
 hflip_p: 0.5
+blur_p: 0.3
