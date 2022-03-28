@@ -263,13 +263,14 @@ def create_croped_dataset(
     box_rows: list[dict],
     source_dir: str,
     dist_dir: str,
-    padding: float = 0.05,
+    padding: float = 0.125,
     rows: Optional[list[Annotation]] = None,
+    part: str = "body",
     suffix: str = ".jpg",
 ) -> list[Annotation]:
     image_boxes = pipe(
         box_rows,
-        groupby(lambda x: x["image_id"]),
+        groupby(lambda x: x.get("image_id", None) or x["image"].split(".")[0]),
     )
 
     annotation_map = pipe(
@@ -303,7 +304,7 @@ def create_croped_dataset(
                 "individual_samples": None,
             },
         )
-        dist_file_name = f"{image_id}.box{suffix}"
+        dist_file_name = f"{image_id}.{part}{suffix}"
         dist_path = os.path.join(dist_dir, dist_file_name)
         im_crop.save(dist_path)
         croped_annots.append(

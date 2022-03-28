@@ -102,74 +102,106 @@ def task_summary() -> dict:
     }
 
 
-def task_read_train_box_rows() -> dict:
-    key = "train_box_rows"
+def task_read_boxes() -> dict:
     return {
-        "targets": [key],
+        "targets": [
+            "train_body_boxes",
+            "train_fin_boxes",
+            "test_body_boxes",
+            "test_fin_boxes",
+        ],
         "actions": [
             action(
-                key=key,
+                key="train_body_boxes",
                 fn=read_csv,
                 args=["/app/hwad_bench/store/pred-r7-st.csv"],
-            )
+            ),
+            action(
+                key="train_fin_boxes",
+                fn=read_csv,
+                args=["/app/hwad_bench/store/train-backfin-boxes.csv"],
+            ),
+            action(
+                key="test_body_boxes",
+                fn=read_csv,
+                args=["/app/hwad_bench/store/pred-test.csv"],
+            ),
+            action(
+                key="test_fin_boxes",
+                fn=read_csv,
+                args=["/app/hwad_bench/store/test-backfin-boxes.csv"],
+            ),
         ],
     }
 
 
-def task_create_train_croped_dataset() -> dict:
-    key = "train_croped_rows"
+def task_croped_dataset() -> dict:
+    keys = []
     return {
-        "targets": [key],
-        "file_dep": ["train_box_rows", "train_rows"],
+        "targets": [
+            "train_body_rows",
+            "train_fin_rows",
+            "test_body_rows",
+            "test_fin_rows",
+        ],
+        "file_dep": [
+            "train_rows",
+            "train_body_boxes",
+            "train_fin_boxes",
+            "test_body_boxes",
+            "test_fin_boxes",
+        ],
         "actions": [
             action(
-                key=key,
+                key="train_body_rows",
                 fn=create_croped_dataset,
                 output_kwargs={
-                    "box_rows": "train_box_rows",
+                    "box_rows": "train_body_boxes",
                     "rows": "train_rows",
                 },
                 kwargs={
                     "source_dir": "/app/datasets/hwad-train",
-                    "dist_dir": "/app/datasets/hwad-train-croped-body",
+                    "dist_dir": "/app/datasets/hwad-train-croped",
+                    "part": "body",
                 },
-            )
-        ],
-        "verbosity": 2,
-    }
-
-
-def task_read_test_box_rows() -> dict:
-    key = "test_box_rows"
-    return {
-        "targets": [key],
-        "actions": [
+            ),
             action(
-                key=key,
-                fn=read_csv,
-                args=["/app/hwad_bench/store/pred-test.csv"],
-            )
-        ],
-    }
-
-
-def task_create_test_croped_dataset() -> dict:
-    key = "test_croped_rows"
-    return {
-        "targets": [key],
-        "file_dep": ["test_box_rows"],
-        "actions": [
-            action(
-                key=key,
+                key="train_fin_rows",
                 fn=create_croped_dataset,
                 output_kwargs={
-                    "box_rows": "test_box_rows",
+                    "box_rows": "train_fin_boxes",
+                    "rows": "train_rows",
+                },
+                kwargs={
+                    "source_dir": "/app/datasets/hwad-train",
+                    "dist_dir": "/app/datasets/hwad-train-croped",
+                    "part": "fin",
+                },
+            ),
+            action(
+                key="test_body_rows",
+                fn=create_croped_dataset,
+                output_kwargs={
+                    "box_rows": "test_body_boxes",
                 },
                 kwargs={
                     "source_dir": "/app/datasets/hwad-test",
-                    "dist_dir": "/app/datasets/hwad-test-croped-body",
+                    "dist_dir": "/app/datasets/hwad-test-croped",
+                    "part": "body",
                 },
-            )
+            ),
+            action(
+                key="test_fin_rows",
+                fn=create_croped_dataset,
+                output_kwargs={
+                    "box_rows": "test_fin_boxes",
+                },
+                kwargs={
+                    "source_dir": "/app/datasets/hwad-test",
+                    "dist_dir": "/app/datasets/hwad-test-croped",
+                    "part": "fin",
+                },
+            ),
         ],
         "verbosity": 2,
     }
