@@ -25,6 +25,7 @@ from hwad_bench.data import (
     collate_fn,
     filter_in_rows,
     filter_rows_by_fold,
+    merge_rows_by_image_id,
 )
 from hwad_bench.metrics import MeanAveragePrecisionK
 from hwad_bench.scheduler import WarmupReduceLROnPlaetou
@@ -155,8 +156,10 @@ def get_writer(cfg: dict) -> SummaryWriter:
 
 def train(
     cfg: dict,
-    train_rows: list[Annotation],
-    val_rows: list[Annotation],
+    body_rows: list[Annotation],
+    fin_rows: list[Annotation],
+    fold_train: list[dict],
+    fold_val: list[dict],
     image_dir: str,
 ) -> None:
     seed_everything()
@@ -166,23 +169,49 @@ def train(
     accumulate_steps = cfg["accumulate_steps"]
     cfg_name = get_cfg_name(cfg)
     writer = get_writer(cfg)
-    cleaned_rows = pipe(
-        train_rows,
-        filter(lambda x: x["individual_samples"] >= cfg["min_samples"]),
+    min_samples = cfg["min_samples"]
+    train_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_train,
+    )
+    train_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_train,
+    )
+    val_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_val,
+    )
+    val_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_val,
+    )
+
+    train_rows = pipe(
+        train_body_rows + train_fin_rows,
+        filter(lambda r: r["num_samples"] >= min_samples),
         list,
     )
+    reg_rows = merge_rows_by_image_id(
+        train_fin_rows,
+        train_body_rows,
+    )
+    val_rows = merge_rows_by_image_id(
+        val_fin_rows,
+        val_body_rows,
+    )
     train_dataset = HwadCropedDataset(
-        rows=cleaned_rows,
+        rows=train_rows,
         image_dir=image_dir,
         transform=TrainTransform(cfg),
     )
     reg_dataset = HwadCropedDataset(
-        rows=train_rows,
+        rows=reg_rows,
         image_dir=image_dir,
         transform=Transform(cfg),
     )
     val_dataset = HwadCropedDataset(
-        rows=filter_in_rows(val_rows, train_rows),
+        rows=filter_in_rows(val_rows, reg_rows),
         image_dir=image_dir,
         transform=Transform(cfg),
     )
@@ -333,8 +362,8 @@ def train(
                     best_score = score
                     checkpoint.save(
                         {
-                            "model": model.module.state_dict(),
-                            "loss_fn": loss_fn.module.state_dict(),
+                            "model": model.module.state_dict(),  # type: ignore
+                            "loss_fn": loss_fn.module.state_dict(),  # type: ignore
                             "optimizer": optimizer.state_dict(),
                             "iteration": iteration,
                             "score": score,
@@ -344,8 +373,8 @@ def train(
                     )
                 checkpoint.save(
                     {
-                        "model": model.module.state_dict(),
-                        "loss_fn": loss_fn.module.state_dict(),
+                        "model": model.module.state_dict(),  # type: ignore
+                        "loss_fn": loss_fn.module.state_dict(),  # type: ignore
                         "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
                         "best_score": best_score,

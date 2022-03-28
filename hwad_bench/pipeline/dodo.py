@@ -136,7 +136,6 @@ def task_read_boxes() -> dict:
 
 
 def task_croped_dataset() -> dict:
-    keys = []
     return {
         "targets": [
             "train_body_rows",
@@ -226,28 +225,6 @@ def task_fold_0_val_rows() -> dict:
     }
 
 
-def task_fold_0_train_rows() -> dict:
-    key = "fold_0_train_rows"
-    return {
-        "targets": [key],
-        "file_dep": [
-            "train_croped_rows",
-            "fold_0_train",
-        ],
-        "actions": [
-            action(
-                key=key,
-                fn=filter_rows_by_fold,
-                output_kwargs={
-                    "rows": "train_croped_rows",
-                    "fold": "fold_0_train",
-                },
-            )
-        ],
-        "verbosity": 2,
-    }
-
-
 def task_save_croped_annotation() -> dict:
     key = "croped.json"
     dep = "train_croped_rows"
@@ -259,59 +236,49 @@ def task_save_croped_annotation() -> dict:
     }
 
 
-def task_read_fold_0_train() -> dict:
-    key = "fold_0_train"
-    dep = "/app/hwad_bench/store/cv-split/train-fold0.csv"
+def task_read_fold() -> dict:
+    num_split = cfg["num_split"]
     return {
-        "targets": [key],
-        "file_dep": [dep],
+        "targets": [
+            *[f"fold_{i}_train" for i in range(num_split)],
+            *[f"fold_{i}_val" for i in range(num_split)],
+        ],
         "actions": [
-            action(
-                key=key,
-                fn=read_csv,
-                args=[dep],
-            )
+            *[
+                action(
+                    key=f"fold_{i}_train",
+                    fn=read_csv,
+                    args=[f"/app/hwad_bench/store/cv-split/train-fold{i}.csv"],
+                )
+                for i in range(num_split)
+            ],
+            *[
+                action(
+                    key=f"fold_{i}_val",
+                    fn=read_csv,
+                    args=[f"/app/hwad_bench/store/cv-split/val-fold{i}.csv"],
+                )
+                for i in range(num_split)
+            ],
         ],
         "verbosity": 2,
     }
 
 
-def task_read_fold_0_val() -> dict:
-    key = "fold_0_val"
-    dep = "/app/hwad_bench/store/cv-split/val-fold0.csv"
-    return {
-        "targets": [key],
-        "file_dep": [dep],
-        "actions": [
-            action(
-                key=key,
-                fn=read_csv,
-                args=[dep],
-            )
-        ],
-        "verbosity": 2,
-    }
-
-
-def task_fold_0_train_model() -> dict:
+def task_train_model() -> dict:
     key = "fold_0_train_model"
     return {
         "targets": [key],
-        "file_dep": [
-            "train_croped_rows",
-            "fold_0_val_rows",
-            "fold_0_train_rows",
-        ],
         "actions": [
             action(
                 fn=train,
                 kwargs={
                     "cfg": cfg,
-                    "image_dir": "/app/datasets/hwad-train-croped-body",
+                    "image_dir": "/app/datasets/hwad-train-croped",
                 },
                 output_kwargs={
-                    "train_rows": "fold_0_train_rows",
-                    "val_rows": "fold_0_val_rows",
+                    "train_rows": f"fold_{cfg['fold']}_train",
+                    "fold_val": f"fold_{cfg['fold']}_val",
                 },
             )
         ],

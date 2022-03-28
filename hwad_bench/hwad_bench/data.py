@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 import os
 from pathlib import Path
@@ -222,13 +223,7 @@ def read_csv(path: str) -> dict:
 def filter_rows_by_fold(
     rows: list[Annotation],
     fold: list[dict],
-    min_samples: int = 0,
 ) -> list[Annotation]:
-    fold = pipe(
-        fold,
-        filter(lambda x: x["individual_samples"] >= min_samples),
-        list,
-    )
     image_ids = pipe(
         fold,
         map(lambda x: Path(x["image"]).stem),
@@ -240,6 +235,16 @@ def filter_rows_by_fold(
         if image_id in image_ids:
             filtered_rows.append(annt)
     return filtered_rows
+
+
+def merge_rows_by_image_id(
+    *args: list[Annotation],
+) -> list[Annotation]:
+    rows_set = {}
+    for annt in itertools.chain(*args):
+        image_id = annt["image_file"].split(".")[0]
+        rows_set[image_id] = annt
+    return list(rows_set.values())
 
 
 def filter_in_rows(

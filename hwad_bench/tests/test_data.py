@@ -161,7 +161,7 @@ def test_filter_rows_by_fold() -> None:
             "individual_samples": 3,
         },
     ]
-    filtered = filter_rows_by_fold(rows, fold, min_samples=5)
+    filtered = filter_rows_by_fold(rows, fold)
     assert len(filtered) == 1
     assert filtered[0]["image_file"] == "img0-box0.png"
 
