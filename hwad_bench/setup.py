@@ -10,6 +10,7 @@ setup(
         "pytorch-metric-learning",
         "gitpython",
         "pytorch-lightning",
+        "tensorflow",
     ],
     package_data={"cots_bench": ["py.typed"]},
 )

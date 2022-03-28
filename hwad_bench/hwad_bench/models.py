@@ -237,6 +237,7 @@ def train(
         else None
     )
     if saved_state is not None:
+        print(f"Resuming from iteration {saved_state['iteration']}")
         model.load_state_dict(saved_state["model"])
         loss_fn.load_state_dict(saved_state["loss_fn"])
         optimizer.load_state_dict(saved_state["optimizer"])
@@ -332,8 +333,8 @@ def train(
                     best_score = score
                     checkpoint.save(
                         {
-                            "model": model.state_dict(),
-                            "loss_fn": loss_fn.state_dict(),
+                            "model": model.module.state_dict(),
+                            "loss_fn": loss_fn.module.state_dict(),
                             "optimizer": optimizer.state_dict(),
                             "iteration": iteration,
                             "score": score,
@@ -343,8 +344,8 @@ def train(
                     )
                 checkpoint.save(
                     {
-                        "model": model.state_dict(),
-                        "loss_fn": loss_fn.state_dict(),
+                        "model": model.module.state_dict(),
+                        "loss_fn": loss_fn.module.state_dict(),
                         "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
                         "best_score": best_score,

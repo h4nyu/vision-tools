@@ -28,7 +28,8 @@ RUN apt-get update \
         cuda-compat-11-3 \
     && ln -s cuda-11.3 /usr/local/cuda \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir torch==1.10.2+cu113 torchvision==0.11.3+cu113 -f https://download.pytorch.org/whl/torch_stable.html
+    && pip install --no-cache-dir torch==1.10.2+cu113 torchvision==0.11.3+cu113 -f https://download.pytorch.org/whl/torch_stable.html \
+    &&  CC="cc -mavx2" pip install -U --force-reinstall pillow-simd
 
 WORKDIR /app
 COPY . .
