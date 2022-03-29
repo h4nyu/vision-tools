@@ -5,10 +5,10 @@ num_workers: 10
 train_annotation_path: /app/hwad_bench/store/train.csv
 
 # model
-name: tf_efficientnet_b5_ns
+name: convnext_tiny
 fold: 0
 num_split: 5
-version: v12
+version: v13
 
 embedding_size: 512
 pretrained: true

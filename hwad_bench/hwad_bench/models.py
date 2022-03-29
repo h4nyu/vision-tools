@@ -59,22 +59,7 @@ class GeM(nn.Module):
         )
 
 
-class ConvNeXt(nn.Module):
-    def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
-        super().__init__()
-        self.name = name
-        self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
-        self.embedding = nn.LazyLinear(embedding_size)
-        self.pooling = GeM()
-
-    def forward(self, x: Tensor) -> Tensor:
-        features = self.model.forward_features(x)
-        pooled_features = self.pooling(features).flatten(1)
-        embedding = self.embedding(pooled_features)
-        return embedding
-
-
-class EfficientNet(nn.Module):
+class EmbNet(nn.Module):
     def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
         super().__init__()
         self.name = name
@@ -126,19 +111,11 @@ def get_cfg_name(cfg: dict) -> str:
 
 
 def get_model(cfg: dict) -> Any:
-    if cfg["name"] in ["convnext_small"]:
-        return ConvNeXt(
-            name=cfg["name"],
-            pretrained=cfg["pretrained"],
-            embedding_size=cfg["embedding_size"],
-        )
-    if "efficientnet" in cfg["name"]:
-        return EfficientNet(
-            name=cfg["name"],
-            pretrained=cfg["pretrained"],
-            embedding_size=cfg["embedding_size"],
-        )
-    raise Exception(f"Unknown model name: {cfg['name']}")
+    return EmbNet(
+        name=cfg["name"],
+        pretrained=cfg["pretrained"],
+        embedding_size=cfg["embedding_size"],
+    )
 
 
 def get_checkpoint(cfg: dict) -> Checkpoint:
@@ -156,11 +133,11 @@ def get_writer(cfg: dict) -> SummaryWriter:
 
 def train(
     cfg: dict,
+    image_dir: str,
     body_rows: list[Annotation],
     fin_rows: list[Annotation],
     fold_train: list[dict],
     fold_val: list[dict],
-    image_dir: str,
 ) -> None:
     seed_everything()
     use_amp = cfg["use_amp"]
@@ -186,19 +163,18 @@ def train(
         fin_rows,
         fold_val,
     )
-
+    reg_rows = merge_rows_by_image_id(
+        train_body_rows,
+        train_fin_rows,
+    )
     train_rows = pipe(
-        train_body_rows + train_fin_rows,
-        filter(lambda r: r["num_samples"] >= min_samples),
+        reg_rows,
+        filter(lambda r: r["individual_samples"] >= min_samples),
         list,
     )
-    reg_rows = merge_rows_by_image_id(
-        train_fin_rows,
-        train_body_rows,
-    )
     val_rows = merge_rows_by_image_id(
-        val_fin_rows,
         val_body_rows,
+        val_fin_rows,
     )
     train_dataset = HwadCropedDataset(
         rows=train_rows,
@@ -221,6 +197,7 @@ def train(
         shuffle=True,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
+        drop_last=True,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -288,7 +265,6 @@ def train(
     for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
-            iteration += 1
             model.train()
             loss_fn.train()
             # batch = to_device(**batch)
@@ -383,6 +359,7 @@ def train(
                 )
                 metric.reset()
                 val_meter.reset()
+            iteration += 1
         writer.flush()
 
 

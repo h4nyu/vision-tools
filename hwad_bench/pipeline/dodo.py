@@ -266,9 +266,8 @@ def task_read_fold() -> dict:
 
 
 def task_train_model() -> dict:
-    key = "fold_0_train_model"
+    fold = cfg["fold"]
     return {
-        "targets": [key],
         "actions": [
             action(
                 fn=train,
@@ -277,8 +276,10 @@ def task_train_model() -> dict:
                     "image_dir": "/app/datasets/hwad-train-croped",
                 },
                 output_kwargs={
-                    "train_rows": f"fold_{cfg['fold']}_train",
-                    "fold_val": f"fold_{cfg['fold']}_val",
+                    "body_rows": f"train_body_rows",
+                    "fin_rows": f"train_fin_rows",
+                    "fold_train": f"fold_{fold}_train",
+                    "fold_val": f"fold_{fold}_val",
                 },
             )
         ],
