@@ -5,7 +5,7 @@ from typing import Any, Optional
 import timm
 import torch
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_metric_learning.losses import ArcFaceLoss
+from pytorch_metric_learning.losses import ArcFaceLoss, SubCenterArcFaceLoss
 from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
@@ -80,15 +80,18 @@ class Criterion(nn.Module):
         embedding_size: int,
         num_classes: int,
         num_supclasses: int,
+        sub_centers: int,
         alpha: float = 1.0,
     ) -> None:
         super().__init__()
         self.embedding_size = embedding_size
         self.num_classes = num_classes
         self.num_supclasses = num_supclasses
-        self.arcface = ArcFaceLoss(
+        self.sub_centers = sub_centers
+        self.arcface = SubCenterArcFaceLoss(
             num_classes=num_classes,
             embedding_size=embedding_size,
+            sub_centers=sub_centers,
         )
         self.alpha = alpha
         self.supcls_fc = nn.Linear(embedding_size, self.num_supclasses)
@@ -215,6 +218,7 @@ def train(
         num_classes=cfg["num_classes"],
         embedding_size=cfg["embedding_size"],
         num_supclasses=cfg["num_supclasses"],
+        sub_centers=cfg["sub_centers"],
     )
     model = get_model(cfg)
     optimizer = optim.AdamW(
@@ -264,7 +268,6 @@ def train(
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
             model.train()
             loss_fn.train()
-            # batch = to_device(**batch)
             image_batch = batch["image_batch"]
             label_batch = batch["label_batch"]
             suplabel_batch = batch["suplabel_batch"]
@@ -293,7 +296,7 @@ def train(
                 loss_fn.eval()
                 val_meter = MeanReduceDict()
                 metric = MeanAveragePrecisionK()
-                matcher = MeanEmbeddingMatcher()
+                matcher = NearestMatcher()
                 with torch.no_grad():
                     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
                         image_batch = batch["image_batch"]
