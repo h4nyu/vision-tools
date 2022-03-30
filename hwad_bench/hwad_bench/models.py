@@ -266,6 +266,7 @@ def train(
     for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
+            iteration += 1
             model.train()
             loss_fn.train()
             image_batch = batch["image_batch"]
@@ -359,7 +360,6 @@ def train(
                 )
                 metric.reset()
                 val_meter.reset()
-            iteration += 1
         writer.flush()
 
 
