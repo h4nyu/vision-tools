@@ -263,7 +263,7 @@ def train(
     print(f"score: {score}")
     to_device = ToDevice(device)
     scaler = GradScaler(enabled=use_amp)
-    validation_score = cfg["validation_score"]
+    validate_score = cfg["validate_score"]
     for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
@@ -300,7 +300,7 @@ def train(
                 metric = MeanAveragePrecisionK()
                 matcher = NearestMatcher()
                 with torch.no_grad():
-                    if validation_score:
+                    if validate_score:
                         for batch, batch_annot in tqdm(
                             reg_loader, total=len(reg_loader)
                         ):
@@ -314,7 +314,7 @@ def train(
                         label_batch = batch["label_batch"]
                         suplabel_batch = batch["suplabel_batch"]
                         embeddings = model(image_batch)
-                        if validation_score:
+                        if validate_score:
                             _, pred_label_batch = matcher(embeddings, k=5)
                             metric.update(
                                 pred_label_batch,
@@ -335,13 +335,13 @@ def train(
                 writer.add_scalar(
                     f"train/lr", [x["lr"] for x in optimizer.param_groups][0], iteration
                 )
-                if validation_score:
+                if validate_score:
                     score, _ = metric.value
                     writer.add_scalar(f"val/score", score, iteration)
                 train_meter.reset()
                 val_meter.reset()
 
-                if validation_score and (score > best_score):
+                if validate_score and (score > best_score):
                     best_score = score
                     checkpoint.save(
                         {
