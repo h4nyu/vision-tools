@@ -163,10 +163,7 @@ def train(
         fin_rows,
         fold_val,
     )
-    reg_rows = merge_rows_by_image_id(
-        train_body_rows,
-        train_fin_rows,
-    )
+    reg_rows = train_body_rows + train_fin_rows
     train_rows = pipe(
         reg_rows,
         filter(lambda r: r["individual_samples"] >= min_samples),

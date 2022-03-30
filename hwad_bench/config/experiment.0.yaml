@@ -8,7 +8,7 @@ train_annotation_path: /app/hwad_bench/store/train.csv
 name: convnext_tiny
 fold: 0
 num_split: 5
-version: v13
+version: v14
 
 embedding_size: 512
 pretrained: true
