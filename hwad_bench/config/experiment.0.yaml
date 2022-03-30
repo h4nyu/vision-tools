@@ -12,6 +12,7 @@ version: v15
 
 embedding_size: 512
 pretrained: true
+validate_score: false
 
 use_amp: true
 epochs: 999
