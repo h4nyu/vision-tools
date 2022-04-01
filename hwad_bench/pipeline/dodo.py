@@ -17,11 +17,15 @@ from hwad_bench.data import (
     read_csv,
     read_json,
     read_rows,
-    save_submission,
-    search_threshold,
     summary,
 )
-from hwad_bench.models import evaluate, inference, train
+from hwad_bench.models import (
+    evaluate,
+    inference,
+    save_submission,
+    search_threshold,
+    train,
+)
 from vision_tools.utils import load_config
 
 DOIT_CONFIG = {
@@ -66,7 +70,8 @@ class CacheAction:
 
 
 action = CacheAction()
-cfg = load_config(get_var("cfg"))
+cfg = load_config(get_var("cfg", "../config/experiment.0.yaml"))
+fold = cfg["fold"]
 
 
 def pkl2json(a: str, b: str) -> None:
@@ -287,23 +292,24 @@ def task_train_model() -> dict:
     }
 
 
-def task_fold_0_val_submissions() -> dict:
-    key = "fold_0_val_submissions"
+def task_val_submissions() -> dict:
+    fold = cfg["fold"]
+    key = f"fold_{fold}_val_submissions"
     return {
         "targets": [key],
-        "file_dep": ["train_croped_rows", "fold_0_train", "fold_0_val"],
         "actions": [
             action(
                 key=key,
                 fn=evaluate,
                 kwargs={
                     "cfg": cfg,
-                    "fold": 0,
-                    "image_dir": "/app/datasets/hwad-train-croped-body",
+                    "image_dir": "/app/datasets/hwad-train-croped",
                 },
                 output_kwargs={
-                    "train_rows": "fold_0_train_rows",
-                    "val_rows": "fold_0_val_rows",
+                    "body_rows": f"train_body_rows",
+                    "fin_rows": f"train_fin_rows",
+                    "fold_train": f"fold_{fold}_train",
+                    "fold_val": f"fold_{fold}_val",
                 },
             )
         ],
@@ -311,14 +317,11 @@ def task_fold_0_val_submissions() -> dict:
     }
 
 
-def task_fold_0_search_threshold() -> dict:
-    key = "fold_0_search_threshold"
+def task_search_threshold() -> dict:
+    fold = cfg["fold"]
+    key = f"fold_{fold}_search_threshold"
     return {
         "targets": [key],
-        "file_dep": [
-            "fold_0_val_submissions",
-            "fold_0_train_rows",
-        ],
         "actions": [
             action(
                 key=key,
@@ -327,9 +330,9 @@ def task_fold_0_search_threshold() -> dict:
                     "thresholds": np.linspace(0.0, 1.0, 100).tolist(),
                 },
                 output_kwargs={
-                    "train_rows": "fold_0_train_rows",
-                    "val_rows": "fold_0_val_rows",
-                    "submissions": "fold_0_val_submissions",
+                    "submissions": f"fold_{fold}_val_submissions",
+                    "fold_train": f"fold_{fold}_train",
+                    "fold_val": f"fold_{fold}_val",
                 },
             )
         ],
@@ -337,29 +340,25 @@ def task_fold_0_search_threshold() -> dict:
     }
 
 
-def task_fold_0_submissions() -> dict:
-    key = "fold_0_submissions"
+def task_submission() -> dict:
+    key = f"fold_{fold}_submission"
     return {
         "targets": [key],
-        "file_dep": [
-            # "test_croped_rows",
-            "train_croped_rows",
-            "fold_0_train",
-            "fold_0_val",
-        ],
         "actions": [
             action(
                 key=key,
                 fn=inference,
                 kwargs={
                     "cfg": cfg,
-                    "train_image_dir": "/app/datasets/hwad-train-croped-body",
-                    "test_image_dir": "/app/datasets/hwad-test-croped-body",
+                    "train_image_dir": "/app/datasets/hwad-train-croped",
+                    "test_image_dir": "/app/datasets/hwad-test-croped",
                     "threshold": 0.54,
                 },
                 output_kwargs={
-                    "train_rows": "train_croped_rows",
-                    "test_rows": "test_croped_rows",
+                    "train_body_rows": f"train_body_rows",
+                    "train_fin_rows": f"train_fin_rows",
+                    "test_body_rows": f"test_body_rows",
+                    "test_fin_rows": f"test_fin_rows",
                     "search_thresholds": "fold_0_search_threshold",
                 },
             )
@@ -368,20 +367,20 @@ def task_fold_0_submissions() -> dict:
     }
 
 
-def task_fold_0_submission_csv() -> dict:
-    key = "fold_0_submission_csv"
+def task_save_submission() -> dict:
+    key = f"fold_{fold}_submission_csv"
     return {
         "targets": [key],
-        "file_dep": ["fold_0_submissions"],
+        "file_dep": [f"fold_{fold}_submissions"],
         "actions": [
             action(
                 key=key,
                 fn=save_submission,
                 kwargs={
-                    "output_path": "fold_0_submission.csv",
+                    "output_path": f"fold_{fold}_submission.csv",
                 },
                 output_kwargs={
-                    "submissions": "fold_0_submissions",
+                    "submissions": f"fold_{fold}_submissions",
                 },
             )
         ],
@@ -392,7 +391,6 @@ def task_fold_0_submission_csv() -> dict:
 def task_preview() -> dict:
     dep = "fold_0_search_threshold"
     return {
-        "file_dep": [dep],
         "actions": [action(pprint, output_args=[dep])],
         "uptodate": [False],
         "verbosity": 2,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+import pandas as pd
 import timm
 import torch
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
@@ -298,7 +299,7 @@ def train(
                 loss_fn.eval()
                 val_meter = MeanReduceDict()
                 metric = MeanAveragePrecisionK()
-                matcher = NearestMatcher()
+                matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
                     if validate_score:
                         for batch, batch_annot in tqdm(
@@ -370,119 +371,13 @@ def train(
 
 
 @torch.no_grad()
-def eval_epoch(
-    cfg: dict,
-    train_rows: list[Annotation],
-    val_rows: list[Annotation],
-    image_dir: str,
-) -> None:
-    seed_everything()
-    eval_interval = cfg["eval_interval"]
-    device = cfg["device"]
-    cfg_name = get_cfg_name(cfg)
-    writer = get_writer(cfg)
-    reg_dataset = HwadCropedDataset(
-        rows=train_rows,
-        image_dir=image_dir,
-        transform=Transform(cfg),
-    )
-    val_dataset = HwadCropedDataset(
-        rows=filter_in_rows(val_rows, train_rows),
-        image_dir=image_dir,
-        transform=Transform(cfg),
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=cfg["batch_size"] // 2,
-        shuffle=False,
-        num_workers=cfg["num_workers"],
-        collate_fn=collate_fn,
-    )
-    reg_loader = DataLoader(
-        reg_dataset,
-        batch_size=cfg["batch_size"] // 2,
-        shuffle=False,
-        num_workers=cfg["num_workers"],
-        collate_fn=collate_fn,
-    )
-
-    model = get_model(cfg).to(device)
-    loss_fn = ArcFaceLoss(
-        num_classes=cfg["num_classes"],
-        embedding_size=cfg["embedding_size"],
-    ).to(device)
-    optimizer = optim.AdamW(
-        list(model.parameters()) + list(loss_fn.parameters()),
-        lr=cfg["lr"],
-        weight_decay=cfg["weight_decay"],
-    )
-    checkpoint = get_checkpoint(cfg)
-    saved_state = checkpoint.load(cfg["resume"])
-    iteration = 0
-    best_score = 0.0
-    if saved_state is not None:
-        model.load_state_dict(saved_state["model"])
-        loss_fn.load_state_dict(saved_state["loss_fn"])
-        optimizer.load_state_dict(saved_state["optimizer"])
-        for state in optimizer.state.values():
-            for k, v in state.items():
-                if torch.is_tensor(v):
-                    state[k] = v.to(device)
-        iteration = saved_state.get("iteration", 0)
-        best_score = saved_state.get("best_score", 0.0)
-    print(f"cfg: {cfg_name}")
-    print(f"iteration: {iteration}")
-    print(f"best_score: {best_score}")
-    to_device = ToDevice(device)
-
-    model.eval()
-    metric = MeanAveragePrecisionK()
-    val_meter = MeanReduceDict()
-    matcher = MeanEmbeddingMatcher()
-    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
-        batch = to_device(**batch)
-        image_batch = batch["image_batch"]
-        label_batch = batch["label_batch"]
-        embeddings = model(image_batch)
-        matcher.update(embeddings, label_batch)
-    matcher.create_index()
-    for batch, annots in tqdm(val_loader, total=len(val_loader)):
-        batch = to_device(**batch)
-        image_batch = batch["image_batch"]
-        label_batch = batch["label_batch"]
-        embeddings = model(image_batch)
-        _, pred_label_batch = matcher(embeddings, k=5)
-        metric.update(
-            pred_label_batch,
-            label_batch,
-        )
-    score, _ = metric.value
-    writer.add_scalar(f"val/score", score, iteration)
-    if score < best_score:
-        best_score = score
-        checkpoint.save(
-            {
-                "model": model.state_dict(),
-                "loss_fn": loss_fn.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "iteration": iteration,
-                "score": score,
-                "best_score": best_score,
-            },
-            target="best_score",
-        )
-    print(f"score: {score}")
-    metric.reset()
-    val_meter.reset()
-
-
-@torch.no_grad()
 def evaluate(
     cfg: dict,
-    fold: int,
-    train_rows: list[Annotation],
-    val_rows: list[Annotation],
     image_dir: str,
+    body_rows: list[Annotation],
+    fin_rows: list[Annotation],
+    fold_train: list[dict],
+    fold_val: list[dict],
 ) -> list[Submission]:
     seed_everything()
     device = cfg["device"]
@@ -502,13 +397,34 @@ def evaluate(
     print(f"Best score: {best_score}")
     print(f"Best loss: {best_loss}")
 
+    train_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_train,
+    )
+    train_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_train,
+    )
+    val_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_val,
+    )
+    val_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_val,
+    )
+    reg_rows = train_body_rows + train_fin_rows
+    val_rows = merge_rows_by_image_id(
+        val_body_rows,
+        val_fin_rows,
+    )
     reg_dataset = HwadCropedDataset(
-        rows=train_rows,
+        rows=reg_rows,
         image_dir=image_dir,
         transform=Transform(cfg),
     )
     val_dataset = HwadCropedDataset(
-        rows=val_rows,
+        rows=filter_in_rows(val_rows, reg_rows),
         image_dir=image_dir,
         transform=Transform(cfg),
     )
@@ -531,7 +447,7 @@ def evaluate(
     to_device = ToDevice(device)
     model.eval()
     val_meter = MeanReduceDict()
-    matcher = NearestMatcher()
+    matcher = MeanEmbeddingMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
@@ -567,8 +483,10 @@ def evaluate(
 @torch.no_grad()
 def inference(
     cfg: dict,
-    train_rows: list[Annotation],
-    test_rows: list[Annotation],
+    train_body_rows: list[Annotation],
+    train_fin_rows: list[Annotation],
+    test_body_rows: list[Annotation],
+    test_fin_rows: list[Annotation],
     search_thresholds: list[dict],
     threshold: Optional[float],
     train_image_dir: str,
@@ -592,6 +510,8 @@ def inference(
     print(f"Best score: {best_score}")
     print(f"Best loss: {best_loss}")
 
+    train_rows = train_body_rows + train_fin_rows
+    test_rows = test_body_rows + test_fin_rows
     train_dataset = HwadCropedDataset(
         rows=train_rows,
         image_dir=train_image_dir,
@@ -624,7 +544,7 @@ def inference(
     )
     print(f"Threshold: {_threshold}")
     model.eval()
-    matcher = NearestMatcher()
+    matcher = MeanEmbeddingMatcher()
     for batch, batch_annot in tqdm(train_loader, total=len(train_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
@@ -654,4 +574,103 @@ def inference(
             )
             rows.append(row)
     rows = add_new_individual(rows, _threshold)
+    return rows
+
+
+def search_threshold(
+    fold_train: list[dict],
+    fold_val: list[dict],
+    submissions: list[Submission],
+    thresholds: list[float],
+) -> list[dict]:
+
+    train_individual_ids = pipe(
+        fold_train,
+        map(lambda x: x["individual_id"]),
+        set,
+    )
+    val_individual_ids = pipe(
+        fold_val,
+        map(lambda x: x["individual_id"]),
+        set,
+    )
+    print(len(fold_train), len(fold_val))
+    new_individual_ids = val_individual_ids - train_individual_ids
+
+    val_rows = pipe(
+        fold_val,
+        map(
+            lambda x: {
+                **x,
+                "individual_id": "new_individual"
+                if x["individual_id"] in new_individual_ids
+                else x["individual_id"],
+            }
+        ),
+        list,
+    )
+
+    count = 0
+    val_annot_map = pipe(
+        val_rows,
+        map(
+            lambda x: (x["image"].split(".")[0], x),
+        ),
+        dict,
+    )
+    all_individual_ids = train_individual_ids | set(["new_individual"])
+    label_map = pipe(
+        all_individual_ids,
+        sorted,
+        enumerate,
+        map(lambda x: (x[1], x[0])),
+        dict,
+    )
+    results = []
+    for thr in tqdm(thresholds):
+        metric = MeanAveragePrecisionK()
+        thr_submissions = add_new_individual(submissions, thr)
+        for sub in thr_submissions:
+            labels_at_k = (
+                pipe(
+                    sub["individual_ids"],
+                    map(lambda x: label_map[x]),
+                    list,
+                    torch.tensor,
+                )
+                .long()
+                .unsqueeze(0)
+            )
+            annot = val_annot_map[sub["image_file"].split(".")[0]]
+            labels = pipe(
+                [annot["individual_id"]],
+                map(lambda x: label_map[x]),
+                list,
+                torch.tensor,
+            ).long()
+            metric.update(labels_at_k, labels)
+        score, _ = metric.value
+        results.append(
+            {
+                "threshold": thr,
+                "score": score,
+            }
+        )
+    return results
+
+
+def save_submission(
+    submissions: list[Submission],
+    output_path: str,
+) -> list[dict]:
+    rows: list[dict] = []
+    for sub in submissions:
+        image_id = sub["image_file"].split(".")[0]
+        row = {
+            "image": f"{image_id}.jpg",
+            "predictions": " ".join(sub["individual_ids"]),
+        }
+        rows.append(row)
+    df = pd.DataFrame(rows)
+    df.to_csv(output_path, index=False)
     return rows
