@@ -8,7 +8,7 @@ train_annotation_path: /app/hwad_bench/store/train.csv
 name: tf_efficientnet_b5_ns
 fold: 0
 num_split: 5
-version: v18
+version: v17
 
 embedding_size: 512
 pretrained: true
@@ -54,3 +54,4 @@ val_shift_limit: 10
 to_gray_p: 0.1
 hflip_p: 0.5
 blur_p: 0.0
+threshold: 0.45

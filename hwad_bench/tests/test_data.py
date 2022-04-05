@@ -115,7 +115,7 @@ def test_aug() -> None:
     dataset = HwadCropedDataset(
         rows=[
             {
-                "image_file": "/app/datasets/hwad-train-croped-body/0a0cedc8ac6499.box.jpg",
+                "image_file": "/app/datasets/hwad-train-croped/0a0cedc8ac6499.body.jpg",
                 "species": "fin_whale",
                 "individual_id": "indiviual-0",
                 "label": 0,
