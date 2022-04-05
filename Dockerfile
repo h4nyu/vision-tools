@@ -12,9 +12,11 @@ RUN apt-get update \
         gnupg2 \
         libc-dev \
         libjpeg-dev \
+        libpng-dev \
         zlib1g-dev \
         curl \
         ca-certificates \
+        cmake \
         unzip \
         graphviz \
         graphviz-dev \
@@ -28,8 +30,7 @@ RUN apt-get update \
         cuda-compat-11-3 \
     && ln -s cuda-11.3 /usr/local/cuda \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir torch==1.10.2+cu113 torchvision==0.11.3+cu113 -f https://download.pytorch.org/whl/torch_stable.html \
-    &&  CC="cc -mavx2" pip install -U --force-reinstall pillow-simd
+    && pip install --no-cache-dir torch==1.10.2+cu113 torchvision==0.11.3+cu113 -f https://download.pytorch.org/whl/torch_stable.html
 
 WORKDIR /app
 COPY . .
@@ -37,4 +38,5 @@ RUN pip install -e vision_tools[dev] \
     && pip install -e coco_annotator[dev] \
     && pip install -e kuzushiji_bench \
     && pip install -e cots_bench \
-    && pip install -e hwad_bench
+    && pip install -e hwad_bench \
+    &&  CC="cc -mavx2" pip install -U --force-reinstall pillow-simd
