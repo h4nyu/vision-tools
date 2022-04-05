@@ -5,7 +5,13 @@ from typing import Any
 import torch
 from torch import nn, optim
 
-from hwad_bench.models import EmbNet, save_submission, search_threshold
+from hwad_bench.data import Submission
+from hwad_bench.models import (
+    EmbNet,
+    EnsembleSubmission,
+    save_submission,
+    search_threshold,
+)
 
 
 def test_save_submission() -> None:
@@ -28,47 +34,22 @@ def test_model() -> None:
     assert output.shape == (2, embedding_size)
 
 
-# def test_search_thresold() -> None:
-#     val_rows: list[Any] = [
-#         {
-#             "image_file": "img0-box0.png",
-#             "species": "species-0",
-#             "individual_id": "val-0",
-#             "label": 1,
-#         },
-#         {
-#             "image_file": "img1--b0.png",
-#             "species": "species-0",
-#             "individual_id": "tr-0",
-#             "label": 2,
-#         },
-#     ]
-#     train_rows: list[Any] = [
-#         {
-#             "image_file": "img0-box0.png",
-#             "species": "species-0",
-#             "individual_id": "tr-0",
-#             "label": 1,
-#         },
-#         {
-#             "image_file": "img1--b0.png",
-#             "species": "species-0",
-#             "individual_id": "tr-1",
-#             "label": 2,
-#         },
-#     ]
-#     submissions: list[Any] = [
-#         dict(
-#             image_file="img0-box0.png",
-#             distances=[0.9, 0.8, 0.7, 0.6, 0.5],
-#             individual_ids=["tr-0", "tr-1", "tr-1", "tr-1", "tr-1"],
-#         ),
-#     ]
+def test_ensemble() -> None:
+    fn = EnsembleSubmission()
 
-#     res = search_threshold(
-#         train_rows=train_rows,
-#         val_rows=val_rows,
-#         submissions=submissions,
-#         thresholds=[0.5, 0.95],
-#     )
-#     assert res == [{"threshold": 0.5, "score": 0.0}, {"threshold": 0.95, "score": 1.0}]
+    rows = [
+        Submission(
+            image_file="img0.jpg",
+            individual_ids=["tr-0", "tr-1", "tr-2", "tr-3", "tr-4"],
+            distances=[0.5, 0.4, 0.3, 0.2, 0.1],
+        ),
+        Submission(
+            image_file="img0.jpg",
+            individual_ids=["tr-0", "tr-1", "tr-1", "tr-1", "tr-1"],
+            distances=[0.5, 0.4, 0.3, 0.2, 0.1],
+        ),
+    ]
+    res = fn(rows)[0]
+    assert res["image_file"] == "img0.jpg"
+    assert res["individual_ids"] == ["tr-0", "tr-2", "tr-1", "tr-3", "tr-4"]
+    assert res["distances"] == [0.5, 0.3, 0.28, 0.2, 0.1]

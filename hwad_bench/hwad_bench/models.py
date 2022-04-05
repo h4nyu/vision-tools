@@ -5,6 +5,7 @@ from typing import Any, Optional
 import pandas as pd
 import timm
 import torch
+from cytoolz.curried import concat, groupby, map, pipe, sorted, valmap
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_metric_learning.losses import ArcFaceLoss, SubCenterArcFaceLoss
 from toolz.curried import filter, map, pipe, topk
@@ -34,6 +35,45 @@ from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
 from .matchers import MeanEmbeddingMatcher, NearestMatcher
+
+
+class EnsembleSubmission:
+    def __init__(self, topk: int = 5, order="desc"):
+        self.topk = topk
+        self.reverse = order == "desc"
+
+    def _ensemble(self, rows: list[Row]) -> Submission:
+        image_file = rows[0]["image_file"]
+        voting = {}
+        distances = pipe(rows, map(lambda x: x["distances"]), concat, list)
+        individual_ids = pipe(rows, map(lambda x: x["individual_ids"]), concat, list)
+        for dis, id in zip(distances, individual_ids):
+            if id not in voting:
+                voting[id] = {"total": dis, "count": 1}
+            else:
+                voting[id] = {
+                    "total": voting[id]["total"] + dis,
+                    "count": voting[id]["count"] + 1,
+                }
+        merged = pipe(
+            voting,
+            valmap(lambda x: x["total"] / x["count"]),
+            lambda x: x.items(),
+            sorted(key=lambda x: x[1], reverse=self.reverse),
+        )
+        res = Submission(
+            image_file=image_file,
+            individual_ids=pipe(merged, map(lambda x: x[0]), list),
+            distances=pipe(merged, map(lambda x: x[1]), list),
+        )
+        return res
+
+    def __call__(self, rows: list[Submission]) -> list[Submission]:
+        groups = groupby(lambda x: x["image_file"], rows)
+        res: list[Submission] = []
+        for image_file, group_rows in groups.items():
+            res.append(self._ensemble(group_rows))
+        return res
 
 
 class GeM(nn.Module):
