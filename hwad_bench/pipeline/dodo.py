@@ -352,7 +352,7 @@ def task_submission() -> dict:
                     "cfg": cfg,
                     "train_image_dir": "/app/datasets/hwad-train-croped",
                     "test_image_dir": "/app/datasets/hwad-test-croped",
-                    "threshold": 0.6,
+                    "threshold": 0.50,
                 },
                 output_kwargs={
                     "train_body_rows": f"train_body_rows",
