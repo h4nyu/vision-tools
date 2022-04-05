@@ -5,10 +5,10 @@ num_workers: 10
 train_annotation_path: /app/hwad_bench/store/train.csv
 
 # model
-name: convnext_tiny
+name: tf_efficientnet_b5_ns
 fold: 0
 num_split: 5
-version: v14
+version: v17
 
 embedding_size: 512
 pretrained: true
@@ -16,12 +16,12 @@ validate_score: true
 
 use_amp: true
 epochs: 999
-batch_size: 32
-accumulate_steps: 4
+batch_size: 16
+accumulate_steps: 8
 eval_interval: 2500
 use_scheduler: false
 resume: latest
-min_samples: 4
+min_samples: 2
 lr: 1.0e-4
 final_div_factor: 100
 weight_decay: 0.05
@@ -37,10 +37,10 @@ image_width: 640
 image_height: 640
 
 affine_p: 1.0
-rot0: -5
-rot1: 5
-shear0: -5
-shear1: 5
+rot0: -8
+rot1: 8
+shear0: -8
+shear1: 8
 trans0: -0.125
 trans1: 0.125
 scale0: 0.75

@@ -352,7 +352,7 @@ def task_submission() -> dict:
                     "cfg": cfg,
                     "train_image_dir": "/app/datasets/hwad-train-croped",
                     "test_image_dir": "/app/datasets/hwad-test-croped",
-                    "threshold": 0.54,
+                    "threshold": 0.6,
                 },
                 output_kwargs={
                     "train_body_rows": f"train_body_rows",
@@ -371,7 +371,6 @@ def task_save_submission() -> dict:
     key = f"fold_{fold}_submission_csv"
     return {
         "targets": [key],
-        "file_dep": [f"fold_{fold}_submissions"],
         "actions": [
             action(
                 key=key,
@@ -380,7 +379,7 @@ def task_save_submission() -> dict:
                     "output_path": f"fold_{fold}_submission.csv",
                 },
                 output_kwargs={
-                    "submissions": f"fold_{fold}_submissions",
+                    "submissions": f"fold_{fold}_submission",
                 },
             )
         ],

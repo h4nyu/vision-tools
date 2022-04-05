@@ -89,11 +89,17 @@ class Criterion(nn.Module):
         self.num_classes = num_classes
         self.num_supclasses = num_supclasses
         self.sub_centers = sub_centers
-        self.arcface = SubCenterArcFaceLoss(
+        # self.arcface = SubCenterArcFaceLoss(
+        #     num_classes=num_classes,
+        #     embedding_size=embedding_size,
+        #     sub_centers=sub_centers,
+        # )
+
+        self.arcface = ArcFaceLoss(
             num_classes=num_classes,
             embedding_size=embedding_size,
-            sub_centers=sub_centers,
         )
+
         self.alpha = alpha
         self.supcls_fc = nn.Linear(embedding_size, self.num_supclasses)
 
@@ -268,7 +274,6 @@ def train(
     for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
         train_meter = MeanReduceDict()
         for batch, _ in tqdm(train_loader, total=len(train_loader)):
-            iteration += 1
             model.train()
             loss_fn.train()
             image_batch = batch["image_batch"]
@@ -367,6 +372,7 @@ def train(
                 )
                 metric.reset()
                 val_meter.reset()
+            iteration += 1
         writer.flush()
 
 
@@ -511,7 +517,10 @@ def inference(
     print(f"Best loss: {best_loss}")
 
     train_rows = train_body_rows + train_fin_rows
-    test_rows = test_body_rows + test_fin_rows
+    test_rows = merge_rows_by_image_id(
+        test_body_rows,
+        test_fin_rows,
+    )
     train_dataset = HwadCropedDataset(
         rows=train_rows,
         image_dir=train_image_dir,
