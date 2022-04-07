@@ -20,7 +20,8 @@ from hwad_bench.data import (
     summary,
 )
 from hwad_bench.models import (
-    evaluate,
+    cv_evaluate,
+    cv_registry,
     inference,
     save_submission,
     search_threshold,
@@ -292,15 +293,15 @@ def task_train_model() -> dict:
     }
 
 
-def task_val_submissions() -> dict:
+def task_cv_registry() -> dict:
     fold = cfg["fold"]
-    key = f"fold_{fold}_val_submissions"
+    key = f"cv_registry_{fold}"
     return {
         "targets": [key],
         "actions": [
             action(
                 key=key,
-                fn=evaluate,
+                fn=cv_registry,
                 kwargs={
                     "cfg": cfg,
                     "image_dir": "/app/datasets/hwad-train-croped",
@@ -310,6 +311,32 @@ def task_val_submissions() -> dict:
                     "fin_rows": f"train_fin_rows",
                     "fold_train": f"fold_{fold}_train",
                     "fold_val": f"fold_{fold}_val",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_cv_evaluate() -> dict:
+    fold = cfg["fold"]
+    key = f"cv_evaluate_{fold}"
+    return {
+        "targets": [key],
+        "actions": [
+            action(
+                key=key,
+                fn=cv_evaluate,
+                kwargs={
+                    "cfg": cfg,
+                    "image_dir": "/app/datasets/hwad-train-croped",
+                },
+                output_kwargs={
+                    "body_rows": f"train_body_rows",
+                    "fin_rows": f"train_fin_rows",
+                    "fold_train": f"fold_{fold}_train",
+                    "fold_val": f"fold_{fold}_val",
+                    "matcher": f"cv_registry_{fold}",
                 },
             )
         ],

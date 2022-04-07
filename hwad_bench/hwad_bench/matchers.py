@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import torch
 from pytorch_metric_learning.distances import CosineSimilarity
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn import functional as F
 
 
-class MeanEmbeddingMatcher:
+class MeanEmbeddingMatcher(nn.Module):
     def __init__(self) -> None:
+        super().__init__()
         self.embeddings: dict[int, list[Tensor]] = {}
         self.index: Tensor = torch.zeros(0, 0)
         self.max_classes = 0

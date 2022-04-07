@@ -15,6 +15,7 @@ from torch.nn import functional as F
 from torch.optim.lr_scheduler import OneCycleLR  # type: ignore
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from torchvision.transforms.functional import hflip
 from tqdm import tqdm
 
 from hwad_bench.data import (
@@ -38,11 +39,11 @@ from .matchers import MeanEmbeddingMatcher, NearestMatcher
 
 
 class EnsembleSubmission:
-    def __init__(self, topk: int = 5, order="desc"):
+    def __init__(self, topk: int = 5, order: str = "desc") -> None:
         self.topk = topk
         self.reverse = order == "desc"
 
-    def _ensemble(self, rows: list[Row]) -> Submission:
+    def _ensemble(self, rows: list[Submission]) -> Submission:
         image_file = rows[0]["image_file"]
         voting = {}
         distances = pipe(rows, map(lambda x: x["distances"]), concat, list)
@@ -417,13 +418,89 @@ def train(
 
 
 @torch.no_grad()
-def evaluate(
+def cv_registry(
     cfg: dict,
     image_dir: str,
     body_rows: list[Annotation],
     fin_rows: list[Annotation],
     fold_train: list[dict],
     fold_val: list[dict],
+) -> MeanEmbeddingMatcher:
+    seed_everything()
+    device = cfg["device"]
+    writer = get_writer(cfg)
+    model = get_model(cfg).to(device)
+    checkpoint = get_checkpoint(cfg)
+    saved_state = checkpoint.load("latest")
+    iteration = 0
+    best_score = 0.0
+    best_loss = float("inf")
+    if saved_state is not None:
+        model.load_state_dict(saved_state["model"])
+        iteration = saved_state.get("iteration", 0)
+        best_loss = saved_state.get("best_loss", float("inf"))
+        best_score = saved_state.get("best_score", 0.0)
+    print(f"Loaded checkpoint from iteration {iteration}")
+    print(f"Best score: {best_score}")
+    print(f"Best loss: {best_loss}")
+
+    train_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_train,
+    )
+    train_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_train,
+    )
+    val_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_val,
+    )
+    val_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_val,
+    )
+    reg_rows = train_body_rows + train_fin_rows
+    val_rows = merge_rows_by_image_id(
+        val_body_rows,
+        val_fin_rows,
+    )
+    reg_dataset = HwadCropedDataset(
+        rows=reg_rows,
+        image_dir=image_dir,
+        transform=Transform(cfg),
+    )
+    reg_loader = DataLoader(
+        reg_dataset,
+        batch_size=cfg["batch_size"] * 2,
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+
+    to_device = ToDevice(device)
+    model.eval()
+    matcher = MeanEmbeddingMatcher()
+
+    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
+        batch = to_device(**batch)
+        image_batch = batch["image_batch"]
+        label_batch = batch["label_batch"]
+        embeddings = model(image_batch)
+        matcher.update(embeddings, label_batch)
+    matcher.create_index()
+    return matcher
+
+
+@torch.no_grad()
+def cv_evaluate(
+    cfg: dict,
+    image_dir: str,
+    body_rows: list[Annotation],
+    fin_rows: list[Annotation],
+    fold_train: list[dict],
+    fold_val: list[dict],
+    matcher: MeanEmbeddingMatcher,
 ) -> list[Submission]:
     seed_everything()
     device = cfg["device"]
@@ -477,7 +554,7 @@ def evaluate(
 
     reg_loader = DataLoader(
         reg_dataset,
-        batch_size=cfg["batch_size"],
+        batch_size=cfg["batch_size"] * 2,
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
@@ -485,7 +562,7 @@ def evaluate(
 
     val_loader = DataLoader(
         val_dataset,
-        batch_size=cfg["batch_size"],
+        batch_size=cfg["batch_size"] * 2,
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
@@ -494,14 +571,8 @@ def evaluate(
     model.eval()
     val_meter = MeanReduceDict()
     matcher = MeanEmbeddingMatcher()
+    metric = MeanAveragePrecisionK()
 
-    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
-        batch = to_device(**batch)
-        image_batch = batch["image_batch"]
-        label_batch = batch["label_batch"]
-        embeddings = model(image_batch)
-        matcher.update(embeddings, label_batch)
-    matcher.create_index()
     rows: list[Submission] = []
     for batch, batch_annots in tqdm(val_loader, total=len(val_loader)):
         batch = to_device(**batch)
@@ -509,6 +580,10 @@ def evaluate(
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
         topk_distance, pred_label_batch = matcher(embeddings, k=5)
+        metric.update(
+            pred_label_batch,
+            label_batch,
+        )
         for pred_topk, annot, distances in zip(
             pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
         ):
@@ -523,6 +598,9 @@ def evaluate(
                 individual_ids=individual_ids,
             )
             rows.append(row)
+    score, _ = metric.value
+    writer.add_scalar(f"val/score", score, iteration)
+    print(f"Score: {score}")
     return rows
 
 
@@ -547,6 +625,7 @@ def inference(
     iteration = 0
     best_score = 0.0
     best_loss = float("inf")
+    ensemble = EnsembleSubmission()
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         iteration = saved_state.get("iteration", 0)
@@ -600,6 +679,8 @@ def inference(
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
         matcher.update(embeddings, label_batch)
+        embeddings = model(hflip(batch["image_batch"]))
+        matcher.update(embeddings, label_batch)
     matcher.create_index()
     rows: list[Submission] = []
     for batch, batch_annots in tqdm(test_loader, total=len(test_loader)):
@@ -622,6 +703,7 @@ def inference(
                 individual_ids=individual_ids,
             )
             rows.append(row)
+    # rows = ensemble(rows)
     rows = add_new_individual(rows, _threshold)
     return rows
 
