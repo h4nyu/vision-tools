@@ -435,7 +435,7 @@ def cv_registry(
     writer = get_writer(cfg)
     model = get_model(cfg).to(device)
     checkpoint = get_checkpoint(cfg)
-    saved_state = checkpoint.load("latest")
+    saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
     best_score = 0.0
     best_loss = float("inf")
@@ -479,6 +479,8 @@ def cv_registry(
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
+        matcher.update(embeddings, label_batch)
+        embeddings = model(hflip(image_batch))
         matcher.update(embeddings, label_batch)
     matcher.create_index()
     return matcher
@@ -549,7 +551,7 @@ def cv_evaluate(
     writer = get_writer(cfg)
     model = get_model(cfg).to(device)
     checkpoint = get_checkpoint(cfg)
-    saved_state = checkpoint.load("latest")
+    saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
     best_score = 0.0
     best_loss = float("inf")

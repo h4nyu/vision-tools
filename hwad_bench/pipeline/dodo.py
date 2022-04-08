@@ -74,6 +74,7 @@ class CacheAction:
 action = CacheAction()
 cfg = load_config(get_var("cfg", "../config/experiment.0.yaml"))
 fold = cfg["fold"]
+version = cfg["version"]
 
 
 def pkl2json(a: str, b: str) -> None:
@@ -378,7 +379,7 @@ def task_search_threshold() -> dict:
                 key=key,
                 fn=search_threshold,
                 kwargs={
-                    "thresholds": np.linspace(0.0, 1.0, 50).tolist(),
+                    "thresholds": np.linspace(0.0, 1.0, 100).tolist(),
                 },
                 output_kwargs={
                     "submissions": f"cv_evaluate_{fold}",
@@ -424,7 +425,7 @@ def task_save_submission() -> dict:
             action(
                 fn=save_submission,
                 kwargs={
-                    "output_path": f"inference_{fold}.csv",
+                    "output_path": f"{version}.csv",
                 },
                 output_kwargs={
                     "submissions": f"inference_{fold}",

@@ -20,7 +20,7 @@ batch_size: 16
 accumulate_steps: 8
 eval_interval: 2500
 use_scheduler: false
-resume: latest
+resume: best_score
 min_samples: 0
 lr: 1.0e-4
 final_div_factor: 100
