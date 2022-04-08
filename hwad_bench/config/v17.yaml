@@ -54,4 +54,4 @@ val_shift_limit: 10
 to_gray_p: 0.1
 hflip_p: 0.5
 blur_p: 0.0
-threshold: 0.45
+threshold: 0.55

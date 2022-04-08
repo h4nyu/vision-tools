@@ -39,12 +39,15 @@ from .matchers import MeanEmbeddingMatcher, NearestMatcher
 
 
 class EnsembleSubmission:
-    def __init__(self, topk: int = 5, order: str = "desc") -> None:
+    def __init__(
+        self, topk: int = 5, order: str = "desc", strategy: str = "mean"
+    ) -> None:
         self.topk = topk
         self.reverse = order == "desc"
+        self.strategy = strategy
 
     def _ensemble(self, rows: list[Submission]) -> Submission:
-        image_file = rows[0]["image_file"]
+        image_id = rows[0]["image_id"]
         voting = {}
         distances = pipe(rows, map(lambda x: x["distances"]), concat, list)
         individual_ids = pipe(rows, map(lambda x: x["individual_ids"]), concat, list)
@@ -62,17 +65,18 @@ class EnsembleSubmission:
             lambda x: x.items(),
             sorted(key=lambda x: x[1], reverse=self.reverse),
         )
+
         res = Submission(
-            image_file=image_file,
+            image_id=image_id,
             individual_ids=pipe(merged, map(lambda x: x[0]), list),
             distances=pipe(merged, map(lambda x: x[1]), list),
         )
         return res
 
     def __call__(self, rows: list[Submission]) -> list[Submission]:
-        groups = groupby(lambda x: x["image_file"], rows)
+        groups = groupby(lambda x: x["image_id"], rows)
         res: list[Submission] = []
-        for image_file, group_rows in groups.items():
+        for _, group_rows in groups.items():
             res.append(self._ensemble(group_rows))
         return res
 
@@ -452,19 +456,7 @@ def cv_registry(
         fin_rows,
         fold_train,
     )
-    val_body_rows = filter_rows_by_fold(
-        body_rows,
-        fold_val,
-    )
-    val_fin_rows = filter_rows_by_fold(
-        fin_rows,
-        fold_val,
-    )
     reg_rows = train_body_rows + train_fin_rows
-    val_rows = merge_rows_by_image_id(
-        val_body_rows,
-        val_fin_rows,
-    )
     reg_dataset = HwadCropedDataset(
         rows=reg_rows,
         image_dir=image_dir,
@@ -482,6 +474,56 @@ def cv_registry(
     model.eval()
     matcher = MeanEmbeddingMatcher()
 
+    for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
+        batch = to_device(**batch)
+        image_batch = batch["image_batch"]
+        label_batch = batch["label_batch"]
+        embeddings = model(image_batch)
+        matcher.update(embeddings, label_batch)
+    matcher.create_index()
+    return matcher
+
+
+@torch.no_grad()
+def registry(
+    cfg: dict,
+    image_dir: str,
+    body_rows: list[Annotation],
+    fin_rows: list[Annotation],
+) -> MeanEmbeddingMatcher:
+    seed_everything()
+    device = cfg["device"]
+    writer = get_writer(cfg)
+    model = get_model(cfg).to(device)
+    checkpoint = get_checkpoint(cfg)
+    saved_state = checkpoint.load("latest")
+    iteration = 0
+    best_score = 0.0
+    best_loss = float("inf")
+    if saved_state is not None:
+        model.load_state_dict(saved_state["model"])
+        iteration = saved_state.get("iteration", 0)
+        best_loss = saved_state.get("best_loss", float("inf"))
+        best_score = saved_state.get("best_score", 0.0)
+    print(f"Loaded checkpoint from iteration {iteration}")
+    print(f"Best score: {best_score}")
+    print(f"Best loss: {best_loss}")
+    reg_rows = body_rows + body_rows
+    reg_dataset = HwadCropedDataset(
+        rows=reg_rows,
+        image_dir=image_dir,
+        transform=Transform(cfg),
+    )
+    reg_loader = DataLoader(
+        reg_dataset,
+        batch_size=cfg["batch_size"] * 2,
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+        collate_fn=collate_fn,
+    )
+    to_device = ToDevice(device)
+    model.eval()
+    matcher = MeanEmbeddingMatcher()
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
         image_batch = batch["image_batch"]
@@ -537,32 +579,21 @@ def cv_evaluate(
         fold_val,
     )
     reg_rows = train_body_rows + train_fin_rows
-    val_rows = merge_rows_by_image_id(
-        val_body_rows,
-        val_fin_rows,
-    )
+    val_rows = val_body_rows + val_fin_rows
     reg_dataset = HwadCropedDataset(
         rows=reg_rows,
         image_dir=image_dir,
         transform=Transform(cfg),
     )
     val_dataset = HwadCropedDataset(
-        rows=filter_in_rows(val_rows, reg_rows),
+        rows=val_rows,
         image_dir=image_dir,
         transform=Transform(cfg),
     )
 
-    reg_loader = DataLoader(
-        reg_dataset,
-        batch_size=cfg["batch_size"] * 2,
-        shuffle=False,
-        num_workers=cfg["num_workers"],
-        collate_fn=collate_fn,
-    )
-
     val_loader = DataLoader(
         val_dataset,
-        batch_size=cfg["batch_size"] * 2,
+        batch_size=cfg["batch_size"],
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
@@ -570,8 +601,7 @@ def cv_evaluate(
     to_device = ToDevice(device)
     model.eval()
     val_meter = MeanReduceDict()
-    matcher = MeanEmbeddingMatcher()
-    metric = MeanAveragePrecisionK()
+    ensemble = EnsembleSubmission()
 
     rows: list[Submission] = []
     for batch, batch_annots in tqdm(val_loader, total=len(val_loader)):
@@ -580,10 +610,6 @@ def cv_evaluate(
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
         topk_distance, pred_label_batch = matcher(embeddings, k=5)
-        metric.update(
-            pred_label_batch,
-            label_batch,
-        )
         for pred_topk, annot, distances in zip(
             pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
         ):
@@ -593,14 +619,28 @@ def cv_evaluate(
                 list,
             )
             row = Submission(
-                image_file=annot["image_file"],
+                image_id=annot["image_file"].split(".")[0],
                 distances=distances,
                 individual_ids=individual_ids,
             )
             rows.append(row)
-    score, _ = metric.value
-    writer.add_scalar(f"val/score", score, iteration)
-    print(f"Score: {score}")
+        embeddings = model(hflip(image_batch))
+        topk_distance, pred_label_batch = matcher(embeddings, k=5)
+        for pred_topk, annot, distances in zip(
+            pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
+        ):
+            individual_ids = pipe(
+                pred_topk,
+                map(lambda x: reg_dataset.id_map[x]),
+                list,
+            )
+            row = Submission(
+                image_id=annot["image_file"].split(".")[0],
+                distances=distances,
+                individual_ids=individual_ids,
+            )
+            rows.append(row)
+    rows = ensemble(rows)
     return rows
 
 
@@ -613,8 +653,8 @@ def inference(
     test_fin_rows: list[Annotation],
     search_thresholds: list[dict],
     threshold: Optional[float],
-    train_image_dir: str,
-    test_image_dir: str,
+    image_dir: str,
+    matcher: MeanEmbeddingMatcher,
 ) -> list[Submission]:
     seed_everything()
     device = cfg["device"]
@@ -635,29 +675,18 @@ def inference(
     print(f"Best score: {best_score}")
     print(f"Best loss: {best_loss}")
 
-    train_rows = train_body_rows + train_fin_rows
-    test_rows = merge_rows_by_image_id(
-        test_body_rows,
-        test_fin_rows,
-    )
-    train_dataset = HwadCropedDataset(
-        rows=train_rows,
-        image_dir=train_image_dir,
-        transform=Transform(cfg),
-    )
-    test_dataset = HwadCropedDataset(
-        rows=test_rows,
-        image_dir=test_image_dir,
-        transform=Transform(cfg),
-    )
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg["batch_size"],
-        shuffle=False,
-        num_workers=cfg["num_workers"],
-        collate_fn=collate_fn,
+    id_map = pipe(
+        train_fin_rows + train_body_rows,
+        map(lambda x: (x["label"], x["individual_id"])),
+        dict,
     )
 
+    test_rows = test_body_rows + test_fin_rows
+    test_dataset = HwadCropedDataset(
+        rows=test_rows,
+        image_dir=image_dir,
+        transform=Transform(cfg),
+    )
     test_loader = DataLoader(
         test_dataset,
         batch_size=cfg["batch_size"],
@@ -672,16 +701,6 @@ def inference(
     )
     print(f"Threshold: {_threshold}")
     model.eval()
-    matcher = MeanEmbeddingMatcher()
-    for batch, batch_annot in tqdm(train_loader, total=len(train_loader)):
-        batch = to_device(**batch)
-        image_batch = batch["image_batch"]
-        label_batch = batch["label_batch"]
-        embeddings = model(image_batch)
-        matcher.update(embeddings, label_batch)
-        embeddings = model(hflip(batch["image_batch"]))
-        matcher.update(embeddings, label_batch)
-    matcher.create_index()
     rows: list[Submission] = []
     for batch, batch_annots in tqdm(test_loader, total=len(test_loader)):
         batch = to_device(**batch)
@@ -694,16 +713,32 @@ def inference(
         ):
             individual_ids = pipe(
                 pred_topk,
-                map(lambda x: train_dataset.id_map[x]),
+                map(lambda x: id_map[x]),
                 list,
             )
             row = Submission(
-                image_file=annot["image_file"],
+                image_id=annot["image_file"].split(".")[0],
                 distances=distances,
                 individual_ids=individual_ids,
             )
             rows.append(row)
-    # rows = ensemble(rows)
+        embeddings = model(hflip(image_batch))
+        topk_distance, pred_label_batch = matcher(embeddings, k=5)
+        for pred_topk, annot, distances in zip(
+            pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
+        ):
+            individual_ids = pipe(
+                pred_topk,
+                map(lambda x: id_map[x]),
+                list,
+            )
+            row = Submission(
+                image_id=annot["image_file"].split(".")[0],
+                distances=distances,
+                individual_ids=individual_ids,
+            )
+            rows.append(row)
+    rows = ensemble(rows)
     rows = add_new_individual(rows, _threshold)
     return rows
 
@@ -772,7 +807,7 @@ def search_threshold(
                 .long()
                 .unsqueeze(0)
             )
-            annot = val_annot_map[sub["image_file"].split(".")[0]]
+            annot = val_annot_map[sub["image_id"]]
             labels = pipe(
                 [annot["individual_id"]],
                 map(lambda x: label_map[x]),
@@ -787,6 +822,7 @@ def search_threshold(
                 "score": score,
             }
         )
+        print(f"Threshold: {thr} Score: {score}")
     return results
 
 
@@ -796,7 +832,7 @@ def save_submission(
 ) -> list[dict]:
     rows: list[dict] = []
     for sub in submissions:
-        image_id = sub["image_file"].split(".")[0]
+        image_id = sub["image_id"]
         row = {
             "image": f"{image_id}.jpg",
             "predictions": " ".join(sub["individual_ids"]),

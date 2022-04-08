@@ -39,17 +39,17 @@ def test_ensemble() -> None:
 
     rows = [
         Submission(
-            image_file="img0.jpg",
+            image_id="img0",
             individual_ids=["tr-0", "tr-1", "tr-2", "tr-3", "tr-4"],
             distances=[0.5, 0.4, 0.3, 0.2, 0.1],
         ),
         Submission(
-            image_file="img0.jpg",
+            image_id="img0",
             individual_ids=["tr-0", "tr-1", "tr-1", "tr-1", "tr-1"],
             distances=[0.5, 0.4, 0.3, 0.2, 0.1],
         ),
     ]
     res = fn(rows)[0]
-    assert res["image_file"] == "img0.jpg"
+    assert res["image_id"] == "img0"
     assert res["individual_ids"] == ["tr-0", "tr-2", "tr-1", "tr-3", "tr-4"]
     assert res["distances"] == [0.5, 0.3, 0.28, 0.2, 0.1]

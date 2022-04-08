@@ -51,7 +51,7 @@ Annotation = TypedDict(
 Submission = TypedDict(
     "Submission",
     {
-        "image_file": str,
+        "image_id": str,
         "distances": List[float],
         "individual_ids": List[str],
     },

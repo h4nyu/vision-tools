@@ -23,6 +23,7 @@ from hwad_bench.models import (
     cv_evaluate,
     cv_registry,
     inference,
+    registry,
     save_submission,
     search_threshold,
     train,
@@ -318,6 +319,29 @@ def task_cv_registry() -> dict:
     }
 
 
+def task_registry() -> dict:
+    fold = cfg["fold"]
+    key = f"registry_{fold}"
+    return {
+        "targets": [key],
+        "actions": [
+            action(
+                key=key,
+                fn=registry,
+                kwargs={
+                    "cfg": cfg,
+                    "image_dir": "/app/datasets/hwad-train-croped",
+                },
+                output_kwargs={
+                    "body_rows": f"train_body_rows",
+                    "fin_rows": f"train_fin_rows",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
 def task_cv_evaluate() -> dict:
     fold = cfg["fold"]
     key = f"cv_evaluate_{fold}"
@@ -354,10 +378,10 @@ def task_search_threshold() -> dict:
                 key=key,
                 fn=search_threshold,
                 kwargs={
-                    "thresholds": np.linspace(0.0, 1.0, 100).tolist(),
+                    "thresholds": np.linspace(0.0, 1.0, 50).tolist(),
                 },
                 output_kwargs={
-                    "submissions": f"fold_{fold}_val_submissions",
+                    "submissions": f"cv_evaluate_{fold}",
                     "fold_train": f"fold_{fold}_train",
                     "fold_val": f"fold_{fold}_val",
                 },
@@ -367,8 +391,8 @@ def task_search_threshold() -> dict:
     }
 
 
-def task_submission() -> dict:
-    key = f"fold_{fold}_submission"
+def task_inference() -> dict:
+    key = f"inference_{fold}"
     return {
         "targets": [key],
         "actions": [
@@ -377,8 +401,7 @@ def task_submission() -> dict:
                 fn=inference,
                 kwargs={
                     "cfg": cfg,
-                    "train_image_dir": "/app/datasets/hwad-train-croped",
-                    "test_image_dir": "/app/datasets/hwad-test-croped",
+                    "image_dir": "/app/datasets/hwad-test-croped",
                     "threshold": cfg.get("threshold", None),
                 },
                 output_kwargs={
@@ -386,7 +409,8 @@ def task_submission() -> dict:
                     "train_fin_rows": f"train_fin_rows",
                     "test_body_rows": f"test_body_rows",
                     "test_fin_rows": f"test_fin_rows",
-                    "search_thresholds": "fold_0_search_threshold",
+                    "search_thresholds": f"fold_{fold}_search_threshold",
+                    "matcher": f"registry_{fold}",
                 },
             )
         ],
@@ -395,18 +419,15 @@ def task_submission() -> dict:
 
 
 def task_save_submission() -> dict:
-    key = f"fold_{fold}_submission_csv"
     return {
-        "targets": [key],
         "actions": [
             action(
-                key=key,
                 fn=save_submission,
                 kwargs={
-                    "output_path": f"fold_{fold}_submission.csv",
+                    "output_path": f"inference_{fold}.csv",
                 },
                 output_kwargs={
-                    "submissions": f"fold_{fold}_submission",
+                    "submissions": f"inference_{fold}",
                 },
             )
         ],
