@@ -72,7 +72,7 @@ class CacheAction:
 
 
 action = CacheAction()
-cfg = load_config(get_var("cfg", "../config/experiment.0.yaml"))
+cfg = load_config(get_var("cfg", "../config/current.yaml"))
 fold = cfg["fold"]
 version = cfg["version"]
 
