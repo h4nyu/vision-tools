@@ -59,7 +59,7 @@ Submission = TypedDict(
 
 SpecieLabels = pipe(
     [
-        "beluga",
+        "beluga_whale",
         "blue_whale",
         "brydes_whale",
         "cuviers_beaked_whale",
@@ -73,9 +73,7 @@ SpecieLabels = pipe(
         "minke_whale",
         "pygmy_killer_whale",
         "sei_whale",
-        "globis",
         "short_finned_pilot_whale",
-        "pilot_whale",
         "southern_right_whale",
         "bottlenose_dolphin",
         "commersons_dolphin",
@@ -103,6 +101,13 @@ def correct_species(
         annotation["species"] = "bottlenose_dolphin"
     elif species == "kiler_whale":
         annotation["species"] = "killer_whale"
+    elif species == "beluga":
+        annotation["species"] = "beluga_whale"
+    elif species == "globis":
+        annotation["species"] = "short_finned_pilot_whale"
+    elif species == "pilot_whale":
+        annotation["species"] = "short_finned_pilot_whale"
+
     return annotation
 
 

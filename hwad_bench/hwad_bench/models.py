@@ -134,17 +134,10 @@ class Criterion(nn.Module):
         self.num_classes = num_classes
         self.num_supclasses = num_supclasses
         self.sub_centers = sub_centers
-        # self.arcface = SubCenterArcFaceLoss(
-        #     num_classes=num_classes,
-        #     embedding_size=embedding_size,
-        #     sub_centers=sub_centers,
-        # )
-
         self.arcface = ArcFaceLoss(
             num_classes=num_classes,
             embedding_size=embedding_size,
         )
-
         self.alpha = alpha
         self.supcls_fc = nn.Linear(embedding_size, self.num_supclasses)
 
@@ -191,8 +184,8 @@ def train(
     image_dir: str,
     body_rows: list[Annotation],
     fin_rows: list[Annotation],
-    fold_train: list[dict],
-    fold_val: list[dict],
+    fold_train: Optional[list[dict]] = None,
+    fold_val: Optional[list[dict]] = None,
 ) -> None:
     seed_everything()
     use_amp = cfg["use_amp"]
@@ -202,25 +195,42 @@ def train(
     cfg_name = get_cfg_name(cfg)
     writer = get_writer(cfg)
     min_samples = cfg["min_samples"]
-    train_body_rows = filter_rows_by_fold(
-        body_rows,
-        fold_train,
+    train_body_rows = (
+        filter_rows_by_fold(
+            body_rows,
+            fold_train,
+        )
+        if fold_train is not None
+        else body_rows
     )
-    train_fin_rows = filter_rows_by_fold(
-        fin_rows,
-        fold_train,
+    train_fin_rows = (
+        filter_rows_by_fold(
+            fin_rows,
+            fold_train,
+        )
+        if fold_train is not None
+        else fin_rows
     )
-    val_body_rows = filter_rows_by_fold(
-        body_rows,
-        fold_val,
+    val_body_rows = (
+        filter_rows_by_fold(
+            body_rows,
+            fold_val,
+        )
+        if fold_val is not None
+        else []
     )
-    val_fin_rows = filter_rows_by_fold(
-        fin_rows,
-        fold_val,
+    val_fin_rows = (
+        filter_rows_by_fold(
+            fin_rows,
+            fold_val,
+        )
+        if fold_val is not None
+        else []
     )
-    reg_rows = train_body_rows + train_fin_rows
+    train_rows = train_body_rows + train_fin_rows
+    reg_rows = train_rows if fold_val is not None else []
     train_rows = pipe(
-        reg_rows,
+        train_rows,
         filter(lambda r: r["individual_samples"] >= min_samples),
         list,
     )
@@ -228,6 +238,7 @@ def train(
         val_body_rows,
         val_fin_rows,
     )
+    print(len(train_rows), len(val_rows))
     train_dataset = HwadCropedDataset(
         rows=train_rows,
         image_dir=image_dir,
@@ -251,19 +262,27 @@ def train(
         collate_fn=collate_fn,
         drop_last=True,
     )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=cfg["batch_size"],
-        shuffle=False,
-        num_workers=cfg["num_workers"],
-        collate_fn=collate_fn,
+    val_loader = (
+        DataLoader(
+            val_dataset,
+            batch_size=cfg["batch_size"],
+            shuffle=False,
+            num_workers=cfg["num_workers"],
+            collate_fn=collate_fn,
+        )
+        if len(val_dataset) > 0
+        else None
     )
-    reg_loader = DataLoader(
-        reg_dataset,
-        batch_size=cfg["batch_size"],
-        shuffle=False,
-        num_workers=cfg["num_workers"],
-        collate_fn=collate_fn,
+    reg_loader = (
+        DataLoader(
+            reg_dataset,
+            batch_size=cfg["batch_size"],
+            shuffle=False,
+            num_workers=cfg["num_workers"],
+            collate_fn=collate_fn,
+        )
+        if len(reg_dataset) > 0
+        else None
     )
 
     loss_fn = Criterion(
@@ -298,12 +317,12 @@ def train(
     if saved_state is not None:
         print(f"Resuming from iteration {saved_state['iteration']}")
         model.load_state_dict(saved_state["model"])
-        loss_fn.load_state_dict(saved_state["loss_fn"])
-        optimizer.load_state_dict(saved_state["optimizer"])
-        for state in optimizer.state.values():
-            for k, v in state.items():
-                if torch.is_tensor(v):
-                    state[k] = v.to(device)
+        # loss_fn.load_state_dict(saved_state["loss_fn"])
+        # optimizer.load_state_dict(saved_state["optimizer"])
+        # for state in optimizer.state.values():
+        #     for k, v in state.items():
+        #         if torch.is_tensor(v):
+        #             state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
         socore = saved_state.get("score", 0.0)
@@ -351,7 +370,7 @@ def train(
                 metric = MeanAveragePrecisionK()
                 matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
-                    if validate_score:
+                    if validate_score and reg_loader is not None:
                         for batch, batch_annot in tqdm(
                             reg_loader, total=len(reg_loader)
                         ):
@@ -360,29 +379,32 @@ def train(
                             embeddings = model(image_batch)
                             matcher.update(embeddings, label_batch)
                         matcher.create_index()
-                    for batch, annots in tqdm(val_loader, total=len(val_loader)):
-                        image_batch = batch["image_batch"]
-                        label_batch = batch["label_batch"]
-                        suplabel_batch = batch["suplabel_batch"]
-                        embeddings = model(image_batch)
-                        if validate_score:
-                            _, pred_label_batch = matcher(embeddings, k=5)
-                            metric.update(
-                                pred_label_batch,
+                    if val_loader is not None:
+                        for batch, annots in tqdm(val_loader, total=len(val_loader)):
+                            image_batch = batch["image_batch"]
+                            label_batch = batch["label_batch"]
+                            suplabel_batch = batch["suplabel_batch"]
+                            embeddings = model(image_batch)
+                            if validate_score:
+                                _, pred_label_batch = matcher(embeddings, k=5)
+                                metric.update(
+                                    pred_label_batch,
+                                    label_batch,
+                                )
+                            loss = loss_fn(
+                                embeddings,
                                 label_batch,
-                            )
-                        loss = loss_fn(
-                            embeddings,
-                            label_batch,
-                            suplabel_batch,
-                        )["loss"].mean()
-                        val_meter.update({"loss": loss.item()})
+                                suplabel_batch,
+                            )["loss"].mean()
+                            val_meter.update({"loss": loss.item()})
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
 
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
-                writer.add_scalar(f"val/loss", val_meter.value["loss"], iteration)
+                writer.add_scalar(
+                    f"val/loss", val_meter.value.get("loss", 0.0), iteration
+                )
                 writer.add_scalar(
                     f"train/lr", [x["lr"] for x in optimizer.param_groups][0], iteration
                 )

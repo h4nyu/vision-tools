@@ -286,8 +286,6 @@ def task_train_model() -> dict:
                 output_kwargs={
                     "body_rows": f"train_body_rows",
                     "fin_rows": f"train_fin_rows",
-                    "fold_train": f"fold_{fold}_train",
-                    "fold_val": f"fold_{fold}_val",
                 },
             )
         ],
@@ -437,7 +435,7 @@ def task_save_submission() -> dict:
 
 
 def task_preview() -> dict:
-    dep = "fold_0_search_threshold"
+    dep = "summary"
     return {
         "actions": [action(pprint, output_args=[dep])],
         "uptodate": [False],
