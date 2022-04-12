@@ -51,7 +51,7 @@ class CacheAction:
         args: list[Any] = [],
         kwargs: dict[str, Any] = {},
         output_args: list[str] = [],
-        output_kwargs: dict[str, str] = {},
+        output_kwargs: dict[str, Optional[str]] = {},
         key: str = None,
     ) -> tuple[Any, list, dict]:
         if key is not None:
@@ -61,8 +61,9 @@ class CacheAction:
             _kwargs = {}
             _args = []
             for k, v in output_kwargs.items():
-                with open(v, "rb") as fp:
-                    _kwargs[k] = pickle.load(fp)
+                if v is not None:
+                    with open(v, "rb") as fp:
+                        _kwargs[k] = pickle.load(fp)
             for v in output_args:
                 with open(v, "rb") as fp:
                     _args.append(pickle.load(fp))
@@ -75,6 +76,7 @@ action = CacheAction()
 cfg = load_config(get_var("cfg", "../config/current.yaml"))
 fold = cfg["fold"]
 version = cfg["version"]
+use_fold = cfg["use_fold"]
 
 
 def pkl2json(a: str, b: str) -> None:
@@ -286,6 +288,8 @@ def task_train_model() -> dict:
                 output_kwargs={
                     "body_rows": f"train_body_rows",
                     "fin_rows": f"train_fin_rows",
+                    "fold_train": f"fold_{fold}_train" if use_fold else None,
+                    "fold_val": f"fold_{fold}_val" if use_fold else None,
                 },
             )
         ],

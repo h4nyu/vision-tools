@@ -13,6 +13,7 @@ version: v20
 embedding_size: 512
 pretrained: true
 validate_score: true
+use_fold: false
 
 use_amp: true
 epochs: 999
