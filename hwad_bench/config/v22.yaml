@@ -10,7 +10,7 @@ name: tf_efficientnet_b7_ns
 fold: 0
 num_split: 5
 version: v22
-threshold: 0.30
+threshold: 0.35
 
 embedding_size: 512
 pretrained: true
