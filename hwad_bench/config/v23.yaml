@@ -1,0 +1,60 @@
+# v22を追加学習
+# device
+device: cuda
+num_workers: 10
+# data
+train_annotation_path: /app/hwad_bench/store/train.csv
+
+# model
+name: tf_efficientnet_b7_ns
+fold: 0
+num_split: 5
+version: v23
+threshold: 0.35
+
+embedding_size: 512
+pretrained: true
+validate_score: false
+use_fold: false
+
+use_amp: true
+epochs: 999
+batch_size: 8
+accumulate_steps: 32
+eval_interval: 3000
+use_scheduler: false
+# resume: best_score
+resume: latest
+min_samples: 0
+lr: 1.0e-4
+final_div_factor: 100
+weight_decay: 0.05
+lr_patience: 2
+lr_factor: 0.9
+sub_centers: 3
+total_steps: 600_000
+warmup_steps: 4_000
+num_classes: 15587
+num_supclasses: 26
+
+image_width: 640
+image_height: 640
+
+affine_p: 1.0
+rot0: -20
+rot1: 20
+shear0: -8
+shear1: 8
+trans0: -0.125
+trans1: 0.125
+scale0: 0.75
+scale1: 1.25
+
+brightness_limit: 0.25
+contrast_limit: 0.01
+sat_shift_limit: 10
+hue_shift_limit: 5
+val_shift_limit: 10
+to_gray_p: 0.1
+hflip_p: 0.5
+blur_p: 0.1
