@@ -317,12 +317,12 @@ def train(
     if saved_state is not None:
         print(f"Resuming from iteration {saved_state['iteration']}")
         model.load_state_dict(saved_state["model"])
-        # loss_fn.load_state_dict(saved_state["loss_fn"])
-        # optimizer.load_state_dict(saved_state["optimizer"])
-        # for state in optimizer.state.values():
-        #     for k, v in state.items():
-        #         if torch.is_tensor(v):
-        #             state[k] = v.to(device)
+        loss_fn.load_state_dict(saved_state["loss_fn"])
+        optimizer.load_state_dict(saved_state["optimizer"])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
         best_score = saved_state.get("best_score", 0.0)
         socore = saved_state.get("score", 0.0)

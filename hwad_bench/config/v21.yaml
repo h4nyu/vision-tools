@@ -9,6 +9,7 @@ name: tf_efficientnet_b7_ns
 fold: 0
 num_split: 5
 version: v21
+threshold: 0.30
 
 embedding_size: 512
 pretrained: true
@@ -24,7 +25,7 @@ use_scheduler: false
 # resume: best_score
 resume: latest
 min_samples: 0
-lr: 1.5e-4
+lr: 1.0e-4
 final_div_factor: 100
 weight_decay: 0.05
 lr_patience: 2
