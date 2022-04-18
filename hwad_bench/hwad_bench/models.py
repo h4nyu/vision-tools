@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import pathlib
+import shutil
 from typing import Any, Optional
 
+import albumentations as A
 import pandas as pd
 import timm
 import torch
+from albumentations.pytorch.transforms import ToTensorV2
 from cytoolz.curried import concat, groupby, map, pipe, sorted, valmap
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_metric_learning.losses import ArcFaceLoss, SubCenterArcFaceLoss
@@ -13,7 +17,7 @@ from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import OneCycleLR  # type: ignore
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms.functional import hflip
 from tqdm import tqdm
@@ -53,15 +57,16 @@ class EnsembleSubmission:
         individual_ids = pipe(rows, map(lambda x: x["individual_ids"]), concat, list)
         for dis, id in zip(distances, individual_ids):
             if id not in voting:
-                voting[id] = {"total": dis, "count": 1}
+                voting[id] = {"total": dis, "count": 1, "best": dis}
             else:
                 voting[id] = {
                     "total": voting[id]["total"] + dis,
                     "count": voting[id]["count"] + 1,
+                    "best": max(voting[id]["best"], dis),
                 }
         merged = pipe(
             voting,
-            valmap(lambda x: x["total"] / x["count"]),
+            valmap(lambda x: x["total"] if self.strategy == "mean" else x["best"]),
             lambda x: x.items(),
             sorted(key=lambda x: x[1], reverse=self.reverse),
         )
@@ -182,6 +187,7 @@ def get_writer(cfg: dict) -> SummaryWriter:
 def train(
     cfg: dict,
     image_dir: str,
+    train_rows: list[Submission],
     body_rows: list[Annotation],
     fin_rows: list[Annotation],
     fold_train: Optional[list[dict]] = None,
@@ -227,10 +233,10 @@ def train(
         if fold_val is not None
         else []
     )
-    train_rows = train_body_rows + train_fin_rows
+    croped_train_rows = train_body_rows + train_fin_rows
     reg_rows = train_rows if fold_val is not None else []
-    train_rows = pipe(
-        train_rows,
+    croped_train_rows = pipe(
+        croped_train_rows,
         filter(lambda r: r["individual_samples"] >= min_samples),
         list,
     )
@@ -238,12 +244,17 @@ def train(
         val_body_rows,
         val_fin_rows,
     )
-    print(len(train_rows), len(val_rows))
-    train_dataset = HwadCropedDataset(
-        rows=train_rows,
+    croped_train_dataset = HwadCropedDataset(
+        rows=croped_train_rows,
         image_dir=image_dir,
         transform=TrainTransform(cfg),
     )
+    train_dataset = HwadCropedDataset(
+        rows=train_rows,
+        image_dir="/app/datasets/hwad-train",
+        transform=TrainTransform(cfg),
+    )
+
     reg_dataset = HwadCropedDataset(
         rows=reg_rows,
         image_dir=image_dir,
@@ -255,7 +266,7 @@ def train(
         transform=Transform(cfg),
     )
     train_loader = DataLoader(
-        train_dataset,
+        ConcatDataset([train_dataset, croped_train_dataset]),
         batch_size=cfg["batch_size"],
         shuffle=True,
         num_workers=cfg["num_workers"],
@@ -273,6 +284,7 @@ def train(
         if len(val_dataset) > 0
         else None
     )
+    print(len(train_loader))
     reg_loader = (
         DataLoader(
             reg_dataset,
@@ -290,6 +302,7 @@ def train(
         embedding_size=cfg["embedding_size"],
         num_supclasses=cfg["num_supclasses"],
         sub_centers=cfg["sub_centers"],
+        alpha=cfg["alpha"],
     )
     model = get_model(cfg)
     optimizer = optim.AdamW(
@@ -533,14 +546,25 @@ def registry(
     print(f"Best score: {best_score}")
     print(f"Best loss: {best_loss}")
     reg_rows = body_rows + body_rows
+    transform = Transform(cfg)
     reg_dataset = HwadCropedDataset(
         rows=reg_rows,
         image_dir=image_dir,
-        transform=Transform(cfg),
+        transform=transform,
     )
-    reg_loader = DataLoader(
-        reg_dataset,
-        batch_size=cfg["batch_size"] * 2,
+    hfliped_dataset = HwadCropedDataset(
+        rows=reg_rows,
+        image_dir=image_dir,
+        transform=A.Compose(
+            [
+                A.HorizontalFlip(p=1.0),
+                transform,
+            ]
+        ),
+    )
+    reg_loader: DataLoader = DataLoader(
+        ConcatDataset([reg_dataset, hfliped_dataset]),
+        batch_size=cfg["registry_batch_size"],
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
@@ -675,8 +699,6 @@ def inference(
     train_fin_rows: list[Annotation],
     test_body_rows: list[Annotation],
     test_fin_rows: list[Annotation],
-    search_thresholds: list[dict],
-    threshold: Optional[float],
     image_dir: str,
     matcher: MeanEmbeddingMatcher,
 ) -> list[Submission]:
@@ -689,7 +711,6 @@ def inference(
     iteration = 0
     best_score = 0.0
     best_loss = float("inf")
-    ensemble = EnsembleSubmission()
     if saved_state is not None:
         model.load_state_dict(saved_state["model"])
         iteration = saved_state.get("iteration", 0)
@@ -706,24 +727,30 @@ def inference(
     )
 
     test_rows = test_body_rows + test_fin_rows
+    transform = Transform(cfg)
     test_dataset = HwadCropedDataset(
         rows=test_rows,
         image_dir=image_dir,
-        transform=Transform(cfg),
+        transform=transform,
     )
-    test_loader = DataLoader(
-        test_dataset,
+    hfliped_dataset = HwadCropedDataset(
+        rows=test_rows,
+        image_dir=image_dir,
+        transform=A.Compose(
+            [
+                A.HorizontalFlip(p=1.0),
+                transform,
+            ]
+        ),
+    )
+    test_loader: DataLoader = DataLoader(
+        ConcatDataset([test_dataset, hfliped_dataset]),
         batch_size=cfg["batch_size"],
         shuffle=False,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
     to_device = ToDevice(cfg["device"])
-    _threshold = (
-        threshold
-        or topk(1, search_thresholds, key=lambda x: x["score"])[0]["threshold"]
-    )
-    print(f"Threshold: {_threshold}")
     model.eval()
     rows: list[Submission] = []
     for batch, batch_annots in tqdm(test_loader, total=len(test_loader)):
@@ -731,7 +758,7 @@ def inference(
         image_batch = batch["image_batch"]
         label_batch = batch["label_batch"]
         embeddings = model(image_batch)
-        topk_distance, pred_label_batch = matcher(embeddings, k=5)
+        topk_distance, pred_label_batch = matcher(embeddings, k=50)
         for pred_topk, annot, distances in zip(
             pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
         ):
@@ -746,24 +773,6 @@ def inference(
                 individual_ids=individual_ids,
             )
             rows.append(row)
-        embeddings = model(hflip(image_batch))
-        topk_distance, pred_label_batch = matcher(embeddings, k=5)
-        for pred_topk, annot, distances in zip(
-            pred_label_batch.tolist(), batch_annots, topk_distance.tolist()
-        ):
-            individual_ids = pipe(
-                pred_topk,
-                map(lambda x: id_map[x]),
-                list,
-            )
-            row = Submission(
-                image_id=annot["image_file"].split(".")[0],
-                distances=distances,
-                individual_ids=individual_ids,
-            )
-            rows.append(row)
-    rows = ensemble(rows)
-    rows = add_new_individual(rows, _threshold)
     return rows
 
 
@@ -850,6 +859,43 @@ def search_threshold(
     return results
 
 
+def post_process(
+    cfg: dict,
+    rows: list[Submission],
+    train_rows: list[Annotation],
+) -> list[Submission]:
+    individual_id_spicies = pipe(
+        train_rows,
+        map(lambda x: (x["individual_id"], x["species"])),
+        dict,
+    )
+    # for row in tqdm(rows):
+    #     top1 = row["individual_ids"][0]
+    #     top1_species = individual_id_spicies[top1]
+    #     matched_index = pipe(
+    #         range(len(row["individual_ids"])),
+    #         filter(lambda x: individual_id_spicies[row["individual_ids"][x]] == top1_species),
+    #         list,
+    #     )[:5]
+    #     individual_ids = pipe(
+    #         matched_index,
+    #         map(lambda x: row["individual_ids"][x]),
+    #         list,
+    #     )
+    #     distances = pipe(
+    #         matched_index,
+    #         map(lambda x: row["distances"][x]),
+    #         list,
+    #     )
+    #     row["individual_ids"] = individual_ids
+    #     row["distances"] = distances
+
+    ensemble = EnsembleSubmission(strategy=cfg.get("ensemble_strategy", "mean"))
+    rows = ensemble(rows)
+    rows = add_new_individual(rows, cfg.get("threshold", 0.5))
+    return rows
+
+
 def save_submission(
     submissions: list[Submission],
     output_path: str,
@@ -864,4 +910,96 @@ def save_submission(
         rows.append(row)
     df = pd.DataFrame(rows)
     df.to_csv(output_path, index=False)
+    return rows
+
+
+def preview(
+    submissions: list[Submission],
+    train_rows: list[Annotation],
+    output_path: str,
+) -> list[dict]:
+    rows: list[dict] = []
+    id_image_id = pipe(
+        train_rows,
+        map(lambda x: (x["individual_id"], x["image_file"].split(".")[0])),
+        dict,
+    )
+
+    for sub in submissions:
+        image_id = sub["image_id"]
+        query = pathlib.Path("/app/datasets/hwad-test-croped", f"{image_id}.body.jpg")
+        shutil.copy(query, pathlib.Path(output_path, f"{image_id}.jpg"))
+        for individual_id in sub["individual_ids"]:
+            if individual_id == "new_individual":
+                continue
+            shutil.copy(
+                pathlib.Path(
+                    "/app/datasets/hwad-train-croped",
+                    f"{id_image_id[individual_id]}.body.jpg",
+                ),
+                pathlib.Path(output_path, f"{image_id}.top.jpg"),
+            )
+
+
+def ensemble_submissions(
+    submission0: list[Submission],
+    submission1: list[Submission],
+    submission2: list[Submission],
+    train_rows: list[Annotation],
+    threshold: float,
+    output_path: str,
+) -> list[dict]:
+    rows = submission0 + submission1 + submission2
+    print(len(rows))
+    individual_id_spicies = pipe(
+        train_rows,
+        map(lambda x: (x["individual_id"], x["species"])),
+        dict,
+    )
+    for row in tqdm(rows):
+        row["individual_ids"] = row["individual_ids"][:5]
+        row["distances"] = row["distances"][:5]
+    ensemble = EnsembleSubmission()
+    rows = ensemble(rows)
+    count = 0
+    for row in rows:
+        spicies = pipe(
+            row["individual_ids"],
+            map(lambda x: individual_id_spicies.get(x, None)),
+            list,
+        )[:5]
+        if len(set(spicies)) > 3:
+            print(spicies)
+            count += 1
+    rows = add_new_individual(rows, threshold)
+    save_submission(rows, output_path)
+    return rows
+
+
+def ensemble_files(
+    paths: list[str],
+    output_path: str,
+) -> list[dict]:
+    rows: list[list[Submission]] = []
+    distances = pipe(
+        range(5),
+        map(lambda x: x + 1.0),
+        list,
+        reversed,
+        list,
+    )
+
+    for path in paths:
+        df = pd.read_csv(path)
+        for row in df.itertuples():
+            rows.append(
+                {
+                    "image_id": row.image.split(".")[0],
+                    "individual_ids": row.predictions.split(" ")[:5],
+                    "distances": distances,
+                }
+            )
+    ensemble = EnsembleSubmission()
+    rows = ensemble(rows)
+    save_submission(rows, output_path)
     return rows

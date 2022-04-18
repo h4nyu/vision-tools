@@ -34,6 +34,7 @@ class MeanEmbeddingMatcher(nn.Module):
         for label, embeddings in self.embeddings.items():
             index[int(label)] = torch.mean(torch.stack(embeddings), dim=0)
         self.index = index
+        self.embeddings = {}
         return index
 
     def __call__(self, embeddings: Tensor, k: int) -> tuple[Tensor, Tensor]:

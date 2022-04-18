@@ -5,7 +5,7 @@ import os
 import pickle
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,11 @@ from hwad_bench.data import (
 from hwad_bench.models import (
     cv_evaluate,
     cv_registry,
+    ensemble_files,
+    ensemble_submissions,
     inference,
+    post_process,
+    preview,
     registry,
     save_submission,
     search_threshold,
@@ -286,6 +290,7 @@ def task_train_model() -> dict:
                     "image_dir": "/app/datasets/hwad-train-croped",
                 },
                 output_kwargs={
+                    "train_rows": f"train_rows",
                     "body_rows": f"train_body_rows",
                     "fin_rows": f"train_fin_rows",
                     "fold_train": f"fold_{fold}_train" if use_fold else None,
@@ -323,8 +328,7 @@ def task_cv_registry() -> dict:
 
 
 def task_registry() -> dict:
-    fold = cfg["fold"]
-    key = f"registry_{fold}"
+    key = f"registry_{version}"
     return {
         "targets": [key],
         "actions": [
@@ -395,7 +399,7 @@ def task_search_threshold() -> dict:
 
 
 def task_inference() -> dict:
-    key = f"inference_{fold}"
+    key = f"inference_{version}"
     return {
         "targets": [key],
         "actions": [
@@ -405,15 +409,34 @@ def task_inference() -> dict:
                 kwargs={
                     "cfg": cfg,
                     "image_dir": "/app/datasets/hwad-test-croped",
-                    "threshold": cfg.get("threshold", None),
                 },
                 output_kwargs={
                     "train_body_rows": f"train_body_rows",
                     "train_fin_rows": f"train_fin_rows",
                     "test_body_rows": f"test_body_rows",
                     "test_fin_rows": f"test_fin_rows",
-                    "search_thresholds": f"fold_{fold}_search_threshold",
-                    "matcher": f"registry_{fold}",
+                    "matcher": f"registry_{version}",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_post_process() -> dict:
+    key = f"post_process_{version}"
+    return {
+        "targets": [key],
+        "actions": [
+            action(
+                key=key,
+                fn=post_process,
+                kwargs={
+                    "cfg": cfg,
+                },
+                output_kwargs={
+                    "train_rows": f"train_rows",
+                    "rows": f"inference_{version}",
                 },
             )
         ],
@@ -430,7 +453,7 @@ def task_save_submission() -> dict:
                     "output_path": f"{version}.csv",
                 },
                 output_kwargs={
-                    "submissions": f"inference_{fold}",
+                    "submissions": f"post_process_{version}",
                 },
             )
         ],
@@ -438,10 +461,64 @@ def task_save_submission() -> dict:
     }
 
 
-def task_preview() -> dict:
-    dep = "summary"
+def task_ensemble_submissions() -> dict:
     return {
-        "actions": [action(pprint, output_args=[dep])],
+        "actions": [
+            action(
+                key="ensemble",
+                fn=ensemble_submissions,
+                kwargs={
+                    "threshold": 4.0,
+                    "output_path": f"ensemble.csv",
+                },
+                output_kwargs={
+                    "submission0": f"inference_v23",
+                    "submission1": f"inference_v24",
+                    "submission2": f"inference_v25",
+                    "train_rows": f"train_rows",
+                },
+            )
+        ],
+        "verbosity": 2,
+    }
+
+
+def task_ensemble_files() -> dict:
+    key = f"ensemble_files"
+    return {
+        "actions": [
+            action(
+                key=key,
+                fn=ensemble_files,
+                kwargs={
+                    "paths": [
+                        "/app/hwad_bench/pipeline/v23.csv",
+                        "/app/hwad_bench/pipeline/v25.csv",
+                        "/app/hwad_bench/pipeline/v24.csv",
+                        "/app/hwad_bench/store/submission-coz-fliptta-thr35.csv",
+                    ],
+                    "output_path": f"ensemble_files.csv",
+                },
+            )
+        ],
+        "uptodate": [False],
+        "verbosity": 2,
+    }
+
+
+def task_preview() -> dict:
+    return {
+        "actions": [
+            action(
+                fn=preview,
+                kwargs={"output_path": "/app/test_outputs"},
+                output_kwargs={
+                    # "submissions": f"post_process_{version}",
+                    "submissions": f"ensemble",
+                    "train_rows": f"train_rows",
+                },
+            )
+        ],
         "uptodate": [False],
         "verbosity": 2,
     }

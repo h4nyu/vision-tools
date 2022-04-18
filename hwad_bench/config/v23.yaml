@@ -10,7 +10,7 @@ name: tf_efficientnet_b7_ns
 fold: 0
 num_split: 5
 version: v23
-threshold: 0.35
+threshold: 0.44
 
 embedding_size: 512
 pretrained: true
@@ -20,13 +20,13 @@ use_fold: false
 use_amp: true
 epochs: 999
 batch_size: 8
-accumulate_steps: 32
+accumulate_steps: 64
 eval_interval: 3000
 use_scheduler: false
 # resume: best_score
 resume: latest
 min_samples: 0
-lr: 1.0e-4
+lr: 5.0e-5
 final_div_factor: 100
 weight_decay: 0.05
 lr_patience: 2
@@ -58,3 +58,5 @@ val_shift_limit: 10
 to_gray_p: 0.1
 hflip_p: 0.5
 blur_p: 0.1
+registry_batch_size: 32
+ensemble_strategy: max
