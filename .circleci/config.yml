@@ -16,6 +16,7 @@ jobs:
             echo 'export COMPOSE_FILE=docker-compose.yaml' >> $BASH_ENV
             echo 'export TENSORBOARD_PORT=8008' >> $BASH_ENV
             echo 'export TENSORBOARD_RUNS=/tmp/runs' >> $BASH_ENV
+            echo 'export NOTEBOOK_PORT=8009' >> $BASH_ENV
 
       - restore_cache:
           keys:
