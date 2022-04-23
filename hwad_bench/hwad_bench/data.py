@@ -339,29 +339,28 @@ TrainTransform = lambda cfg: A.Compose(
             shear=(cfg["shear0"], cfg["shear1"]),
             translate_percent=(cfg["trans0"], cfg["trans1"]),
             interpolation=cv2.INTER_CUBIC,
-            scale=(cfg["scale0"], cfg["scale1"]),
             p=cfg["affine_p"],
         ),
-        A.RandomBrightnessContrast(
-            brightness_limit=cfg["brightness_limit"],
-            contrast_limit=cfg["contrast_limit"],
-            p=1.0,
-        ),
-        A.HueSaturationValue(
-            hue_shift_limit=cfg["hue_shift_limit"],
-            sat_shift_limit=cfg["sat_shift_limit"],
-            val_shift_limit=cfg["val_shift_limit"],
-            p=1.0,
-        ),
-        A.ToGray(p=cfg["to_gray_p"]),
-        A.Blur(p=cfg["blur_p"]),
-        A.Resize(
+        A.RandomResizedCrop(
             height=cfg["image_height"],
             width=cfg["image_width"],
-            interpolation=cv2.INTER_CUBIC,
-            p=1.0,
+            scale=(0.9, 1.0),
+            ratio=(0.75, 1.3333333333),
         ),
-        A.HorizontalFlip(p=cfg["hflip_p"]),
+        A.ToGray(p=cfg["to_gray_p"]),
+        A.GaussianBlur(
+            blur_limit=(cfg["blur_limit0"], cfg["blur_limit1"]),
+            p=cfg["gaussian_blur_p"],
+        ),
+        A.GaussNoise(p=cfg["gaussian_noise_p"]),
+        A.RandomGridShuffle(
+            grid=(cfg["grid_0"], cfg["grid_1"]), p=cfg["grid_shuffle_p"]
+        ),
+        A.Posterize(p=cfg["posterize_p"]),
+        A.RandomBrightnessContrast(p=cfg["brightness_contrast_p"]),
+        A.Cutout(p=cfg["cutout_p"]),
+        A.RandomSnow(p=cfg["snow_p"]),
+        A.RandomRain(p=cfg["rain_p"]),
         ToTensorV2(),
     ],
 )

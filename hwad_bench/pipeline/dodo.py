@@ -258,8 +258,8 @@ def task_train_model() -> dict:
                     "train_rows": f"train_rows",
                     "body_rows": f"train_body_rows",
                     "fin_rows": f"train_fin_rows",
-                    "fold_train": f"fold_{fold}_train" if use_fold else None,
-                    "fold_val": f"fold_{fold}_val" if use_fold else None,
+                    "fold_train": f"fold_{fold}_train",
+                    "fold_val": f"fold_{fold}_val",
                 },
             )
         ],

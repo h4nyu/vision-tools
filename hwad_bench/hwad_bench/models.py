@@ -139,8 +139,9 @@ class Criterion(nn.Module):
         self.num_classes = num_classes
         self.num_supclasses = num_supclasses
         self.sub_centers = sub_centers
-        self.arcface = ArcFaceLoss(
+        self.arcface = SubCenterArcFaceLoss(
             num_classes=num_classes,
+            sub_centers=sub_centers,
             embedding_size=embedding_size,
         )
         self.alpha = alpha

@@ -1,0 +1,76 @@
+# v22を追加学習
+# device
+device: cuda
+num_workers: 10
+# data
+train_annotation_path: /app/hwad_bench/store/train.csv
+
+# model
+name: tf_efficientnet_b0_ns
+fold: 0
+num_split: 5
+version: v26
+threshold: 0.35
+
+embedding_size: 512
+pretrained: true
+validate_score: false
+use_fold: false
+
+use_amp: true
+epochs: 999
+batch_size: 8
+accumulate_steps: 64
+eval_interval: 3000
+use_scheduler: false
+# resume: best_score
+resume: latest
+min_samples: 0
+lr: 5.0e-5
+final_div_factor: 100
+weight_decay: 0.05
+lr_patience: 2
+lr_factor: 0.9
+sub_centers: 3
+total_steps: 800_000
+warmup_steps: 4_000
+num_classes: 15587
+num_supclasses: 26
+
+image_width: 256
+image_height: 256
+
+affine_p: 0.5
+rot0: -15
+rot1: 15
+shear0: -3
+shear1: 3
+trans0: 0.0
+trans1: 0.25
+
+crop_scale0: 0.75
+crop_scale1: 1.25
+
+brightness_limit: 0.25
+contrast_limit: 0.01
+sat_shift_limit: 5
+hue_shift_limit: 2
+val_shift_limit: 5
+to_gray_p: 0.1
+blur_limit0: 3
+blur_limit1: 7
+gaussian_blur_p: 0.05
+gaussian_noise_p: 0.05
+grid_0: 2
+grid_1: 2
+grid_shuffle_p: 0.3
+posterize_p: 0.2
+hflip_p: 0.5
+blur_p: 0.1
+brightness_contrast_p: 0.5
+cutout_p: 0.05
+snow_p: 0.1
+rain_p: 0.05
+registry_batch_size: 48
+ensemble_strategy: mean
+alpha: 5.0
