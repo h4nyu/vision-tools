@@ -187,11 +187,11 @@ def get_writer(cfg: dict) -> SummaryWriter:
 def train(
     cfg: dict,
     image_dir: str,
-    train_rows: list[Submission],
+    train_rows: list[Annotation],
     body_rows: list[Annotation],
     fin_rows: list[Annotation],
-    fold_train: Optional[list[dict]] = None,
-    fold_val: Optional[list[dict]] = None,
+    fold_train: list[dict],
+    fold_val: list[dict],
 ) -> None:
     seed_everything()
     use_amp = cfg["use_amp"]
@@ -201,45 +201,23 @@ def train(
     cfg_name = get_cfg_name(cfg)
     writer = get_writer(cfg)
     min_samples = cfg["min_samples"]
-    train_body_rows = (
-        filter_rows_by_fold(
-            body_rows,
-            fold_train,
-        )
-        if fold_train is not None
-        else body_rows
+    train_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_train,
     )
-    train_fin_rows = (
-        filter_rows_by_fold(
-            fin_rows,
-            fold_train,
-        )
-        if fold_train is not None
-        else fin_rows
+    train_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_train,
     )
-    val_body_rows = (
-        filter_rows_by_fold(
-            body_rows,
-            fold_val,
-        )
-        if fold_val is not None
-        else []
+    val_body_rows = filter_rows_by_fold(
+        body_rows,
+        fold_val,
     )
-    val_fin_rows = (
-        filter_rows_by_fold(
-            fin_rows,
-            fold_val,
-        )
-        if fold_val is not None
-        else []
+    val_fin_rows = filter_rows_by_fold(
+        fin_rows,
+        fold_val,
     )
     croped_train_rows = train_body_rows + train_fin_rows
-    reg_rows = train_rows if fold_val is not None else []
-    croped_train_rows = pipe(
-        croped_train_rows,
-        filter(lambda r: r["individual_samples"] >= min_samples),
-        list,
-    )
     val_rows = merge_rows_by_image_id(
         val_body_rows,
         val_fin_rows,
@@ -254,47 +232,25 @@ def train(
         image_dir="/app/datasets/hwad-train",
         transform=TrainTransform(cfg),
     )
-
-    reg_dataset = HwadCropedDataset(
-        rows=reg_rows,
-        image_dir=image_dir,
-        transform=Transform(cfg),
-    )
     val_dataset = HwadCropedDataset(
-        rows=filter_in_rows(val_rows, reg_rows),
+        rows=filter_in_rows(val_rows, train_rows),
         image_dir=image_dir,
         transform=Transform(cfg),
     )
     train_loader = DataLoader(
-        ConcatDataset([train_dataset, croped_train_dataset]),
+        croped_train_dataset,
         batch_size=cfg["batch_size"],
         shuffle=True,
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
         drop_last=True,
     )
-    val_loader = (
-        DataLoader(
-            val_dataset,
-            batch_size=cfg["batch_size"],
-            shuffle=False,
-            num_workers=cfg["num_workers"],
-            collate_fn=collate_fn,
-        )
-        if len(val_dataset) > 0
-        else None
-    )
-    print(len(train_loader))
-    reg_loader = (
-        DataLoader(
-            reg_dataset,
-            batch_size=cfg["batch_size"],
-            shuffle=False,
-            num_workers=cfg["num_workers"],
-            collate_fn=collate_fn,
-        )
-        if len(reg_dataset) > 0
-        else None
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+        collate_fn=collate_fn,
     )
 
     loss_fn = Criterion(
@@ -383,27 +339,17 @@ def train(
                 metric = MeanAveragePrecisionK()
                 matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
-                    if validate_score and reg_loader is not None:
-                        for batch, batch_annot in tqdm(
-                            reg_loader, total=len(reg_loader)
-                        ):
-                            image_batch = batch["image_batch"]
-                            label_batch = batch["label_batch"]
-                            embeddings = model(image_batch)
-                            matcher.update(embeddings, label_batch)
-                        matcher.create_index()
-                    if val_loader is not None:
-                        for batch, annots in tqdm(val_loader, total=len(val_loader)):
-                            image_batch = batch["image_batch"]
-                            label_batch = batch["label_batch"]
-                            suplabel_batch = batch["suplabel_batch"]
-                            embeddings = model(image_batch)
-                            if validate_score:
-                                _, pred_label_batch = matcher(embeddings, k=5)
-                                metric.update(
-                                    pred_label_batch,
-                                    label_batch,
-                                )
+                    for batch, annots in tqdm(val_loader, total=len(val_loader)):
+                        image_batch = batch["image_batch"]
+                        label_batch = batch["label_batch"]
+                        suplabel_batch = batch["suplabel_batch"]
+                        embeddings = model(image_batch)
+                        if validate_score:
+                            _, pred_label_batch = matcher(embeddings, k=5)
+                            metric.update(
+                                pred_label_batch,
+                                label_batch,
+                            )
                             loss = loss_fn(
                                 embeddings,
                                 label_batch,
@@ -917,7 +863,7 @@ def preview(
     submissions: list[Submission],
     train_rows: list[Annotation],
     output_path: str,
-) -> list[dict]:
+) -> None:
     rows: list[dict] = []
     id_image_id = pipe(
         train_rows,
@@ -948,7 +894,7 @@ def ensemble_submissions(
     train_rows: list[Annotation],
     threshold: float,
     output_path: str,
-) -> list[dict]:
+) -> list[Submission]:
     rows = submission0 + submission1 + submission2
     print(len(rows))
     individual_id_spicies = pipe(
@@ -979,8 +925,8 @@ def ensemble_submissions(
 def ensemble_files(
     paths: list[str],
     output_path: str,
-) -> list[dict]:
-    rows: list[list[Submission]] = []
+) -> list[Submission]:
+    rows: list[Submission] = []
     distances = pipe(
         range(5),
         map(lambda x: x + 1.0),
@@ -993,11 +939,13 @@ def ensemble_files(
         df = pd.read_csv(path)
         for row in df.itertuples():
             rows.append(
-                {
-                    "image_id": row.image.split(".")[0],
-                    "individual_ids": row.predictions.split(" ")[:5],
-                    "distances": distances,
-                }
+                Submission(
+                    {
+                        "image_id": row.image.split(".")[0],
+                        "individual_ids": row.predictions.split(" ")[:5],
+                        "distances": distances,
+                    }
+                )
             )
     ensemble = EnsembleSubmission()
     rows = ensemble(rows)

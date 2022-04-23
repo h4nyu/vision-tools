@@ -38,6 +38,11 @@ jobs:
             - ./image.tar
 
       - run:
+          name: Lint
+          command: |
+            docker-compose run --rm  -w /app/hwad_bench app mypy
+
+      - run:
           name: Test
           command: |
             docker-compose run --rm  -w /app/vision_tools app pytest --cov=vision_tools  --cov-report=xml
