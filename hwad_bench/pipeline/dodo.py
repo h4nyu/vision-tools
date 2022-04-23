@@ -45,7 +45,6 @@ action = CacheAction()
 cfg = load_config(get_var("cfg", "../config/current.yaml"))
 fold = cfg["fold"]
 version = cfg["version"]
-use_fold = cfg["use_fold"]
 
 
 def pkl2json(a: str, b: str) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pathlib
 import shutil
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 import albumentations as A
 import pandas as pd
@@ -12,6 +12,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from cytoolz.curried import concat, groupby, map, pipe, sorted, valmap
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_metric_learning.losses import ArcFaceLoss, SubCenterArcFaceLoss
+from pytorch_metric_learning.utils import common_functions as c_f
 from toolz.curried import filter, map, pipe, topk
 from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
@@ -108,6 +109,50 @@ class GeM(nn.Module):
             + str(self.eps)
             + ")"
         )
+
+
+class DynamicArcFaceLoss(nn.Module):
+    """
+    Implementation of https://arxiv.org/pdf/2010.05350.pdf
+    """
+
+    def __init__(
+        self,
+        n: Tensor,
+        loss_func: Any = SubCenterArcFaceLoss,
+        lambda0: float = 0.25,
+        a: float = 0.5,
+        b: float = 0.05,
+        **kwargs: Dict[str, Any],
+    ) -> None:
+        super().__init__()
+
+        self.lambda0 = lambda0
+        self.a = a
+        self.b = b
+
+        self.loss_func = loss_func(**kwargs)
+        self.n = n.flatten()
+        self.init_margins()
+
+    def init_margins(self) -> None:
+        self.margins = self.a * self.n ** (-self.lambda0) + self.b
+
+    def get_batch_margins(self, labels: Tensor) -> Tensor:
+        return self.margins[labels]
+
+    def set_margins(self, batch_margins: Tensor) -> None:
+        self.loss_func.margin = batch_margins
+
+    def cast_types(self, tensor: Tensor, dtype: Any, device: Any) -> Tensor:
+        return c_f.to_device(tensor, device=device, dtype=dtype)
+
+    def forward(self, embeddings: Tensor, labels: Tensor) -> Tensor:
+        batch_margins = self.get_batch_margins(labels)
+        dtype, device = embeddings.dtype, embeddings.device
+        batch_margins = self.cast_types(batch_margins, dtype, device)
+        self.set_margins(batch_margins)
+        return self.loss_func(embeddings, labels)
 
 
 class EmbNet(nn.Module):
@@ -272,7 +317,7 @@ def train(
     saved_state = checkpoint.load(cfg["resume"])
     iteration = 0
     score = 0.0
-    best_score = 0.0
+    best_loss = float("inf")
     scheduler = (
         OneCycleLR(
             optimizer,
@@ -302,7 +347,6 @@ def train(
     print(f"iteration: {iteration}")
     print(f"best_score: {best_score}")
     print(f"score: {score}")
-    to_device = ToDevice(device)
     scaler = GradScaler(enabled=use_amp)
     validate_score = cfg["validate_score"]
     for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
@@ -337,45 +381,33 @@ def train(
                 model.eval()
                 loss_fn.eval()
                 val_meter = MeanReduceDict()
-                metric = MeanAveragePrecisionK()
-                matcher = MeanEmbeddingMatcher()
                 with torch.no_grad():
                     for batch, annots in tqdm(val_loader, total=len(val_loader)):
                         image_batch = batch["image_batch"]
                         label_batch = batch["label_batch"]
                         suplabel_batch = batch["suplabel_batch"]
                         embeddings = model(image_batch)
-                        if validate_score:
-                            _, pred_label_batch = matcher(embeddings, k=5)
-                            metric.update(
-                                pred_label_batch,
-                                label_batch,
-                            )
-                            loss = loss_fn(
-                                embeddings,
-                                label_batch,
-                                suplabel_batch,
-                            )["loss"].mean()
-                            val_meter.update({"loss": loss.item()})
+                        loss = loss_fn(
+                            embeddings,
+                            label_batch,
+                            suplabel_batch,
+                        )["loss"].mean()
+                        val_meter.update({"loss": loss.item()})
                 for k, v in train_meter.value.items():
                     writer.add_scalar(f"train/{k}", v, iteration)
 
                 for k, v in val_meter.value.items():
                     writer.add_scalar(f"val/{k}", v, iteration)
-                writer.add_scalar(
-                    f"val/loss", val_meter.value.get("loss", 0.0), iteration
-                )
+                current_loss = val_meter.value["loss"]
+                writer.add_scalar(f"val/loss", current_loss, iteration)
                 writer.add_scalar(
                     f"train/lr", [x["lr"] for x in optimizer.param_groups][0], iteration
                 )
-                if validate_score:
-                    score, _ = metric.value
-                    writer.add_scalar(f"val/score", score, iteration)
                 train_meter.reset()
                 val_meter.reset()
 
-                if validate_score and (score > best_score):
-                    best_score = score
+                if current_loss < best_loss:
+                    best_loss = current_loss
                     checkpoint.save(
                         {
                             "model": model.module.state_dict(),  # type: ignore
@@ -383,9 +415,9 @@ def train(
                             "optimizer": optimizer.state_dict(),
                             "iteration": iteration,
                             "score": score,
-                            "best_score": best_score,
+                            "best_loss": best_loss,
                         },
-                        target="best_score",
+                        target="best_loss",
                     )
                 checkpoint.save(
                     {
@@ -397,7 +429,6 @@ def train(
                     },
                     target="latest",
                 )
-                metric.reset()
                 val_meter.reset()
             iteration += 1
         writer.flush()
