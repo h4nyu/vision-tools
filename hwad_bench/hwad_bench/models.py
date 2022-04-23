@@ -279,7 +279,7 @@ def train(
         transform=TrainTransform(cfg),
     )
     val_dataset = HwadCropedDataset(
-        rows=filter_in_rows(val_rows, train_rows),
+        rows=val_rows,
         image_dir=image_dir,
         transform=Transform(cfg),
     )
@@ -339,13 +339,13 @@ def train(
                 if torch.is_tensor(v):
                     state[k] = v.to(device)
         iteration = saved_state.get("iteration", 0)
-        best_score = saved_state.get("best_score", 0.0)
+        best_loss = saved_state.get("best_loss", float("inf"))
         socore = saved_state.get("score", 0.0)
     model = nn.DataParallel(model).to(device)  # type: ignore
     loss_fn = nn.DataParallel(loss_fn).to(device)  # type: ignore
     print(f"cfg: {cfg_name}")
     print(f"iteration: {iteration}")
-    print(f"best_score: {best_score}")
+    print(f"best_loss: {best_loss}")
     print(f"score: {score}")
     scaler = GradScaler(enabled=use_amp)
     validate_score = cfg["validate_score"]
@@ -425,7 +425,7 @@ def train(
                         "loss_fn": loss_fn.module.state_dict(),  # type: ignore
                         "optimizer": optimizer.state_dict(),
                         "iteration": iteration,
-                        "best_score": best_score,
+                        "best_loss": best_loss,
                     },
                     target="latest",
                 )

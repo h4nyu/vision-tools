@@ -18,14 +18,13 @@ validate_score: true
 
 use_amp: true
 epochs: 999
-batch_size: 8
-accumulate_steps: 64
+batch_size: 32
+accumulate_steps: 1
 eval_interval: 3000
 use_scheduler: false
-# resume: best_score
-resume: latest
+resume: best_loss
 min_samples: 0
-lr: 5.0e-5
+lr: 1.0e-4
 final_div_factor: 100
 weight_decay: 0.05
 lr_patience: 2
