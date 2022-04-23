@@ -1,36 +1,35 @@
-import torch, math, numpy as np
-from torch import Tensor
-import torch.nn.functional as F
+import math
 from functools import partial
-from torchvision.ops import box_convert
-from typing import NewType, Union, Callable, Any, List, Tuple
-from torch import nn, Tensor
 from logging import getLogger
+from pathlib import Path
+from typing import Any, Callable, List, NewType, Tuple, Union
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch import Tensor, nn
+from torch.cuda.amp import GradScaler, autocast
+from torch.utils.data import DataLoader
+from torchvision.ops import box_convert, nms
 from tqdm import tqdm
-from vision_tools import (
-    boxmap_to_boxes,
-    resize_points,
-)
-from .mkmaps import MkMapsFn, MkBoxMapsFn
-from .block import DefaultActivation, ConvBnAct, SeparableConvBnAct
+
+from vision_tools import boxmap_to_boxes, resize_points
+
+from .anchors import Anchor
+from .assign import SimOTA
+from .bifpn import FP, BiFPN
+from .block import ConvBnAct, DefaultActivation, SeparableConvBnAct
+from .bottlenecks import SENextBottleneck2d
+from .interface import BackboneLike, FPNLike
+from .loss import DIoULoss, HuberLoss
+from .mkmaps import MkBoxMapsFn, MkMapsFn
 from .modules import (
-    FReLU,
     ConvBR2d,
+    FReLU,
+    MemoryEfficientSwish,
     SeparableConv2d,
     SeparableConvBR2d,
-    MemoryEfficientSwish,
 )
-from .interface import BackboneLike, FPNLike
-from .assign import SimOTA
-from .bottlenecks import SENextBottleneck2d
-from .bifpn import BiFPN, FP
-from .loss import HuberLoss, DIoULoss
-from .anchors import Anchor
-from torch.cuda.amp import GradScaler, autocast
-from torchvision.ops import nms
-from torch.utils.data import DataLoader
-
-from pathlib import Path
 
 logger = getLogger(__name__)
 

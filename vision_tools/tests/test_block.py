@@ -1,11 +1,12 @@
 import torch
+
 from vision_tools.block import (
+    CSP,
+    SPP,
     ConvBnAct,
     DWConv,
-    SPP,
-    ResBlock,
-    CSP,
     Focus,
+    ResBlock,
     SeparableConvBnAct,
 )
 

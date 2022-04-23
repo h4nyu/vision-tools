@@ -1,28 +1,26 @@
-import torch
-import pytest
-from typing import Any, List
 import os
+from typing import Any, List
 
+import pytest
+import torch
+from toolz.curried import filter, map, partition, pipe
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
-from cots_bench.yolox import (
-    get_writer,
-)
 from cots_bench.data import (
-    read_train_rows,
-    Transform,
-    TrainTransform,
     COTSDataset,
     Row,
+    TrainTransform,
+    Transform,
     collate_fn,
-    kfold,
-    to_submission_string,
     filter_empty_boxes,
+    kfold,
+    read_train_rows,
+    to_submission_string,
 )
-from vision_tools.utils import batch_draw, draw, load_config
+from cots_bench.yolox import get_writer
 from vision_tools.batch_transform import BatchMosaic, BatchRelocate
-from torch.utils.tensorboard import SummaryWriter
-from toolz.curried import pipe, partition, map, filter
+from vision_tools.utils import batch_draw, draw, load_config
 
 cfg = load_config("/app/cots_bench/config/yolox.2.yaml")
 writer = get_writer(cfg)

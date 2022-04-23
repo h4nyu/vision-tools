@@ -1,24 +1,24 @@
-import torch
-import pytest
-from typing import Any
 import os
+from typing import Any
 
+import pytest
+import torch
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 # import torchvision, os, torch
 from kuzushiji_bench.data import (
-    read_train_rows,
-    read_test_rows,
     KuzushijiDataset,
-    Transform,
-    TrainTransform,
-    collate_fn,
-    save_submission,
-    read_code_map,
     SubRow,
+    TrainTransform,
+    Transform,
+    collate_fn,
+    read_code_map,
+    read_test_rows,
+    read_train_rows,
+    save_submission,
 )
 from vision_tools.utils import batch_draw, draw, load_config
-from torch.utils.tensorboard import SummaryWriter
 
 cfg = load_config("/app/kuzushiji_bench/config/yolox.yaml")
 writer = SummaryWriter("/app/runs/test-kuzushiji_bench")

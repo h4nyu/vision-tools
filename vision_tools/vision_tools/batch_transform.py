@@ -1,11 +1,14 @@
-import torch
-from torch import Tensor
-from .interface import TrainBatch
-from typing import List, Tuple, Dict, Any
-from torchvision.ops import clip_boxes_to_image, box_area
-import torch.nn.functional as F
-from vision_tools.box import shift, filter_aspect
 import random
+from typing import Any, Dict, List, Tuple
+
+import torch
+import torch.nn.functional as F
+from torch import Tensor
+from torchvision.ops import box_area, clip_boxes_to_image
+
+from vision_tools.box import filter_aspect, shift
+
+from .interface import TrainBatch
 
 
 class BatchRelocate:

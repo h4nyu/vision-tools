@@ -1,9 +1,11 @@
 import sys
-from vision_tools.yolox import YOLOX, Criterion, Inference
+
 from vision_tools.utils import load_config
+from vision_tools.yolox import YOLOX, Criterion, Inference
 
 sys.path.append("/kaggle/input/tensorflow-great-barrier-reef")
 import os
+
 import greatbarrierreef
 from tqdm import tqdm
 

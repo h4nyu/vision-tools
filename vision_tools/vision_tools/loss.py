@@ -1,9 +1,13 @@
-import torch, numpy as np, torch.nn as nn, torch.nn.functional as F
-from typing import List, Tuple
-from typing_extensions import Literal
-from torch import Tensor
 import math
+from typing import List, Tuple
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import Tensor
 from torchvision.ops.boxes import box_area
+from typing_extensions import Literal
 
 Reduction = Literal["none", "mean", "sum"]
 

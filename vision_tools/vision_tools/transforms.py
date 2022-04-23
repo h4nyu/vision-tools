@@ -1,16 +1,19 @@
-import torch
-import albumentations as A
 import random
-from torch import Tensor
-from torchvision.transforms import Normalize
-from typing import Tuple, List, Any, Dict, Optional
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple
+
+import albumentations as A
 import cv2
-from vision_tools.box import shift
-from .interface import Detection
-from torchvision.ops import box_convert
+import numpy as np
+import torch
 import torch.nn.functional as F
+from torch import Tensor
+from torchvision.ops import box_convert
+from torchvision.transforms import Normalize
+
+from vision_tools.box import shift
+
 from .box import resize_boxes
+from .interface import Detection
 
 
 class RandomLayout(A.DualTransform):

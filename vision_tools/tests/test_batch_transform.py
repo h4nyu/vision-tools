@@ -1,6 +1,7 @@
 import pytest
 import torch
-from vision_tools.batch_transform import BatchMosaic, BatchRemovePadding, BatchRelocate
+
+from vision_tools.batch_transform import BatchMosaic, BatchRelocate, BatchRemovePadding
 from vision_tools.interface import TrainBatch
 
 

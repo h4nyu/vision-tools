@@ -1,33 +1,27 @@
-from torchvision.utils import (
-    draw_segmentation_masks,
-    save_image,
-    draw_bounding_boxes,
-    make_grid,
-)
-from PIL import Image, ImageDraw, ImageFont, ImageColor
-from torchvision.ops import box_convert
-import torch
-from torch import Tensor
-import yaml
 import random
-import numpy as np
-import torch.nn.functional as F
-from typing import Optional, Callable, Any, List, Generic, TypeVar, Tuple, Union, Dict
-from typing_extensions import Protocol
-from torch import nn
-from pathlib import Path
-from torch import Tensor
 from logging import getLogger
-from vision_tools import (
-    Number,
-    resize_points,
-)
-from torchvision.utils import save_image
-from torch.nn.functional import interpolate
-from .interface import (
-    TrainBatch,
-)
+from pathlib import Path
+from typing import Any, Callable, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
+import numpy as np
+import torch
+import torch.nn.functional as F
+import yaml
+from PIL import Image, ImageColor, ImageDraw, ImageFont
+from torch import Tensor, nn
+from torch.nn.functional import interpolate
+from torchvision.ops import box_convert
+from torchvision.utils import (
+    draw_bounding_boxes,
+    draw_segmentation_masks,
+    make_grid,
+    save_image,
+)
+from typing_extensions import Protocol
+
+from vision_tools import Number, resize_points
+
+from .interface import TrainBatch
 
 logger = getLogger(__name__)
 
@@ -187,72 +181,50 @@ class Comparator(Protocol):
         ...
 
 
-class Checkpoint(Generic[T]):
+class Checkpoint:
     def __init__(
         self,
-        root_path: str,
-        default_score: float,
-        comparator: Comparator = lambda p, n: p <= n,
+        root_dir: str,
     ) -> None:
-        self.root_path = Path(root_path)
-        self.checkpoint_model_path = self.root_path.joinpath("checkpoint.pth")
-        self.current_model_path = self.root_path.joinpath("current.pth")
-        self.checkpoint_path = self.root_path.joinpath("checkpoint.yaml")
-        self.optimizer_path = self.root_path.joinpath("optimizer.pth")
-        self.default_score = default_score
-        self.root_path.mkdir(exist_ok=True)
-        self.score = default_score
-        self.comparator = comparator
+        self.root_dir = Path(root_dir)
+        self.root_dir.mkdir(exist_ok=True)
 
-    def load_if_exists(
+    def load(
         self,
-        model: T,
-        optimizer: Optional[Any] = None,
-        target: str = "checkpoint",
-        device: Optional[torch.device] = None,
-    ) -> None:
-        model_path = (
-            self.checkpoint_model_path
-            if target == "checkpoint"
-            else self.current_model_path
-        )
+        target: str = "best",
+    ) -> Optional[dict]:
+        path = self.root_dir / f"{target}.pth"
+        if path.exists():
+            state = torch.load(path)
+            return state
+        return None
 
-        if optimizer is not None and self.optimizer_path.exists():
-            optimizer.load_state_dict(torch.load(self.optimizer_path))
-
-        if model_path.exists() and model_path.exists():
-            model.load_state_dict(torch.load(model_path))
-            conf = load_config(self.checkpoint_path)
-            score = conf.get("score", self.default_score)  # type: ignore
-            self.score = score
-
-        if device is not None:
-            if model is not None:
-                model.to(device)
-            if optimizer is not None:
-                for state in optimizer.state.values():
-                    for k, v in state.items():
-                        if isinstance(v, torch.Tensor):
-                            state[k] = v.to(device)
-
-    def save_if_needed(
+    def save(
         self,
-        model: Optional[T] = None,
-        score: Optional[float] = None,
-        optimizer: Optional[Any] = None,
+        state: dict,
+        target: str = "best",
     ) -> None:
-        if (
-            score is not None
-            and model is not None
-            and self.comparator(self.score, score)
-        ):
-            torch.save(model.state_dict(), self.checkpoint_model_path)  # type: ignore
-            save_config(self.checkpoint_path, dict(score=score))
-            self.score = score
-        if model is not None:
-            torch.save(model.state_dict(), self.current_model_path)  # type: ignore
-        if optimizer is not None:
-            torch.save(optimizer.state_dict(), self.optimizer_path)  # type: ignore
+        path = self.root_dir / f"{target}.pth"
+        torch.save(state, path)  # type: ignore
+
+
+class EarlyStopping:
+    def __init__(
+        self,
+        patience: int,
+    ) -> None:
+        self.patience = patience
+        self.reset()
+
+    def reset(self) -> None:
+        self.counter = 0
+
+    def step(
+        self,
+        score: dict,
+    ) -> None:
+        path = self.root_dir / f"{target}.pth"
+        torch.save(state, path)  # type: ignore
 
 
 @torch.no_grad()

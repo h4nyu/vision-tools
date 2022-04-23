@@ -1,18 +1,13 @@
 import typing as t
-import pytest
-import numpy as np
-import torch
 from typing import Any
-from torch import Tensor
-from vision_tools.centernet import (
-    CenterNet,
-    CenterNetHead,
-    ToBoxes,
-    HMLoss,
-    ToPoints,
-)
 
+import numpy as np
+import pytest
+import torch
+from torch import Tensor
 from torch.utils.data import DataLoader
+
+from vision_tools.centernet import CenterNet, CenterNetHead, HMLoss, ToBoxes, ToPoints
 
 
 def test_hm_loss() -> None:

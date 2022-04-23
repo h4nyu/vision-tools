@@ -1,5 +1,6 @@
 from typing import Tuple
-from torch import Tensor, ByteTensor, FloatTensor
+
+from torch import ByteTensor, FloatTensor, Tensor
 
 RGB = Tuple[int, int, int]
 

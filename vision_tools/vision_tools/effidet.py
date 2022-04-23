@@ -1,40 +1,37 @@
-from typing import *
-from torch import Tensor
-import numpy as np
-import torch
-from torch import Tensor
-import torch.nn.functional as F
 import math
-import torchvision
-
 from functools import partial
-from vision_tools import (
-    filter_limit,
-)
-from typing import Any, NewType, Callable, List, Tuple
-from torchvision.ops.boxes import box_iou
-from torch.utils.data import DataLoader
-from torchvision.ops import nms
-from torch import nn, Tensor
 from itertools import product as product
 from logging import getLogger
 from pathlib import Path
-from tqdm import tqdm
-from torch.cuda.amp import GradScaler, autocast
+from typing import *
+from typing import Any, Callable, List, NewType, Tuple
 
+import numpy as np
+import torch
+import torch.nn.functional as F
+import torchvision
+from torch import Tensor, nn
+from torch.cuda.amp import GradScaler, autocast
+from torch.utils.data import DataLoader
+from torchvision.ops import nms
+from torchvision.ops.boxes import box_iou
+from tqdm import tqdm
+
+from vision_tools import filter_limit
+
+from .anchors import Anchors
+from .atss import ATSS
+from .bifpn import FP, BiFPN
 from .bottlenecks import SENextBottleneck2d
-from .bifpn import BiFPN, FP
-from .loss import DIoU, HuberLoss, DIoULoss, FocalLoss
+from .interface import BackboneLike
+from .loss import DIoU, DIoULoss, FocalLoss, HuberLoss
 from .modules import (
     ConvBR2d,
+    MemoryEfficientSwish,
+    Mish,
     SeparableConv2d,
     SeparableConvBR2d,
-    Mish,
-    MemoryEfficientSwish,
 )
-from .atss import ATSS
-from .anchors import Anchors
-from .interface import BackboneLike
 
 logger = getLogger(__name__)
 

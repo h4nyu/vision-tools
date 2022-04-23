@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Any
 
 
@@ -7,7 +8,7 @@ class MeanReduceDict:
         self.running: dict[str, float] = {}
         self.num_samples = 0
 
-    def accumulate(self, log: Any) -> None:
+    def update(self, log: Any) -> None:
         for k in log.keys():
             self.running[k] = self.running.get(k, 0) + log.get(k, 0)
         self.num_samples += 1

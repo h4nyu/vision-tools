@@ -1,16 +1,18 @@
-import torch
-import pytest
 import typing as t
+
+import pytest
+import torch
 import torch.nn.functional as F
+from torch import Tensor, nn
+
 from vision_tools.loss import (
     DIoU,
-    GIoU,
     DIoULoss,
-    IoULoss,
     FocalLoss,
     FocalLossWithLogits,
+    GIoU,
+    IoULoss,
 )
-from torch import nn, Tensor
 
 
 def test_iouloss() -> None:

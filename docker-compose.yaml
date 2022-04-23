@@ -2,16 +2,17 @@ version: '2.4'
 
 x-env: &env
   TENSORBOARD_PORT: ${TENSORBOARD_PORT:?}
+  NOTEBOOK_PORT: ${NOTEBOOK_PORT:?}
   CODECOV_TOKEN: &CODECOV_TOKEN ${CODECOV_TOKEN}
   KAGGLE_USERNAME: &KAGGLE_USERNAME ${KAGGLE_USERNAME}
   KAGGLE_KEY: &KAGGLE_KEY ${KAGGLE_KEY}
-  
+
 
 x-app: &app
   shm_size: '30gb'
   image: "vision-tools-dev"
 
-  build: 
+  build:
     context: .
   volumes:
     - .:/app
@@ -22,8 +23,8 @@ x-app: &app
     - ./store/tensorflow-great-barrier-reef:/kaggle/input/tensorflow-great-barrier-reef
     - ./:/kaggle/input/packages/vision-tools/
     - ./cots_bench/runs:/runs/cots
-
     - ./kuzushiji_bench/runs:/runs/kuzushiji
+    - ./hwad_bench/pipeline/runs:/runs/hwad_bench
 
 
 
@@ -35,11 +36,16 @@ services:
       KAGGLE_KEY: *KAGGLE_KEY
       CODECOV_TOKEN: *CODECOV_TOKEN
       CONFIG_FILE:
+      NVIDIA_VISIBLE_DEVICES:
 
   tensorboard:
     <<: *app
-    command: tensorboard --logdir=/runs --host=0.0.0.0 --port=${TENSORBOARD_PORT}
+    command: tensorboard --logdir=${TENSORBOARD_RUNS:?} --host=0.0.0.0 --port=${TENSORBOARD_PORT}
     ports:
       - "${TENSORBOARD_PORT}:${TENSORBOARD_PORT}"
 
-
+  notebook:
+    <<: *app
+    command: jupyter notebook --ip 0.0.0.0 --port ${NOTEBOOK_PORT} --allow-root --NotebookApp.password='' --NotebookApp.token=''
+    ports:
+      - "${NOTEBOOK_PORT}:${NOTEBOOK_PORT}"

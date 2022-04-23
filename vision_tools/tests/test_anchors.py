@@ -1,7 +1,11 @@
-import torch, pytest, numpy as np
-from typing import List
 from pathlib import Path
-from vision_tools.anchors import Anchors, Anchor
+from typing import List
+
+import numpy as np
+import pytest
+import torch
+
+from vision_tools.anchors import Anchor, Anchors
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,9 @@
+from typing import Dict, List, Tuple
+
+import numpy as np
+import torch
 from torch import Tensor
-import numpy as np, torch
-from typing import List, Tuple, Dict
+
 from vision_tools.metrics.average_precision import AveragePrecision
 
 

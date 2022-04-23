@@ -1,8 +1,9 @@
-import torch
 from typing import *
-from typing_extensions import TypedDict
-from torch import nn, Tensor
+
+import torch
+from torch import Tensor, nn
 from torch.functional import F
+from typing_extensions import TypedDict
 
 NFNetParams = TypedDict(
     "NFNetParams",

@@ -4,7 +4,7 @@ jobs:
   build_and_test:
     machine:
       image: ubuntu-2004:202107-02
-      resource_class: large 
+      resource_class: large
       docker_layer_caching: true
 
     steps:
@@ -15,12 +15,14 @@ jobs:
           command: |
             echo 'export COMPOSE_FILE=docker-compose.yaml' >> $BASH_ENV
             echo 'export TENSORBOARD_PORT=8008' >> $BASH_ENV
+            echo 'export TENSORBOARD_RUNS=/tmp/runs' >> $BASH_ENV
+            echo 'export NOTEBOOK_PORT=8009' >> $BASH_ENV
 
       - restore_cache:
           keys:
             - docker-image-{{ .Environment.CACHE_VERSION }}-{{ checksum "Dockerfile" }}-{{ checksum "vision_tools/setup.py" }}
 
-      - run: 
+      - run:
           name: "Build images if needed"
           command: |
             if test -f image.tar; then
@@ -40,7 +42,7 @@ jobs:
           command: |
             docker-compose run --rm  -w /app/vision_tools app pytest --cov=vision_tools  --cov-report=xml
             docker-compose run --rm app codecov
-            
+
 workflows:
   version: 2
   build_and_test:

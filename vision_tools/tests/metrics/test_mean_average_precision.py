@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+
 from vision_tools.metrics.mean_average_precision import MeanAveragePrecision
 
 

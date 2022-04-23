@@ -1,5 +1,6 @@
 import pytest
 import torch
+
 from vision_tools.backbone import CSPDarknet, EfficientNet, efficientnet_channels
 
 

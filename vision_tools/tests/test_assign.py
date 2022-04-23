@@ -1,4 +1,5 @@
 import torch
+
 from vision_tools.assign import ClosestAssign, SimOTA
 
 

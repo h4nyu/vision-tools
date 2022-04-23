@@ -1,7 +1,9 @@
-store
+**/datasets
+**/store
+**/runs
+**/pipeline
 kaggle.json
-Dockerfile
 .git
 .cache
 test_outputs
-runs
+Dockerfile

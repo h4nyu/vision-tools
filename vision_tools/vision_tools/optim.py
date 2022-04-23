@@ -1,7 +1,8 @@
-from torch import Tensor
-from typing import Dict, Any, Optional, Tuple, List
-from torch.optim import Optimizer
 from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
+
+from torch import Tensor
+from torch.optim import Optimizer
 
 
 # WIP save and load
