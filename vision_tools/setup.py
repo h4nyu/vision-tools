@@ -31,6 +31,7 @@ setup(
             "signate",
             "types-PyYAML",
             "notebook",
+            "optuna",
         ]
     },
 )

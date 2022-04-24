@@ -353,6 +353,7 @@ TrainTransform = lambda cfg: A.Compose(
             p=cfg["gaussian_blur_p"],
         ),
         A.GaussNoise(p=cfg["gaussian_noise_p"]),
+        A.HorizontalFlip(p=cfg["hflip_p"]),
         A.RandomGridShuffle(
             grid=(cfg["grid_0"], cfg["grid_1"]), p=cfg["grid_shuffle_p"]
         ),
