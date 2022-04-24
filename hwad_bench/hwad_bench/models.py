@@ -120,7 +120,7 @@ class DynamicArcFaceLoss(nn.Module):
         self,
         n: Tensor,
         loss_func: Any = SubCenterArcFaceLoss,
-        lambda0: float = 0.25,
+        lambda0: float = 1 / 4,
         a: float = 0.5,
         b: float = 0.05,
         **kwargs: Dict[str, Any],
