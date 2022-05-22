@@ -347,7 +347,7 @@ def task_search_threshold() -> dict:
                 key=key,
                 fn=search_threshold,
                 kwargs={
-                    "thresholds": np.linspace(0.0, 1.0, 100).tolist(),
+                    "thresholds": np.linspace(0.0, 1.0, 50).tolist(),
                 },
                 output_kwargs={
                     "submissions": f"cv_evaluate_{fold}",

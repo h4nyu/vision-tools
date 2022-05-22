@@ -32,6 +32,7 @@ setup(
             "types-PyYAML",
             "notebook",
             "optuna",
+            "hydra-core",
         ]
     },
 )

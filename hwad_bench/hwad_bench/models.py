@@ -123,7 +123,7 @@ class DynamicArcFaceLoss(nn.Module):
         lambda0: float = 1 / 4,
         a: float = 0.5,
         b: float = 0.05,
-        **kwargs: Dict[str, Any],
+        **kwargs: Any,
     ) -> None:
         super().__init__()
 
@@ -159,14 +159,17 @@ class EmbNet(nn.Module):
     def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
         super().__init__()
         self.name = name
-        self.model = timm.create_model(name, pretrained, num_classes=embedding_size)
-        self.embedding = nn.Linear(self.model.num_features, embedding_size)
-        self.pooling = GeM()
+        self.backbone = timm.create_model(name, pretrained, num_classes=embedding_size)
+        self.head = nn.Sequential(
+            GeM(),
+            nn.BatchNorm2d(self.backbone.num_features),
+            nn.Flatten(1),
+            nn.Linear(self.backbone.num_features, embedding_size),
+        )
 
     def forward(self, x: Tensor) -> Tensor:
-        features = self.model.forward_features(x)
-        pooled_features = self.pooling(features).flatten(1)
-        embedding = self.embedding(pooled_features)
+        features = self.backbone.forward_features(x)
+        embedding = self.head(features)
         return embedding
 
 
@@ -176,6 +179,7 @@ class Criterion(nn.Module):
         embedding_size: int,
         num_classes: int,
         num_supclasses: int,
+        n: Tensor,
         sub_centers: int,
         alpha: float = 1.0,
     ) -> None:
@@ -184,9 +188,8 @@ class Criterion(nn.Module):
         self.num_classes = num_classes
         self.num_supclasses = num_supclasses
         self.sub_centers = sub_centers
-        self.arcface = SubCenterArcFaceLoss(
+        self.arcface = ArcFaceLoss(
             num_classes=num_classes,
-            sub_centers=sub_centers,
             embedding_size=embedding_size,
         )
         self.alpha = alpha
@@ -298,8 +301,17 @@ def train(
         num_workers=cfg["num_workers"],
         collate_fn=collate_fn,
     )
+    lable_freq = pipe(
+        croped_train_rows,
+        groupby(lambda x: x["label"]),
+        valmap(len),
+    )
+    n = torch.ones((cfg["num_classes"],), dtype=torch.int)
+    for label, freq in lable_freq.items():
+        n[label] = freq
 
     loss_fn = Criterion(
+        n=n,
         num_classes=cfg["num_classes"],
         embedding_size=cfg["embedding_size"],
         num_supclasses=cfg["num_supclasses"],
@@ -308,9 +320,12 @@ def train(
     )
     model = get_model(cfg)
     optimizer = optim.AdamW(
-        list(model.parameters()) + list(loss_fn.parameters()),
-        lr=cfg["lr"],
-        weight_decay=cfg["weight_decay"],
+        [
+            {"params": loss_fn.parameters()},
+            {"params": model.backbone.parameters(), "lr": cfg["backbone_lr"]},
+            {"params": model.head.parameters(), "lr": cfg["head_lr"]},
+        ],
+        lr=cfg["head_lr"],
     )
 
     checkpoint = get_checkpoint(cfg)
@@ -485,7 +500,7 @@ def cv_registry(
 
     to_device = ToDevice(device)
     model.eval()
-    matcher = MeanEmbeddingMatcher()
+    matcher = NearestMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)
