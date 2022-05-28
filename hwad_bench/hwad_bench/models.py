@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
 import pathlib
+import re
 import shutil
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import albumentations as A
+import numpy as np
 import pandas as pd
+import PIL
 import timm
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
@@ -18,13 +22,13 @@ from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import OneCycleLR  # type: ignore
-from torch.utils.data import ConcatDataset, DataLoader
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms.functional import hflip
 from tqdm import tqdm
+from typing_extensions import TypedDict
 
 from hwad_bench.data import (
-    Annotation,
     HwadCropedDataset,
     Submission,
     TrainTransform,
@@ -41,6 +45,108 @@ from vision_tools.meter import MeanReduceDict
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
 from .matchers import MeanEmbeddingMatcher, NearestMatcher
+
+SpecieLabels = pipe(
+    [
+        "beluga_whale",
+        "blue_whale",
+        "brydes_whale",
+        "cuviers_beaked_whale",
+        "false_killer_whale",
+        "fin_whale",
+        "gray_whale",
+        "humpback_whale",
+        "killer_whale",
+        "long_finned_pilot_whale",
+        "melon_headed_whale",
+        "minke_whale",
+        "pygmy_killer_whale",
+        "sei_whale",
+        "short_finned_pilot_whale",
+        "southern_right_whale",
+        "bottlenose_dolphin",
+        "commersons_dolphin",
+        "common_dolphin",
+        "dusky_dolphin",
+        "frasiers_dolphin",
+        "pantropic_spotted_dolphin",
+        "rough_toothed_dolphin",
+        "spinner_dolphin",
+        "spotted_dolphin",
+        "white_sided_dolphin",
+    ],
+    sorted,
+    enumerate,
+    map(lambda x: (x[1], x[0])),
+    dict,
+)
+
+Annotation = TypedDict(
+    "Annotation",
+    {
+        "image_file": str,
+        "species": Optional[str],
+        "individual_id": Optional[str],
+        "label": Optional[int],
+        "individual_samples": Optional[int],
+    },
+)
+
+
+class HwadBodyDataset(Dataset):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        transform: Callable,
+        image_dir: str,
+    ) -> None:
+        self.df = df
+        print(df.columns)
+        self.image_dir = image_dir
+        self.transform = transform
+        # self.id_map = pipe(
+        #     rows,
+        #     map(lambda x: (x["label"], x["individual_id"])),
+        #     dict,
+        # )
+        # self.label_map = pipe(
+        #     rows,
+        #     map(lambda x: (x["individual_id"], x["label"])),
+        #     dict,
+        # )
+
+    def filter(self, fold: list[dict]) -> "HwadBodyDataset":
+        df = filter_rows_by_fold(self.df, fold)
+        return HwadBodyDataset(
+            df=df,
+            transform=self.transform,
+            image_dir=self.image_dir,
+        )
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def __getitem__(self, idx: int) -> tuple[dict[str, Tensor], Annotation]:
+        row = self.df.iloc[idx]
+        image_path = os.path.join(self.image_dir, row["image_id"])
+        im = PIL.Image.open(image_path)
+        im = im.crop((int(x) for x in re.findall("[0-9]+", row["bbox"])))
+        if im.mode == "L":
+            im = im.convert("RGB")
+        img_arr = np.array(im)
+        transformed = self.transform(
+            image=img_arr,
+        )
+        image = (transformed["image"] / 255).float()
+        label = torch.tensor(None or 0)
+        species = row["species"]
+        suplabel = torch.tensor(SpecieLabels[species] if species is not None else 0)
+        sample = dict(
+            image=image,
+            label=label,
+            suplabel=suplabel,
+        )
+        return sample, row
 
 
 class EnsembleSubmission:
@@ -276,6 +382,9 @@ def train(
         image_dir=image_dir,
         transform=TrainTransform(cfg),
     )
+    body_dataset = HwadBodyDataset(
+        df=pd.DataFrame(train_body_rows),
+    )
     train_dataset = HwadCropedDataset(
         rows=train_rows,
         image_dir="/app/datasets/hwad-train",
@@ -500,7 +609,7 @@ def cv_registry(
 
     to_device = ToDevice(device)
     model.eval()
-    matcher = NearestMatcher()
+    matcher = MeanEmbeddingMatcher()
 
     for batch, batch_annot in tqdm(reg_loader, total=len(reg_loader)):
         batch = to_device(**batch)

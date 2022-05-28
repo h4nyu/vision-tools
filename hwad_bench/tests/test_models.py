@@ -2,16 +2,19 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
 import torch
 from torch import nn, optim
 
-from hwad_bench.data import Submission
+from hwad_bench.data import Submission, TrainTransform
 from hwad_bench.models import (
     EmbNet,
     EnsembleSubmission,
+    HwadBodyDataset,
     save_submission,
     search_threshold,
 )
+from vision_tools.utils import load_config
 
 
 def test_save_submission() -> None:
@@ -74,3 +77,12 @@ def test_ensemble_max() -> None:
     assert res["image_id"] == "img0"
     assert res["individual_ids"] == ["tr-0", "tr-1", "tr-2", "tr-3", "tr-4"]
     assert res["distances"] == [0.6, 0.4, 0.3, 0.2, 0.1]
+
+
+def test_hwad_body_dataset() -> None:
+    df = pd.read_csv("/app/datasets/fullbody_train.csv")
+    cfg = load_config("config/v31.yaml")
+    dataset = HwadBodyDataset(
+        df=df, image_dir="/app/datasets/hwad-train", transform=TrainTransform(cfg)
+    )
+    dataset[0]
