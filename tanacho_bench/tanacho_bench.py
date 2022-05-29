@@ -10,6 +10,7 @@ import numpy as np
 import PIL
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
+from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from sklearn import preprocessing
 from torch import Tensor, nn, optim
 from torch.utils.data import Dataset
@@ -101,3 +102,18 @@ def preview_dataset(cfg: dict, rows: list[dict], path: str) -> None:
     )
     grid = make_grid([dataset[i][0]["image"] for i in range(4)])
     save_image(grid, path)
+
+
+def kfold(cfg: dict, rows: list[dict]) -> list[dict]:
+    mskf = MultilabelStratifiedKFold(n_splits=cfg["kfold"])
+    y = [[row["category_label"], row["color_label"]] for row in rows]
+    X = range(len(rows))
+    folds = []
+    for fold_, (train_, valid_) in enumerate(mskf.split(X=X, y=y)):
+        folds.append(
+            {
+                "train": [rows[i] for i in train_],
+                "valid": [rows[i] for i in valid_],
+            }
+        )
+    return folds

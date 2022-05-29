@@ -10,6 +10,7 @@ setup(
         "pytorch-metric-learning",
         "pytorch-lightning",
         "signate",
+        "iterative-stratification",
     ],
     package_data={"cots_bench": ["py.typed"]},
 )
