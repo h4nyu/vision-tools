@@ -2,7 +2,7 @@ import json
 
 from doit import get_var
 
-from tanacho_bench import eda, kfold, preprocess, preview_dataset
+from tanacho_bench import eda, kfold, preprocess, preview_dataset, train_category
 from vision_tools.pipeline import CacheAction
 from vision_tools.utils import load_config
 
@@ -47,14 +47,30 @@ def task_preview_dataset() -> dict:
 
 
 def task_kfold() -> dict:
+    key = "kfold.cache"
     return {
-        "targets": ["kfold.cache"],
+        "targets": [key],
         "file_dep": ["preprocess.cache"],
         "actions": [
             action(
+                key=key,
                 fn=kfold,
                 kwargs={"cfg": cfg},
                 kwargs_fn=lambda: dict(rows=action.load("preprocess.cache")["rows"]),
+            )
+        ],
+    }
+
+
+def task_train_category() -> dict:
+    return {
+        "targets": ["train.cache"],
+        "file_dep": ["kfold.cache"],
+        "actions": [
+            action(
+                fn=train_category,
+                kwargs={"cfg": cfg},
+                kwargs_fn=lambda: dict(fold=action.load("kfold.cache")[cfg["fold"]]),
             )
         ],
     }

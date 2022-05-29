@@ -8,14 +8,36 @@ import albumentations as A
 import cv2
 import numpy as np
 import PIL
+import timm
 import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from sklearn import preprocessing
 from torch import Tensor, nn, optim
+from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
+from tqdm import tqdm
+
+from vision_tools.utils import Checkpoint, ToDevice, seed_everything
+
+
+class Net(nn.Module):
+    def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
+        super().__init__()
+        self.name = name
+        self.backbone = timm.create_model(name, pretrained, num_classes=embedding_size)
+        self.head = nn.Sequential(
+            nn.BatchNorm2d(self.backbone.num_features),
+            nn.Flatten(1),
+            nn.Linear(self.backbone.num_features, embedding_size),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        features = self.backbone.forward_features(x)
+        embedding = self.head(features)
+        return embedding
 
 
 def preprocess(path: str, image_dir: str) -> dict:
@@ -60,6 +82,12 @@ def eda(rows: list[dict]) -> None:
 
 TrainTransform = lambda cfg: A.Compose(
     [
+        A.LongestMaxSize(max_size=cfg["image_size"]),
+        A.PadIfNeeded(
+            min_height=cfg["image_size"],
+            min_width=cfg["image_size"],
+            border_mode=cv2.BORDER_REPLICATE,
+        ),
         ToTensorV2(),
     ],
 )
@@ -100,7 +128,7 @@ def preview_dataset(cfg: dict, rows: list[dict], path: str) -> None:
         rows=rows,
         transform=TrainTransform(cfg),
     )
-    grid = make_grid([dataset[i][0]["image"] for i in range(4)])
+    grid = make_grid([dataset[i][0]["image"] for i in range(10)])
     save_image(grid, path)
 
 
@@ -117,3 +145,69 @@ def kfold(cfg: dict, rows: list[dict]) -> list[dict]:
             }
         )
     return folds
+
+
+def train_category(cfg: dict, fold: dict) -> None:
+    device = cfg["device"]
+    train_dataset = TanachoDataset(
+        rows=fold["train"],
+        transform=TrainTransform(cfg),
+    )
+    valid_dataset = TanachoDataset(
+        rows=fold["valid"],
+        transform=TrainTransform(cfg),
+    )
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=True,
+        num_workers=cfg["num_workers"],
+    )
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+    )
+    print("Number of training samples:", len(train_dataset))
+    print("Number of validation samples:", len(valid_dataset))
+    checkpoint = Checkpoint(
+        root_dir=f"checkpoints/{cfg['name']}",
+    )
+    model = Net(
+        name=cfg["model_name"],
+        embedding_size=cfg["num_categories"],
+    )
+    optimizer = optim.AdamW(
+        [
+            {"params": model.backbone.parameters(), "lr": cfg["backbone_lr"]},
+            {"params": model.head.parameters(), "lr": cfg["head_lr"]},
+        ],
+        lr=cfg["head_lr"],
+    )
+
+    saved_state = checkpoint.load(cfg["resume"])
+    iteration = 0
+    score = 0.0
+    use_amp = cfg["use_amp"]
+
+    if saved_state is not None:
+        model.load_state_dict(saved_state["model"])
+        optimizer.load_state_dict(saved_state["optimizer"])
+        for state in optimizer.state.values():
+            for k, v in state.items():
+                if torch.is_tensor(v):
+                    state[k] = v.to(device)
+        iteration = saved_state.get("iteration", 0)
+        best_score = saved_state.get("best_score", 0)
+        socore = saved_state.get("score", 0.0)
+
+    model = nn.DataParallel(model).to(device)  # type: ignore
+    scaler = GradScaler(enabled=use_amp)
+    for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
+        for batch, _ in tqdm(train_loader, total=len(train_loader)):
+            model.train()
+            image_batch = batch["image_batch"]
+            label_batch = batch["label_batch"]
+            with autocast(enabled=use_amp):
+                embeddings = model(image_batch)

@@ -187,7 +187,7 @@ class Checkpoint:
         root_dir: str,
     ) -> None:
         self.root_dir = Path(root_dir)
-        self.root_dir.mkdir(exist_ok=True)
+        self.root_dir.mkdir(exist_ok=True, parents=True)
 
     def load(
         self,

@@ -268,3 +268,27 @@ class SeparableConvBnAct(nn.Module):
         x = self.bn(x)
         x = self.act(x)
         return x
+
+
+class GeM(nn.Module):
+    def __init__(self, p: int = 3, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.p = nn.Parameter(torch.ones(1) * p)
+        self.eps = eps
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.avg_pool2d(
+            x.clamp(min=self.eps).pow(self.p), (x.size(-2), x.size(-1))
+        ).pow(1.0 / self.p)
+
+    def __repr__(self) -> str:
+        return (
+            self.__class__.__name__
+            + "("
+            + "p="
+            + "{:.4f}".format(self.p.data.tolist()[0])
+            + ", "
+            + "eps="
+            + str(self.eps)
+            + ")"
+        )
