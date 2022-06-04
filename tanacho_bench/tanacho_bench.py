@@ -211,9 +211,10 @@ def train_category(cfg: dict, fold: dict) -> None:
             pl.callbacks.ModelCheckpoint(
                 monitor="val_loss",
             ),
-            pl.callbacks.EarlyStopping(monitor="val_loss", mode="min"),
+            pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=3),
         ],
     )
+
     trainer.fit(
         LitNet(cfg),
         train_loader,
