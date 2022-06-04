@@ -209,8 +209,9 @@ def train_category(cfg: dict, fold: dict) -> None:
         accelerator="gpu",
         callbacks=[
             pl.callbacks.ModelCheckpoint(
-                monitor="val_accuracy",
-            )
+                monitor="val_loss",
+            ),
+            pl.callbacks.EarlyStopping(monitor="val_loss", mode="min"),
         ],
     )
     trainer.fit(
