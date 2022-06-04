@@ -145,3 +145,4 @@ cython_debug/
 store
 kaggle.json
 runs
+lightning_logs

@@ -8,10 +8,10 @@ batch_size: 64
 num_workers: 5
 num_categories: 2
 num_colors: 11
-model_name: tf_efficientnet_b5_ns
+model_name: tf_efficientnet_b3_ns
 backbone_lr: 1.0e-4
 head_lr: 1.0e-3
 device: cuda
 total_steps: 100_000
 resume: "score"
-image_size: 512
+image_size: 256

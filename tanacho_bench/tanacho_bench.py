@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Callable
+from typing import Any, Callable
 
 import albumentations as A
 import cv2
 import numpy as np
 import PIL
+import pytorch_lightning as pl
 import timm
 import torch
+import torch.nn.functional as F
 from albumentations.pytorch.transforms import ToTensorV2
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from sklearn import preprocessing
@@ -28,16 +30,14 @@ class Net(nn.Module):
         super().__init__()
         self.name = name
         self.backbone = timm.create_model(name, pretrained, num_classes=embedding_size)
-        self.head = nn.Sequential(
-            nn.BatchNorm2d(self.backbone.num_features),
-            nn.Flatten(1),
-            nn.Linear(self.backbone.num_features, embedding_size),
-        )
+        # self.head = nn.Sequential(
+        #     nn.BatchNorm2d(self.backbone.num_features),
+        #     nn.Flatten(1),
+        #     nn.Linear(self.backbone.num_features, embedding_size),
+        # )
 
     def forward(self, x: Tensor) -> Tensor:
-        features = self.backbone.forward_features(x)
-        embedding = self.head(features)
-        return embedding
+        return self.backbone(x)
 
 
 def preprocess(path: str, image_dir: str) -> dict:
@@ -105,7 +105,7 @@ class TanachoDataset(Dataset):
     def __len__(self) -> int:
         return len(self.rows)
 
-    def __getitem__(self, idx: int) -> tuple[dict[str, Tensor], dict]:
+    def __getitem__(self, idx: int) -> dict:
         row = self.rows[idx]
         im = PIL.Image.open(row["image_path"])
         img_arr = np.array(im)
@@ -120,7 +120,7 @@ class TanachoDataset(Dataset):
             category_label=category_label,
             color_label=color_label,
         )
-        return sample, row
+        return dict(sample=sample, row=row)
 
 
 def preview_dataset(cfg: dict, rows: list[dict], path: str) -> None:
@@ -147,8 +147,38 @@ def kfold(cfg: dict, rows: list[dict]) -> list[dict]:
     return folds
 
 
+class LitNet(pl.LightningModule):
+    def __init__(self, cfg: dict) -> None:
+        super().__init__()
+        self.cfg = cfg
+        self.net = Net(
+            name=cfg["model_name"],
+            embedding_size=cfg["num_categories"],
+        )
+
+    def training_step(self, *args: Any, **kwargs: Any) -> Any:
+        sample, batch_idx = args
+        batch = sample["sample"]
+        out = self.net(batch["image"])
+        loss = F.cross_entropy(out, batch["category_label"])
+        return loss
+
+    def validation_step(self, *args: Any, **kwargs: Any) -> Any:
+        sample, batch_idx = args
+        sample, batch_idx = args
+        batch = sample["sample"]
+        out = self.net(batch["image"])
+        loss = F.cross_entropy(out, batch["category_label"])
+        return {"loss": loss}
+
+    def configure_optimizers(self) -> Any:
+        return optim.AdamW(
+            self.net.parameters(),
+            lr=self.cfg["head_lr"],
+        )
+
+
 def train_category(cfg: dict, fold: dict) -> None:
-    device = cfg["device"]
     train_dataset = TanachoDataset(
         rows=fold["train"],
         transform=TrainTransform(cfg),
@@ -169,45 +199,12 @@ def train_category(cfg: dict, fold: dict) -> None:
         shuffle=False,
         num_workers=cfg["num_workers"],
     )
-    print("Number of training samples:", len(train_dataset))
-    print("Number of validation samples:", len(valid_dataset))
-    checkpoint = Checkpoint(
-        root_dir=f"checkpoints/{cfg['name']}",
+    trainer = pl.Trainer(
+        precision=16,
+        accelerator="gpu",
     )
-    model = Net(
-        name=cfg["model_name"],
-        embedding_size=cfg["num_categories"],
+    trainer.fit(
+        LitNet(cfg),
+        train_loader,
+        valid_loader,
     )
-    optimizer = optim.AdamW(
-        [
-            {"params": model.backbone.parameters(), "lr": cfg["backbone_lr"]},
-            {"params": model.head.parameters(), "lr": cfg["head_lr"]},
-        ],
-        lr=cfg["head_lr"],
-    )
-
-    saved_state = checkpoint.load(cfg["resume"])
-    iteration = 0
-    score = 0.0
-    use_amp = cfg["use_amp"]
-
-    if saved_state is not None:
-        model.load_state_dict(saved_state["model"])
-        optimizer.load_state_dict(saved_state["optimizer"])
-        for state in optimizer.state.values():
-            for k, v in state.items():
-                if torch.is_tensor(v):
-                    state[k] = v.to(device)
-        iteration = saved_state.get("iteration", 0)
-        best_score = saved_state.get("best_score", 0)
-        socore = saved_state.get("score", 0.0)
-
-    model = nn.DataParallel(model).to(device)  # type: ignore
-    scaler = GradScaler(enabled=use_amp)
-    for _ in range((cfg["total_steps"] - iteration) // len(train_loader)):
-        for batch, _ in tqdm(train_loader, total=len(train_loader)):
-            model.train()
-            image_batch = batch["image_batch"]
-            label_batch = batch["label_batch"]
-            with autocast(enabled=use_amp):
-                embeddings = model(image_batch)
