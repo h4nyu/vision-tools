@@ -9,6 +9,7 @@ setup(
         "timm",
         "pytorch-metric-learning",
         "pytorch-lightning",
+        "torchmetrics",
         "signate",
         "iterative-stratification",
     ],

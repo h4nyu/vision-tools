@@ -12,6 +12,7 @@ import pytorch_lightning as pl
 import timm
 import torch
 import torch.nn.functional as F
+import torchmetrics
 from albumentations.pytorch.transforms import ToTensorV2
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from sklearn import preprocessing
@@ -161,6 +162,7 @@ class LitNet(pl.LightningModule):
         batch = sample["sample"]
         out = self.net(batch["image"])
         loss = F.cross_entropy(out, batch["category_label"])
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, *args: Any, **kwargs: Any) -> Any:
@@ -168,8 +170,11 @@ class LitNet(pl.LightningModule):
         sample, batch_idx = args
         batch = sample["sample"]
         out = self.net(batch["image"])
-        loss = F.cross_entropy(out, batch["category_label"])
-        return {"loss": loss}
+        target = batch["category_label"]
+        loss = F.cross_entropy(out, target)
+        accuracy = torchmetrics.functional.accuracy(out.softmax(dim=-1), target)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self) -> Any:
         return optim.AdamW(
