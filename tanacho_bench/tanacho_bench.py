@@ -184,6 +184,7 @@ class LitNet(pl.LightningModule):
 
 
 def train_category(cfg: dict, fold: dict) -> None:
+    seed_everything(cfg["seed"])
     train_dataset = TanachoDataset(
         rows=fold["train"],
         transform=TrainTransform(cfg),
