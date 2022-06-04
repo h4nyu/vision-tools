@@ -207,6 +207,11 @@ def train_category(cfg: dict, fold: dict) -> None:
     trainer = pl.Trainer(
         precision=16,
         accelerator="gpu",
+        callbacks=[
+            pl.callbacks.ModelCheckpoint(
+                monitor="val_accuracy",
+            )
+        ],
     )
     trainer.fit(
         LitNet(cfg),
