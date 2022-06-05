@@ -31,11 +31,6 @@ class Net(nn.Module):
         super().__init__()
         self.name = name
         self.backbone = timm.create_model(name, pretrained, num_classes=embedding_size)
-        # self.head = nn.Sequential(
-        #     nn.BatchNorm2d(self.backbone.num_features),
-        #     nn.Flatten(1),
-        #     nn.Linear(self.backbone.num_features, embedding_size),
-        # )
 
     def forward(self, x: Tensor) -> Tensor:
         return self.backbone(x)
@@ -52,6 +47,7 @@ def preprocess(path: str, image_dir: str) -> dict:
             row["part_id"] = key
             row["category"] = meta[key]["category"]
             row["color"] = meta[key]["color"]
+            row["combined_label"] = f"{row['category']}_{row['color']}"
             row["image_path"] = os.path.join(image_dir, key, filename)
             rows.append(row)
     category_le = preprocessing.LabelEncoder()
@@ -60,12 +56,17 @@ def preprocess(path: str, image_dir: str) -> dict:
     color_le = preprocessing.LabelEncoder()
     color_le.fit([row["color"] for row in rows])
     color_labels = color_le.transform([row["color"] for row in rows])
+    combined_le = preprocessing.LabelEncoder()
+    combined_le.fit([row["combined_label"] for row in rows])
+    combined_labels = combined_le.transform([row["combined_label"] for row in rows])
     for i, row in enumerate(rows):
         row["category_label"] = category_labels[i]
         row["color_label"] = color_labels[i]
+        row["combined_label"] = combined_labels[i]
     encoders = dict(
         category=category_le,
         color=color_le,
+        combined=combined_le,
     )
     res = dict(
         rows=rows,
@@ -82,6 +83,18 @@ def eda(rows: list[dict]) -> None:
 
 
 TrainTransform = lambda cfg: A.Compose(
+    [
+        A.LongestMaxSize(max_size=cfg["image_size"]),
+        A.PadIfNeeded(
+            min_height=cfg["image_size"],
+            min_width=cfg["image_size"],
+            border_mode=cv2.BORDER_REPLICATE,
+        ),
+        ToTensorV2(),
+    ],
+)
+
+InferenceTransform = lambda cfg: A.Compose(
     [
         A.LongestMaxSize(max_size=cfg["image_size"]),
         A.PadIfNeeded(
@@ -148,7 +161,7 @@ def kfold(cfg: dict, rows: list[dict]) -> list[dict]:
     return folds
 
 
-class LitNet(pl.LightningModule):
+class LitCategoryNet(pl.LightningModule):
     def __init__(self, cfg: dict) -> None:
         super().__init__()
         self.cfg = cfg
@@ -165,12 +178,60 @@ class LitNet(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
+    def predict_step(self, *args: Any, **kwargs: Any) -> Any:
+        sample, batch_idx = args
+        batch = sample["sample"]
+        out = self.net(batch["image"])
+        return out.softmax(dim=-1).argmax(dim=1), sample["row"]
+
     def validation_step(self, *args: Any, **kwargs: Any) -> Any:
         sample, batch_idx = args
         sample, batch_idx = args
         batch = sample["sample"]
         out = self.net(batch["image"])
         target = batch["category_label"]
+        loss = F.cross_entropy(out, target)
+        accuracy = torchmetrics.functional.accuracy(out.softmax(dim=-1), target)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True)
+
+    def configure_optimizers(self) -> Any:
+        return optim.AdamW(
+            self.net.parameters(),
+            lr=self.cfg["head_lr"],
+        )
+
+
+class LitColorNet(pl.LightningModule):
+    def __init__(self, cfg: dict) -> None:
+        super().__init__()
+        self.cfg = cfg
+        self.net = Net(
+            name=cfg["model_name"],
+            embedding_size=cfg["num_colors"],
+        )
+        self.save_hyperparameters()
+
+    def training_step(self, *args: Any, **kwargs: Any) -> Any:
+        sample, batch_idx = args
+        batch = sample["sample"]
+        out = self.net(batch["image"])
+        loss = F.cross_entropy(out, batch["color_label"])
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+
+    def predict_step(self, *args: Any, **kwargs: Any) -> Any:
+        sample, batch_idx = args
+        batch = sample["sample"]
+        out = self.net(batch["image"])
+        return out.softmax(dim=-1).argmax(dim=1), sample["row"]
+
+    def validation_step(self, *args: Any, **kwargs: Any) -> Any:
+        sample, batch_idx = args
+        sample, batch_idx = args
+        batch = sample["sample"]
+        out = self.net(batch["image"])
+        target = batch["color_label"]
         loss = F.cross_entropy(out, target)
         accuracy = torchmetrics.functional.accuracy(out.softmax(dim=-1), target)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -210,14 +271,116 @@ def train_category(cfg: dict, fold: dict) -> None:
         accelerator="gpu",
         callbacks=[
             pl.callbacks.ModelCheckpoint(
-                monitor="val_loss",
+                monitor=cfg["monitor"],
+                mode=cfg["mode"],
+                dirpath="checkpoints",
+                filename=cfg["category_model_filename"],
             ),
-            pl.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=3),
+            pl.callbacks.EarlyStopping(
+                monitor="val_loss", mode="min", patience=cfg["patience"]
+            ),
         ],
     )
-
     trainer.fit(
-        LitNet(cfg),
+        LitCategoryNet(cfg),
         train_loader,
         valid_loader,
     )
+
+
+def train_color(cfg: dict, fold: dict) -> None:
+    seed_everything(cfg["seed"])
+    train_dataset = TanachoDataset(
+        rows=fold["train"],
+        transform=TrainTransform(cfg),
+    )
+    valid_dataset = TanachoDataset(
+        rows=fold["valid"],
+        transform=TrainTransform(cfg),
+    )
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=True,
+        num_workers=cfg["num_workers"],
+    )
+    valid_loader = torch.utils.data.DataLoader(
+        valid_dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+    )
+    trainer = pl.Trainer(
+        precision=16,
+        accelerator="gpu",
+        callbacks=[
+            pl.callbacks.ModelCheckpoint(
+                monitor=cfg["monitor"],
+                mode=cfg["mode"],
+                dirpath="checkpoints",
+                filename=cfg["color_model_filename"],
+            ),
+            pl.callbacks.EarlyStopping(
+                monitor="val_loss", mode="min", patience=cfg["patience"]
+            ),
+        ],
+    )
+    trainer.fit(
+        LitColorNet(cfg),
+        train_loader,
+        valid_loader,
+    )
+
+
+def evaluate(cfg: dict, rows: list[dict], encoders: dict) -> None:
+    dataset = TanachoDataset(
+        rows=rows,
+        transform=InferenceTransform(cfg),
+    )
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+    )
+    accuracy = torchmetrics.Accuracy()
+    color_model = LitColorNet.load_from_checkpoint(
+        f"checkpoints/{cfg['color_model_filename']}.ckpt", cfg=cfg
+    )
+    category_model = LitCategoryNet.load_from_checkpoint(
+        f"checkpoints/{cfg['category_model_filename']}.ckpt", cfg=cfg
+    )
+    trainer = pl.Trainer(
+        precision=16,
+        accelerator="gpu",
+    )
+    color_predictions = trainer.predict(color_model, dataloader)
+    category_predictions = trainer.predict(category_model, dataloader)
+    pred_colors = []
+    pred_categories = []
+    gt_colors = []
+    gt_categories = []
+    pred_combined = []
+    gt_combined = []
+    for (color_preds, batch_rows), (category_preds, _) in zip(
+        color_predictions, category_predictions
+    ):
+        pred_colors += color_preds.tolist()
+        pred_categories += category_preds.tolist()
+        gt_colors += batch_rows["color_label"].tolist()
+        gt_categories += batch_rows["category_label"].tolist()
+        gt_combined += batch_rows["combined_label"].tolist()
+    color_acc = accuracy(torch.tensor(pred_colors), torch.tensor(gt_colors))
+    category_acc = accuracy(torch.tensor(pred_categories), torch.tensor(gt_categories))
+    for color, category in zip(
+        encoders["color"].inverse_transform(pred_colors),
+        encoders["category"].inverse_transform(pred_categories),
+    ):
+        pred_combined.append(f"{category}_{color}")
+    combined_acc = accuracy(
+        torch.tensor(encoders["combined"].transform(pred_combined)),
+        torch.tensor(gt_combined),
+    )
+    print(f"Color accuracy: {color_acc}")
+    print(f"Category accuracy: {category_acc}")
+    print(f"Combined accuracy: {combined_acc}")
