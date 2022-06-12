@@ -9,7 +9,7 @@ from tanacho_bench import (
     kfold,
     preprocess,
     preview_dataset,
-    train_part,
+    train,
 )
 from vision_tools.pipeline import CacheAction
 from vision_tools.utils import load_config
@@ -70,13 +70,13 @@ def task_kfold() -> dict:
     }
 
 
-def task_train_part() -> dict:
+def task_train() -> dict:
     return {
         "targets": ["train_part.cache"],
         "file_dep": ["kfold.cache"],
         "actions": [
             action(
-                fn=train_part,
+                fn=train,
                 kwargs={"cfg": cfg},
                 kwargs_fn=lambda: dict(fold=action.load("kfold.cache")[cfg["fold"]]),
             )

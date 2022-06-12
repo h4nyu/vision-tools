@@ -14,6 +14,7 @@ import torch
 import torch.nn.functional as F
 import torchmetrics
 from albumentations.pytorch.transforms import ToTensorV2
+from pytorch_metric_learning.losses import ArcFaceLoss
 from sklearn import preprocessing
 from sklearn.model_selection import StratifiedKFold
 from torch import Tensor, nn, optim
@@ -24,16 +25,6 @@ from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
-
-
-class Net(nn.Module):
-    def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
-        super().__init__()
-        self.name = name
-        self.backbone = timm.create_model(name, pretrained, num_classes=embedding_size)
-
-    def forward(self, x: Tensor) -> Tensor:
-        return self.backbone(x)
 
 
 def preprocess(path: str, image_dir: str) -> dict:
@@ -178,21 +169,44 @@ def check_folds(rows: list[dict], folds: list[dict]) -> None:
         valid_rows = fold["valid"]
 
 
-class LitPartNet(pl.LightningModule):
+class Net(nn.Module):
+    def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
+        super().__init__()
+        self.name = name
+        self.backbone = timm.create_model(name, pretrained)
+        self.backbone.reset_classifier(0)
+        self.head = nn.Sequential(
+            nn.BatchNorm2d(self.backbone.num_features),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(1),
+            nn.Linear(self.backbone.num_features, embedding_size),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        feats = self.backbone.forward_features(x)
+        embeddings = self.head(feats)
+        return embeddings
+
+
+class LitModelNoNet(pl.LightningModule):
     def __init__(self, cfg: dict) -> None:
         super().__init__()
         self.cfg = cfg
         self.net = Net(
             name=cfg["model_name"],
-            embedding_size=cfg["num_colors"],
+            embedding_size=cfg["embedding_size"],
+        )
+        self.arcface = ArcFaceLoss(
+            num_classes=cfg["num_model_nos"],
+            embedding_size=cfg["embedding_size"],
         )
         self.save_hyperparameters()
 
     def training_step(self, *args: Any, **kwargs: Any) -> Any:
         sample, batch_idx = args
         batch = sample["sample"]
-        out = self.net(batch["image"])
-        loss = F.cross_entropy(out, batch["color_label"])
+        embeddings = self.net(batch["image"])
+        loss = self.arcface(embeddings, batch["model_no_label"])
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
@@ -220,7 +234,7 @@ class LitPartNet(pl.LightningModule):
         )
 
 
-def train_part(cfg: dict, fold: dict) -> None:
+def train(cfg: dict, fold: dict) -> None:
     seed_everything(cfg["seed"])
     train_dataset = TanachoDataset(
         rows=fold["train"],
@@ -258,7 +272,7 @@ def train_part(cfg: dict, fold: dict) -> None:
         ],
     )
     trainer.fit(
-        LitPartNet(cfg),
+        LitModelNoNet(cfg),
         train_loader,
         valid_loader,
     )
