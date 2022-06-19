@@ -43,7 +43,7 @@ def task_preprocess() -> dict:
 def task_preview_dataset() -> dict:
     return {
         "targets": ["preview_dataset"],
-        "file_dep": ["train_rows.cache"],
+        "file_dep": ["preprocess.cache"],
         "actions": [
             action(
                 fn=preview_dataset,
@@ -51,6 +51,7 @@ def task_preview_dataset() -> dict:
                 kwargs_fn=lambda: dict(rows=action.load("preprocess.cache")["rows"]),
             )
         ],
+        "uptodate": [False],
     }
 
 

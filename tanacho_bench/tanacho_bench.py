@@ -7,7 +7,6 @@ from typing import Any, Callable
 import albumentations as A
 import cv2
 import numpy as np
-import PIL
 import pytorch_lightning as pl
 import timm
 import torch
@@ -121,12 +120,11 @@ class TanachoDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         row = self.rows[idx]
-        im = PIL.Image.open(row["image_path"])
-        img_arr = np.array(im)
+        image = cv2.imread(row["image_path"])
         transformed = self.transform(
-            image=img_arr,
+            image=image,
         )
-        image = (transformed["image"] / 255).float()
+        image = transformed["image"].float() / 255.0
         category_label = torch.tensor(row["category_label"] or 0)
         color_label = torch.tensor(row["color_label"] or 0)
         sample = dict(
@@ -142,7 +140,7 @@ def preview_dataset(cfg: dict, rows: list[dict], path: str) -> None:
         rows=rows,
         transform=TrainTransform(cfg),
     )
-    grid = make_grid([dataset[i][0]["image"] for i in range(10)])
+    grid = make_grid([dataset[i]["sample"]["image"] for i in range(10)])
     save_image(grid, path)
 
 
