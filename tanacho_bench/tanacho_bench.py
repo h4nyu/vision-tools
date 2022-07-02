@@ -26,6 +26,41 @@ from tqdm import tqdm
 from vision_tools.utils import Checkpoint, ToDevice, seed_everything
 
 
+class MAPKMetric:
+    def __init__(self, topk: int) -> None:
+        self.topk = topk
+        self.update_count = 0
+        self.score_sum = 0.0
+
+    def update(self, preds: torch.Tensor, gts: torch.Tensor) -> None:
+        """average_precision"""
+        num_positives = len(gts)
+        pred_count = 0
+        dtc_count = 0
+        score = 0.0
+        gts_set = set(gts.tolist())
+        for pred in preds.tolist():
+            pred_count += 1
+            if pred in gts_set:
+                dtc_count += 1
+                score += dtc_count / pred_count
+                gts_set.remove(pred)
+            if len(gts) == 0:
+                break
+        score /= min(num_positives, self.topk)
+        self.update_count += 1
+        self.score_sum += score
+
+    def compute(self) -> float:
+        return self.score_sum / min(self.update_count, 1)
+
+    def reset(
+        self,
+    ) -> None:
+        self.update_count = 0
+        self.score_sum = 0
+
+
 def preprocess(path: str, image_dir: str) -> dict:
     rows = []
     with open(path, "r") as f:
@@ -89,6 +124,10 @@ TrainTransform = lambda cfg: A.Compose(
             min_width=cfg["image_size"],
             border_mode=cv2.BORDER_REPLICATE,
         ),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.Transpose(p=0.5),
+        A.Rotate(p=0.5),
         ToTensorV2(),
     ],
 )
@@ -127,10 +166,12 @@ class TanachoDataset(Dataset):
         image = transformed["image"].float() / 255.0
         category_label = torch.tensor(row["category_label"] or 0)
         color_label = torch.tensor(row["color_label"] or 0)
+        model_no_label = torch.tensor(row["model_no_label"] or 0)
         sample = dict(
             image=image,
             category_label=category_label,
             color_label=color_label,
+            model_no_label=model_no_label,
         )
         return dict(sample=sample, row=row)
 
@@ -208,22 +249,18 @@ class LitModelNoNet(pl.LightningModule):
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
-    def predict_step(self, *args: Any, **kwargs: Any) -> Any:
-        sample, batch_idx = args
-        batch = sample["sample"]
-        out = self.net(batch["image"])
-        return out.softmax(dim=-1).argmax(dim=1), sample["row"]
+    # def predict_step(self, *args: Any, **kwargs: Any) -> Any:
+    #     sample, batch_idx = args
+    #     batch = sample["sample"]
+    #     out = self.net(batch["image"])
+    #     return out.softmax(dim=-1).argmax(dim=1), sample["row"]
 
     def validation_step(self, *args: Any, **kwargs: Any) -> Any:
         sample, batch_idx = args
-        sample, batch_idx = args
         batch = sample["sample"]
-        out = self.net(batch["image"])
-        target = batch["color_label"]
-        loss = F.cross_entropy(out, target)
-        accuracy = torchmetrics.functional.accuracy(out.softmax(dim=-1), target)
+        embeddings = self.net(batch["image"])
+        loss = self.arcface(embeddings, batch["model_no_label"])
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val_accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True)
 
     def configure_optimizers(self) -> Any:
         return optim.AdamW(
@@ -265,7 +302,7 @@ def train(cfg: dict, fold: dict) -> None:
                 filename=cfg["color_model_filename"],
             ),
             pl.callbacks.EarlyStopping(
-                monitor="val_loss", mode="min", patience=cfg["patience"]
+                monitor=cfg["monitor"], mode=cfg["mode"], patience=cfg["patience"]
             ),
         ],
     )
@@ -277,18 +314,17 @@ def train(cfg: dict, fold: dict) -> None:
 
 
 def evaluate(cfg: dict, rows: list[dict], encoders: dict) -> None:
-    ...
-    # dataset = TanachoDataset(
-    #     rows=rows,
-    #     transform=InferenceTransform(cfg),
-    # )
-    # dataloader = torch.utils.data.DataLoader(
-    #     dataset,
-    #     batch_size=cfg["batch_size"],
-    #     shuffle=False,
-    #     num_workers=cfg["num_workers"],
-    # )
-    # accuracy = torchmetrics.Accuracy()
+    dataset = TanachoDataset(
+        rows=rows,
+        transform=InferenceTransform(cfg),
+    )
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=cfg["batch_size"],
+        shuffle=False,
+        num_workers=cfg["num_workers"],
+    )
+    ap = torchmetrics.LabelRankingAveragePrecision()
     # color_model = LitColorNet.load_from_checkpoint(
     #     f"checkpoints/{cfg['color_model_filename']}.ckpt", cfg=cfg
     # )

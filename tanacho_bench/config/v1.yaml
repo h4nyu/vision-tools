@@ -21,7 +21,7 @@ embedding_size: 128
 
 patience: 4
 
-mode: max
-monitor: val_accuracy
+mode: min
+monitor: val_loss
 color_model_filename: "v1.fold0.color"
 category_model_filename: "v1.fold0.category"
