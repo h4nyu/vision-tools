@@ -8,7 +8,7 @@ model_name: tf_efficientnet_b3_ns
 # model_name: resnet18
 lr: 5.0e-4
 image_size: 256
-embedding_size: 2048
+embedding_size: 1024
 arcface_scale: 30
-epochs: 30
+epochs: 40
 patience: 5
