@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import albumentations as A
 import cv2
@@ -343,7 +343,7 @@ class LitModelNoNet(pl.LightningModule):
         return [optimizer], [scheduler]
 
 
-def train(cfg: Config, fold: dict) -> None:
+def train(cfg: Config, fold: dict) -> LitModelNoNet:
     seed_everything(cfg.seed)
     train_dataset = TanachoDataset(
         rows=fold["train"],
@@ -381,14 +381,18 @@ def train(cfg: Config, fold: dict) -> None:
             ),
         ],
     )
+    model = LitModelNoNet(cfg)
     trainer.fit(
-        LitModelNoNet(cfg),
+        model,
         train_loader,
         valid_loader,
     )
+    return model
 
 
-def evaluate(cfg: Config, fold: dict, encoders: dict) -> float:
+def evaluate(
+    cfg: Config, fold: dict, encoders: dict, model: Optional[LitModelNoNet] = None
+) -> float:
     train_dataset = TanachoDataset(
         rows=fold["train"],
         transform=InferenceTransform(cfg),
@@ -409,7 +413,7 @@ def evaluate(cfg: Config, fold: dict, encoders: dict) -> float:
         shuffle=False,
         num_workers=cfg.num_workers,
     )
-    net = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
+    net = model or LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
 
     # I don't know how to get predictions with multiple gpus
     trainer = pl.Trainer(
@@ -462,11 +466,11 @@ class Search:
                 ),
             }
         )
-        train(cfg=cfg, fold=self.fold)
-        evaluate(cfg=cfg, fold=self.fold, encoders=self.encoders)
-        return 0.0
+        model = train(cfg=cfg, fold=self.fold)
+        score = evaluate(cfg=cfg, fold=self.fold, encoders=self.encoders, model=model)
+        return score
 
-    def __call__(self, n_trials: int = 10) -> None:
+    def __call__(self, n_trials: int = 20) -> None:
         study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials)
         print(study.best_value, study.best_params)
