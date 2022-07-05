@@ -24,6 +24,7 @@ DOIT_CONFIG = {
 
 action = CacheAction()
 cfg = Config.load(get_var("cfg", "./config/v1.yaml"))
+print(cfg.checkpoint_path)
 
 
 def task_preprocess() -> dict:
