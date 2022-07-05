@@ -1,27 +1,14 @@
-
 name: v1
 kfold: 5
 seed: 1024
-use_amp: true
 fold: 0
 batch_size: 64
-num_workers: 5
-num_categories: 2
-num_colors: 11
-num_model_nos: 122
 model_name: tf_efficientnet_b3_ns
-backbone_lr: 1.0e-4
-head_lr: 1.0e-3
-fine_lr: 1.0e-4
-device: cuda
-total_steps: 100_000
-resume: "score"
-image_size: 256
-embedding_size: 128
-
+#256
+# model_name: resnet18
+lr: 5.0e-4
+image_size: 224
+embedding_size: 512
+arcface_scale: 30
+epochs: 30
 patience: 4
-
-mode: min
-monitor: val_loss
-color_model_filename: "v1.fold0.color"
-category_model_filename: "v1.fold0.category"

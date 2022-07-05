@@ -3,6 +3,7 @@ import json
 from doit import get_var
 
 from tanacho_bench import (
+    Config,
     check_folds,
     eda,
     evaluate,
@@ -22,7 +23,7 @@ DOIT_CONFIG = {
 
 
 action = CacheAction()
-cfg = load_config(get_var("cfg", "./config/v1.yaml"))
+cfg = Config.load(get_var("cfg", "./config/v1.yaml"))
 
 
 def task_preprocess() -> dict:
@@ -79,7 +80,7 @@ def task_train() -> dict:
             action(
                 fn=train,
                 kwargs={"cfg": cfg},
-                kwargs_fn=lambda: dict(fold=action.load("kfold.cache")[cfg["fold"]]),
+                kwargs_fn=lambda: dict(fold=action.load("kfold.cache")[cfg.fold]),
             )
         ],
     }
@@ -92,7 +93,10 @@ def task_evaluate() -> dict:
             action(
                 fn=evaluate,
                 kwargs={"cfg": cfg},
-                kwargs_fn=lambda: action.load("preprocess.cache"),
+                kwargs_fn=lambda: dict(
+                    encoders=action.load("preprocess.cache")["encoders"],
+                    fold=action.load("kfold.cache")[cfg.fold],
+                ),
             )
         ],
     }
