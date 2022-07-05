@@ -12,6 +12,7 @@ setup(
         "catalyst[cv]",
         "torchmetrics",
         "signate",
+        "optuna",
         "iterative-stratification",
     ],
     package_data={"cots_bench": ["py.typed"]},

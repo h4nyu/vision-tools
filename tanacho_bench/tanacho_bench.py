@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Callable
 
 import albumentations as A
 import cv2
 import numpy as np
+import optuna
 import pytorch_lightning as pl
 import timm
 import torch
@@ -40,6 +41,7 @@ class Config:
     image_size: int
     embedding_size: int
     arcface_scale: float
+    arcface_margin: float
     epochs: int
     patience: int
 
@@ -64,7 +66,9 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}"
+        return (
+            f"{self.name}.{self.fold}.ac-{self.arcface_scale}.am-{self.arcface_margin}"
+        )
 
     @property
     def checkpoint_path(self) -> str:
@@ -172,16 +176,15 @@ TrainTransform = lambda cfg: A.Compose(
         A.ShiftScaleRotate(scale_limit=0.3, rotate_limit=180, p=0.5),
         A.OneOf(
             [
-                A.HueSaturationValue(
-                    hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.5
-                ),
+                # A.HueSaturationValue(
+                #     hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.5
+                # ),
                 A.RandomBrightnessContrast(
                     brightness_limit=0.2, contrast_limit=0.2, p=0.5
                 ),
             ],
             p=0.9,
         ),
-        # A.Cutout(num_holes=12, max_h_size=64, max_w_size=64, fill_value=0, p=0.5),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.Transpose(p=0.5),
@@ -297,6 +300,7 @@ class LitModelNoNet(pl.LightningModule):
             num_classes=cfg.num_model_nos,
             embedding_size=cfg.embedding_size,
             scale=cfg.arcface_scale,
+            margin=cfg.arcface_margin,
         )
         self.save_hyperparameters()
 
@@ -386,7 +390,7 @@ def train(cfg: Config, fold: dict) -> None:
     )
 
 
-def evaluate(cfg: Config, fold: dict, encoders: dict) -> None:
+def evaluate(cfg: Config, fold: dict, encoders: dict) -> float:
     train_dataset = TanachoDataset(
         rows=fold["train"],
         transform=InferenceTransform(cfg),
@@ -439,3 +443,32 @@ def evaluate(cfg: Config, fold: dict, encoders: dict) -> None:
             metric.update(preds, label)
     score = metric.compute()
     print(f"score={score}")
+    return score
+
+
+class Search:
+    def __init__(self, cfg: Config, fold: dict, encoders: dict) -> None:
+        self.cfg = cfg
+        self.fold = fold
+        self.encoders = encoders
+
+    def objective(self, trial: optuna.trial.Trial) -> float:
+        arcface_scale = trial.suggest_float("arcface_scale", 1.0, 100.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 10.0, 90.0)
+        cfg = Config(
+            **{
+                **asdict(self.cfg),
+                **dict(
+                    arcface_scale=arcface_scale,
+                    arcface_margin=arcface_margin,
+                ),
+            }
+        )
+        train(cfg=cfg, fold=self.fold)
+        evaluate(cfg=cfg, fold=self.fold, encoders=self.encoders)
+        return 0.0
+
+    def __call__(self, n_trials: int = 10) -> None:
+        study = optuna.create_study()
+        study.optimize(self.objective, n_trials)
+        print(study.best_value, study.best_params)

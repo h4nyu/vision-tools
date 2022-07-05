@@ -4,6 +4,7 @@ from doit import get_var
 
 from tanacho_bench import (
     Config,
+    Search,
     check_folds,
     eda,
     evaluate,
@@ -24,7 +25,6 @@ DOIT_CONFIG = {
 
 action = CacheAction()
 cfg = Config.load(get_var("cfg", "./config/v1.yaml"))
-print(cfg.checkpoint_path)
 
 
 def task_preprocess() -> dict:
@@ -82,6 +82,23 @@ def task_train() -> dict:
                 fn=train,
                 kwargs={"cfg": cfg},
                 kwargs_fn=lambda: dict(fold=action.load("kfold.cache")[cfg.fold]),
+            )
+        ],
+    }
+
+
+def task_search() -> dict:
+    search = Search(
+        cfg=cfg,
+        fold=action.load("kfold.cache")[cfg.fold],
+        encoders=action.load("preprocess.cache")["encoders"],
+    )
+
+    return {
+        "actions": [
+            action(
+                fn=search,
+                kwargs={"n_trials": 10},
             )
         ],
     }
