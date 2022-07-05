@@ -66,9 +66,7 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return (
-            f"{self.name}.{self.fold}.ac-{self.arcface_scale}.am-{self.arcface_margin}"
-        )
+        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.2f}.am-{self.arcface_margin:.2f}"
 
     @property
     def checkpoint_path(self) -> str:
@@ -469,6 +467,6 @@ class Search:
         return 0.0
 
     def __call__(self, n_trials: int = 10) -> None:
-        study = optuna.create_study()
+        study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials)
         print(study.best_value, study.best_params)
