@@ -64,11 +64,11 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.ckpt"
+        return f"{self.name}.{self.fold}"
 
     @property
     def checkpoint_path(self) -> str:
-        return os.path.join(self.checkpoint_dir, self.checkpoint_filename)
+        return os.path.join(self.checkpoint_dir, self.checkpoint_filename + ".ckpt")
 
 
 class MAPKMetric:
@@ -349,7 +349,7 @@ def train(cfg: Config, fold: dict) -> None:
     )
     valid_dataset = TanachoDataset(
         rows=fold["valid"],
-        transform=TrainTransform(cfg),
+        transform=InferenceTransform(cfg),
     )
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
