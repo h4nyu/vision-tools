@@ -6,8 +6,8 @@ batch_size: 32
 model_name: tf_efficientnet_b3_ns
 lr: 5.0e-4
 image_size: 256
-embedding_size: 1024
-arcface_scale: 90
-arcface_margin: 28
+embedding_size: 768
+arcface_scale: 13.5
+arcface_margin: 58.7
 epochs: 40
 patience: 5

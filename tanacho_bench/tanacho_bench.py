@@ -66,7 +66,7 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.2f}.am-{self.arcface_margin:.2f}"
+        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.2f}.am-{self.arcface_margin:.2f}.emb-{self.embedding_size}"
 
     @property
     def checkpoint_path(self) -> str:
@@ -376,6 +376,7 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
                 mode=cfg.monitor_mode,
                 dirpath=cfg.checkpoint_dir,
                 filename=cfg.checkpoint_filename,
+                auto_insert_metric_name=False,
             ),
             pl.callbacks.EarlyStopping(
                 monitor=cfg.monitor_target, mode=cfg.monitor_mode, patience=cfg.patience
