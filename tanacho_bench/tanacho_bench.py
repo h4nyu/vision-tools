@@ -368,6 +368,7 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
     trainer = pl.Trainer(
         strategy="ddp",
         precision=16,
+        max_epochs=-1,
         accelerator="gpu",
         callbacks=[
             pl.callbacks.ModelCheckpoint(
@@ -455,8 +456,8 @@ class Search:
         self.encoders = encoders
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 1.0, 100.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 10.0, 90.0)
+        arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 50.0, 90.0)
         cfg = Config(
             **{
                 **asdict(self.cfg),
