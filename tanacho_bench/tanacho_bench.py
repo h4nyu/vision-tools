@@ -366,7 +366,7 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
         num_workers=cfg.num_workers,
     )
     trainer = pl.Trainer(
-        strategy="ddp",
+        strategy="dp",
         precision=16,
         max_epochs=-1,
         accelerator="gpu",
@@ -458,12 +458,17 @@ class Search:
     def objective(self, trial: optuna.trial.Trial) -> float:
         arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
         arcface_margin = trial.suggest_float("arcface_margin", 50.0, 90.0)
+        embedding_size = trial.suggest_categorical(
+            "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
+        )
+        print(f"embedding_size={embedding_size}")
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
                     arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
+                    embedding_size=embedding_size,
                 ),
             }
         )
