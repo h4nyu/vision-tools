@@ -174,9 +174,9 @@ TrainTransform = lambda cfg: A.Compose(
         A.ShiftScaleRotate(scale_limit=0.3, rotate_limit=180, p=0.5),
         A.OneOf(
             [
-                # A.HueSaturationValue(
-                #     hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.5
-                # ),
+                A.HueSaturationValue(
+                    hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.5
+                ),
                 A.RandomBrightnessContrast(
                     brightness_limit=0.2, contrast_limit=0.2, p=0.5
                 ),
