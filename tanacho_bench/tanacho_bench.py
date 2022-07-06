@@ -45,6 +45,12 @@ class Config:
     epochs: int
     patience: int
 
+    scale_limit: float = 0.3
+    brightness_limit: float = 0.2
+    contrast_limit: float = 0.2
+    hue_shift_limit: float = 0.2
+    sat_shift_limit: float = 0.2
+    val_shift_limit: float = 0.2
     monitor_mode: str = "min"
     monitor_target: str = "val_loss"
     device: str = "cuda"
@@ -171,14 +177,19 @@ TrainTransform = lambda cfg: A.Compose(
             min_width=cfg.image_size,
             border_mode=cv2.BORDER_REPLICATE,
         ),
-        A.ShiftScaleRotate(scale_limit=0.3, rotate_limit=180, p=0.5),
+        A.ShiftScaleRotate(scale_limit=cfg.scale_limit, rotate_limit=180, p=0.5),
         A.OneOf(
             [
                 A.HueSaturationValue(
-                    hue_shift_limit=0.2, sat_shift_limit=0.2, val_shift_limit=0.2, p=0.5
+                    hue_shift_limit=cfg.hue_shift_limit,
+                    sat_shift_limit=cfg.sat_shift_limit,
+                    val_shift_limit=cfg.val_shift_limit,
+                    p=0.5,
                 ),
                 A.RandomBrightnessContrast(
-                    brightness_limit=0.2, contrast_limit=0.2, p=0.5
+                    brightness_limit=cfg.brightness_limit,
+                    contrast_limit=cfg.brightness_limit,
+                    p=0.5,
                 ),
             ],
             p=0.9,
@@ -345,6 +356,7 @@ class LitModelNoNet(pl.LightningModule):
 
 def train(cfg: Config, fold: dict) -> LitModelNoNet:
     seed_everything(cfg.seed)
+    print(cfg)
     train_dataset = TanachoDataset(
         rows=fold["train"],
         transform=TrainTransform(cfg),
@@ -366,7 +378,8 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
         num_workers=cfg.num_workers,
     )
     trainer = pl.Trainer(
-        strategy="dp",
+        deterministic=True,
+        strategy="ddp_find_unused_parameters_false",
         precision=16,
         max_epochs=-1,
         accelerator="gpu",
@@ -419,7 +432,9 @@ def evaluate(
 
     # I don't know how to get predictions with multiple gpus
     trainer = pl.Trainer(
+        deterministic=True,
         gpus=1,
+        max_epochs=-1,
         precision=16,
         accelerator="gpu",
     )
@@ -458,11 +473,16 @@ class Search:
 
     def objective(self, trial: optuna.trial.Trial) -> float:
         arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 50.0, 90.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 1.0, 90.0)
         embedding_size = trial.suggest_categorical(
             "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
         )
-        print(f"embedding_size={embedding_size}")
+        brightness_limit = trial.suggest_float("brightness_limit", 0.1, 0.3)
+        contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
+        hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
+        sat_shift_limit = trial.suggest_float("sat_shift_limit", 0.0, 0.3)
+        val_shift_limit = trial.suggest_float("val_shift_limit", 0.0, 0.3)
+        scale_limit = trial.suggest_float("scale_limit", 0.0, 0.4)
         cfg = Config(
             **{
                 **asdict(self.cfg),
@@ -470,6 +490,12 @@ class Search:
                     arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
                     embedding_size=embedding_size,
+                    brightness_limit=brightness_limit,
+                    contrast_limit=contrast_limit,
+                    hue_shift_limit=hue_shift_limit,
+                    sat_shift_limit=sat_shift_limit,
+                    val_shift_limit=val_shift_limit,
+                    scale_limit=scale_limit,
                 ),
             }
         )
@@ -477,7 +503,7 @@ class Search:
         score = evaluate(cfg=cfg, fold=self.fold, encoders=self.encoders, model=model)
         return score
 
-    def __call__(self, n_trials: int = 20) -> None:
+    def __call__(self, n_trials) -> None:
         study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials)
         print(study.best_value, study.best_params)
