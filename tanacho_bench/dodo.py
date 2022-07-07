@@ -1,8 +1,7 @@
 import json
 
 from doit import get_var
-
-from tanacho_bench import (
+from predictor import (
     Config,
     Search,
     check_folds,
@@ -13,6 +12,7 @@ from tanacho_bench import (
     preview_dataset,
     train,
 )
+
 from vision_tools.pipeline import CacheAction
 from vision_tools.utils import load_config
 

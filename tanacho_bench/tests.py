@@ -2,8 +2,7 @@ from typing import Any
 
 import torch
 import torchmetrics
-
-from tanacho_bench import MAPKMetric, Net
+from predictor import MAPKMetric, Net
 
 
 def ap(preds: Any, gts: Any, k: float) -> float:

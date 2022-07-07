@@ -17,6 +17,7 @@ import torchmetrics
 import yaml
 from albumentations.pytorch.transforms import ToTensorV2
 from pytorch_metric_learning.losses import ArcFaceLoss
+from skimage import io
 from sklearn import preprocessing
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
@@ -239,7 +240,8 @@ class TanachoDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         row = self.rows[idx]
-        image = cv2.imread(row["image_path"])
+        image = io.imread(row["image_path"])
+        print(image.dtype)
         transformed = self.transform(
             image=image,
         )
@@ -522,3 +524,55 @@ class Search:
         study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials)
         print(study.best_value, study.best_params)
+
+
+class ScoringService(object):
+    model: Any
+    reference: Any
+    reference_meta: Any
+
+    @classmethod
+    def get_model(
+        cls, model_path: str, reference_path: str, reference_meta_path: str
+    ) -> bool:
+        """Get model method
+
+        Args:
+            model_path (str): Path to the trained model directory.
+            reference_path (str): Path to the reference data.
+            reference_meta_path (str): Path to the meta data.
+
+        Returns:
+            bool: The return value. True for success, False otherwise.
+        """
+        try:
+            cls.model = None
+            cls.reference = os.listdir(reference_path)
+            with open(reference_meta_path) as f:
+                cls.reference_meta = json.load(f)
+
+            return True
+        except:
+            return False
+
+    @classmethod
+    def predict(cls, input: str) -> dict:
+        """Predict method
+
+        Args:
+            input (str): path to the image you want to make inference from
+
+        Returns:
+            dict: Inference for the given input.
+        """
+        # load an image and get the file name
+        image = io.imread(input)
+        sample_name = os.path.basename(input).split(".")[0]
+
+        # make prediction
+        prediction = cls.reference[:10]
+
+        # make output
+        output = {sample_name: prediction}
+
+        return output
