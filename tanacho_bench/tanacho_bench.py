@@ -14,6 +14,7 @@ import timm
 import torch
 import torch.nn.functional as F
 import torchmetrics
+import yaml
 from albumentations.pytorch.transforms import ToTensorV2
 from pytorch_metric_learning.losses import ArcFaceLoss
 from sklearn import preprocessing
@@ -26,8 +27,6 @@ from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
-
-from vision_tools.utils import Checkpoint, ToDevice, load_config, seed_everything
 
 
 @dataclass
@@ -62,12 +61,16 @@ class Config:
     use_amp: bool = True
     total_steps: int = 100_00
     topk: int = 10
+    num_holes: int = 12
+    hole_size: int = 32
+
     resume: str = "score"
     checkpoint_dir: str = "checkpoints"
 
     @classmethod
     def load(cls, path: str) -> Config:
-        obj = load_config(path)
+        with open(path) as file:
+            obj = yaml.safe_load(file)
         return Config(**obj)
 
     @property
@@ -193,6 +196,13 @@ TrainTransform = lambda cfg: A.Compose(
                 ),
             ],
             p=0.9,
+        ),
+        A.Cutout(
+            num_holes=cfg.num_holes,
+            max_h_size=cfg.hole_size,
+            max_w_size=cfg.hole_size,
+            fill_value=0,
+            p=0.5,
         ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
@@ -355,7 +365,7 @@ class LitModelNoNet(pl.LightningModule):
 
 
 def train(cfg: Config, fold: dict) -> LitModelNoNet:
-    seed_everything(cfg.seed)
+    pl.seed_everything(cfg.seed)
     print(cfg)
     train_dataset = TanachoDataset(
         rows=fold["train"],
@@ -472,30 +482,35 @@ class Search:
         self.encoders = encoders
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 1.0, 90.0)
-        embedding_size = trial.suggest_categorical(
-            "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
-        )
-        brightness_limit = trial.suggest_float("brightness_limit", 0.1, 0.3)
+        # arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
+        # arcface_margin = trial.suggest_float("arcface_margin", 1.0, 90.0)
+        # embedding_size = trial.suggest_categorical(
+        #     "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
+        # )
+        brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
         contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
         hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
         sat_shift_limit = trial.suggest_float("sat_shift_limit", 0.0, 0.3)
         val_shift_limit = trial.suggest_float("val_shift_limit", 0.0, 0.3)
         scale_limit = trial.suggest_float("scale_limit", 0.0, 0.4)
+        num_holes = trial.suggest_int("num_holes", 0, 32)
+        hole_size = trial.suggest_int("hole_size", 0, 64)
+
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
-                    arcface_scale=arcface_scale,
-                    arcface_margin=arcface_margin,
-                    embedding_size=embedding_size,
+                    # arcface_scale=arcface_scale,
+                    # arcface_margin=arcface_margin,
+                    # embedding_size=embedding_size,
                     brightness_limit=brightness_limit,
                     contrast_limit=contrast_limit,
                     hue_shift_limit=hue_shift_limit,
                     sat_shift_limit=sat_shift_limit,
                     val_shift_limit=val_shift_limit,
                     scale_limit=scale_limit,
+                    num_holes=num_holes,
+                    hole_size=hole_size,
                 ),
             }
         )
@@ -503,7 +518,7 @@ class Search:
         score = evaluate(cfg=cfg, fold=self.fold, encoders=self.encoders, model=model)
         return score
 
-    def __call__(self, n_trials) -> None:
+    def __call__(self, n_trials: int) -> None:
         study = optuna.create_study(direction="maximize")
         study.optimize(self.objective, n_trials)
         print(study.best_value, study.best_params)

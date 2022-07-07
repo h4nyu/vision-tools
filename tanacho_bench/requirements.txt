@@ -1,0 +1,8 @@
+doit
+timm
+pytorch-metric-learning
+pytorch-lightning
+torchmetrics
+optuna
+albumentations
+pyyaml

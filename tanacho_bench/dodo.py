@@ -98,7 +98,7 @@ def task_search() -> dict:
         "actions": [
             action(
                 fn=search,
-                kwargs={"n_trials": 40},
+                kwargs={"n_trials": 20},
             )
         ],
     }
