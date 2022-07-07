@@ -379,7 +379,7 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
     )
     trainer = pl.Trainer(
         deterministic=True,
-        strategy="ddp_find_unused_parameters_false",
+        strategy="dp",
         precision=16,
         max_epochs=-1,
         accelerator="gpu",
