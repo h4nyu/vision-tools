@@ -9,14 +9,12 @@ image_size: 256
 embedding_size: 1024
 arcface_scale: 10.9
 arcface_margin: 55.2
-brightness_limit: 0.127
-contrast_limit: 0.147
-hue_shift_limit: 0.275
-sat_shift_limit: 0.215
-val_shift_limit: 0.274
-scale_limit: 0.063
-
-
+brightness_limit: 0.391
+contrast_limit: 0.291
+hue_shift_limit: 0.209
+sat_shift_limit: 0.225
+val_shift_limit: 0.001
+scale_limit: 0.369
 
 epochs: 40
 patience: 5

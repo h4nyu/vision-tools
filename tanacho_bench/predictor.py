@@ -62,11 +62,9 @@ class Config:
     use_amp: bool = True
     total_steps: int = 100_00
     topk: int = 10
-    num_holes: int = 12
-    hole_size: int = 32
 
     resume: str = "score"
-    checkpoint_dir: str = "checkpoints"
+    checkpoint_dir: str = "models"
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -118,10 +116,15 @@ class MAPKMetric:
         self.score_sum = 0
 
 
-def preprocess(path: str, image_dir: str) -> dict:
+def preprocess(
+    image_dir: str, path: Optional[str] = None, meta: Optional[dict] = None
+) -> dict:
     rows = []
-    with open(path, "r") as f:
-        meta = json.load(f)
+    if path is None or meta is None:
+        return {}
+    if meta is None:
+        with open(path, "r") as f:
+            meta = json.load(f)
     for key in meta:
         filenames = os.listdir(os.path.join(image_dir, key))
         for filename in filenames:
@@ -198,13 +201,6 @@ TrainTransform = lambda cfg: A.Compose(
             ],
             p=0.9,
         ),
-        A.Cutout(
-            num_holes=cfg.num_holes,
-            max_h_size=cfg.hole_size,
-            max_w_size=cfg.hole_size,
-            fill_value=0,
-            p=0.5,
-        ),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.Transpose(p=0.5),
@@ -241,7 +237,6 @@ class TanachoDataset(Dataset):
     def __getitem__(self, idx: int) -> dict:
         row = self.rows[idx]
         image = io.imread(row["image_path"])
-        print(image.dtype)
         transformed = self.transform(
             image=image,
         )
@@ -420,19 +415,9 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
 def evaluate(
     cfg: Config, fold: dict, encoders: dict, model: Optional[LitModelNoNet] = None
 ) -> float:
-    train_dataset = TanachoDataset(
-        rows=fold["train"],
-        transform=InferenceTransform(cfg),
-    )
     val_dataset = TanachoDataset(
         rows=fold["valid"],
         transform=InferenceTransform(cfg),
-    )
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=cfg.batch_size,
-        shuffle=False,
-        num_workers=cfg.num_workers,
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
@@ -450,16 +435,13 @@ def evaluate(
         precision=16,
         accelerator="gpu",
     )
-
-    train_preds: Any = trainer.predict(net, train_loader)
-    neigh = NearestNeighbors(n_neighbors=10)
-    train_embeds = np.empty([0, cfg.embedding_size])
-    train_labels = np.empty(0)
-    for embeds, row in train_preds:
-        labels = row["model_no_label"]
-        train_embeds = np.vstack((train_embeds, embeds.cpu().numpy()))
-        train_labels = np.hstack((train_labels, labels.cpu().numpy()))
-    neigh.fit(train_embeds, train_labels)
+    registry = Registry(
+        rows=fold["train"],
+        model=net,
+        cfg=cfg,
+        n_neighbors=10,
+    )
+    registry.create_index()
 
     val_preds: Any = trainer.predict(net, val_loader)
     val_embeds = np.empty([0, cfg.embedding_size])
@@ -468,9 +450,8 @@ def evaluate(
     metric = MAPKMetric(topk=cfg.topk)
     for embeds, row in val_preds:
         labels = row["model_no_label"]
-        X = embeds.cpu().numpy()
-        y = neigh.kneighbors(X, return_distance=False)
-        for preds, label in zip(torch.from_numpy(train_labels[y]), labels.unsqueeze(1)):
+        y = registry.filter_id(embeds)
+        for preds, label in zip(torch.tensor(y), labels.unsqueeze(1)):
             metric.update(preds, label)
     score = metric.compute()
     print(f"score={score}")
@@ -489,30 +470,28 @@ class Search:
         # embedding_size = trial.suggest_categorical(
         #     "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
         # )
-        brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
-        contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
-        hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
-        sat_shift_limit = trial.suggest_float("sat_shift_limit", 0.0, 0.3)
+        lr = trial.suggest_float("lr", 1.0e-4, 1.0e-3)
+        # brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
+        # contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
+        # hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
+        # sat_shift_limit = trial.suggest_float("sat_shift_limit", 0.0, 0.3)
         val_shift_limit = trial.suggest_float("val_shift_limit", 0.0, 0.3)
         scale_limit = trial.suggest_float("scale_limit", 0.0, 0.4)
-        num_holes = trial.suggest_int("num_holes", 0, 32)
-        hole_size = trial.suggest_int("hole_size", 0, 64)
 
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
+                    lr=lr,
                     # arcface_scale=arcface_scale,
                     # arcface_margin=arcface_margin,
                     # embedding_size=embedding_size,
-                    brightness_limit=brightness_limit,
-                    contrast_limit=contrast_limit,
-                    hue_shift_limit=hue_shift_limit,
-                    sat_shift_limit=sat_shift_limit,
+                    # brightness_limit=brightness_limit,
+                    # contrast_limit=contrast_limit,
+                    # hue_shift_limit=hue_shift_limit,
+                    # sat_shift_limit=sat_shift_limit,
                     val_shift_limit=val_shift_limit,
                     scale_limit=scale_limit,
-                    num_holes=num_holes,
-                    hole_size=hole_size,
                 ),
             }
         )
@@ -526,10 +505,60 @@ class Search:
         print(study.best_value, study.best_params)
 
 
+class Registry:
+    def __init__(
+        self,
+        model: LitModelNoNet,
+        cfg: Config,
+        rows: list[dict],
+        n_neighbors: int = 10,
+    ) -> None:
+        self.neigh = NearestNeighbors(n_neighbors=n_neighbors)
+        self.rows = rows
+        self.cfg = cfg
+        self.dataset = TanachoDataset(
+            rows=self.rows,
+            transform=InferenceTransform(cfg),
+        )
+        self.dataloader = torch.utils.data.DataLoader(
+            self.dataset,
+            batch_size=cfg.batch_size,
+            shuffle=False,
+            num_workers=cfg.num_workers,
+        )
+        self.model = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
+        self.all_labels = np.empty(0)
+
+    def create_index(self) -> None:
+        trainer = pl.Trainer(
+            deterministic=True,
+            gpus=1,
+            max_epochs=-1,
+            precision=16,
+            accelerator="gpu",
+        )
+        preds: Any = trainer.predict(self.model, self.dataloader)
+        all_embeds = np.empty([0, self.cfg.embedding_size])
+        all_labels = np.empty(0)
+        for embeds, row in preds:
+            labels = row["model_no_label"]
+            all_embeds = np.vstack((all_embeds, embeds.cpu().numpy()))
+
+            all_labels = np.hstack((all_labels, labels.cpu().numpy()))
+        self.all_labels = all_labels
+        self.neigh.fit(all_embeds, all_labels)
+
+    def filter_id(self, embeddings: Tensor) -> list[int]:
+        x = embeddings.cpu().numpy()
+        y = self.neigh.kneighbors(x, return_distance=False)
+        return self.all_labels[y].tolist()
+
+
 class ScoringService(object):
     model: Any
     reference: Any
     reference_meta: Any
+    registry: Registry
 
     @classmethod
     def get_model(
