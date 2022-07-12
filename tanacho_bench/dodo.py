@@ -1,5 +1,6 @@
 import json
 
+import pytorch_lightning as pl
 from doit import get_var
 from predictor import (
     Config,
@@ -26,6 +27,8 @@ DOIT_CONFIG = {
 action = CacheAction()
 cfg = Config.load(get_var("cfg", "./config/v1.yaml"))
 
+pl.seed_everything(cfg.seed)
+
 
 def task_preprocess() -> dict:
     key = "preprocess.cache"
@@ -36,7 +39,10 @@ def task_preprocess() -> dict:
             action(
                 key=key,
                 fn=preprocess,
-                args=["/app/datasets/train_meta.json", "/app/datasets/train"],
+                kwargs=dict(
+                    image_dir="/app/datasets/train",
+                    meta_path="/app/datasets/train_meta.json",
+                ),
             )
         ],
     }
@@ -88,17 +94,11 @@ def task_train() -> dict:
 
 
 def task_search() -> dict:
-    search = Search(
-        cfg=cfg,
-        fold=action.load("kfold.cache")[cfg.fold],
-        encoders=action.load("preprocess.cache")["encoders"],
-    )
-
+    search = Search(n_trials=15, cfg=cfg, fold=action.load("kfold.cache")[cfg.fold])
     return {
         "actions": [
             action(
                 fn=search,
-                kwargs={"n_trials": 15},
             )
         ],
     }
@@ -112,7 +112,6 @@ def task_evaluate() -> dict:
                 fn=evaluate,
                 kwargs={"cfg": cfg},
                 kwargs_fn=lambda: dict(
-                    encoders=action.load("preprocess.cache")["encoders"],
                     fold=action.load("kfold.cache")[cfg.fold],
                 ),
             )

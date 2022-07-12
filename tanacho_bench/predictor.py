@@ -24,7 +24,7 @@ from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
 from timm.scheduler import CosineLRScheduler
 from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
@@ -44,6 +44,7 @@ class Config:
     arcface_margin: float
     epochs: int
     patience: int
+    n_neighbors: int
 
     scale_limit: float = 0.3
     brightness_limit: float = 0.2
@@ -54,7 +55,7 @@ class Config:
     monitor_mode: str = "min"
     monitor_target: str = "val_loss"
     device: str = "cuda"
-    num_workers: int = 5
+    num_workers: int = 11
     num_categories: int = 2
     num_colors: int = 11
     num_model_nos: int = 122
@@ -74,11 +75,21 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.2f}.am-{self.arcface_margin:.2f}.emb-{self.embedding_size}"
+        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}"
+
+    @property
+    def last_checkpoint_filename(self) -> str:
+        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}-last"
 
     @property
     def checkpoint_path(self) -> str:
         return os.path.join(self.checkpoint_dir, self.checkpoint_filename + ".ckpt")
+
+    @property
+    def last_checkpoint_path(self) -> str:
+        return os.path.join(
+            self.checkpoint_dir, self.last_checkpoint_filename + ".ckpt"
+        )
 
 
 class MAPKMetric:
@@ -117,14 +128,14 @@ class MAPKMetric:
 
 
 def preprocess(
-    image_dir: str, path: Optional[str] = None, meta: Optional[dict] = None
+    image_dir: str, meta_path: Optional[str] = None, meta: Optional[dict] = None
 ) -> dict:
     rows = []
-    if path is None or meta is None:
-        return {}
-    if meta is None:
-        with open(path, "r") as f:
+    if meta_path is not None and meta is None:
+        with open(meta_path, "r") as f:
             meta = json.load(f)
+    if meta is None:
+        return {}
     for key in meta:
         filenames = os.listdir(os.path.join(image_dir, key))
         for filename in filenames:
@@ -362,7 +373,6 @@ class LitModelNoNet(pl.LightningModule):
 
 
 def train(cfg: Config, fold: dict) -> LitModelNoNet:
-    pl.seed_everything(cfg.seed)
     print(cfg)
     train_dataset = TanachoDataset(
         rows=fold["train"],
@@ -386,8 +396,8 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
     )
     trainer = pl.Trainer(
         deterministic=True,
-        strategy="dp",
         precision=16,
+        gpus=1,
         max_epochs=-1,
         accelerator="gpu",
         callbacks=[
@@ -409,12 +419,11 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
         train_loader,
         valid_loader,
     )
+    trainer.save_checkpoint(cfg.last_checkpoint_path)
     return model
 
 
-def evaluate(
-    cfg: Config, fold: dict, encoders: dict, model: Optional[LitModelNoNet] = None
-) -> float:
+def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> float:
     val_dataset = TanachoDataset(
         rows=fold["valid"],
         transform=InferenceTransform(cfg),
@@ -425,7 +434,14 @@ def evaluate(
         shuffle=False,
         num_workers=cfg.num_workers,
     )
-    net = model or LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
+    net = model or LitModelNoNet.load_from_checkpoint(cfg.last_checkpoint_path)
+
+    registry = Registry(
+        rows=fold["train"],
+        model=net,
+        cfg=cfg,
+    )
+    registry.create_index()
 
     # I don't know how to get predictions with multiple gpus
     trainer = pl.Trainer(
@@ -435,19 +451,12 @@ def evaluate(
         precision=16,
         accelerator="gpu",
     )
-    registry = Registry(
-        rows=fold["train"],
-        model=net,
-        cfg=cfg,
-        n_neighbors=10,
-    )
-    registry.create_index()
-
     val_preds: Any = trainer.predict(net, val_loader)
     val_embeds = np.empty([0, cfg.embedding_size])
     val_labels = np.empty(0)
 
     metric = MAPKMetric(topk=cfg.topk)
+
     for embeds, row in val_preds:
         labels = row["model_no_label"]
         y = registry.filter_id(embeds)
@@ -459,49 +468,51 @@ def evaluate(
 
 
 class Search:
-    def __init__(self, cfg: Config, fold: dict, encoders: dict) -> None:
+    def __init__(self, cfg: Config, fold: dict, n_trials: int) -> None:
         self.cfg = cfg
         self.fold = fold
-        self.encoders = encoders
+        self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        # arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
-        # arcface_margin = trial.suggest_float("arcface_margin", 1.0, 90.0)
-        # embedding_size = trial.suggest_categorical(
-        #     "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
-        # )
+        arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 1.0, 90.0)
+        patience = trial.suggest_int("patience", 5.0, 15.0)
+        embedding_size = trial.suggest_categorical(
+            "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
+        )
         lr = trial.suggest_float("lr", 1.0e-4, 1.0e-3)
         # brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
         # contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
         # hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
         # sat_shift_limit = trial.suggest_float("sat_shift_limit", 0.0, 0.3)
-        val_shift_limit = trial.suggest_float("val_shift_limit", 0.0, 0.3)
-        scale_limit = trial.suggest_float("scale_limit", 0.0, 0.4)
+        # val_shift_limit = trial.suggest_float("val_shift_limit", 0.0, 0.3)
+        # scale_limit = trial.suggest_float("scale_limit", 0.0, 0.4)
 
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
                     lr=lr,
-                    # arcface_scale=arcface_scale,
-                    # arcface_margin=arcface_margin,
-                    # embedding_size=embedding_size,
+                    arcface_scale=arcface_scale,
+                    arcface_margin=arcface_margin,
+                    embedding_size=embedding_size,
+                    patience=patience,
                     # brightness_limit=brightness_limit,
                     # contrast_limit=contrast_limit,
                     # hue_shift_limit=hue_shift_limit,
                     # sat_shift_limit=sat_shift_limit,
-                    val_shift_limit=val_shift_limit,
-                    scale_limit=scale_limit,
+                    # val_shift_limit=val_shift_limit,
+                    # scale_limit=scale_limit,
                 ),
             }
         )
         model = train(cfg=cfg, fold=self.fold)
-        score = evaluate(cfg=cfg, fold=self.fold, encoders=self.encoders, model=model)
+        score = evaluate(cfg=cfg, fold=self.fold, model=model)
         return score
 
-    def __call__(self, n_trials: int) -> None:
+    def __call__(self) -> None:
         study = optuna.create_study(direction="maximize")
-        study.optimize(self.objective, n_trials)
+        study.optimize(self.objective, self.n_trials)
         print(study.best_value, study.best_params)
 
 
@@ -511,23 +522,82 @@ class Registry:
         model: LitModelNoNet,
         cfg: Config,
         rows: list[dict],
-        n_neighbors: int = 10,
     ) -> None:
-        self.neigh = NearestNeighbors(n_neighbors=n_neighbors)
+        self.neigh = NearestNeighbors(
+            n_neighbors=cfg.n_neighbors,
+            metric="cosine",
+        )
         self.rows = rows
         self.cfg = cfg
-        self.dataset = TanachoDataset(
-            rows=self.rows,
-            transform=InferenceTransform(cfg),
+        self.n_neighbors = cfg.n_neighbors
+        self.transform = A.Compose(
+            [
+                A.LongestMaxSize(max_size=cfg.image_size),
+                A.PadIfNeeded(
+                    min_height=cfg.image_size,
+                    min_width=cfg.image_size,
+                    border_mode=cv2.BORDER_REPLICATE,
+                ),
+                ToTensorV2(),
+            ],
         )
-        self.dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=cfg.batch_size,
-            shuffle=False,
-            num_workers=cfg.num_workers,
+        self.hflip_transform = A.Compose(
+            [
+                A.LongestMaxSize(max_size=cfg.image_size),
+                A.PadIfNeeded(
+                    min_height=cfg.image_size,
+                    min_width=cfg.image_size,
+                    border_mode=cv2.BORDER_REPLICATE,
+                ),
+                A.HorizontalFlip(p=1.0),
+                ToTensorV2(),
+            ],
+        )
+
+        # self.rot90_transform = A.Compose(
+        #     [
+        #         A.LongestMaxSize(max_size=int(cfg.image_size * 0.75)),
+        #         A.PadIfNeeded(
+        #             min_height=cfg.image_size,
+        #             min_width=cfg.image_size,
+        #             border_mode=cv2.BORDER_REPLICATE,
+        #         ),
+        #         A.Transpose(p=1.0),
+        #         ToTensorV2(),
+        #     ],
+        # )
+        self.vflip_transform = A.Compose(
+            [
+                A.LongestMaxSize(max_size=cfg.image_size),
+                A.PadIfNeeded(
+                    min_height=cfg.image_size,
+                    min_width=cfg.image_size,
+                    border_mode=cv2.BORDER_REPLICATE,
+                ),
+                A.VerticalFlip(p=1.0),
+                ToTensorV2(),
+            ],
         )
         self.model = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
+        self.transforms = [
+            self.transform,
+            self.vflip_transform,
+            self.hflip_transform,
+            # self.rot90_transform,
+        ]
         self.all_labels = np.empty(0)
+
+    def get_dataloader(self, transform: Any) -> DataLoader:
+        dataset = TanachoDataset(
+            rows=self.rows,
+            transform=transform,
+        )
+        return torch.utils.data.DataLoader(
+            dataset,
+            batch_size=self.cfg.batch_size,
+            shuffle=False,
+            num_workers=self.cfg.num_workers,
+        )
 
     def create_index(self) -> None:
         trainer = pl.Trainer(
@@ -537,21 +607,33 @@ class Registry:
             precision=16,
             accelerator="gpu",
         )
-        preds: Any = trainer.predict(self.model, self.dataloader)
+
         all_embeds = np.empty([0, self.cfg.embedding_size])
         all_labels = np.empty(0)
-        for embeds, row in preds:
-            labels = row["model_no_label"]
-            all_embeds = np.vstack((all_embeds, embeds.cpu().numpy()))
-
-            all_labels = np.hstack((all_labels, labels.cpu().numpy()))
+        for transform in self.transforms:
+            dataloader = self.get_dataloader(self.transform)
+            preds: Any = trainer.predict(self.model, dataloader)
+            for embeds, row in preds:
+                labels = row["model_no_label"]
+                all_embeds = np.vstack((all_embeds, embeds.cpu().numpy()))
+                all_labels = np.hstack((all_labels, labels.cpu().numpy()))
         self.all_labels = all_labels
         self.neigh.fit(all_embeds, all_labels)
 
     def filter_id(self, embeddings: Tensor) -> list[int]:
         x = embeddings.cpu().numpy()
-        y = self.neigh.kneighbors(x, return_distance=False)
-        return self.all_labels[y].tolist()
+        y = self.neigh.kneighbors(
+            x, n_neighbors=self.n_neighbors, return_distance=False
+        )
+        res = np.empty([0, self.n_neighbors])
+        for arr in self.all_labels[y]:
+            u, ind = np.unique(arr, return_index=True)
+            u = u[np.argsort(ind)]
+            length = len(u)
+            other = np.repeat(u[-1], self.n_neighbors - length)
+            u = np.concatenate([u, other])
+            res = np.vstack([res, u])
+        return res.tolist()
 
 
 class ScoringService(object):

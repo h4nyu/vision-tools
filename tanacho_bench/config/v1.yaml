@@ -4,17 +4,18 @@ seed: 1024
 fold: 0
 batch_size: 32
 model_name: tf_efficientnet_b3_ns
-lr: 5.0e-4
+lr: 0.000685564766155184
 image_size: 256
-embedding_size: 1024
-arcface_scale: 10.9
-arcface_margin: 55.2
+embedding_size: 2048
+arcface_scale: 13.318535526786016
+arcface_margin: 2.4229187865453725
 brightness_limit: 0.391
 contrast_limit: 0.291
-hue_shift_limit: 0.209
+hue_shift_limit: 0.28
 sat_shift_limit: 0.225
-val_shift_limit: 0.001
-scale_limit: 0.369
+val_shift_limit: 0.28
+scale_limit: 0.06
 
 epochs: 40
-patience: 5
+patience: 13
+n_neighbors: 200

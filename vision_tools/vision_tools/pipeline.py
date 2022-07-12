@@ -17,6 +17,7 @@ class CacheAction:
             pickle.dump(obj, fp)
 
     def load(self, key: str) -> Any:
+
         with open(key, "rb") as fp:
             return pickle.load(fp)
 
