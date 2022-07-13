@@ -21,6 +21,8 @@ RUN apt-get update \
         graphviz \
         graphviz-dev \
         git \
+        zip \
+        unzip \
     && wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb \
     && dpkg -i cuda-keyring_1.0-1_all.deb \
     && rm cuda-keyring_1.0-1_all.deb \
