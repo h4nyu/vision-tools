@@ -1,0 +1,21 @@
+name: v1-1
+kfold: 5
+seed: 1024
+fold: 1
+batch_size: 16
+model_name: tf_efficientnet_b6_ns
+lr: 0.000685564766155184
+image_size: 480
+embedding_size: 768
+arcface_scale: 14.43366504183029
+arcface_margin: 3.3948233509589225
+brightness_limit: 0.391
+contrast_limit: 0.291
+hue_shift_limit: 0.28
+sat_shift_limit: 0.225
+val_shift_limit: 0.28
+scale_limit: 0.06
+
+epochs: 40
+patience: 13
+n_neighbors: 200
