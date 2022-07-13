@@ -72,7 +72,7 @@ class Config:
     topk: int = 10
 
     resume: str = "score"
-    checkpoint_dir: str = "models"
+    checkpoint_dir: str = "checkpoints"
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -668,6 +668,7 @@ class ScoringService(object):
                 ),
             }
         )
+        print(cfg.last_checkpoint_path)
         model = (
             LitModelNoNet.load_from_checkpoint(cfg.last_checkpoint_path).eval().cuda()
         )
@@ -716,4 +717,5 @@ class ScoringService(object):
         image = io.imread(input)
         prediction = cls.registry.filter_labels_by_image(image)
         output = {sample_name: prediction}
+        print(output)
         return output

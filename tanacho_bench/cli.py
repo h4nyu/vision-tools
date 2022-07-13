@@ -20,6 +20,13 @@ def cli() -> None:
 
 @click.command()
 @click.option("-i", "--input", required=True)
+def show_config(input: str) -> None:
+    cfg = Config.load(input)
+    print(cfg.last_checkpoint_path)
+
+
+@click.command()
+@click.option("-i", "--input", required=True)
 def predict(input: str) -> None:
     res = ScoringService.get_model(
         model_path="models",
@@ -31,6 +38,7 @@ def predict(input: str) -> None:
 
 
 cli.add_command(predict)
+cli.add_command(show_config)
 
 if __name__ == "__main__":
     cli()
