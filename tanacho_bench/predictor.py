@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import asdict, dataclass
+from logging import FileHandler, Formatter, StreamHandler
 from typing import Any, Callable, Optional
 
 import albumentations as A
@@ -28,6 +30,12 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
+
+stream_handler = StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(Formatter("%(message)s"))
+file_handler = FileHandler(f"app.log")
+logging.basicConfig(level=logging.NOTSET, handlers=[stream_handler, file_handler])
 
 
 @dataclass
@@ -75,11 +83,11 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}"
+        return f"{self.name}.{self.fold}.{self.model_name}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}"
 
     @property
     def last_checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}-last"
+        return f"{self.checkpoint_filename}-last"
 
     @property
     def checkpoint_path(self) -> str:
@@ -474,13 +482,12 @@ class Search:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 1.0, 20.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 1.0, 20.0)
-        patience = trial.suggest_int("patience", 10.0, 15.0)
-        embedding_size = trial.suggest_categorical(
-            "embedding_size", [128, 256, 512, 768, 1024, 2048, 4096]
-        )
-        lr = trial.suggest_float("lr", 1.0e-4, 1.0e-3)
+        arcface_scale = trial.suggest_float("arcface_scale", 7.0, 20.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 5.0)
+        embedding_size = trial.suggest_categorical("embedding_size", [768, 1024, 2048])
+        image_size = trial.suggest_categorical("image_size", [256, 380, 480, 512])
+        batch_size = trial.suggest_categorical("batch_size", [8, 16, 24, 32])
+
         # brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
         # contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
         # hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
@@ -492,11 +499,11 @@ class Search:
             **{
                 **asdict(self.cfg),
                 **dict(
-                    lr=lr,
                     arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
                     embedding_size=embedding_size,
-                    patience=patience,
+                    image_size=image_size,
+                    batch_size=batch_size,
                     # brightness_limit=brightness_limit,
                     # contrast_limit=contrast_limit,
                     # hue_shift_limit=hue_shift_limit,
@@ -553,19 +560,6 @@ class Registry:
                 ToTensorV2(),
             ],
         )
-
-        # self.rot90_transform = A.Compose(
-        #     [
-        #         A.LongestMaxSize(max_size=int(cfg.image_size * 0.75)),
-        #         A.PadIfNeeded(
-        #             min_height=cfg.image_size,
-        #             min_width=cfg.image_size,
-        #             border_mode=cv2.BORDER_REPLICATE,
-        #         ),
-        #         A.Transpose(p=1.0),
-        #         ToTensorV2(),
-        #     ],
-        # )
         self.vflip_transform = A.Compose(
             [
                 A.LongestMaxSize(max_size=cfg.image_size),
@@ -583,7 +577,6 @@ class Registry:
             self.transform,
             self.vflip_transform,
             self.hflip_transform,
-            # self.rot90_transform,
         ]
         self.all_labels = np.empty(0)
 
