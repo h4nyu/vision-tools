@@ -482,11 +482,20 @@ class Search:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 7.0, 20.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 5.0)
-        embedding_size = trial.suggest_categorical("embedding_size", [768, 1024, 2048])
-        image_size = trial.suggest_categorical("image_size", [256, 380, 480, 512])
-        batch_size = trial.suggest_categorical("batch_size", [8, 16, 24, 32])
+        arcface_scale = trial.suggest_float("arcface_scale", 9.0, 17.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 4.0)
+        embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
+
+        model_name = trial.suggest_categorical(
+            "model_name",
+            [
+                "tf_efficientnet_b7_ns",
+                "tf_efficientnet_b6_ns",
+                "tf_efficientnet_b5_ns",
+                "tf_efficientnet_b4_ns",
+            ],
+        )
+        image_size = trial.suggest_categorical("image_size", [256, 380, 480])
 
         # brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
         # contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
@@ -503,7 +512,7 @@ class Search:
                     arcface_margin=arcface_margin,
                     embedding_size=embedding_size,
                     image_size=image_size,
-                    batch_size=batch_size,
+                    model_name=model_name,
                     # brightness_limit=brightness_limit,
                     # contrast_limit=contrast_limit,
                     # hue_shift_limit=hue_shift_limit,
