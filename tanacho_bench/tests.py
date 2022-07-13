@@ -1,7 +1,6 @@
 from typing import Any
 
 import torch
-import torchmetrics
 from predictor import MAPKMetric, Net
 
 

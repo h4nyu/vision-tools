@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 from doit import get_var
 from predictor import (
     Config,
+    ScoringService,
     Search,
     check_folds,
     eda,
@@ -143,6 +144,24 @@ def task_check_folds() -> dict:
                 kwargs_fn=lambda: dict(
                     rows=action.load("preprocess.cache")["rows"],
                     folds=action.load("kfold.cache"),
+                ),
+            )
+        ],
+        "uptodate": [False],
+    }
+
+
+def task_check_predict() -> dict:
+    service = ScoringService
+    return {
+        "file_dep": ["preprocess.cache", "kfold.cache"],
+        "actions": [
+            action(
+                fn=lambda: ScoringService.get_model,
+                kwargs_fn=lambda: dict(
+                    model_path="models",
+                    reference_path="../datasets/train",
+                    reference_meta_path="../datasets/train_meta.json",
                 ),
             )
         ],

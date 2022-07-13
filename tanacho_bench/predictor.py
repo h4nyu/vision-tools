@@ -15,7 +15,6 @@ import pytorch_lightning as pl
 import timm
 import torch
 import torch.nn.functional as F
-import torchmetrics
 import yaml
 from albumentations.pytorch.transforms import ToTensorV2
 from pytorch_metric_learning.losses import ArcFaceLoss
@@ -339,6 +338,9 @@ class LitModelNoNet(pl.LightningModule):
         )
         self.save_hyperparameters()
 
+    def forward(self, x: Tensor) -> Tensor:  # type: ignore
+        return self.net(x)
+
     def training_step(self, *args: Any, **kwargs: Any) -> Any:
         sample, batch_idx = args
         batch = sample["sample"]
@@ -489,13 +491,13 @@ class Search:
         model_name = trial.suggest_categorical(
             "model_name",
             [
-                "tf_efficientnet_b7_ns",
+                # "tf_efficientnet_b7_ns",
                 "tf_efficientnet_b6_ns",
-                "tf_efficientnet_b5_ns",
-                "tf_efficientnet_b4_ns",
+                # "tf_efficientnet_b5_ns",
+                # "tf_efficientnet_b4_ns",
             ],
         )
-        image_size = trial.suggest_categorical("image_size", [256, 380, 480])
+        image_size = trial.suggest_categorical("image_size", [380, 480, 512])
 
         # brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
         # contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
@@ -588,6 +590,7 @@ class Registry:
             self.hflip_transform,
         ]
         self.all_labels = np.empty(0)
+        self.label_map: dict[int, str] = {}
 
     def get_dataloader(self, transform: Any) -> DataLoader:
         dataset = TanachoDataset(
@@ -609,7 +612,7 @@ class Registry:
             precision=16,
             accelerator="gpu",
         )
-
+        self.label_map = {row["model_no_label"]: row["model_no"] for row in self.rows}
         all_embeds = np.empty([0, self.cfg.embedding_size])
         all_labels = np.empty(0)
         for transform in self.transforms:
@@ -622,7 +625,7 @@ class Registry:
         self.all_labels = all_labels
         self.neigh.fit(all_embeds, all_labels)
 
-    def filter_id(self, embeddings: Tensor) -> list[int]:
+    def filter_id(self, embeddings: Tensor) -> list[list[int]]:
         x = embeddings.cpu().numpy()
         y = self.neigh.kneighbors(
             x, n_neighbors=self.n_neighbors, return_distance=False
@@ -635,14 +638,42 @@ class Registry:
             other = np.repeat(u[-1], self.n_neighbors - length)
             u = np.concatenate([u, other])
             res = np.vstack([res, u])
+        res = res[:, : self.cfg.topk]
         return res.tolist()
+
+    def filter_labels_by_image(self, image: Tensor) -> list[str]:
+        transformed = self.transform(
+            image=image,
+        )
+        image = transformed["image"].float() / 255.0
+        with torch.inference_mode():
+            embeddings = self.model(image.unsqueeze(0).to(self.model.device))
+            ids = self.filter_id(embeddings)[0]
+            labels = [self.label_map[i] for i in ids]
+        return labels
 
 
 class ScoringService(object):
-    model: Any
-    reference: Any
-    reference_meta: Any
     registry: Registry
+
+    @classmethod
+    def load_registry(
+        cls, cfg_path: str, model_path: str, rows: list[dict]
+    ) -> Registry:
+        cfg = Config(
+            **{
+                **asdict(Config.load(cfg_path)),
+                **dict(
+                    checkpoint_dir=model_path,
+                ),
+            }
+        )
+        model = (
+            LitModelNoNet.load_from_checkpoint(cfg.last_checkpoint_path).eval().cuda()
+        )
+        registry = Registry(rows=rows, model=model, cfg=cfg)
+        registry.create_index()
+        return registry
 
     @classmethod
     def get_model(
@@ -659,17 +690,19 @@ class ScoringService(object):
             bool: The return value. True for success, False otherwise.
         """
         try:
-            cls.model = None
-            cls.reference = os.listdir(reference_path)
-            with open(reference_meta_path) as f:
-                cls.reference_meta = json.load(f)
-
+            rows = preprocess(image_dir=reference_path, meta_path=reference_meta_path)[
+                "rows"
+            ]
+            cls.registry = cls.load_registry(
+                cfg_path="./config/v1.yaml", model_path=model_path, rows=rows
+            )
             return True
-        except:
+        except Exception as e:
+            print(e)
             return False
 
     @classmethod
-    def predict(cls, input: str) -> dict:
+    def predict(cls, input: str) -> dict[str, list[str]]:
         """Predict method
 
         Args:
@@ -678,14 +711,9 @@ class ScoringService(object):
         Returns:
             dict: Inference for the given input.
         """
+        sample_name = os.path.basename(input).split(".")[0]
         # load an image and get the file name
         image = io.imread(input)
-        sample_name = os.path.basename(input).split(".")[0]
-
-        # make prediction
-        prediction = cls.reference[:10]
-
-        # make output
+        prediction = cls.registry.filter_labels_by_image(image)
         output = {sample_name: prediction}
-
         return output
