@@ -1,8 +1,7 @@
-doit
-timm
-pytorch-metric-learning
-pytorch-lightning
-torchmetrics
-optuna
-albumentations
-pyyaml
+doit==0.34.2
+timm==0.5.4
+pytorch-metric-learning==1.5.0
+pytorch-lightning==1.6.4
+optuna==2.10.1
+albumentations==1.2.0
+PyYAML==6.0
