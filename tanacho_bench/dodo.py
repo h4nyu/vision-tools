@@ -26,7 +26,7 @@ DOIT_CONFIG = {
 
 
 action = CacheAction()
-cfg = Config.load(get_var("cfg", "./config/v1-1.yaml"))
+cfg = Config.load(get_var("cfg", "./config/v1-0.yaml"))
 
 pl.seed_everything(cfg.seed)
 

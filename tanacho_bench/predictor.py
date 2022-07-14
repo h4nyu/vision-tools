@@ -85,18 +85,8 @@ class Config:
         return f"{self.name}.{self.fold}.{self.model_name}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}"
 
     @property
-    def last_checkpoint_filename(self) -> str:
-        return f"{self.checkpoint_filename}-last"
-
-    @property
     def checkpoint_path(self) -> str:
         return os.path.join(self.checkpoint_dir, self.checkpoint_filename + ".ckpt")
-
-    @property
-    def last_checkpoint_path(self) -> str:
-        return os.path.join(
-            self.checkpoint_dir, self.last_checkpoint_filename + ".ckpt"
-        )
 
 
 class MAPKMetric:
@@ -411,13 +401,6 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
         max_epochs=-1,
         accelerator="gpu",
         callbacks=[
-            pl.callbacks.ModelCheckpoint(
-                monitor=cfg.monitor_target,
-                mode=cfg.monitor_mode,
-                dirpath=cfg.checkpoint_dir,
-                filename=cfg.checkpoint_filename,
-                auto_insert_metric_name=False,
-            ),
             pl.callbacks.EarlyStopping(
                 monitor=cfg.monitor_target, mode=cfg.monitor_mode, patience=cfg.patience
             ),
@@ -429,7 +412,7 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
         train_loader,
         valid_loader,
     )
-    trainer.save_checkpoint(cfg.last_checkpoint_path)
+    trainer.save_checkpoint(cfg.checkpoint_path)
     return model
 
 
@@ -444,7 +427,7 @@ def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> 
         shuffle=False,
         num_workers=cfg.num_workers,
     )
-    net = model or LitModelNoNet.load_from_checkpoint(cfg.last_checkpoint_path)
+    net = model or LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
 
     registry = Registry(
         rows=fold["train"],
@@ -668,10 +651,7 @@ class ScoringService(object):
                 ),
             }
         )
-        print(cfg.last_checkpoint_path)
-        model = (
-            LitModelNoNet.load_from_checkpoint(cfg.last_checkpoint_path).eval().cuda()
-        )
+        model = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path).eval().cuda()
         registry = Registry(rows=rows, model=model, cfg=cfg)
         registry.create_index()
         return registry
@@ -695,7 +675,9 @@ class ScoringService(object):
                 "rows"
             ]
             cls.registry = cls.load_registry(
-                cfg_path="./config/v1.yaml", model_path=model_path, rows=rows
+                cfg_path=os.path.join(model_path, "../config/v1-0.yaml"),
+                model_path=model_path,
+                rows=rows,
             )
             return True
         except Exception as e:
