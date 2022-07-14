@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import pickle
 from dataclasses import asdict, dataclass
 from logging import FileHandler, Formatter, StreamHandler
 from typing import Any, Callable, Optional
@@ -70,6 +71,7 @@ class Config:
     use_amp: bool = True
     total_steps: int = 100_00
     topk: int = 10
+    pretrained: bool = True
 
     resume: str = "score"
     checkpoint_dir: str = "checkpoints"
@@ -297,7 +299,7 @@ class Net(nn.Module):
     def __init__(self, name: str, embedding_size: int, pretrained: bool = True) -> None:
         super().__init__()
         self.name = name
-        self.backbone = timm.create_model(name, pretrained)
+        self.backbone = timm.create_model(name, pretrained=pretrained)
         self.backbone.reset_classifier(0)
         self.head = nn.Sequential(
             nn.BatchNorm2d(self.backbone.num_features),
@@ -319,6 +321,7 @@ class LitModelNoNet(pl.LightningModule):
         self.net = Net(
             name=cfg.model_name,
             embedding_size=cfg.embedding_size,
+            pretrained=cfg.pretrained,
         )
         self.arcface = ArcFaceLoss(
             num_classes=cfg.num_model_nos,
@@ -327,6 +330,17 @@ class LitModelNoNet(pl.LightningModule):
             margin=cfg.arcface_margin,
         )
         self.save_hyperparameters()
+
+    @classmethod
+    def load(cls, path: str) -> None:
+        with open(path, "rb") as f:
+            data = torch.load(f)
+        cfg = data["hyper_parameters"]["cfg"]
+        obj = LitModelNoNet(cfg=Config(**{**asdict(cfg), **dict(pretrained=False)}))
+        obj.cfg = cfg
+        # print(obj.cfg)
+        # obj.load_state_dict(data['state_dict'])
+        return obj
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         return self.net(x)
@@ -468,14 +482,14 @@ class Search:
 
     def objective(self, trial: optuna.trial.Trial) -> float:
         arcface_scale = trial.suggest_float("arcface_scale", 9.0, 17.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 4.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 5.0)
         embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
 
         model_name = trial.suggest_categorical(
             "model_name",
             [
-                # "tf_efficientnet_b7_ns",
-                "tf_efficientnet_b6_ns",
+                "tf_efficientnet_b7_ns",
+                # "tf_efficientnet_b6_ns",
                 # "tf_efficientnet_b5_ns",
                 # "tf_efficientnet_b4_ns",
             ],
@@ -487,7 +501,7 @@ class Search:
         # hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
         # sat_shift_limit = trial.suggest_float("sat_shift_limit", 0.0, 0.3)
         # val_shift_limit = trial.suggest_float("val_shift_limit", 0.0, 0.3)
-        # scale_limit = trial.suggest_float("scale_limit", 0.0, 0.4)
+        scale_limit = trial.suggest_float("scale_limit", 0.0, 0.3)
 
         cfg = Config(
             **{
@@ -503,7 +517,7 @@ class Search:
                     # hue_shift_limit=hue_shift_limit,
                     # sat_shift_limit=sat_shift_limit,
                     # val_shift_limit=val_shift_limit,
-                    # scale_limit=scale_limit,
+                    scale_limit=scale_limit,
                 ),
             }
         )
@@ -524,6 +538,7 @@ class Registry:
         cfg: Config,
         rows: list[dict],
     ) -> None:
+        print("aaaaaaaa")
         self.neigh = NearestNeighbors(
             n_neighbors=cfg.n_neighbors,
             metric="cosine",
@@ -566,7 +581,7 @@ class Registry:
                 ToTensorV2(),
             ],
         )
-        self.model = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
+        self.model = model
         self.transforms = [
             self.transform,
             self.vflip_transform,
@@ -646,12 +661,14 @@ class ScoringService(object):
         cfg = Config(
             **{
                 **asdict(Config.load(cfg_path)),
-                **dict(
-                    checkpoint_dir=model_path,
-                ),
+                **dict(checkpoint_dir=model_path, pretrained=False, num_workers=0),
             }
         )
-        model = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path).eval().cuda()
+        model = (
+            LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path, cfg=cfg)
+            .eval()
+            .cuda()
+        )
         registry = Registry(rows=rows, model=model, cfg=cfg)
         registry.create_index()
         return registry
@@ -670,19 +687,15 @@ class ScoringService(object):
         Returns:
             bool: The return value. True for success, False otherwise.
         """
-        try:
-            rows = preprocess(image_dir=reference_path, meta_path=reference_meta_path)[
-                "rows"
-            ]
-            cls.registry = cls.load_registry(
-                cfg_path=os.path.join(model_path, "../config/v1-0.yaml"),
-                model_path=model_path,
-                rows=rows,
-            )
-            return True
-        except Exception as e:
-            print(e)
-            return False
+        rows = preprocess(image_dir=reference_path, meta_path=reference_meta_path)[
+            "rows"
+        ]
+        cls.registry = cls.load_registry(
+            cfg_path="./config/v1-0.yaml",
+            model_path=model_path,
+            rows=rows,
+        )
+        return True
 
     @classmethod
     def predict(cls, input: str) -> dict[str, list[str]]:

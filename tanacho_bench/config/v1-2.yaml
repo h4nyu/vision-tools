@@ -2,7 +2,7 @@ name: v1
 kfold: 5
 seed: 1024
 fold: 2
-batch_size: 16
+batch_size: 8
 model_name: tf_efficientnet_b6_ns
 lr: 0.000685564766155184
 image_size: 480
