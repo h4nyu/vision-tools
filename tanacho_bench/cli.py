@@ -29,9 +29,9 @@ def show_config(input: str) -> None:
 @click.option("-i", "--input", required=True)
 def predict(input: str) -> None:
     res = ScoringService.get_model(
-        model_path="models",
-        reference_path="../datasets/train",
-        reference_meta_path="../datasets/train_meta.json",
+        model_path="model",
+        reference_path="/app/datasets/train",
+        reference_meta_path="/app/datasets/train_meta.json",
     )
     if res:
         ScoringService.predict(input)

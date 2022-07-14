@@ -1,4 +1,5 @@
 doit-db.json
 *.cache
 outputs
-models
+model
+!dist/.gitignore
