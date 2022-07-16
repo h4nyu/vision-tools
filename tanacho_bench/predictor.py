@@ -710,7 +710,7 @@ class ScoringService(object):
             "rows"
         ]
         cls.registry = cls.load_registry(
-            cfg_path="./config/v1-0.yaml",
+            cfg_path="./config/v2-0.yaml",
             model_path=model_path,
             rows=rows,
         )
