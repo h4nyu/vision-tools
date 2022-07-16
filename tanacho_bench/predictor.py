@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import pickle
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from logging import FileHandler, Formatter, StreamHandler
 from typing import Any, Callable, Optional
 
@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 import yaml
 from albumentations.pytorch.transforms import ToTensorV2
-from pytorch_metric_learning.losses import ArcFaceLoss
+from pytorch_metric_learning.losses import ArcFaceLoss, SubCenterArcFaceLoss
 from skimage import io
 from sklearn import preprocessing
 from sklearn.model_selection import StratifiedKFold
@@ -54,12 +54,16 @@ class Config:
     patience: int
     n_neighbors: int
 
+    warmup_t: int = 5
+    border_mode: int = 0
     scale_limit: float = 0.3
     brightness_limit: float = 0.2
     contrast_limit: float = 0.2
     hue_shift_limit: float = 0.2
     sat_shift_limit: float = 0.2
     val_shift_limit: float = 0.2
+    rotate_limit: float = 15
+    sub_centers: int = 8
     monitor_mode: str = "min"
     monitor_target: str = "val_loss"
     device: str = "cuda"
@@ -67,14 +71,16 @@ class Config:
     num_categories: int = 2
     num_colors: int = 11
     num_model_nos: int = 122
-    kfold: int = 5
+    kfold: int = 6
     use_amp: bool = True
     total_steps: int = 100_00
     topk: int = 10
     pretrained: bool = True
-
+    fine: dict = field(default_factory=dict)
     resume: str = "score"
     checkpoint_dir: str = "checkpoints"
+    hard_samples: list[str] = field(default_factory=list)
+    is_fine: bool = False
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -89,6 +95,18 @@ class Config:
     @property
     def checkpoint_path(self) -> str:
         return os.path.join(self.checkpoint_dir, self.checkpoint_filename + ".ckpt")
+
+    @property
+    def fine_cfg(self) -> Config:
+        return Config(
+            **{
+                **asdict(self),
+                **self.fine,
+                **dict(
+                    is_fine=True,
+                ),
+            }
+        )
 
 
 class MAPKMetric:
@@ -192,9 +210,14 @@ TrainTransform = lambda cfg: A.Compose(
         A.PadIfNeeded(
             min_height=cfg.image_size,
             min_width=cfg.image_size,
-            border_mode=cv2.BORDER_REPLICATE,
+            border_mode=cfg.border_mode,
         ),
-        A.ShiftScaleRotate(scale_limit=cfg.scale_limit, rotate_limit=180, p=0.5),
+        A.ShiftScaleRotate(
+            scale_limit=cfg.scale_limit,
+            rotate_limit=cfg.rotate_limit,
+            p=0.5,
+            border_mode=cfg.border_mode,
+        ),
         A.OneOf(
             [
                 A.HueSaturationValue(
@@ -211,6 +234,8 @@ TrainTransform = lambda cfg: A.Compose(
             ],
             p=0.9,
         ),
+        A.RandomRotate90(p=0.5),
+        A.RandomRotate90(p=0.5),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.Transpose(p=0.5),
@@ -225,7 +250,7 @@ InferenceTransform = lambda cfg: A.Compose(
         A.PadIfNeeded(
             min_height=cfg.image_size,
             min_width=cfg.image_size,
-            border_mode=cv2.BORDER_REPLICATE,
+            border_mode=cfg.border_mode,
         ),
         ToTensorV2(),
     ],
@@ -323,24 +348,13 @@ class LitModelNoNet(pl.LightningModule):
             embedding_size=cfg.embedding_size,
             pretrained=cfg.pretrained,
         )
-        self.arcface = ArcFaceLoss(
+        self.arcface = SubCenterArcFaceLoss(
             num_classes=cfg.num_model_nos,
             embedding_size=cfg.embedding_size,
             scale=cfg.arcface_scale,
             margin=cfg.arcface_margin,
+            sub_centers=cfg.sub_centers,
         )
-        self.save_hyperparameters()
-
-    @classmethod
-    def load(cls, path: str) -> None:
-        with open(path, "rb") as f:
-            data = torch.load(f)
-        cfg = data["hyper_parameters"]["cfg"]
-        obj = LitModelNoNet(cfg=Config(**{**asdict(cfg), **dict(pretrained=False)}))
-        obj.cfg = cfg
-        # print(obj.cfg)
-        # obj.load_state_dict(data['state_dict'])
-        return obj
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         return self.net(x)
@@ -379,15 +393,22 @@ class LitModelNoNet(pl.LightningModule):
             optimizer,
             t_initial=self.cfg.epochs,
             lr_min=1e-6,
-            warmup_t=3,
+            warmup_t=self.cfg.warmup_t,
             warmup_lr_init=1e-5,
             warmup_prefix=True,
         )
         return [optimizer], [scheduler]
 
 
-def train(cfg: Config, fold: dict) -> LitModelNoNet:
-    print(cfg)
+def train(
+    cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None
+) -> LitModelNoNet:
+    train_rows = fold["train"]
+    for sample in cfg.hard_samples:
+        for row in fold["valid"]:
+            if row["image_path"].endswith(sample):
+                train_rows.append(row)
+
     train_dataset = TanachoDataset(
         rows=fold["train"],
         transform=TrainTransform(cfg),
@@ -418,15 +439,21 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
             pl.callbacks.EarlyStopping(
                 monitor=cfg.monitor_target, mode=cfg.monitor_mode, patience=cfg.patience
             ),
+            pl.callbacks.ModelCheckpoint(
+                monitor="val_loss",
+                mode="min",
+                dirpath=cfg.checkpoint_dir,
+                filename=cfg.checkpoint_filename,
+                save_last=True,
+            ),
         ],
     )
-    model = LitModelNoNet(cfg)
+    model = model or LitModelNoNet(cfg)
     trainer.fit(
         model,
         train_loader,
         valid_loader,
     )
-    trainer.save_checkpoint(cfg.checkpoint_path)
     return model
 
 
@@ -441,7 +468,7 @@ def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> 
         shuffle=False,
         num_workers=cfg.num_workers,
     )
-    net = model or LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path)
+    net = model or LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path, cfg=cfg)
 
     registry = Registry(
         rows=fold["train"],
@@ -467,8 +494,22 @@ def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> 
     for embeds, row in val_preds:
         labels = row["model_no_label"]
         y = registry.filter_id(embeds)
-        for preds, label in zip(torch.tensor(y), labels.unsqueeze(1)):
+
+        for i, (preds, label) in enumerate(zip(torch.tensor(y), labels.unsqueeze(1))):
             metric.update(preds, label)
+            if preds[0] != label:
+                print(f"=================")
+                expected = registry.label_map[int(label)]
+                print(f"expected={expected}")
+                color = row["color"][i]
+                print(f"color={color}")
+                print(f"---------------------------")
+                image_path = row["image_path"][i]
+                print(f"image_path={image_path}")
+                actual = registry.label_map[int(preds[0])]
+                print(f"actual={actual}")
+                print(f"=================")
+
     score = metric.compute()
     print(f"score={score}")
     return score
@@ -481,27 +522,14 @@ class Search:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 9.0, 17.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 5.0)
-        embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
+        arcface_scale = trial.suggest_float("arcface_scale", 0.0, 30.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 30.0)
+        sub_centers = trial.suggest_int("sub_centers", 2, 4)
+        # embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
 
-        model_name = trial.suggest_categorical(
-            "model_name",
-            [
-                "tf_efficientnet_b7_ns",
-                # "tf_efficientnet_b6_ns",
-                # "tf_efficientnet_b5_ns",
-                # "tf_efficientnet_b4_ns",
-            ],
-        )
-        image_size = trial.suggest_categorical("image_size", [380, 480, 512])
-
-        # brightness_limit = trial.suggest_float("brightness_limit", 0.0, 0.4)
-        # contrast_limit = trial.suggest_float("contrast_limit", 0.0, 0.3)
-        # hue_shift_limit = trial.suggest_float("hue_shift_limit", 0.0, 0.3)
-        # sat_shift_limit = trial.suggest_float("sat_shift_limit", 0.0, 0.3)
-        # val_shift_limit = trial.suggest_float("val_shift_limit", 0.0, 0.3)
-        scale_limit = trial.suggest_float("scale_limit", 0.0, 0.3)
+        # image_size = trial.suggest_categorical("image_size", [380, 480, 512])
+        # rotate_limit = trial.suggest_float("rotate_limit", 0.0, 45)
+        # scale_limit = trial.suggest_float("scale_limit", 0.0, 0.3)
 
         cfg = Config(
             **{
@@ -509,20 +537,12 @@ class Search:
                 **dict(
                     arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
-                    embedding_size=embedding_size,
-                    image_size=image_size,
-                    model_name=model_name,
-                    # brightness_limit=brightness_limit,
-                    # contrast_limit=contrast_limit,
-                    # hue_shift_limit=hue_shift_limit,
-                    # sat_shift_limit=sat_shift_limit,
-                    # val_shift_limit=val_shift_limit,
-                    scale_limit=scale_limit,
+                    sub_centers=sub_centers,
                 ),
             }
         )
-        model = train(cfg=cfg, fold=self.fold)
-        score = evaluate(cfg=cfg, fold=self.fold, model=model)
+        train(cfg=cfg, fold=self.fold)
+        score = evaluate(cfg=cfg, fold=self.fold)
         return score
 
     def __call__(self) -> None:
@@ -538,7 +558,6 @@ class Registry:
         cfg: Config,
         rows: list[dict],
     ) -> None:
-        print("aaaaaaaa")
         self.neigh = NearestNeighbors(
             n_neighbors=cfg.n_neighbors,
             metric="cosine",
@@ -552,7 +571,7 @@ class Registry:
                 A.PadIfNeeded(
                     min_height=cfg.image_size,
                     min_width=cfg.image_size,
-                    border_mode=cv2.BORDER_REPLICATE,
+                    border_mode=cfg.border_mode,
                 ),
                 ToTensorV2(),
             ],
@@ -563,7 +582,7 @@ class Registry:
                 A.PadIfNeeded(
                     min_height=cfg.image_size,
                     min_width=cfg.image_size,
-                    border_mode=cv2.BORDER_REPLICATE,
+                    border_mode=cfg.border_mode,
                 ),
                 A.HorizontalFlip(p=1.0),
                 ToTensorV2(),
@@ -575,7 +594,7 @@ class Registry:
                 A.PadIfNeeded(
                     min_height=cfg.image_size,
                     min_width=cfg.image_size,
-                    border_mode=cv2.BORDER_REPLICATE,
+                    border_mode=cfg.border_mode,
                 ),
                 A.VerticalFlip(p=1.0),
                 ToTensorV2(),
