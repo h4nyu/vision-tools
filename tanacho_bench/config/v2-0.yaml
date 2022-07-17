@@ -20,6 +20,8 @@ warmup_t: 1
 epochs: 57
 patience: 11
 n_neighbors: 200
+vflip_p: 0.0
+hflip_p: 0.0
 
 hard_samples:
   - '031/7.jpg'

@@ -81,6 +81,8 @@ class Config:
     checkpoint_dir: str = "checkpoints"
     hard_samples: list[str] = field(default_factory=list)
     is_fine: bool = False
+    vflip_p: float = 0.5
+    hflip_p: float = 0.5
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -235,10 +237,8 @@ TrainTransform = lambda cfg: A.Compose(
             p=0.9,
         ),
         A.RandomRotate90(p=0.5),
-        A.RandomRotate90(p=0.5),
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.Transpose(p=0.5),
+        A.HorizontalFlip(p=cfg.hflip_p),
+        A.VerticalFlip(p=cfg.vflip_p),
         A.Rotate(p=0.5),
         ToTensorV2(),
     ],
@@ -576,35 +576,45 @@ class Registry:
                 ToTensorV2(),
             ],
         )
-        self.hflip_transform = A.Compose(
-            [
-                A.LongestMaxSize(max_size=cfg.image_size),
-                A.PadIfNeeded(
-                    min_height=cfg.image_size,
-                    min_width=cfg.image_size,
-                    border_mode=cfg.border_mode,
-                ),
-                A.HorizontalFlip(p=1.0),
-                ToTensorV2(),
-            ],
-        )
-        self.vflip_transform = A.Compose(
-            [
-                A.LongestMaxSize(max_size=cfg.image_size),
-                A.PadIfNeeded(
-                    min_height=cfg.image_size,
-                    min_width=cfg.image_size,
-                    border_mode=cfg.border_mode,
-                ),
-                A.VerticalFlip(p=1.0),
-                ToTensorV2(),
-            ],
-        )
         self.model = model
         self.transforms = [
             self.transform,
-            self.vflip_transform,
-            self.hflip_transform,
+            A.Compose(
+                [
+                    A.LongestMaxSize(max_size=cfg.image_size),
+                    A.PadIfNeeded(
+                        min_height=cfg.image_size,
+                        min_width=cfg.image_size,
+                        border_mode=cfg.border_mode,
+                    ),
+                    A.Rotate((90, 90), p=1.0),
+                    ToTensorV2(),
+                ],
+            ),
+            A.Compose(
+                [
+                    A.LongestMaxSize(max_size=cfg.image_size),
+                    A.PadIfNeeded(
+                        min_height=cfg.image_size,
+                        min_width=cfg.image_size,
+                        border_mode=cfg.border_mode,
+                    ),
+                    A.Rotate((180, 180), p=1.0),
+                    ToTensorV2(),
+                ],
+            ),
+            A.Compose(
+                [
+                    A.LongestMaxSize(max_size=cfg.image_size),
+                    A.PadIfNeeded(
+                        min_height=cfg.image_size,
+                        min_width=cfg.image_size,
+                        border_mode=cfg.border_mode,
+                    ),
+                    A.Rotate((270, 270), p=1.0),
+                    ToTensorV2(),
+                ],
+            ),
         ]
         self.all_labels = np.empty(0)
         self.label_map: dict[int, str] = {}

@@ -102,12 +102,26 @@ def _evaluate(config_path: str, fine: bool) -> None:
     evaluate(cfg=cfg, fold=folds[cfg.fold])
 
 
+@click.command("preview")
+@click.option("-c", "--config-path")
+def preview(config_path: str) -> None:
+    cfg = Config.load(config_path)
+    print(cfg.checkpoint_path)
+    data = preprocess(
+        image_dir="/app/datasets/train",
+        meta_path="/app/datasets/train_meta.json",
+    )
+    folds = kfold(cfg=cfg, rows=data["rows"])
+    preview_dataset(cfg=cfg, rows=data["rows"], path="outputs/preview_dataset.png")
+
+
 cli.add_command(predict)
 cli.add_command(show)
 cli.add_command(search)
 cli.add_command(_evaluate)
 cli.add_command(_train)
 cli.add_command(fine)
+cli.add_command(preview)
 
 if __name__ == "__main__":
     cli()
