@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import pickle
+import pprint as pp
 from dataclasses import asdict, dataclass, field
 from logging import FileHandler, Formatter, StreamHandler
 from typing import Any, Callable, Optional
@@ -71,7 +72,7 @@ class Config:
     num_categories: int = 2
     num_colors: int = 11
     num_model_nos: int = 122
-    kfold: int = 6
+    kfold: int = 3
     use_amp: bool = True
     total_steps: int = 100_00
     topk: int = 10
@@ -83,6 +84,8 @@ class Config:
     is_fine: bool = False
     vflip_p: float = 0.5
     hflip_p: float = 0.5
+    blur_p: float = 0.0
+    accumulate_grad_batches: int = 1
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -239,7 +242,6 @@ TrainTransform = lambda cfg: A.Compose(
         A.RandomRotate90(p=0.5),
         A.HorizontalFlip(p=cfg.hflip_p),
         A.VerticalFlip(p=cfg.vflip_p),
-        A.Rotate(p=0.5),
         ToTensorV2(),
     ],
 )
@@ -403,6 +405,7 @@ class LitModelNoNet(pl.LightningModule):
 def train(
     cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None
 ) -> LitModelNoNet:
+    pp.pprint(cfg)
     train_rows = fold["train"]
     for sample in cfg.hard_samples:
         for row in fold["valid"]:
@@ -435,6 +438,7 @@ def train(
         gpus=1,
         max_epochs=-1,
         accelerator="gpu",
+        accumulate_grad_batches=cfg.accumulate_grad_batches,
         callbacks=[
             pl.callbacks.EarlyStopping(
                 monitor=cfg.monitor_target, mode=cfg.monitor_mode, patience=cfg.patience
@@ -524,13 +528,11 @@ class Search:
     def objective(self, trial: optuna.trial.Trial) -> float:
         arcface_scale = trial.suggest_float("arcface_scale", 0.0, 30.0)
         arcface_margin = trial.suggest_float("arcface_margin", 0.0, 30.0)
-        sub_centers = trial.suggest_int("sub_centers", 2, 4)
-        # embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
-
-        # image_size = trial.suggest_categorical("image_size", [380, 480, 512])
-        # rotate_limit = trial.suggest_float("rotate_limit", 0.0, 45)
-        # scale_limit = trial.suggest_float("scale_limit", 0.0, 0.3)
-
+        sub_centers = trial.suggest_int("sub_centers", 2, 8)
+        image_size = trial.suggest_categorical("image_size", [380, 480])
+        embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
+        blur_p = trial.suggest_float("blur_p", 0.0, 0.5)
+        accumulate_grad_batches = trial.suggest_int("accumulate_grad_batches", 1, 8)
         cfg = Config(
             **{
                 **asdict(self.cfg),
@@ -538,6 +540,10 @@ class Search:
                     arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
                     sub_centers=sub_centers,
+                    image_size=image_size,
+                    embedding_size=embedding_size,
+                    blur_p=blur_p,
+                    accumulate_grad_batches=accumulate_grad_batches,
                 ),
             }
         )
@@ -680,7 +686,7 @@ class Registry:
         return labels
 
 
-class ScoringService(object):
+class ScoringService:
     registry: Registry
 
     @classmethod

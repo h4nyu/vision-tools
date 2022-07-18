@@ -1,8 +1,8 @@
-name: v2
+name: v3
 seed: 1024
 fold: 0
-batch_size: 16
-model_name: tf_efficientnet_b5_ns
+batch_size: 8
+model_name: tf_efficientnet_b4_ns
 lr: 0.000685564766155184
 image_size: 480
 embedding_size: 768
@@ -20,6 +20,9 @@ warmup_t: 1
 epochs: 57
 patience: 11
 n_neighbors: 200
+blur_p: 0.5
+vflip_p: 0.0
+hflip_p: 0.0
 
 hard_samples:
   - '031/7.jpg'
