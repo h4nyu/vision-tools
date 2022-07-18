@@ -233,7 +233,7 @@ TrainTransform = lambda cfg: A.Compose(
                 ),
                 A.RandomBrightnessContrast(
                     brightness_limit=cfg.brightness_limit,
-                    contrast_limit=cfg.brightness_limit,
+                    contrast_limit=cfg.contrast_limit,
                     p=0.5,
                 ),
             ],
@@ -295,7 +295,7 @@ def preview_dataset(cfg: Config, rows: list[dict], path: str) -> None:
         rows=rows,
         transform=TrainTransform(cfg),
     )
-    grid = make_grid([dataset[i]["sample"]["image"] for i in range(10)])
+    grid = make_grid([dataset[0]["sample"]["image"] for i in range(10)])
     save_image(grid, path)
 
 
@@ -504,6 +504,7 @@ def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> 
             if preds[0] != label:
                 image_path = row["image_path"][i]
                 print(f"image_path={image_path}")
+                expected = registry.label_map[int(label)]
                 actual = registry.label_map[int(preds[0])]
                 print(f"expected={expected}, actual={actual}")
                 print(f"=================")

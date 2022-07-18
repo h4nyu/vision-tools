@@ -1,3 +1,4 @@
+import os
 from dataclasses import asdict
 from pprint import pprint
 
@@ -104,15 +105,19 @@ def _evaluate(config_path: str, fine: bool) -> None:
 
 @click.command("preview")
 @click.option("-c", "--config-path")
-def preview(config_path: str) -> None:
+@click.option("-i", "--image-path")
+def preview(config_path: str, image_path: str) -> None:
     cfg = Config.load(config_path)
-    print(cfg.checkpoint_path)
     data = preprocess(
         image_dir="/app/datasets/train",
         meta_path="/app/datasets/train_meta.json",
     )
-    folds = kfold(cfg=cfg, rows=data["rows"])
-    preview_dataset(cfg=cfg, rows=data["rows"], path="outputs/preview_dataset.png")
+    rows = []
+    for row in data["rows"]:
+        if row["image_path"].endswith(image_path):
+            rows.append(row)
+    sample_name = os.path.basename(image_path).split(".")[0]
+    preview_dataset(cfg=cfg, rows=rows, path=f"outputs/{sample_name}.jpg")
 
 
 cli.add_command(predict)

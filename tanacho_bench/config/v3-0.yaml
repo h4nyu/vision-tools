@@ -9,8 +9,8 @@ image_size: 480
 embedding_size: 768
 arcface_scale: 7.96818792702712
 arcface_margin: 15.301357526420816
-brightness_limit: 0.391
-contrast_limit: 0.291
+brightness_limit: 0.191
+contrast_limit: 0.000
 hue_shift_limit: 0.28
 sat_shift_limit: 0.225
 val_shift_limit: 0.28
