@@ -116,8 +116,7 @@ def preview(config_path: str, image_path: str) -> None:
     for row in data["rows"]:
         if row["image_path"].endswith(image_path):
             rows.append(row)
-    sample_name = os.path.basename(image_path).split(".")[0]
-    preview_dataset(cfg=cfg, rows=rows, path=f"outputs/{sample_name}.jpg")
+    preview_dataset(cfg=cfg, rows=rows, path=f"outputs/{image_path.replace('/','-')}")
 
 
 cli.add_command(predict)

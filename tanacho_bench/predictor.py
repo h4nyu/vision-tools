@@ -58,8 +58,8 @@ class Config:
     warmup_t: int = 5
     border_mode: int = 0
     scale_limit: float = 0.3
-    brightness_limit: float = 0.2
-    contrast_limit: float = 0.2
+    brightness_limit: float = 0.01
+    contrast_limit: float = 0.01
     hue_shift_limit: float = 0.2
     sat_shift_limit: float = 0.2
     val_shift_limit: float = 0.2
@@ -524,8 +524,10 @@ class Search:
         arcface_scale = trial.suggest_float("arcface_scale", 0.0, 30.0)
         arcface_margin = trial.suggest_float("arcface_margin", 0.0, 30.0)
         sub_centers = trial.suggest_int("sub_centers", 2, 8)
-        image_size = trial.suggest_categorical("image_size", [380, 480])
+        # image_size = trial.suggest_categorical("image_size", [380, 480])
+        image_size = trial.suggest_categorical("image_size", [380])
         embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
+        # embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
         cfg = Config(
             **{
                 **asdict(self.cfg),
@@ -675,6 +677,19 @@ class Registry:
             ids = self.filter_id(embeddings)[0]
             labels = [self.label_map[i] for i in ids]
         return labels
+
+
+class Ensemble:
+    def __call__(self, predictions: list) -> list:
+        scores = list(range(len(predictions[0])))
+        label_scores = dict()
+        for preds in predictions:
+            for s, p in zip(scores, preds):
+                if p in label_scores:
+                    label_scores[p] += s
+                else:
+                    label_scores[p] = s
+        return [k for k, v in sorted(label_scores.items(), key=lambda x: x[1])]
 
 
 class ScoringService:

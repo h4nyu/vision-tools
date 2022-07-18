@@ -1,7 +1,7 @@
 from typing import Any
 
 import torch
-from predictor import MAPKMetric, Net
+from predictor import Ensemble, MAPKMetric, Net
 
 
 def ap(preds: Any, gts: Any, k: float) -> float:
@@ -49,3 +49,13 @@ def test_ap() -> None:
     metric.reset()
     metric.update(torch.tensor(preds), torch.tensor(gts))
     assert metric.compute() == score
+
+
+def test_ensemble() -> None:
+    ensemble = Ensemble()
+    predictions = [
+        ["a", "b", "c"],
+        ["b", "c", "a"],
+    ]
+    merged = ensemble(predictions)
+    assert merged == ["b", "a", "c"]

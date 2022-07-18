@@ -9,11 +9,11 @@ image_size: 480
 embedding_size: 768
 arcface_scale: 7.96818792702712
 arcface_margin: 15.301357526420816
-brightness_limit: 0.191
+brightness_limit: 0.00
 contrast_limit: 0.000
-hue_shift_limit: 0.28
-sat_shift_limit: 0.225
-val_shift_limit: 0.28
+hue_shift_limit: 0.00
+sat_shift_limit: 0.00
+val_shift_limit: 0.00
 scale_limit: 0.18529016025844874
 sub_centers: 2
 rotate_limit: 32.394467397006466
@@ -28,6 +28,7 @@ hflip_p: 0.0
 hard_samples:
   - '031/7.jpg'
   - '049/7.jpg'
+  - '002/4.jpg'
 
 fine:
   lr: 0.0001
