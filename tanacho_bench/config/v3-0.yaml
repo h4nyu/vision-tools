@@ -1,7 +1,7 @@
 name: v3
 seed: 1024
 fold: 0
-batch_size: 8
+batch_size: 32
 model_name: tf_efficientnet_b4_ns
 lr: 0.000685564766155184
 image_size: 480
