@@ -72,7 +72,7 @@ class Config:
     num_categories: int = 2
     num_colors: int = 11
     num_model_nos: int = 122
-    kfold: int = 3
+    kfold: int = 4
     use_amp: bool = True
     total_steps: int = 100_00
     topk: int = 10
@@ -95,7 +95,7 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.{self.model_name}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}"
+        return f"{self.name}.{self.fold}.{self.kfold}.{self.model_name}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}"
 
     @property
     def checkpoint_path(self) -> str:
@@ -502,16 +502,10 @@ def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> 
         for i, (preds, label) in enumerate(zip(torch.tensor(y), labels.unsqueeze(1))):
             metric.update(preds, label)
             if preds[0] != label:
-                print(f"=================")
-                expected = registry.label_map[int(label)]
-                print(f"expected={expected}")
-                color = row["color"][i]
-                print(f"color={color}")
-                print(f"---------------------------")
                 image_path = row["image_path"][i]
                 print(f"image_path={image_path}")
                 actual = registry.label_map[int(preds[0])]
-                print(f"actual={actual}")
+                print(f"expected={expected}, actual={actual}")
                 print(f"=================")
 
     score = metric.compute()
@@ -531,8 +525,6 @@ class Search:
         sub_centers = trial.suggest_int("sub_centers", 2, 8)
         image_size = trial.suggest_categorical("image_size", [380, 480])
         embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
-        blur_p = trial.suggest_float("blur_p", 0.0, 0.5)
-        accumulate_grad_batches = trial.suggest_int("accumulate_grad_batches", 1, 8)
         cfg = Config(
             **{
                 **asdict(self.cfg),
@@ -542,8 +534,6 @@ class Search:
                     sub_centers=sub_centers,
                     image_size=image_size,
                     embedding_size=embedding_size,
-                    blur_p=blur_p,
-                    accumulate_grad_batches=accumulate_grad_batches,
                 ),
             }
         )
