@@ -51,9 +51,10 @@ class Config:
     embedding_size: int
     arcface_scale: float
     arcface_margin: float
-    epochs: int
-    patience: int
-    n_neighbors: int
+    loss_type: str = "ArcFaceLoss"
+    patience: int = 13
+    epochs: int = 60
+    n_neighbors: int = 200
 
     warmup_t: int = 5
     border_mode: int = 0
@@ -85,12 +86,14 @@ class Config:
     vflip_p: float = 0.5
     hflip_p: float = 0.5
     blur_p: float = 0.0
+
     accumulate_grad_batches: int = 1
 
     @classmethod
     def load(cls, path: str) -> Config:
         with open(path) as file:
             obj = yaml.safe_load(file)
+            print(obj)
         return Config(**obj)
 
     @property
@@ -112,6 +115,20 @@ class Config:
                 ),
             }
         )
+
+
+@dataclass
+class EnsembleConfig:
+    config_paths: list[str] = field(default_factory=list)
+    configs: list[Config] = field(default_factory=list)
+
+    @classmethod
+    def load(cls, path: str) -> EnsembleConfig:
+        with open(path) as file:
+            obj = yaml.safe_load(file)
+        config_paths = obj["config_paths"]
+        configs = [Config.load(p) for p in config_paths]
+        return EnsembleConfig(configs=configs, config_paths=config_paths)
 
 
 class MAPKMetric:
@@ -350,13 +367,21 @@ class LitModelNoNet(pl.LightningModule):
             embedding_size=cfg.embedding_size,
             pretrained=cfg.pretrained,
         )
-        self.arcface = SubCenterArcFaceLoss(
-            num_classes=cfg.num_model_nos,
-            embedding_size=cfg.embedding_size,
-            scale=cfg.arcface_scale,
-            margin=cfg.arcface_margin,
-            sub_centers=cfg.sub_centers,
-        )
+        if cfg.loss_type == "SubCenterArcFaceLoss":
+            self.arcface = SubCenterArcFaceLoss(
+                num_classes=cfg.num_model_nos,
+                embedding_size=cfg.embedding_size,
+                scale=cfg.arcface_scale,
+                margin=cfg.arcface_margin,
+                sub_centers=cfg.sub_centers,
+            )
+        if cfg.loss_type == "ArcFaceLoss":
+            self.arcface = ArcFaceLoss(
+                num_classes=cfg.num_model_nos,
+                embedding_size=cfg.embedding_size,
+                scale=cfg.arcface_scale,
+                margin=cfg.arcface_margin,
+            )
 
     def forward(self, x: Tensor) -> Tensor:  # type: ignore
         return self.net(x)
@@ -680,28 +705,32 @@ class Registry:
 
 
 class Ensemble:
-    def __call__(self, predictions: list) -> list:
-        scores = list(range(len(predictions[0])))
-        label_scores = dict()
+    def __init__(self, topk: int) -> None:
+        self.topk = topk
+        self.scores = list(range(topk))
+
+    def __call__(self, predictions: list) -> list[str]:
+        label_scores: dict[str, float] = dict()
         for preds in predictions:
-            for s, p in zip(scores, preds):
+            for s, p in zip(self.scores, preds):
                 if p in label_scores:
                     label_scores[p] += s
                 else:
                     label_scores[p] = s
-        return [k for k, v in sorted(label_scores.items(), key=lambda x: x[1])]
+        return [k for k, v in sorted(label_scores.items(), key=lambda x: x[1])][
+            : self.topk
+        ]
 
 
 class ScoringService:
-    registry: Registry
+    registries: list[Registry]
+    ensemble: Ensemble
 
     @classmethod
-    def load_registry(
-        cls, cfg_path: str, model_path: str, rows: list[dict]
-    ) -> Registry:
+    def load_registry(cls, cfg: Config, model_path: str, rows: list[dict]) -> Registry:
         cfg = Config(
             **{
-                **asdict(Config.load(cfg_path)),
+                **asdict(cfg),
                 **dict(checkpoint_dir=model_path, pretrained=False, num_workers=0),
             }
         )
@@ -731,11 +760,12 @@ class ScoringService:
         rows = preprocess(image_dir=reference_path, meta_path=reference_meta_path)[
             "rows"
         ]
-        cls.registry = cls.load_registry(
-            cfg_path="./config/v2-0.yaml",
-            model_path=model_path,
-            rows=rows,
-        )
+        ensemble_config = EnsembleConfig.load("./config/ensemble.yaml")
+        cls.registries = [
+            cls.load_registry(cfg, model_path=model_path, rows=rows)
+            for cfg in ensemble_config.configs
+        ]
+        cls.ensemble = Ensemble()
         return True
 
     @classmethod
@@ -751,7 +781,10 @@ class ScoringService:
         sample_name = os.path.basename(input).split(".")[0]
         # load an image and get the file name
         image = io.imread(input)
-        prediction = cls.registry.filter_labels_by_image(image)
-        output = {sample_name: prediction}
+        predictions_list = [
+            registry.filter_labels_by_image(image) for registry in cls.registries
+        ]
+        predictions = cls.ensemble(predictions_list)
+        output = {sample_name: predictions}
         print(output)
         return output

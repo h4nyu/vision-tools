@@ -52,10 +52,10 @@ def test_ap() -> None:
 
 
 def test_ensemble() -> None:
-    ensemble = Ensemble()
+    ensemble = Ensemble(topk=4)
     predictions = [
-        ["a", "b", "c"],
-        ["b", "c", "a"],
+        ["a", "b", "c", "e"],
+        ["b", "c", "a", "f"],
     ]
     merged = ensemble(predictions)
-    assert merged == ["b", "a", "c"]
+    assert merged == ["b", "a", "c", "e"]
