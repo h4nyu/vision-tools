@@ -310,14 +310,14 @@ def preview_dataset(cfg: Config, rows: list[dict], path: str) -> None:
     save_image(grid, path)
 
 
-def kfold(cfg: Config, rows: list[dict]) -> list[set, set]:
+def kfold(cfg: Config, rows: list[dict]) -> list[list[dict], list[dict]]:
     """fold by model_no"""
-    skf = KFold(n_splits=cfg.kfold)
-    y = list(set([row["model_no"] for row in rows]))
+    skf = StratifiedKFold(n_splits=cfg.kfold)
+    y = [row["model_no"] for row in rows]
     X = range(len(y))
     folds = []
     for fold_, (train_, valid_) in enumerate(skf.split(X=X, y=y)):
-        folds.append(([y[i] for i in train_], [y[i] for i in valid_]))
+        folds.append(([rows[i] for i in train_], [rows[i] for i in valid_]))
     return folds
 
 
@@ -809,7 +809,8 @@ def setup_fold(cfg: Config) -> dict:
         meta=meta,
     )
     folds = kfold(cfg=cfg, rows=rows)
-    train_model_nos, valid_model_nos = folds[cfg.fold]
+    _, _valid_model_rows = folds[cfg.fold]
+    valid_image_paths = set([r["image_path"] for r in _valid_model_rows])
 
     with open("/app/datasets/extend_meta.json", "r") as f:
         extend_meta = json.load(f)
@@ -824,12 +825,10 @@ def setup_fold(cfg: Config) -> dict:
     train_rows = []
     valid_rows = []
     for row in rows:
-        for train_model_no in train_model_nos:
-            if row["model_no"].endswith(train_model_no):
-                train_rows.append(row)
-                continue
-
-    for row in rows:
-        if row["model_no"] in valid_model_nos:
+        if row["image_path"] in valid_image_paths:
             valid_rows.append(row)
+        else:
+            train_rows.append(row)
+    print(len(train_rows))
+    print(len(valid_rows))
     return dict(train=train_rows, valid=valid_rows)
