@@ -1,3 +1,4 @@
+topk: 10
 config_paths:
   - config/v3-0.yaml
   - config/v3-1.yaml

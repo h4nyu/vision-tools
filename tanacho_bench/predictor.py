@@ -121,6 +121,7 @@ class Config:
 class EnsembleConfig:
     config_paths: list[str] = field(default_factory=list)
     configs: list[Config] = field(default_factory=list)
+    topk: int = 10
 
     @classmethod
     def load(cls, path: str) -> EnsembleConfig:
@@ -760,7 +761,7 @@ class ScoringService:
             cls.load_registry(cfg, model_path=model_path, rows=rows)
             for cfg in ensemble_config.configs
         ]
-        cls.ensemble = Ensemble()
+        cls.ensemble = Ensemble(topk=ensemble_config.topk)
         return True
 
     @classmethod

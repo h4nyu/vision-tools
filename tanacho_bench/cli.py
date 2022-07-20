@@ -103,21 +103,6 @@ def _evaluate(config_path: str, fine: bool) -> None:
     evaluate(cfg=cfg, fold=folds[cfg.fold])
 
 
-@click.command()
-def evaluate_ensemble() -> None:
-    cfg = Config.load(config_path)
-    if fine:
-        cfg = cfg.fine_cfg
-
-    print(cfg.checkpoint_path)
-    data = preprocess(
-        image_dir="/app/datasets/train",
-        meta_path="/app/datasets/train_meta.json",
-    )
-    folds = kfold(cfg=cfg, rows=data["rows"])
-    evaluate(cfg=cfg, fold=folds[cfg.fold])
-
-
 @click.command("preview")
 @click.option("-c", "--config-path")
 @click.option("-i", "--image-path")
