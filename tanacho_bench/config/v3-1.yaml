@@ -1,14 +1,14 @@
 name: v3
 seed: 1024
-fold: 0
+fold: 1
 kfold: 4
 batch_size: 16
-model_name: tf_efficientnet_b4_ns
+model_name: tf_efficientnet_b5_ns
 lr: 0.000685564766155184
 image_size: 480
-embedding_size: 1024
-arcface_scale: 4.528947870667664
-arcface_margin: 10.25334293160223
+embedding_size: 512
+arcface_scale: 16.132741524040817
+arcface_margin: 24.269744523588212
 brightness_limit: 0.00
 contrast_limit: 0.000
 hue_shift_limit: 0.00
@@ -18,13 +18,13 @@ scale_limit: 0.18529016025844874
 sub_centers: 2
 rotate_limit: 32.394467397006466
 warmup_t: 1
-epochs: 57
+epochs: 67
 patience: 11
 n_neighbors: 200
-blur_p: 0.4
+blur_p: 0.2
 vflip_p: 0.0
 hflip_p: 0.0
-loss_type: "ArcFaceLoss"
+loss_type: "SubCenterArcFaceLoss"
 
 hard_samples:
   - '031/7.jpg'

@@ -1,4 +1,3 @@
-
-
 config_paths:
-  - config/v1-0.yaml
+  - config/v3-0.yaml
+  - config/v3-1.yaml

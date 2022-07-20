@@ -98,7 +98,7 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.{self.kfold}.{self.model_name}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}"
+        return f"{self.name}.{self.fold}.{self.kfold}.{self.model_name}.{self.loss_type}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}"
 
     @property
     def checkpoint_path(self) -> str:
@@ -546,21 +546,15 @@ class Search:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 0.0, 30.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 30.0)
-        sub_centers = trial.suggest_int("sub_centers", 2, 8)
-        # image_size = trial.suggest_categorical("image_size", [380, 480])
-        image_size = trial.suggest_categorical("image_size", [380])
-        embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
-        # embedding_size = trial.suggest_categorical("embedding_size", [512, 768, 1024])
+        arcface_scale = trial.suggest_float("arcface_scale", 0.20, 30.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 5.0, 30.0)
+        embedding_size = trial.suggest_int("embedding_size", 512, 1024, step=256)
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
                     arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
-                    sub_centers=sub_centers,
-                    image_size=image_size,
                     embedding_size=embedding_size,
                 ),
             }
@@ -734,6 +728,7 @@ class ScoringService:
                 **dict(checkpoint_dir=model_path, pretrained=False, num_workers=0),
             }
         )
+        print(cfg.checkpoint_path)
         model = (
             LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path, cfg=cfg)
             .eval()
