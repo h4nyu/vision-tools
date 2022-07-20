@@ -548,7 +548,7 @@ class Search:
 
     def objective(self, trial: optuna.trial.Trial) -> float:
         arcface_scale = trial.suggest_float("arcface_scale", 0.20, 30.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 5.0, 30.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 10.0)
         embedding_size = trial.suggest_int("embedding_size", 512, 1024, step=256)
         cfg = Config(
             **{

@@ -1,10 +1,11 @@
 name: v2
 seed: 1024
 fold: 0
+kfold: 5
 batch_size: 16
 model_name: tf_efficientnet_b4_ns
 lr: 0.000685564766155184
-image_size: 480
+image_size: 512
 embedding_size: 768
 arcface_scale:  15.356498604174789
 arcface_margin: 8.946613196062254
@@ -22,6 +23,7 @@ patience: 11
 n_neighbors: 200
 vflip_p: 0.0
 hflip_p: 0.0
+loss_type: "ArcFaceLoss"
 
 hard_samples:
   - '031/7.jpg'
