@@ -1,3 +1,4 @@
+import json
 import os
 from dataclasses import asdict
 from pprint import pprint
@@ -11,9 +12,11 @@ from predictor import (
     check_folds,
     eda,
     evaluate,
+    invert_lr,
     kfold,
     preprocess,
     preview_dataset,
+    setup_fold,
     train,
 )
 
@@ -51,12 +54,8 @@ def predict(
 @click.option("-c", "--config-path")
 def search(config_path: str) -> None:
     cfg = Config.load(config_path)
-    data = preprocess(
-        image_dir="/app/datasets/train",
-        meta_path="/app/datasets/train_meta.json",
-    )
-    folds = kfold(cfg=cfg, rows=data["rows"])
-    search = Search(n_trials=10, cfg=cfg, fold=folds[cfg.fold])
+    fold = setup_fold(cfg)
+    search = Search(n_trials=10, cfg=cfg, fold=fold)
     search()
 
 
@@ -64,12 +63,8 @@ def search(config_path: str) -> None:
 @click.option("-c", "--config-path")
 def _train(config_path: str) -> None:
     cfg = Config.load(config_path)
-    data = preprocess(
-        image_dir="/app/datasets/train",
-        meta_path="/app/datasets/train_meta.json",
-    )
-    folds = kfold(cfg=cfg, rows=data["rows"])
-    train(cfg=cfg, fold=folds[cfg.fold])
+    fold = setup_fold(cfg)
+    train(cfg=cfg, fold=fold)
 
 
 @click.command("fine")
@@ -78,11 +73,11 @@ def fine(config_path: str) -> None:
     cfg = Config.load(config_path)
     fine_cfg = cfg.fine_cfg
     model = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path, cfg=fine_cfg)
-    data = preprocess(
+    rows = preprocess(
         image_dir="/app/datasets/train",
         meta_path="/app/datasets/train_meta.json",
     )
-    folds = kfold(cfg=cfg, rows=data["rows"])
+    folds = kfold(cfg=cfg, rows=rows)
     train(cfg=fine_cfg, fold=folds[cfg.fold], model=model)
 
 
@@ -93,13 +88,19 @@ def _evaluate(config_path: str, fine: bool) -> None:
     cfg = Config.load(config_path)
     if fine:
         cfg = cfg.fine_cfg
-
-    print(cfg.checkpoint_path)
-    data = preprocess(
+    with open("/app/datasets/train_meta.json", "r") as f:
+        meta = json.load(f)
+    with open("/app/datasets/extend_meta.json", "r") as f:
+        extend_meta = json.load(f)
+    meta = {
+        **meta,
+        **extend_meta,
+    }
+    rows = preprocess(
         image_dir="/app/datasets/train",
-        meta_path="/app/datasets/train_meta.json",
+        meta=meta,
     )
-    folds = kfold(cfg=cfg, rows=data["rows"])
+    folds = kfold(cfg=cfg, rows=rows)
     evaluate(cfg=cfg, fold=folds[cfg.fold])
 
 
@@ -108,15 +109,28 @@ def _evaluate(config_path: str, fine: bool) -> None:
 @click.option("-i", "--image-path")
 def preview(config_path: str, image_path: str) -> None:
     cfg = Config.load(config_path)
-    data = preprocess(
+    rows = preprocess(
         image_dir="/app/datasets/train",
         meta_path="/app/datasets/train_meta.json",
     )
-    rows = []
-    for row in data["rows"]:
+    preview_rows = []
+    for row in rows:
         if row["image_path"].endswith(image_path):
-            rows.append(row)
-    preview_dataset(cfg=cfg, rows=rows, path=f"outputs/{image_path.replace('/','-')}")
+            preview_rows.append(row)
+    preview_dataset(
+        cfg=cfg, rows=preview_rows, path=f"outputs/{image_path.replace('/','-')}"
+    )
+
+
+@click.command()
+def flip() -> None:
+    rows = preprocess(
+        image_dir="/app/datasets/train",
+        meta_path="/app/datasets/train_meta.json",
+    )
+    new_rows = invert_lr(rows)
+    with open("/app/datasets/extend_meta.json", "w") as f:
+        json.dump(new_rows, f)
 
 
 cli.add_command(predict)
@@ -126,6 +140,7 @@ cli.add_command(_evaluate)
 cli.add_command(_train)
 cli.add_command(fine)
 cli.add_command(preview)
+cli.add_command(flip)
 
 if __name__ == "__main__":
     cli()

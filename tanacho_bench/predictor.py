@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import pathlib
 import pickle
 import pprint as pp
 from dataclasses import asdict, dataclass, field
@@ -22,7 +23,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from pytorch_metric_learning.losses import ArcFaceLoss, SubCenterArcFaceLoss
 from skimage import io
 from sklearn import preprocessing
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
 from timm.scheduler import CosineLRScheduler
 from torch import Tensor, nn, optim
@@ -169,13 +170,13 @@ class MAPKMetric:
 
 def preprocess(
     image_dir: str, meta_path: Optional[str] = None, meta: Optional[dict] = None
-) -> dict:
+) -> list[dict]:
     rows = []
     if meta_path is not None and meta is None:
         with open(meta_path, "r") as f:
             meta = json.load(f)
     if meta is None:
-        return {}
+        return []
     for key in meta:
         filenames = os.listdir(os.path.join(image_dir, key))
         for filename in filenames:
@@ -190,6 +191,8 @@ def preprocess(
     model_no_le = preprocessing.LabelEncoder()
     model_no_le.fit([row["model_no"] for row in rows])
     model_no_labels = model_no_le.transform([row["model_no"] for row in rows])
+
+    print(len(model_no_le.classes_))
 
     category_le = preprocessing.LabelEncoder()
     category_le.fit([row["category"] for row in rows])
@@ -207,17 +210,7 @@ def preprocess(
         row["color_label"] = color_labels[i]
         row["combined_label"] = combined_labels[i]
         row["model_no_label"] = model_no_labels[i]
-    encoders = dict(
-        category=category_le,
-        color=color_le,
-        combined=combined_le,
-        model_no=model_no_le,
-    )
-    res = dict(
-        rows=rows,
-        encoders=encoders,
-    )
-    return res
+    return rows
 
 
 def eda(rows: list[dict]) -> None:
@@ -317,20 +310,44 @@ def preview_dataset(cfg: Config, rows: list[dict], path: str) -> None:
     save_image(grid, path)
 
 
-def kfold(cfg: Config, rows: list[dict]) -> list[dict]:
+def kfold(cfg: Config, rows: list[dict]) -> list[set, set]:
     """fold by model_no"""
-    skf = StratifiedKFold(n_splits=cfg.kfold)
-    y = [row["model_no"] for row in rows]
-    X = range(len(rows))
+    skf = KFold(n_splits=cfg.kfold)
+    y = list(set([row["model_no"] for row in rows]))
+    X = range(len(y))
     folds = []
     for fold_, (train_, valid_) in enumerate(skf.split(X=X, y=y)):
-        folds.append(
-            {
-                "train": [rows[i] for i in train_],
-                "valid": [rows[i] for i in valid_],
-            }
-        )
+        folds.append(([y[i] for i in train_], [y[i] for i in valid_]))
     return folds
+
+
+def invert_lr(rows: list[dict]) -> dict:
+    meta: dict = {}
+    transform = A.Compose(
+        [
+            A.HorizontalFlip(always_apply=True),
+        ]
+    )
+    for row in tqdm(rows):
+        image_path = pathlib.Path(row["image_path"])
+        image = io.imread(image_path)
+        model_no = "lr-inverted" + row["model_no"]
+        base_dir = image_path.parents[1]
+        model_no_dir = base_dir / pathlib.Path(model_no)
+        model_no_dir.mkdir(exist_ok=True)
+        new_image_path = (
+            base_dir / pathlib.Path(model_no) / pathlib.Path(image_path.name)
+        )
+        transformed = transform(
+            image=image,
+        )["image"]
+        meta[model_no] = {
+            "category": row["category"],
+            "color": row["color"],
+        }
+        io.imsave(new_image_path, transformed)
+
+    return meta
 
 
 # TODO: preview folds
@@ -753,9 +770,7 @@ class ScoringService:
         Returns:
             bool: The return value. True for success, False otherwise.
         """
-        rows = preprocess(image_dir=reference_path, meta_path=reference_meta_path)[
-            "rows"
-        ]
+        rows = preprocess(image_dir=reference_path, meta_path=reference_meta_path)
         ensemble_config = EnsembleConfig.load("./config/ensemble.yaml")
         cls.registries = [
             cls.load_registry(cfg, model_path=model_path, rows=rows)
@@ -784,3 +799,37 @@ class ScoringService:
         output = {sample_name: predictions}
         print(output)
         return output
+
+
+def setup_fold(cfg: Config) -> dict:
+    with open("/app/datasets/train_meta.json", "r") as f:
+        meta = json.load(f)
+    rows = preprocess(
+        image_dir="/app/datasets/train",
+        meta=meta,
+    )
+    folds = kfold(cfg=cfg, rows=rows)
+    train_model_nos, valid_model_nos = folds[cfg.fold]
+
+    with open("/app/datasets/extend_meta.json", "r") as f:
+        extend_meta = json.load(f)
+    meta = {
+        **meta,
+        **extend_meta,
+    }
+    rows = preprocess(
+        image_dir="/app/datasets/train",
+        meta=meta,
+    )
+    train_rows = []
+    valid_rows = []
+    for row in rows:
+        for train_model_no in train_model_nos:
+            if row["model_no"].endswith(train_model_no):
+                train_rows.append(row)
+                continue
+
+    for row in rows:
+        if row["model_no"] in valid_model_nos:
+            valid_rows.append(row)
+    return dict(train=train_rows, valid=valid_rows)
