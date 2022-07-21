@@ -88,20 +88,8 @@ def _evaluate(config_path: str, fine: bool) -> None:
     cfg = Config.load(config_path)
     if fine:
         cfg = cfg.fine_cfg
-    with open("/app/datasets/train_meta.json", "r") as f:
-        meta = json.load(f)
-    with open("/app/datasets/extend_meta.json", "r") as f:
-        extend_meta = json.load(f)
-    meta = {
-        **meta,
-        **extend_meta,
-    }
-    rows = preprocess(
-        image_dir="/app/datasets/train",
-        meta=meta,
-    )
-    folds = kfold(cfg=cfg, rows=rows)
-    evaluate(cfg=cfg, fold=folds[cfg.fold])
+    fold = setup_fold(cfg)
+    evaluate(cfg=cfg, fold=fold)
 
 
 @click.command("preview")
