@@ -564,9 +564,9 @@ class Search:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 10.0, 30.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 10.0)
-        embedding_size = trial.suggest_int("embedding_size", 768, 256 * 6, step=256)
+        arcface_scale = trial.suggest_float("arcface_scale", 15.0, 25.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 4.0, 10.0)
+        embedding_size = trial.suggest_int("embedding_size", 1024, 256 * 7, step=256)
         cfg = Config(
             **{
                 **asdict(self.cfg),
