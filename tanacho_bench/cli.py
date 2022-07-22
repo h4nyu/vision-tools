@@ -67,27 +67,10 @@ def _train(config_path: str) -> None:
     train(cfg=cfg, fold=fold)
 
 
-@click.command("fine")
-@click.option("-c", "--config-path")
-def fine(config_path: str) -> None:
-    cfg = Config.load(config_path)
-    fine_cfg = cfg.fine_cfg
-    model = LitModelNoNet.load_from_checkpoint(cfg.checkpoint_path, cfg=fine_cfg)
-    rows = preprocess(
-        image_dir="/app/datasets/train",
-        meta_path="/app/datasets/train_meta.json",
-    )
-    folds = kfold(cfg=cfg, rows=rows)
-    train(cfg=fine_cfg, fold=folds[cfg.fold], model=model)
-
-
 @click.command("evaluate")
 @click.option("-c", "--config-path")
-@click.option("-f", "--fine", default=False)
-def _evaluate(config_path: str, fine: bool) -> None:
+def _evaluate(config_path: str) -> None:
     cfg = Config.load(config_path)
-    if fine:
-        cfg = cfg.fine_cfg
     fold = setup_fold(cfg)
     evaluate(cfg=cfg, fold=fold)
 
@@ -126,7 +109,6 @@ cli.add_command(show)
 cli.add_command(search)
 cli.add_command(_evaluate)
 cli.add_command(_train)
-cli.add_command(fine)
 cli.add_command(preview)
 cli.add_command(flip)
 

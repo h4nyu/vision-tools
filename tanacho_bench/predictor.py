@@ -87,8 +87,8 @@ class Config:
     vflip_p: float = 0.5
     hflip_p: float = 0.5
     blur_p: float = 0.0
-
     accumulate_grad_batches: int = 1
+    previous: Optional[dict] = None
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -99,23 +99,23 @@ class Config:
 
     @property
     def checkpoint_filename(self) -> str:
-        return f"{self.name}.{self.fold}.{self.kfold}.{self.model_name}.{self.loss_type}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}"
+        return f"{self.name}.{self.fold}.{self.kfold}.{self.model_name}.{self.loss_type}.ac-{self.arcface_scale:.3f}.am-{self.arcface_margin:.3f}.emb-{self.embedding_size}.img-{self.image_size}.bs-{self.batch_size}.fine-{self.is_fine}"
+
+    @property
+    def previous_checkpoint_path(self) -> Optional[str]:
+        if self.previous is not None:
+            cfg = Config(
+                **{
+                    **asdict(self),
+                    **self.previous,
+                }
+            )
+            return cfg.checkpoint_path
+        return None
 
     @property
     def checkpoint_path(self) -> str:
         return os.path.join(self.checkpoint_dir, self.checkpoint_filename + ".ckpt")
-
-    @property
-    def fine_cfg(self) -> Config:
-        return Config(
-            **{
-                **asdict(self),
-                **self.fine,
-                **dict(
-                    is_fine=True,
-                ),
-            }
-        )
 
 
 @dataclass
@@ -310,7 +310,7 @@ def preview_dataset(cfg: Config, rows: list[dict], path: str) -> None:
     save_image(grid, path)
 
 
-def kfold(cfg: Config, rows: list[dict]) -> list[list[dict], list[dict]]:
+def kfold(cfg: Config, rows: list[dict]) -> list[tuple[list[dict], list[dict]]]:
     """fold by model_no"""
     skf = StratifiedKFold(n_splits=cfg.kfold)
     y = [row["model_no"] for row in rows]
@@ -445,9 +445,7 @@ class LitModelNoNet(pl.LightningModule):
         return [optimizer], [scheduler]
 
 
-def train(
-    cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None
-) -> LitModelNoNet:
+def train(cfg: Config, fold: dict) -> LitModelNoNet:
     pp.pprint(cfg)
     train_rows = fold["train"]
     for sample in cfg.hard_samples:
@@ -495,7 +493,11 @@ def train(
             ),
         ],
     )
-    model = model or LitModelNoNet(cfg)
+    model = (
+        LitModelNoNet.load_from_checkpoint(cfg.previous_checkpoint_path, cfg=cfg)
+        if cfg.previous_checkpoint_path
+        else LitModelNoNet(cfg)
+    )
     trainer.fit(
         model,
         train_loader,
