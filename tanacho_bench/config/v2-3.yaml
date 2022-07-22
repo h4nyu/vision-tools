@@ -6,9 +6,9 @@ batch_size: 16
 model_name: tf_efficientnet_b4_ns
 lr: 0.000685564766155184
 image_size: 512
-embedding_size: 1792
-arcface_scale: 21.183630859616883
-arcface_margin: 7.03160831692157
+embedding_size: 1280
+arcface_scale: 17.555846780426666
+arcface_margin: 7.784123947539002
 brightness_limit: 0.391
 contrast_limit: 0.291
 hue_shift_limit: 0.28
