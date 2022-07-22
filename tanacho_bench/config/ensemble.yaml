@@ -3,4 +3,4 @@ config_paths:
   # - config/v2.1-0.yaml # LOCAL: 0.9956 PUBLIC: 0.9136
   # - config/v2-0.yaml # LOCAL: 0.9868 PUBLIC: 0.9727
   # - config/v2-1.yaml # LOCAL:0.9934  PUBLIC: 0.9439
-  - config/v2-2.yaml # LOCAL:0.9956  PUBLIr:
+  - config/v2-2.yaml # LOCAL:0.9956  PUBLIC:
