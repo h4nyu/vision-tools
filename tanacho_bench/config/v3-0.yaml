@@ -1,39 +1,29 @@
-name: v3
+name: v2
 seed: 1024
 fold: 0
-kfold: 4
-batch_size: 16
+kfold: 5
+batch_size: 14
 model_name: tf_efficientnet_b4_ns
 lr: 0.000685564766155184
-image_size: 480
+image_size: 768
 embedding_size: 1024
-arcface_scale: 4.528947870667664
-arcface_margin: 10.25334293160223
-brightness_limit: 0.00
-contrast_limit: 0.000
-hue_shift_limit: 0.00
-sat_shift_limit: 0.00
-val_shift_limit: 0.00
+arcface_scale:  22.963525331959204
+arcface_margin: 7.739488019112847
+brightness_limit: 0.391
+contrast_limit: 0.291
+hue_shift_limit: 0.28
+sat_shift_limit: 0.225
+val_shift_limit: 0.28
 scale_limit: 0.18529016025844874
-sub_centers: 2
+sub_centers: 4
 rotate_limit: 32.394467397006466
 warmup_t: 1
 epochs: 57
 patience: 11
-n_neighbors: 200
-blur_p: 0.4
+num_model_nos: 244
+n_neighbors: 94
+random_rotate_p: 0.0
 vflip_p: 0.0
 hflip_p: 0.0
 loss_type: "ArcFaceLoss"
-
-hard_samples:
-  - '031/7.jpg'
-  - '049/7.jpg'
-  - '002/4.jpg'
-
-fine:
-  lr: 0.00005
-  checkpoint_dir: 'fine-checkpoints'
-  scale_limit: 0.0
-  rotate_limit: 0.0
-  blur_p: 0.0
+is_fine: false
