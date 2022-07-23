@@ -87,6 +87,7 @@ class Config:
     vflip_p: float = 0.5
     hflip_p: float = 0.5
     blur_p: float = 0.0
+    random_rotate_p: float = 0.0
     accumulate_grad_batches: int = 1
     previous: Optional[dict] = None
 
@@ -250,7 +251,7 @@ TrainTransform = lambda cfg: A.Compose(
             ],
             p=0.9,
         ),
-        A.RandomRotate90(p=0.5),
+        A.RandomRotate90(p=cfg.random_rotate_p),
         A.HorizontalFlip(p=cfg.hflip_p),
         A.VerticalFlip(p=cfg.vflip_p),
         ToTensorV2(),
@@ -617,42 +618,42 @@ class Registry:
         self.model = model
         self.transforms = [
             self.transform,
-            A.Compose(
-                [
-                    A.LongestMaxSize(max_size=cfg.image_size),
-                    A.PadIfNeeded(
-                        min_height=cfg.image_size,
-                        min_width=cfg.image_size,
-                        border_mode=cfg.border_mode,
-                    ),
-                    A.Rotate((90, 90), p=1.0),
-                    ToTensorV2(),
-                ],
-            ),
-            A.Compose(
-                [
-                    A.LongestMaxSize(max_size=cfg.image_size),
-                    A.PadIfNeeded(
-                        min_height=cfg.image_size,
-                        min_width=cfg.image_size,
-                        border_mode=cfg.border_mode,
-                    ),
-                    A.Rotate((180, 180), p=1.0),
-                    ToTensorV2(),
-                ],
-            ),
-            A.Compose(
-                [
-                    A.LongestMaxSize(max_size=cfg.image_size),
-                    A.PadIfNeeded(
-                        min_height=cfg.image_size,
-                        min_width=cfg.image_size,
-                        border_mode=cfg.border_mode,
-                    ),
-                    A.Rotate((270, 270), p=1.0),
-                    ToTensorV2(),
-                ],
-            ),
+            # A.Compose(
+            #     [
+            #         A.LongestMaxSize(max_size=cfg.image_size),
+            #         A.PadIfNeeded(
+            #             min_height=cfg.image_size,
+            #             min_width=cfg.image_size,
+            #             border_mode=cfg.border_mode,
+            #         ),
+            #         A.Rotate((90, 90), p=1.0),
+            #         ToTensorV2(),
+            #     ],
+            # ),
+            # A.Compose(
+            #     [
+            #         A.LongestMaxSize(max_size=cfg.image_size),
+            #         A.PadIfNeeded(
+            #             min_height=cfg.image_size,
+            #             min_width=cfg.image_size,
+            #             border_mode=cfg.border_mode,
+            #         ),
+            #         A.Rotate((180, 180), p=1.0),
+            #         ToTensorV2(),
+            #     ],
+            # ),
+            # A.Compose(
+            #     [
+            #         A.LongestMaxSize(max_size=cfg.image_size),
+            #         A.PadIfNeeded(
+            #             min_height=cfg.image_size,
+            #             min_width=cfg.image_size,
+            #             border_mode=cfg.border_mode,
+            #         ),
+            #         A.Rotate((270, 270), p=1.0),
+            #         ToTensorV2(),
+            #     ],
+            # ),
         ]
         self.all_labels = np.empty(0)
         self.label_map: dict[int, str] = {}
