@@ -5,7 +5,7 @@ kfold: 5
 batch_size: 14
 model_name: tf_efficientnet_b4_ns
 lr: 0.000685564766155184
-image_size: 768
+image_size: 480
 embedding_size: 1024
 arcface_scale:  22.963525331959204
 arcface_margin: 7.739488019112847

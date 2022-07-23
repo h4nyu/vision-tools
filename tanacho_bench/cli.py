@@ -9,6 +9,7 @@ from predictor import (
     LitModelNoNet,
     ScoringService,
     Search,
+    SearchRegistry,
     check_folds,
     eda,
     evaluate,
@@ -59,6 +60,15 @@ def search(config_path: str) -> None:
     search()
 
 
+@click.command("search-registry")
+@click.option("-c", "--config-path")
+def search_registry(config_path: str) -> None:
+    cfg = Config.load(config_path)
+    fold = setup_fold(cfg)
+    search = SearchRegistry(n_trials=10, cfg=cfg, fold=fold)
+    search()
+
+
 @click.command("train")
 @click.option("-c", "--config-path")
 def _train(config_path: str) -> None:
@@ -104,6 +114,15 @@ def flip() -> None:
         json.dump(new_rows, f)
 
 
+@click.command("check-fold")
+@click.option("-c", "--config-path")
+def check_fold(
+    config_path: str,
+) -> None:
+    cfg = Config.load(config_path)
+    fold = setup_fold(cfg)
+
+
 cli.add_command(predict)
 cli.add_command(show)
 cli.add_command(search)
@@ -111,6 +130,8 @@ cli.add_command(_evaluate)
 cli.add_command(_train)
 cli.add_command(preview)
 cli.add_command(flip)
+cli.add_command(search_registry)
+cli.add_command(check_fold)
 
 if __name__ == "__main__":
     cli()

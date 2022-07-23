@@ -29,3 +29,8 @@ loss_type: "ArcFaceLoss"
 is_fine: true
 previous:
   is_fine: false
+registry_augmentations:
+  - rot90
+  - rot180
+  - rot270
+  - rot30

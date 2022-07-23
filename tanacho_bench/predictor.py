@@ -90,6 +90,7 @@ class Config:
     random_rotate_p: float = 0.0
     accumulate_grad_batches: int = 1
     previous: Optional[dict] = None
+    registry_augmentations: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -560,6 +561,40 @@ def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> 
     return score
 
 
+class SearchRegistry:
+    def __init__(self, cfg: Config, fold: dict, n_trials: int) -> None:
+        self.cfg = cfg
+        self.fold = fold
+        self.n_trials = n_trials
+
+    def objective(self, trial: optuna.trial.Trial) -> float:
+        registry_augmentation = trial.suggest_categorical(
+            "registry_augmentations",
+            [
+                "rot180",
+                "rot90",
+                "rot270",
+                "rot30",
+                "rot15",
+            ],
+        )
+        cfg = Config(
+            **{
+                **asdict(self.cfg),
+                **dict(
+                    registry_augmentations=[registry_augmentation],
+                ),
+            }
+        )
+        score = evaluate(cfg=cfg, fold=self.fold)
+        return score
+
+    def __call__(self) -> None:
+        study = optuna.create_study(direction="maximize")
+        study.optimize(self.objective, self.n_trials)
+        print(study.best_value, study.best_params)
+
+
 class Search:
     def __init__(self, cfg: Config, fold: dict, n_trials: int) -> None:
         self.cfg = cfg
@@ -618,43 +653,34 @@ class Registry:
         self.model = model
         self.transforms = [
             self.transform,
-            # A.Compose(
-            #     [
-            #         A.LongestMaxSize(max_size=cfg.image_size),
-            #         A.PadIfNeeded(
-            #             min_height=cfg.image_size,
-            #             min_width=cfg.image_size,
-            #             border_mode=cfg.border_mode,
-            #         ),
-            #         A.Rotate((90, 90), p=1.0),
-            #         ToTensorV2(),
-            #     ],
-            # ),
-            # A.Compose(
-            #     [
-            #         A.LongestMaxSize(max_size=cfg.image_size),
-            #         A.PadIfNeeded(
-            #             min_height=cfg.image_size,
-            #             min_width=cfg.image_size,
-            #             border_mode=cfg.border_mode,
-            #         ),
-            #         A.Rotate((180, 180), p=1.0),
-            #         ToTensorV2(),
-            #     ],
-            # ),
-            # A.Compose(
-            #     [
-            #         A.LongestMaxSize(max_size=cfg.image_size),
-            #         A.PadIfNeeded(
-            #             min_height=cfg.image_size,
-            #             min_width=cfg.image_size,
-            #             border_mode=cfg.border_mode,
-            #         ),
-            #         A.Rotate((270, 270), p=1.0),
-            #         ToTensorV2(),
-            #     ],
-            # ),
         ]
+        for aug in cfg.registry_augmentations:
+            digree = 0
+            if aug == "rot90":
+                digree = 90
+            if aug == "rot180":
+                digree = 180
+            if aug == "rot270":
+                digree = 270
+            if aug == "rot30":
+                digree = 30
+            if aug == "rot15":
+                digree = 15
+            self.transforms.append(
+                A.Compose(
+                    [
+                        A.LongestMaxSize(max_size=cfg.image_size),
+                        A.PadIfNeeded(
+                            min_height=cfg.image_size,
+                            min_width=cfg.image_size,
+                            border_mode=cfg.border_mode,
+                        ),
+                        A.Rotate((digree, digree), p=1.0),
+                        ToTensorV2(),
+                    ],
+                )
+            )
+
         self.all_labels = np.empty(0)
         self.label_map: dict[int, str] = {}
 
@@ -813,7 +839,9 @@ def setup_fold(cfg: Config) -> dict:
     )
     folds = kfold(cfg=cfg, rows=rows)
     _, _valid_model_rows = folds[cfg.fold]
-    valid_image_paths = set([r["image_path"] for r in _valid_model_rows])
+    valid_last_2_path_matches = set(
+        ["/".join(r["image_path"].split("/")[-2:]) for r in _valid_model_rows]
+    )
 
     with open("/app/datasets/extend_meta.json", "r") as f:
         extend_meta = json.load(f)
@@ -827,9 +855,15 @@ def setup_fold(cfg: Config) -> dict:
     )
     train_rows = []
     valid_rows = []
+
     for row in rows:
-        if row["image_path"] in valid_image_paths:
-            valid_rows.append(row)
+        last_2_path = "/".join(row["image_path"].split("/")[-2:])
+        for valid_last_2_path in valid_last_2_path_matches:
+            if last_2_path == valid_last_2_path:
+                valid_rows.append(row)
+                break
+            if last_2_path.endswith(valid_last_2_path):
+                break
         else:
             train_rows.append(row)
     print(len(train_rows))
