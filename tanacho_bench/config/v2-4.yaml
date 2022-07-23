@@ -21,7 +21,7 @@ warmup_t: 1
 epochs: 67
 patience: 20
 num_model_nos: 244
-n_neighbors: 200
+n_neighbors: 94
 vflip_p: 0.0
 hflip_p: 0.0
 loss_type: "ArcFaceLoss"
