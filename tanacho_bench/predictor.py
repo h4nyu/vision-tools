@@ -362,21 +362,21 @@ def extend_dataset(rows: list[dict]) -> dict:
         io.imsave(new_image_path, transformed)
 
         # TD
-        model_no = "td-inverted" + row["model_no"]
-        base_dir = image_path.parents[1]
-        model_no_dir = base_dir / pathlib.Path(model_no)
-        model_no_dir.mkdir(exist_ok=True)
-        new_image_path = (
-            base_dir / pathlib.Path(model_no) / pathlib.Path(image_path.name)
-        )
-        transformed = transform_td(
-            image=image,
-        )["image"]
-        meta[model_no] = {
-            "category": row["category"],
-            "color": row["color"],
-        }
-        io.imsave(new_image_path, transformed)
+        # model_no = "td-inverted" + row["model_no"]
+        # base_dir = image_path.parents[1]
+        # model_no_dir = base_dir / pathlib.Path(model_no)
+        # model_no_dir.mkdir(exist_ok=True)
+        # new_image_path = (
+        #     base_dir / pathlib.Path(model_no) / pathlib.Path(image_path.name)
+        # )
+        # transformed = transform_td(
+        #     image=image,
+        # )["image"]
+        # meta[model_no] = {
+        #     "category": row["category"],
+        #     "color": row["color"],
+        # }
+        # io.imsave(new_image_path, transformed)
 
     return meta
 
