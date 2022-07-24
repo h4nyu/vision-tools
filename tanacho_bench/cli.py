@@ -97,13 +97,13 @@ def pair(config_path: str, reference_path: str, target_path: str) -> None:
     )
     preview_rows = []
     for row in rows:
-        if row["image_path"].endswith(reference_path):
+        last_2_path = "/".join(row["image_path"].split("/")[-2:])
+        if last_2_path == reference_path:
             preview_rows.append(row)
-            break
-    for row in rows:
-        if row["image_path"].endswith(target_path):
+        if last_2_path == target_path:
             preview_rows.append(row)
-            break
+    for row in preview_rows:
+        print(row["image_path"])
     compare_sample_pair(
         cfg=cfg,
         reference=preview_rows[0],

@@ -520,7 +520,7 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
                 mode="min",
                 dirpath=cfg.checkpoint_dir,
                 filename=cfg.checkpoint_filename,
-                save_last=True,
+                save_last=False,
             ),
         ],
     )
@@ -632,15 +632,15 @@ class Search:
 
     def objective(self, trial: optuna.trial.Trial) -> float:
         arcface_scale = trial.suggest_float("arcface_scale", 15.0, 25.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 4.0, 10.0)
-        embedding_size = trial.suggest_int("embedding_size", 1024, 256 * 7, step=256)
+        arcface_margin = trial.suggest_float("arcface_margin", 4.0, 20.0)
+        # embedding_size = trial.suggest_int("embedding_size", 1024, 256 * 7, step=256)
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
                     arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
-                    embedding_size=embedding_size,
+                    # embedding_size=embedding_size,
                 ),
             }
         )
