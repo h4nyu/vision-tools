@@ -20,7 +20,7 @@ rotate_limit: 32.394467397006466
 warmup_t: 1
 epochs: 57
 patience: 11
-num_model_nos: 244
+num_model_nos: 366
 n_neighbors: 94
 random_rotate_p: 0.0
 vflip_p: 0.0

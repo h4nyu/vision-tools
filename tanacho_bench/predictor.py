@@ -303,12 +303,18 @@ class TanachoDataset(Dataset):
         return dict(sample=sample, row=row)
 
 
-def preview_dataset(cfg: Config, rows: list[dict], path: str) -> None:
+def compare_sample_pair(
+    cfg: Config, reference: dict, target: dict, path: str, nrow: int = 4
+) -> None:
     dataset = TanachoDataset(
-        rows=rows,
+        rows=[reference, target],
         transform=TrainTransform(cfg),
     )
-    grid = make_grid([dataset[0]["sample"]["image"] for i in range(10)])
+    samples = [dataset[0]["sample"]["image"] for i in range(nrow)] + [
+        dataset[1]["sample"]["image"] for i in range(nrow)
+    ]
+    print(len(samples))
+    grid = make_grid(samples, nrow=nrow)
     save_image(grid, path)
 
 
@@ -323,16 +329,22 @@ def kfold(cfg: Config, rows: list[dict]) -> list[tuple[list[dict], list[dict]]]:
     return folds
 
 
-def invert_lr(rows: list[dict]) -> dict:
+def extend_dataset(rows: list[dict]) -> dict:
     meta: dict = {}
-    transform = A.Compose(
+    transform_lr = A.Compose(
         [
             A.HorizontalFlip(always_apply=True),
+        ]
+    )
+    transform_td = A.Compose(
+        [
+            A.VerticalFlip(always_apply=True),
         ]
     )
     for row in tqdm(rows):
         image_path = pathlib.Path(row["image_path"])
         image = io.imread(image_path)
+        # LR
         model_no = "lr-inverted" + row["model_no"]
         base_dir = image_path.parents[1]
         model_no_dir = base_dir / pathlib.Path(model_no)
@@ -340,7 +352,24 @@ def invert_lr(rows: list[dict]) -> dict:
         new_image_path = (
             base_dir / pathlib.Path(model_no) / pathlib.Path(image_path.name)
         )
-        transformed = transform(
+        transformed = transform_lr(
+            image=image,
+        )["image"]
+        meta[model_no] = {
+            "category": row["category"],
+            "color": row["color"],
+        }
+        io.imsave(new_image_path, transformed)
+
+        # TD
+        model_no = "td-inverted" + row["model_no"]
+        base_dir = image_path.parents[1]
+        model_no_dir = base_dir / pathlib.Path(model_no)
+        model_no_dir.mkdir(exist_ok=True)
+        new_image_path = (
+            base_dir / pathlib.Path(model_no) / pathlib.Path(image_path.name)
+        )
+        transformed = transform_td(
             image=image,
         )["image"]
         meta[model_no] = {

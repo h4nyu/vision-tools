@@ -11,12 +11,12 @@ from predictor import (
     Search,
     SearchRegistry,
     check_folds,
+    compare_sample_pair,
     eda,
     evaluate,
-    invert_lr,
+    extend_dataset,
     kfold,
     preprocess,
-    preview_dataset,
     setup_fold,
     train,
 )
@@ -85,10 +85,11 @@ def _evaluate(config_path: str) -> None:
     evaluate(cfg=cfg, fold=fold)
 
 
-@click.command("preview")
+@click.command("pair")
 @click.option("-c", "--config-path")
-@click.option("-i", "--image-path")
-def preview(config_path: str, image_path: str) -> None:
+@click.option("-r", "--reference-path")
+@click.option("-t", "--target-path")
+def pair(config_path: str, reference_path: str, target_path: str) -> None:
     cfg = Config.load(config_path)
     rows = preprocess(
         image_dir="/app/datasets/train",
@@ -96,20 +97,28 @@ def preview(config_path: str, image_path: str) -> None:
     )
     preview_rows = []
     for row in rows:
-        if row["image_path"].endswith(image_path):
+        if row["image_path"].endswith(reference_path):
             preview_rows.append(row)
-    preview_dataset(
-        cfg=cfg, rows=preview_rows, path=f"outputs/{image_path.replace('/','-')}"
+            break
+    for row in rows:
+        if row["image_path"].endswith(target_path):
+            preview_rows.append(row)
+            break
+    compare_sample_pair(
+        cfg=cfg,
+        reference=preview_rows[0],
+        target=preview_rows[1],
+        path=f"outputs/{reference_path.replace('/','-')}-{target_path.replace('/','-')}.png",
     )
 
 
 @click.command()
-def flip() -> None:
+def extend() -> None:
     rows = preprocess(
         image_dir="/app/datasets/train",
         meta_path="/app/datasets/train_meta.json",
     )
-    new_rows = invert_lr(rows)
+    new_rows = extend_dataset(rows)
     with open("/app/datasets/extend_meta.json", "w") as f:
         json.dump(new_rows, f)
 
@@ -128,8 +137,8 @@ cli.add_command(show)
 cli.add_command(search)
 cli.add_command(_evaluate)
 cli.add_command(_train)
-cli.add_command(preview)
-cli.add_command(flip)
+cli.add_command(pair)
+cli.add_command(extend)
 cli.add_command(search_registry)
 cli.add_command(check_fold)
 
