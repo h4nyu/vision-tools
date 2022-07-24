@@ -1,4 +1,4 @@
-name: v2
+name: v3
 seed: 1024
 fold: 0
 kfold: 5
@@ -27,3 +27,6 @@ vflip_p: 0.0
 hflip_p: 0.0
 loss_type: "ArcFaceLoss"
 is_fine: false
+
+### memo
+# baseline
