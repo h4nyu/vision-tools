@@ -3,12 +3,12 @@ seed: 1024
 fold: 0
 kfold: 5
 batch_size: 16
-model_name: tf_efficientnet_b4_ns
+model_name: tf_efficientnet_b5_ns
 lr: 0.000685564766155184
-image_size: 512
+image_size: 380
 embedding_size: 1024
 arcface_scale:  22.963525331959204
-arcface_margin: 7.739488019112847
+arcface_margin: 13.16048938567629
 brightness_limit: 0.16
 contrast_limit: 0.1
 hue_shift_limit: 0.28
@@ -27,6 +27,10 @@ vflip_p: 0.0
 hflip_p: 0.0
 loss_type: "ArcFaceLoss"
 is_fine: false
+train_with_flipped: false
+
+hard_samples:
+  - '031/7.jpg'
 
 ### memo
-# baseline
+# local 0.955519

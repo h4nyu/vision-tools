@@ -87,9 +87,11 @@ class Config:
     vflip_p: float = 0.5
     hflip_p: float = 0.5
     blur_p: float = 0.0
+    train_with_flipped: bool = False
     random_rotate_p: float = 0.0
     accumulate_grad_batches: int = 1
     previous: Optional[dict] = None
+    use_scheduler: bool = True
     registry_augmentations: list[str] = field(default_factory=list)
 
     @classmethod
@@ -458,22 +460,25 @@ class LitModelNoNet(pl.LightningModule):
     def lr_scheduler_step(
         self, scheduler: Any, optimizer_idx: Any, metric: Any
     ) -> None:
-        scheduler.step(epoch=self.current_epoch)
+        if self.cfg.use_scheduler:
+            scheduler.step(epoch=self.current_epoch)
 
     def configure_optimizers(self) -> Any:
         optimizer = optim.AdamW(
             self.net.parameters(),
             lr=self.cfg.lr,
         )
-        scheduler = CosineLRScheduler(
-            optimizer,
-            t_initial=self.cfg.epochs,
-            lr_min=1e-6,
-            warmup_t=self.cfg.warmup_t,
-            warmup_lr_init=1e-5,
-            warmup_prefix=True,
-        )
-        return [optimizer], [scheduler]
+        if self.cfg.use_scheduler:
+            scheduler = CosineLRScheduler(
+                optimizer,
+                t_initial=self.cfg.epochs,
+                lr_min=1e-6,
+                warmup_t=self.cfg.warmup_t,
+                warmup_lr_init=1e-5,
+                warmup_prefix=True,
+            )
+            return [optimizer], [scheduler]
+        return [optimizer], []
 
 
 def train(cfg: Config, fold: dict) -> LitModelNoNet:
@@ -631,14 +636,14 @@ class Search:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        arcface_scale = trial.suggest_float("arcface_scale", 15.0, 25.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 4.0, 20.0)
+        # arcface_scale = trial.suggest_float("arcface_scale", 15.0, 25.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 30.0)
         # embedding_size = trial.suggest_int("embedding_size", 1024, 256 * 7, step=256)
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
-                    arcface_scale=arcface_scale,
+                    # arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
                     # embedding_size=embedding_size,
                 ),
@@ -891,7 +896,7 @@ def setup_fold(cfg: Config) -> dict:
             if last_2_path == valid_last_2_path:
                 valid_rows.append(row)
                 break
-            if last_2_path.endswith(valid_last_2_path):
+            if not cfg.train_with_flipped and last_2_path.endswith(valid_last_2_path):
                 break
         else:
             train_rows.append(row)
