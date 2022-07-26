@@ -29,17 +29,13 @@ is_fine: false
 train_with_flipped: true
 n_neighbors: 500
 registry_rot_augmentations:
-  - 30
-  - 60
+  - 45
   - 90
-  - 120
-  - 150
+  - 135
   - 180
-  - 210
-  - 240
+  - 225
   - 270
-  - 300
-  - 330
+  - 315
 
 hard_samples:
   - '031/7.jpg'
