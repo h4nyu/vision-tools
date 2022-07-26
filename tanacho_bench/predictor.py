@@ -92,7 +92,7 @@ class Config:
     accumulate_grad_batches: int = 1
     previous: Optional[dict] = None
     use_scheduler: bool = True
-    registry_augmentations: list[str] = field(default_factory=list)
+    registry_rot_augmentations: list[float] = field(default_factory=list)
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -587,6 +587,7 @@ def evaluate(cfg: Config, fold: dict, model: Optional[LitModelNoNet] = None) -> 
                 print(f"image_path={image_path}")
                 expected = registry.label_map[int(label)]
                 actual = registry.label_map[int(preds[0])]
+                print(f"predicted={[registry.label_map[int(i)] for i in preds]}")
                 print(f"expected={expected}, actual={actual}")
                 print(f"=================")
 
@@ -602,8 +603,8 @@ class SearchRegistry:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        registry_augmentation = trial.suggest_categorical(
-            "registry_augmentations",
+        registry_rot_augmentation = trial.suggest_categorical(
+            "registry_rot_augmentation",
             [
                 "rot180",
                 "rot90",
@@ -615,9 +616,7 @@ class SearchRegistry:
         cfg = Config(
             **{
                 **asdict(self.cfg),
-                **dict(
-                    registry_augmentations=[registry_augmentation],
-                ),
+                **dict(registry_rot_augmentation=[registry_rot_augmentation]),
             }
         )
         score = evaluate(cfg=cfg, fold=self.fold)
@@ -688,18 +687,7 @@ class Registry:
         self.transforms = [
             self.transform,
         ]
-        for aug in cfg.registry_augmentations:
-            digree = 0
-            if aug == "rot90":
-                digree = 90
-            if aug == "rot180":
-                digree = 180
-            if aug == "rot270":
-                digree = 270
-            if aug == "rot30":
-                digree = 30
-            if aug == "rot15":
-                digree = 15
+        for digree in cfg.registry_rot_augmentations:
             self.transforms.append(
                 A.Compose(
                     [

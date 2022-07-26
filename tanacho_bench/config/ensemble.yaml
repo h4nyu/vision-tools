@@ -8,4 +8,5 @@ config_paths:
   # - config/v2-2.yaml # LOCAL:0.9956  PUBLIC: 0.9405
   # - config/v2-2.fine.yaml # LOCAL:0.9956  PUBLIC: 0.9433014
   # - config/v2-3.yaml # LOCAL:0.9933  PUBLIC:
-  - config/v3-0.fine.yaml # LOCAL:0.9649  PUBLIC:
+  # - config/v3-0.fine.yaml # LOCAL:0.9649  PUBLIC: 0.4382819
+  - config/v3-0.flip.yaml # LOCAL:0.9868  PUBLIC:
