@@ -635,14 +635,14 @@ class Search:
         self.n_trials = n_trials
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        # arcface_scale = trial.suggest_float("arcface_scale", 15.0, 25.0)
-        arcface_margin = trial.suggest_float("arcface_margin", 0.0, 30.0)
+        arcface_scale = trial.suggest_float("arcface_scale", 19.0, 25.0)
+        arcface_margin = trial.suggest_float("arcface_margin", 5.0, 15.0)
         # embedding_size = trial.suggest_int("embedding_size", 1024, 256 * 7, step=256)
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
-                    # arcface_scale=arcface_scale,
+                    arcface_scale=arcface_scale,
                     arcface_margin=arcface_margin,
                     # embedding_size=embedding_size,
                 ),
@@ -880,6 +880,9 @@ def setup_fold(cfg: Config) -> dict:
 
     for row in rows:
         last_2_path = "/".join(row["image_path"].split("/")[-2:])
+        for p in cfg.hard_samples:
+            if row["image_path"].endswith(p):
+                train_rows.append(row)
         for valid_last_2_path in valid_last_2_path_matches:
             if last_2_path == valid_last_2_path:
                 valid_rows.append(row)
