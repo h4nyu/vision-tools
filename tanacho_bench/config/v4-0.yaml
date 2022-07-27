@@ -21,12 +21,20 @@ warmup_t: 1
 epochs: 57
 patience: 11
 num_model_nos: 244
-n_neighbors: 200
+n_neighbors: 94
 vflip_p: 0.0
 hflip_p: 0.0
 random_rotate_p: 1.0
 loss_type: "ArcFaceLoss"
 train_with_flipped: true
+registry_rot_augmentations:
+  - 45
+  - 90
+  - 135
+  - 180
+  - 225
+  - 270
+  - 315
 
 hard_samples:
   - '031/7.jpg'
