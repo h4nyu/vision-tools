@@ -48,7 +48,8 @@ def predict(
         reference_meta_path=reference_meta_path,
     )
     if res:
-        ScoringService.predict(input)
+        pred = ScoringService.predict(input)
+        print(pred)
 
 
 @click.command()

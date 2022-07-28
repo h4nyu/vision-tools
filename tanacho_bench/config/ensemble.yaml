@@ -10,4 +10,5 @@ config_paths:
   # - config/v2-3.yaml # LOCAL:0.9933  PUBLIC:
   # - config/v3-0.fine.yaml # LOCAL:0.9649  PUBLIC: 0.4382819
   # - config/v3-0.flip.yaml # LOCAL:0.9868  PUBLIC: 0.9520649
-  - config/v4-0.yaml # LOCAL:0.990  PUBLIC:
+  - config/v4-0.yaml # LOCAL:0.990  PUBLIC: 0.9443215
+  # - config/v5-0.yaml # LOCAL:  PUBLIC:
