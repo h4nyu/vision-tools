@@ -88,7 +88,7 @@ class Config:
     hflip_p: float = 0.5
     blur_p: float = 0.0
     train_with_flipped: bool = False
-    random_rotate_p: float = 0.0
+    random_rotate_p: float = 0.5
     accumulate_grad_batches: int = 1
     previous: Optional[dict] = None
     use_scheduler: bool = True
