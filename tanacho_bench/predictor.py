@@ -56,7 +56,7 @@ class Config:
     patience: int = 13
     epochs: int = 60
     n_neighbors: int = 200
-
+    max_epochs: int = -1
     warmup_t: int = 5
     border_mode: int = 0
     scale_limit: float = 0.3
@@ -513,7 +513,7 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
         deterministic=True,
         precision=16,
         gpus=1,
-        max_epochs=-1,
+        max_epochs=cfg.max_epochs,
         accelerator="gpu",
         accumulate_grad_batches=cfg.accumulate_grad_batches,
         callbacks=[
