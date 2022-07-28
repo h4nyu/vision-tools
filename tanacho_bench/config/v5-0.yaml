@@ -21,7 +21,7 @@ warmup_t: 1
 epochs: 57
 patience: 11
 num_model_nos: 244
-n_neighbors: 94
+n_neighbors: 658
 vflip_p: 0.0
 hflip_p: 0.0
 random_rotate_p: 1.0
