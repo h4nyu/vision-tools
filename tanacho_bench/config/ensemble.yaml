@@ -13,4 +13,5 @@ config_paths:
   # - config/v4-0.yaml # LOCAL:0.990  PUBLIC: 0.9443215
   # - config/v5-base-0.yaml # LOCAL:0.9868  PUBLIC: 0.9727 copy model of v2-0
   # - config/v5-fine-0.yaml # LOCAL:-  PUBLIC: 0.9700274 etrain of v5-base-0
-  - config/v5-fine-1.yaml # LOCAL:0.9868  PUBLIC: check old config
+  # - config/v5-fine-1.yaml # LOCAL:0.9868  PUBLIC: 0.9734 +0.007
+  - config/v5-fine-2.yaml # LOCAL:0.9890  PUBLIC: -
