@@ -848,7 +848,6 @@ class ScoringService:
         ]
         predictions = cls.ensemble(predictions_list)
         output = {sample_name: predictions}
-        print(output)
         return output
 
 
