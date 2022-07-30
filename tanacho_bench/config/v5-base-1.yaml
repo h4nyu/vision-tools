@@ -26,7 +26,7 @@ vflip_p: 0.0
 hflip_p: 0.0
 random_rotate_p: 1.0
 loss_type: "ArcFaceLoss"
-train_with_flipped: true
+train_with_flipped: false
 registry_rot_augmentations:
   - 90
   - 180
