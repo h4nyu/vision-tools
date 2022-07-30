@@ -1,7 +1,18 @@
 from typing import Any
 
+import albumentations as A
 import torch
-from predictor import Ensemble, MAPKMetric, Net
+from albumentations.pytorch.transforms import ToTensorV2
+from predictor import (
+    BalancedBatchSampler,
+    Ensemble,
+    InferenceTransform,
+    MAPKMetric,
+    Net,
+    TanachoDataset,
+    preprocess,
+)
+from torch.utils.data import DataLoader, Dataset
 
 
 def ap(preds: Any, gts: Any, k: float) -> float:
@@ -59,3 +70,28 @@ def test_ensemble() -> None:
     ]
     merged = ensemble(predictions)
     assert merged == ["b", "a", "c", "e"]
+
+
+def test_sampler() -> None:
+    rows = preprocess(
+        image_dir="/app/datasets/train",
+        meta_path="/app/datasets/train_meta.json",
+    )
+    dataset = TanachoDataset(
+        rows=rows,
+        transform=A.Compose(
+            [
+                A.LongestMaxSize(max_size=128),
+                ToTensorV2(),
+            ],
+        ),
+    )
+    sampler = BalancedBatchSampler(dataset, batch_size=8)
+    dataloader = DataLoader(dataset, batch_sampler=sampler)
+    loop = iter(dataloader)
+    sample = loop.next()
+    # print(sample['row']['model_no'])
+    # print(sample['row'])
+    # sample = loop.next()
+    # print(sample['row']['model_no'])
+    # print(sample['row'])

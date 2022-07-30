@@ -6,9 +6,10 @@ import os
 import pathlib
 import pickle
 import pprint as pp
+import random
 from dataclasses import asdict, dataclass, field
 from logging import FileHandler, Formatter, StreamHandler
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterator, Optional
 
 import albumentations as A
 import cv2
@@ -16,6 +17,7 @@ import numpy as np
 import optuna
 import pytorch_lightning as pl
 import timm
+import toolz
 import torch
 import torch.nn.functional as F
 import yaml
@@ -26,9 +28,11 @@ from sklearn import preprocessing
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
 from timm.scheduler import CosineLRScheduler
+from toolz.curried import compose, curry, filter, groupby, map, partition, pipe, sorted
 from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.sampler import BatchSampler
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
@@ -137,6 +141,39 @@ class EnsembleConfig:
         return EnsembleConfig(configs=configs, config_paths=config_paths)
 
 
+class BalancedBatchSampler(BatchSampler):
+    def __init__(
+        self, dataset: TanachoDataset, batch_size: int, categories: int = 2
+    ) -> None:
+        self.dataset = dataset
+        self.rows = dataset.rows
+        self.batch_size = batch_size
+        self.categorys = categories
+
+    def __len__(self) -> int:
+        return len(self.dataset) // self.batch_size
+
+    def __iter__(self) -> Iterator:
+        self.batch_idx = 0
+        groups = toolz.groupby(lambda x: x[1]["category"], enumerate(self.rows))
+        group_max_size = max([len(x) for x in groups.values()])
+        batches = []
+        # print('-----------')
+        for group in groups.values():
+            random.shuffle(group)
+            rows = pipe(
+                group,
+                sorted(key=lambda x: x[1]["color"]),
+                partition(self.batch_size),
+                list,
+            )
+            batches.extend(rows)
+        random.shuffle(batches)
+        for batch in batches:
+            indices = [x[0] for x in batch]
+            yield indices
+
+
 class MAPKMetric:
     def __init__(self, topk: int) -> None:
         self.topk = topk
@@ -195,8 +232,6 @@ def preprocess(
     model_no_le = preprocessing.LabelEncoder()
     model_no_le.fit([row["model_no"] for row in rows])
     model_no_labels = model_no_le.transform([row["model_no"] for row in rows])
-
-    print(len(model_no_le.classes_))
 
     category_le = preprocessing.LabelEncoder()
     category_le.fit([row["category"] for row in rows])
@@ -315,7 +350,6 @@ def compare_sample_pair(
     samples = [dataset[0]["sample"]["image"] for i in range(nrow)] + [
         dataset[1]["sample"]["image"] for i in range(nrow)
     ]
-    print(len(samples))
     grid = make_grid(samples, nrow=nrow)
     save_image(grid, path)
 
@@ -497,12 +531,13 @@ def train(cfg: Config, fold: dict) -> LitModelNoNet:
         rows=fold["valid"],
         transform=InferenceTransform(cfg),
     )
+    batch_sampler = BalancedBatchSampler(train_dataset, batch_size=cfg.batch_size)
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=cfg.batch_size,
-        shuffle=True,
         num_workers=cfg.num_workers,
+        batch_sampler=batch_sampler,
     )
+
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size=cfg.batch_size,
@@ -697,7 +732,7 @@ class Registry:
                             min_width=cfg.image_size,
                             border_mode=cfg.border_mode,
                         ),
-                        A.Rotate((digree, digree), p=1.0),
+                        A.Rotate((digree, digree), always_apply=True),
                         ToTensorV2(),
                     ],
                 )
