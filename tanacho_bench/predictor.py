@@ -156,7 +156,6 @@ class BalancedBatchSampler(BatchSampler):
     def __iter__(self) -> Iterator:
         self.batch_idx = 0
         groups = toolz.groupby(lambda x: x[1]["category"], enumerate(self.rows))
-        group_max_size = max([len(x) for x in groups.values()])
         batches = []
         # print('-----------')
         for group in groups.values():
@@ -171,6 +170,7 @@ class BalancedBatchSampler(BatchSampler):
         random.shuffle(batches)
         for batch in batches:
             indices = [x[0] for x in batch]
+            print(indices)
             yield indices
 
 

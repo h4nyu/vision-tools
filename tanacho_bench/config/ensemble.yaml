@@ -15,4 +15,5 @@ config_paths:
   # - config/v5-fine-0.yaml # LOCAL:-  PUBLIC: 0.9700274 etrain of v5-base-0
   # - config/v5-fine-1.yaml # LOCAL:0.9868  PUBLIC: 0.9734 +0.007
   # - config/v5-fine-3.yaml # LOCAL:0.9868 PUBLIC: 0.9616519 increase image-size 512 -> 576 - 0.1
-  - config/v5-base-1.yaml # LOCAL:0.9632 PUBLIC: -
+  # - config/v5-base-1.yaml # LOCAL:0.9632 PUBLIC: -
+  - config/v5-fine-1-0.yaml # LOCAL:0.9912 PUBLIC: -
