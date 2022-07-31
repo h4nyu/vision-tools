@@ -19,4 +19,4 @@ config_paths:
   # - config/v5-fine-1-0.yaml # LOCAL:0.9912 PUBLIC: 0.9668142
   # - config/v5-fine-1-0.bk.yaml # LOCAL:0.9912 PUBLIC: 0.9668142
   # - config/v5-base-0-fine-0.yaml # LOCAL: 0.9934 PUBLIC:
-  - config/v5-fine-1-0.bk.yaml # LOCAL: 0.9956 PUBLIC:
+  - config/v5-fine-1-0.bk.yaml # LOCAL: 0.9956 PUBLIC: 	0.9757375
