@@ -170,7 +170,6 @@ class BalancedBatchSampler(BatchSampler):
         random.shuffle(batches)
         for batch in batches:
             indices = [x[0] for x in batch]
-            print(indices)
             yield indices
 
 
