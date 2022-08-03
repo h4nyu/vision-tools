@@ -1,0 +1,50 @@
+image_path=/app/datasets/train/003/7.jpg
+expected=003, actual=035
+image_path=/app/datasets/train/007/8.jpg
+expected=007, actual=049
+image_path=/app/datasets/train/018/4.jpg
+expected=018, actual=110
+image_path=/app/datasets/train/029/4.jpg
+expected=029, actual=021
+image_path=/app/datasets/train/031/8.jpg
+expected=031, actual=076
+image_path=/app/datasets/train/033/7.jpg
+expected=033, actual=092
+image_path=/app/datasets/train/035/4.jpg
+expected=035, actual=003
+image_path=/app/datasets/train/038/13.jpg
+expected=038, actual=046
+image_path=/app/datasets/train/041/8.jpg
+expected=041, actual=031
+image_path=/app/datasets/train/043/7.jpg
+expected=043, actual=120
+image_path=/app/datasets/train/044/7.jpg
+expected=044, actual=097
+image_path=/app/datasets/train/044/4.jpg
+expected=044, actual=097
+image_path=/app/datasets/train/049/7.jpg
+expected=049, actual=007
+image_path=/app/datasets/train/056/7.jpg
+expected=056, actual=079
+image_path=/app/datasets/train/058/4.jpg
+expected=058, actual=030
+image_path=/app/datasets/train/065/7.jpg
+expected=065, actual=099
+image_path=/app/datasets/train/066/7.jpg
+expected=066, actual=018
+image_path=/app/datasets/train/079/7.jpg
+expected=079, actual=056
+image_path=/app/datasets/train/083/7.jpg
+expected=083, actual=054
+image_path=/app/datasets/train/092/7.jpg
+expected=092, actual=033
+image_path=/app/datasets/train/092/4.jpg
+expected=092, actual=033
+image_path=/app/datasets/train/100/7.jpg
+expected=100, actual=107
+image_path=/app/datasets/train/113/7.jpg
+expected=113, actual=003
+image_path=/app/datasets/train/115/7.jpg
+expected=115, actual=054
+image_path=/app/datasets/train/115/8.jpg
+expected=115, actual=052

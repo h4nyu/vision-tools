@@ -1,3 +1,4 @@
+*.cache
 datasets
 mongodb_data
 *.zip
@@ -144,3 +145,5 @@ cython_debug/
 store
 kaggle.json
 runs
+lightning_logs
+checkpoints

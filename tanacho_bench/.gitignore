@@ -1,0 +1,7 @@
+doit-db.json
+*.cache
+outputs
+model
+model-bk
+fine-checkpoints
+!dist/.gitignore

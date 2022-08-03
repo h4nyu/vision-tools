@@ -1,0 +1,44 @@
+name: v3-flip
+seed: 1024
+fold: 0
+kfold: 5
+batch_size: 16
+model_name: tf_efficientnet_b5_ns
+lr: 0.000685564766155184
+image_size: 512
+embedding_size: 1024
+arcface_scale:  22.963525331959204
+arcface_margin: 7.722501754886845
+brightness_limit: 0.16
+contrast_limit: 0.1
+hue_shift_limit: 0.28
+sat_shift_limit: 0.225
+val_shift_limit: 0.28
+scale_limit: 0.15529016025844874
+sub_centers: 4
+rotate_limit: 18.394467397006466
+warmup_t: 1
+epochs: 57
+patience: 11
+num_model_nos: 244
+random_rotate_p: 1.0
+vflip_p: 0.0
+hflip_p: 0.0
+loss_type: "ArcFaceLoss"
+is_fine: false
+train_with_flipped: true
+n_neighbors: 500
+registry_rot_augmentations:
+  - 45
+  - 90
+  - 135
+  - 180
+  - 225
+  - 270
+  - 315
+
+hard_samples:
+  - '031/7.jpg'
+
+### memo
+# local 0.955519

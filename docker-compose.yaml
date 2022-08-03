@@ -37,6 +37,15 @@ services:
       CODECOV_TOKEN: *CODECOV_TOKEN
       CONFIG_FILE:
       NVIDIA_VISIBLE_DEVICES:
+    # networks:
+    #   nonet:
+
+
+  signate:
+    shm_size: '30gb'
+    image: "signate/runtime-gpu"
+    volumes:
+      - ./:/opt/ml
 
   tensorboard:
     <<: *app
@@ -49,3 +58,8 @@ services:
     command: jupyter notebook --ip 0.0.0.0 --port ${NOTEBOOK_PORT} --allow-root --NotebookApp.password='' --NotebookApp.token=''
     ports:
       - "${NOTEBOOK_PORT}:${NOTEBOOK_PORT}"
+
+networks:
+  nonet:
+    external: true
+    name: none
