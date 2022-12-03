@@ -31,8 +31,8 @@ RUN apt-get update \
         cuda-cudart-11-3=11.3.109-1 \
         cuda-compat-11-3 \
     && ln -s cuda-11.3 /usr/local/cuda \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir torch==1.12.0+cu113 torchvision==0.13.0+cu113 -f https://download.pytorch.org/whl/torch_stable.html
+    && rm -rf /var/lib/apt/lists/*
+    # && pip install --no-cache-dir torch==1.12.0+cu113 torchvision==0.13.0+cu113 -f https://download.pytorch.org/whl/torch_stable.html
 
 WORKDIR /app
 COPY . .
