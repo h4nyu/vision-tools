@@ -6,6 +6,7 @@ x-env: &env
   CODECOV_TOKEN: &CODECOV_TOKEN ${CODECOV_TOKEN}
   KAGGLE_USERNAME: &KAGGLE_USERNAME ${KAGGLE_USERNAME}
   KAGGLE_KEY: &KAGGLE_KEY ${KAGGLE_KEY}
+  STORE_DIR: &STORE_DIR ${STORE_DIR}
 
 
 x-app: &app
@@ -17,7 +18,7 @@ x-app: &app
   volumes:
     - .:/app
     - ./signate.json:/root/.signate/signate.json
-    - ./store:/store
+    - $STORE_DIR:/store
     - ./.cache:/root/.cache
 
 
