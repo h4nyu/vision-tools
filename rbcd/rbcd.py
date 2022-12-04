@@ -7,6 +7,7 @@ import albumentations as A
 import optuna
 import pandas as pd
 import torch
+import yaml
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
 from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
@@ -44,8 +45,15 @@ def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
 class Config:
     name: str
     image_size: int
-    seed: int
-    n_splits: int
+    seed: int = 42
+    n_splits: int = 5
+
+    @classmethod
+    def load(cls, path: str) -> Config:
+        with open(path) as file:
+            obj = yaml.safe_load(file)
+            print(obj)
+        return Config(**obj)
 
 
 class RdcdPngDataset(Dataset):
@@ -121,7 +129,7 @@ class RdcdDataset(Dataset):
         return sample
 
 
-class SetupFold:
+class SetupFolds:
     def __init__(
         self,
         seed: int,
@@ -133,6 +141,7 @@ class SetupFold:
         self.kf = StratifiedGroupKFold(
             n_splits=n_splits, random_state=seed, shuffle=True
         )
+        self.folds = []
 
     # patiant_id, cancer
     def __call__(self, df: pd.Dataframe) -> list[pd.Dataframe]:
@@ -144,4 +153,14 @@ class SetupFold:
             train_df = df.loc[train_idx]
             valid_df = df.loc[valid_idx]
             folds.append((train_df, valid_df))
+        self.folds = folds
         return folds
+
+    def save(self, path: str) -> None:
+        for i, (train_df, valid_df) in enumerate(self.folds):
+            train_df.to_csv(
+                f"{path}/train.{self.seed}.{self.n_splits}fold{i}.csv", index=False
+            )
+            valid_df.to_csv(
+                f"{path}/valid.{self.seed}.{self.n_splits}fold{i}.csv", index=False
+            )

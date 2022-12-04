@@ -4,7 +4,7 @@ import pytest
 from albumentations.pytorch.transforms import ToTensorV2
 from sklearn.metrics import f1_score
 
-from rbcd import RdcdPngDataset, SetupFold, TrainTransform, pfbeta
+from rbcd import RdcdPngDataset, SetupFolds, TrainTransform, pfbeta
 
 
 def test_pfbeta() -> None:
@@ -15,7 +15,7 @@ def test_pfbeta() -> None:
 
 def test_fold() -> None:
     df = pd.read_csv("/store/train.csv")
-    setup_fold = SetupFold(seed=42, n_splits=5)
+    setup_fold = SetupFolds(seed=42, n_splits=5)
     folds = setup_fold(df)
     for train, test in folds:
         assert pytest.approx(
