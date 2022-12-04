@@ -1,4 +1,16 @@
-from typing import Any
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+import albumentations as A
+import optuna
+import pandas as pd
+import torch
+from albumentations.pytorch.transforms import ToTensorV2
+from skimage import io
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
+from torch.utils.data import DataLoader, Dataset
 
 
 def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
@@ -26,3 +38,110 @@ def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
         return result
     else:
         return 0
+
+
+@dataclass
+class Config:
+    name: str
+    image_size: int
+    seed: int
+    n_splits: int
+
+
+class RdcdPngDataset(Dataset):
+    def __init__(
+        self,
+        rows: list[dict],
+        transform: Callable,
+        image_dir: str = "/store/rsna-breast-cancer-256-pngs",
+    ) -> None:
+        self.rows = rows
+        self.transform = transform
+        self.image_dir = image_dir
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def __getitem__(self, idx: int) -> dict:
+        row = self.rows[idx]
+        image_path = f"{self.image_dir}/{row['patient_id']}_{row['image_id']}.png"
+        image = io.imread(image_path)
+        transformed = self.transform(
+            image=image,
+        )
+        image = transformed["image"].float() / 255.0
+        target = torch.tensor(row["cancer"]) if row["cancer"] is not None else None
+        sample = dict(
+            **row,
+            image=image,
+            target=target,
+        )
+        return sample
+
+
+TrainTransform = lambda cfg: A.Compose(
+    [
+        A.LongestMaxSize(max_size=cfg.image_size),
+        A.RandomRotate90(p=cfg.random_rotate_p),
+        A.HorizontalFlip(p=cfg.hflip_p),
+        A.VerticalFlip(p=cfg.vflip_p),
+        ToTensorV2(),
+    ],
+)
+
+
+class RdcdDataset(Dataset):
+    def __init__(
+        self,
+        rows: list[dict],
+        transform: Callable,
+        image_dir: str = "/store/rsna-breast-cancer-256-pngs",
+    ) -> None:
+        self.rows = rows
+        self.transform = transform
+        self.image_dir = image_dir
+
+    def __len__(self) -> int:
+        return len(self.rows)
+
+    def __getitem__(self, idx: int) -> dict:
+        row = self.rows[idx]
+        image_path = f"{self.image_dir}/{row['patient_id']}_{row['image_id']}.png"
+        image = io.imread(image_path)
+        transformed = self.transform(
+            image=image,
+        )
+        image = transformed["image"].float() / 255.0
+        target = torch.tensor(row["cancer"]) if row["cancer"] is not None else None
+        sample = dict(
+            **row,
+            image=image,
+            target=target,
+        )
+        return sample
+
+
+class SetupFold:
+    def __init__(
+        self,
+        seed: int,
+        n_splits: int,
+    ) -> None:
+        self.seed = seed
+        self.n_splits = n_splits
+        # self.skf = StratifiedKFold(n_splits=n_splits, random_state=seed, shuffle=True)
+        self.kf = StratifiedGroupKFold(
+            n_splits=n_splits, random_state=seed, shuffle=True
+        )
+
+    # patiant_id, cancer
+    def __call__(self, df: pd.Dataframe) -> list[pd.Dataframe]:
+        y = df["cancer"].values
+        X = df["image_id"].values
+        groups = df["patient_id"].values
+        folds = []
+        for train_idx, valid_idx in self.kf.split(X, y, groups):
+            train_df = df.loc[train_idx]
+            valid_df = df.loc[valid_idx]
+            folds.append((train_df, valid_df))
+        return folds
