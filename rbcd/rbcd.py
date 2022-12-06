@@ -7,12 +7,15 @@ import albumentations as A
 import numpy as np
 import optuna
 import pandas as pd
+import timm
 import toolz
 import torch
+import torch.nn.functional as F
 import yaml
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
 from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
+from torch import Tensor, nn, optim
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import BatchSampler
 
@@ -48,8 +51,13 @@ def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
 class Config:
     name: str
     image_size: int
+    num_classes: int = 1
+    in_channels: int = 1
     seed: int = 42
     n_splits: int = 5
+    model_name: str = "tf_efficientnet_b3_ns"
+    pretrained: bool = True
+    fold: int = 0
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -210,12 +218,41 @@ class BalancedBatchSampler(BatchSampler):
             yield batch
 
 
+class Model(nn.Module):
+    def __init__(
+        self, name: str, num_classes: int, in_channels: int, pretrained: bool = True
+    ) -> None:
+        super().__init__()
+        self.name = name
+        self.backbone = timm.create_model(
+            name, pretrained=pretrained, in_chans=in_channels, num_classes=num_classes
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.backbone(x)
+        return x
+
+
 class Train:
     def __init__(
         self,
         cfg: Config,
     ) -> None:
         self.cfg = cfg
+        self.net = Model(
+            name=cfg.model_name,
+            num_classes=cfg.num_classes,
+            in_channels=cfg.in_channels,
+            pretrained=cfg.pretrained,
+        )
+
+    @property
+    def device(self) -> torch.device:
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    @property
+    def model(self) -> nn.Module:
+        return self.net.to(self.device)
 
     def __call__(self) -> None:
         ...

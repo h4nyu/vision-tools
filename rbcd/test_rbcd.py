@@ -1,12 +1,14 @@
 import albumentations as A
 import pandas as pd
 import pytest
+import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader
 
 from rbcd import (
     BalancedBatchSampler,
+    Model,
     RdcdPngDataset,
     SetupFolds,
     TrainTransform,
@@ -42,12 +44,12 @@ def test_fold() -> None:
 def test_png_train_dataset() -> None:
     df = pd.read_csv("/store/train.csv")
     dataset = RdcdPngDataset(
-        df.to_dict("records"),
+        df,
         ToTensorV2(),
         image_dir="/store/rsna-breast-cancer-256-pngs",
     )
     sample = dataset[0]
-    print(sample)
+    assert sample["image"].shape == (1, 256, 256)
 
 
 def test_balanced_batch_sampler() -> None:
@@ -68,14 +70,25 @@ def test_balanced_batch_sampler() -> None:
 def test_png_test_dataset() -> None:
     df = pd.read_csv("/store/train.csv")
     dataset = RdcdPngDataset(
-        df.to_dict("records"),
+        df,
         ToTensorV2(),
         image_dir="/store/rsna-breast-cancer-256-pngs",
     )
     sample = dataset[0]
-    print(sample)
+    assert sample["image"].shape == (1, 256, 256)
 
 
 def test_eda() -> None:
     df = pd.read_csv("/store/train.csv")
     print(df["density"])
+
+
+def test_model() -> None:
+    model = Model(
+        name="tf_efficientnet_b3_ns",
+        num_classes=1,
+        in_channels=1,
+    )
+    image = torch.randn(1, 1, 256, 256)
+    output = model(image)
+    assert output.shape == (1, 1)
