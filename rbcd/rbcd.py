@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -15,9 +16,11 @@ import yaml
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
 from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
+from timm.scheduler import CosineLRScheduler
 from torch import Tensor, nn, optim
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import BatchSampler
+from tqdm import tqdm
 
 
 def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
@@ -47,23 +50,60 @@ def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
         return 0
 
 
+class PFBetaMetric(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.output: List[Tensor] = []
+        self.target: List[Tensor] = []
+        self.func: Callable = pfbeta
+
+    def accumulate(self, output: Tensor, target: Tensor) -> None:
+        self.output.append(output)
+        self.target.append(target)
+
+    def __call__(self) -> float:
+        output = torch.cat(self.output)
+        target = torch.cat(self.target)
+        return self.func(target, output)
+
+    def reset(self) -> None:
+        self.output = []
+        self.target = []
+
+
 @dataclass
 class Config:
-    name: str
-    image_size: int
-    num_classes: int = 1
+    image_size: int = 256
     in_channels: int = 1
+    batch_size: int = 32
+    lr: float = 1e-3
+    optimizer: str = "Adam"
+    epochs: int = 10
     seed: int = 42
     n_splits: int = 5
     model_name: str = "tf_efficientnet_b3_ns"
     pretrained: bool = True
     fold: int = 0
+    data_path: str = "/store"
+    hflip: float = 0.5
+    vflip: float = 0.5
+
+    @property
+    def train_csv(self) -> str:
+        return f"{self.data_path}/train.{self.seed}.{self.n_splits}fold{self.fold}.csv"
+
+    @property
+    def valid_csv(self) -> str:
+        return f"{self.data_path}/valid.{self.seed}.{self.n_splits}fold{self.fold}.csv"
+
+    @property
+    def image_dir(self) -> str:
+        return f"{self.data_path}/rsna-breast-cancer-{self.image_size}-pngs"
 
     @classmethod
     def load(cls, path: str) -> Config:
         with open(path) as file:
             obj = yaml.safe_load(file)
-            print(obj)
         return Config(**obj)
 
 
@@ -89,7 +129,7 @@ class RdcdPngDataset(Dataset):
             image=image,
         )
         image = transformed["image"].float() / 255.0
-        target = torch.tensor(row["cancer"]) if row["cancer"] is not None else None
+        target = torch.tensor([row["cancer"]]) if row["cancer"] is not None else None
         sample = dict(
             image=image,
             target=target,
@@ -101,10 +141,14 @@ class RdcdPngDataset(Dataset):
 
 TrainTransform = lambda cfg: A.Compose(
     [
-        A.LongestMaxSize(max_size=cfg.image_size),
-        A.RandomRotate90(p=cfg.random_rotate_p),
-        A.HorizontalFlip(p=cfg.hflip_p),
-        A.VerticalFlip(p=cfg.vflip_p),
+        A.HorizontalFlip(p=cfg.hflip),
+        A.VerticalFlip(p=cfg.vflip),
+        ToTensorV2(),
+    ],
+)
+
+Transform = lambda cfg: A.Compose(
+    [
         ToTensorV2(),
     ],
 )
@@ -219,13 +263,13 @@ class BalancedBatchSampler(BatchSampler):
 
 
 class Model(nn.Module):
-    def __init__(
-        self, name: str, num_classes: int, in_channels: int, pretrained: bool = True
-    ) -> None:
+    def __init__(self, name: str, in_channels: int, pretrained: bool = True) -> None:
         super().__init__()
         self.name = name
+        self.in_channels = in_channels
+        self.pretrained = pretrained
         self.backbone = timm.create_model(
-            name, pretrained=pretrained, in_chans=in_channels, num_classes=num_classes
+            name, pretrained=pretrained, in_chans=in_channels, num_classes=1
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -241,10 +285,10 @@ class Train:
         self.cfg = cfg
         self.net = Model(
             name=cfg.model_name,
-            num_classes=cfg.num_classes,
             in_channels=cfg.in_channels,
             pretrained=cfg.pretrained,
         )
+        self.metric = PFBetaMetric()
 
     @property
     def device(self) -> torch.device:
@@ -254,5 +298,68 @@ class Train:
     def model(self) -> nn.Module:
         return self.net.to(self.device)
 
+    @property
+    def num_workers(self) -> int:
+        return os.cpu_count() or 0
+
+    def train_one_epoch(
+        self, train_loader: DataLoader, optimizer: Any, criterion: Any
+    ) -> Tuple[float, float]:
+        self.model.train()
+        epoch_loss = 0.0
+        epoch_score = 0.0
+        for batch in tqdm(train_loader):
+            image = batch["image"].to(self.device)
+            target = batch["target"].to(self.device)
+            optimizer.zero_grad()
+            output = self.model(image)
+            loss = criterion(output, target.float())
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            self.metric.accumulate(output, target)
+        epoch_loss /= len(train_loader)
+        epoch_score = self.metric()
+        return epoch_loss, epoch_score
+
     def __call__(self) -> None:
-        ...
+        cfg = self.cfg
+        train_df = pd.read_csv(cfg.train_csv)
+        valid_df = pd.read_csv(cfg.valid_csv)
+        train_dataset = RdcdPngDataset(
+            df=train_df,
+            transform=TrainTransform(cfg),
+            image_dir=cfg.image_dir,
+        )
+        valid_dataset = RdcdPngDataset(
+            df=valid_df,
+            transform=Transform(cfg),
+            image_dir=cfg.image_dir,
+        )
+        batch_sampler = BalancedBatchSampler(
+            dataset=train_dataset,
+            batch_size=cfg.batch_size,
+            shuffle=True,
+        )
+        train_loader = DataLoader(
+            dataset=train_dataset,
+            batch_sampler=batch_sampler,
+            num_workers=self.num_workers,
+        )
+        valid_loader = DataLoader(
+            dataset=valid_dataset, shuffle=False, num_workers=self.num_workers
+        )
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
+        criterion = nn.BCEWithLogitsLoss()
+        best_score = 0
+        for epoch in range(cfg.epochs):
+            train_loss, train_score = self.train_one_epoch(
+                train_loader, optimizer, criterion
+            )
+        #     valid_loss, valid_score = self.valid_one_epoch(valid_loader, criterion)
+        #     if valid_score > best_score:
+        #         best_score = valid_score
+        #         torch.save(self.model.state_dict(), cfg.model_path)
+        #     print(
+        #         f"epoch: {epoch + 1}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}"
+        #     )

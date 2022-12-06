@@ -50,6 +50,7 @@ def test_png_train_dataset() -> None:
     )
     sample = dataset[0]
     assert sample["image"].shape == (1, 256, 256)
+    assert sample["target"].shape == (1,)
 
 
 def test_balanced_batch_sampler() -> None:
@@ -65,6 +66,7 @@ def test_balanced_batch_sampler() -> None:
     dataloader = DataLoader(dataset, batch_sampler=sampler)
     for batch in dataloader:
         assert batch["target"].sum() == 4
+        assert batch["target"].shape == (8, 1)
 
 
 def test_png_test_dataset() -> None:
@@ -86,9 +88,8 @@ def test_eda() -> None:
 def test_model() -> None:
     model = Model(
         name="tf_efficientnet_b3_ns",
-        num_classes=1,
         in_channels=1,
     )
     image = torch.randn(1, 1, 256, 256)
     output = model(image)
-    assert output.shape == (1, 1)
+    assert output.shape == (1,)

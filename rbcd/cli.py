@@ -1,7 +1,7 @@
 import click
 import pandas as pd
 
-from rbcd import Config, SetupFolds
+from rbcd import Config, SetupFolds, Train
 
 
 @click.group()
@@ -24,7 +24,19 @@ def setup_folds(
     setup_folds.save("/store")
 
 
+@click.command("train")
+@click.option("-c", "--config-path")
+def train(
+    config_path: str,
+    data_path: str = "/store",
+) -> None:
+    cfg = Config.load(config_path)
+    train = Train(cfg)
+    train()
+
+
 cli.add_command(setup_folds)
+cli.add_command(train)
 
 if __name__ == "__main__":
     cli()
