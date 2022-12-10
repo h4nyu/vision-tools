@@ -1,7 +1,9 @@
+from typing import Optional
+
 import click
 import pandas as pd
 
-from rbcd import Config, SetupFolds, Train
+from rbcd import Config, SetupFolds, Train, seed_everything
 
 
 @click.group()
@@ -26,13 +28,16 @@ def setup_folds(
 
 @click.command("train")
 @click.option("-c", "--config-path")
+@click.option("-l", "--limit", type=int)
 def train(
     config_path: str,
     data_path: str = "/store",
+    limit: Optional[int] = None,
 ) -> None:
     cfg = Config.load(config_path)
+    seed_everything(cfg.seed)
     train = Train(cfg)
-    train()
+    train(limit=limit)
 
 
 cli.add_command(setup_folds)
