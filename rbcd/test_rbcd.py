@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from torchvision.utils import make_grid, save_image
 
 from rbcd import (
+    BalancedBatchDownSampler,
     BalancedBatchSampler,
     Model,
     RdcdPngDataset,
@@ -61,7 +62,9 @@ def test_png_train_dataset() -> None:
         image_dir=f"/store/rsna-breast-cancer-{image_size}-pngs",
     )
     batch_size = 16
-    batch_sampler = BalancedBatchSampler(dataset, batch_size=batch_size, shuffle=True)
+    batch_sampler = BalancedBatchDownSampler(
+        dataset, batch_size=batch_size, shuffle=True
+    )
     dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
     batch = next(iter(dataloader))
     assert batch["target"].sum() == batch_size // 2
@@ -83,6 +86,23 @@ def test_balanced_batch_sampler() -> None:
     )
     sampler = BalancedBatchSampler(dataset, batch_size=8, shuffle=False)
     assert len(sampler) == len(non_cancer) // (8 // 2)
+    dataloader = DataLoader(dataset, batch_sampler=sampler)
+    for batch in dataloader:
+        assert batch["target"].sum() == 4
+        assert batch["target"].shape == (8, 1)
+
+
+def test_balanced_batch_down_sampler() -> None:
+    df = pd.read_csv("/store/train.csv")[:1000]
+    cancer = df[df["cancer"] == 1]
+    batch_size = 8
+    dataset = RdcdPngDataset(
+        df,
+        ToTensorV2(),
+        image_dir="/store/rsna-breast-cancer-256-pngs",
+    )
+    sampler = BalancedBatchDownSampler(dataset, batch_size=batch_size, shuffle=False)
+    assert len(sampler) == len(cancer) // (8 // 2)
     dataloader = DataLoader(dataset, batch_sampler=sampler)
     for batch in dataloader:
         assert batch["target"].sum() == 4

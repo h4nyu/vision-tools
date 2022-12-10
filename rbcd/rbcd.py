@@ -104,6 +104,7 @@ class Config:
     scale_limit: float = 0.3
     rotate_limit: float = 15
     border_mode: int = 0
+    valid_epochs: int = 10
 
     @property
     def train_csv(self) -> str:
@@ -289,6 +290,43 @@ class BalancedBatchSampler(BatchSampler):
             yield batch
 
 
+class BalancedBatchDownSampler(BatchSampler):
+    def __init__(
+        self,
+        dataset: Union[RdcdPngDataset, RdcdDataset],
+        batch_size: int,
+        shuffle: bool = True,
+    ) -> None:
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.df = dataset.df
+        self.n_classes = 2
+        self.shuffle = shuffle
+
+    def __len__(self) -> int:
+        cancer_idx = self.df[self.df["cancer"] == 1]
+        return len(cancer_idx) // (self.batch_size // 2)
+
+    def __iter__(self) -> Iterator:
+        df = self.dataset.df
+        cancer_idx = df[df["cancer"] == 1].index.values
+        non_cancer_idx = df[df["cancer"] == 0].index.values
+        non_cancer_batch_size = self.batch_size // 2
+        cancer_batch_size = self.batch_size - non_cancer_batch_size
+        if self.shuffle:
+            np.random.shuffle(cancer_idx)
+            np.random.shuffle(non_cancer_idx)
+        for i in range(len(self)):
+            non_cancer_batch = non_cancer_idx[
+                i * non_cancer_batch_size : (i + 1) * non_cancer_batch_size
+            ]
+            cancer_batch = cancer_idx[
+                i * cancer_batch_size : (i + 1) * cancer_batch_size
+            ]
+            batch = np.concatenate([non_cancer_batch, cancer_batch])
+            yield batch
+
+
 class Model(nn.Module):
     def __init__(self, name: str, in_channels: int, pretrained: bool = True) -> None:
         super().__init__()
@@ -317,6 +355,7 @@ class Train:
         )
         self.scaler = GradScaler()
         self.writer = SummaryWriter(log_dir=cfg.log_dir)
+        self.iteration = 0
 
     @property
     def device(self) -> torch.device:
@@ -349,6 +388,7 @@ class Train:
             self.scaler.update()
             epoch_loss += loss.item()
             metric.accumulate(output.sigmoid(), target)
+            self.iteration += 1
         epoch_loss /= len(train_loader)
         epoch_score = metric()
         return epoch_loss, epoch_score
@@ -390,7 +430,7 @@ class Train:
             transform=Transform(cfg),
             image_dir=cfg.image_dir,
         )
-        batch_sampler = BalancedBatchSampler(
+        batch_sampler = BalancedBatchDownSampler(
             dataset=train_dataset,
             batch_size=cfg.batch_size,
             shuffle=True,
@@ -413,12 +453,14 @@ class Train:
             train_loss, train_score = self.train_one_epoch(
                 train_loader, optimizer, criterion
             )
-            valid_loss, valid_score = self.valid_one_epoch(valid_loader, criterion)
-            self.writer.add_scalar("train/loss", train_loss, epoch)
-            self.writer.add_scalar("train/score", train_score, epoch)
-            self.writer.add_scalar("valid/loss", valid_loss, epoch)
-            self.writer.add_scalar("valid/score", valid_score, epoch)
-        #     valid_loss, valid_score = self.valid_one_epoch(valid_loader, criterion)
+            self.writer.add_scalar("train/loss", train_loss, self.iteration)
+            self.writer.add_scalar("train/score", train_score, self.iteration)
+            if (epoch + 1) % cfg.valid_epochs == 0:
+                valid_loss, valid_score = self.valid_one_epoch(valid_loader, criterion)
+                self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
+                self.writer.add_scalar("valid/score", valid_score, self.iteration)
+                self.writer.flush()
+
         #     if valid_score > best_score:
         #         best_score = valid_score
         #         torch.save(self.model.state_dict(), cfg.model_path)

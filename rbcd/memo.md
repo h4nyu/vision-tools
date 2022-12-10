@@ -1,0 +1,1 @@
+https://openaccess.thecvf.com/content/CVPR2022/papers/Kong_Efficient_Classification_of_Very_Large_Images_With_Tiny_Objects_CVPR_2022_paper.pdf
