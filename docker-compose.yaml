@@ -18,6 +18,7 @@ x-app: &app
   volumes:
     - .:/app
     - ./signate.json:/root/.signate/signate.json
+    - ./test_output:/test_output
     - $STORE_DIR:/store
     - ./.cache:/root/.cache
 

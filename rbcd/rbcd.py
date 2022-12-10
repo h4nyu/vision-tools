@@ -89,10 +89,10 @@ class Config:
     name: str
     image_size: int = 256
     in_channels: int = 1
-    batch_size: int = 32
+    batch_size: int = 48
     lr: float = 1e-3
     optimizer: str = "Adam"
-    epochs: int = 10
+    epochs: int = 100
     seed: int = 42
     n_splits: int = 5
     model_name: str = "tf_efficientnet_b3_ns"
@@ -101,6 +101,9 @@ class Config:
     data_path: str = "/store"
     hflip: float = 0.5
     vflip: float = 0.5
+    scale_limit: float = 0.3
+    rotate_limit: float = 15
+    border_mode: int = 0
 
     @property
     def train_csv(self) -> str:
@@ -160,7 +163,13 @@ class RdcdPngDataset(Dataset):
 TrainTransform = lambda cfg: A.Compose(
     [
         A.HorizontalFlip(p=cfg.hflip),
-        A.VerticalFlip(p=cfg.vflip),
+        # A.VerticalFlip(p=cfg.vflip),
+        A.ShiftScaleRotate(
+            scale_limit=cfg.scale_limit,
+            rotate_limit=cfg.rotate_limit,
+            p=0.5,
+            border_mode=cfg.border_mode,
+        ),
         ToTensorV2(),
     ],
 )
@@ -292,7 +301,7 @@ class Model(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.backbone(x)
-        return x
+        return x.sigmoid()
 
 
 class Train:
@@ -398,7 +407,7 @@ class Train:
             batch_size=cfg.batch_size,
         )
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
-        criterion = nn.BCEWithLogitsLoss()
+        criterion = nn.BCELoss()
         best_score = 0
         for epoch in range(cfg.epochs):
             train_loss, train_score = self.train_one_epoch(

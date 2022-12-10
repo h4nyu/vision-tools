@@ -1,3 +1,6 @@
+from collections import namedtuple
+from types import SimpleNamespace
+
 import albumentations as A
 import pandas as pd
 import pytest
@@ -5,6 +8,7 @@ import torch
 from albumentations.pytorch.transforms import ToTensorV2
 from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader
+from torchvision.utils import make_grid, save_image
 
 from rbcd import (
     BalancedBatchSampler,
@@ -43,14 +47,30 @@ def test_fold() -> None:
 
 def test_png_train_dataset() -> None:
     df = pd.read_csv("/store/train.csv")
+    cfg = SimpleNamespace(
+        hflip=0.5,
+        vflip=0.0,
+        scale_limit=0.0,
+        rotate_limit=0,
+        border_mode=0,
+    )
+    image_size = 512
     dataset = RdcdPngDataset(
         df,
-        ToTensorV2(),
-        image_dir="/store/rsna-breast-cancer-256-pngs",
+        TrainTransform(cfg),
+        image_dir=f"/store/rsna-breast-cancer-{image_size}-pngs",
     )
-    sample = dataset[0]
-    assert sample["image"].shape == (1, 256, 256)
-    assert sample["target"].shape == (1,)
+    batch_size = 16
+    batch_sampler = BalancedBatchSampler(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
+    batch = next(iter(dataloader))
+    assert batch["target"].sum() == batch_size // 2
+    assert batch["image"].shape == (batch_size, 1, image_size, image_size)
+    assert batch["target"].shape == (batch_size, 1)
+    grid = make_grid(batch["image"], nrow=batch_size // 2)
+    print(batch["image_id"])
+    save_image(grid, "/test_output/grid.png")
+    # save_image(sample["image"], "/test_output/sample.png")
 
 
 def test_balanced_batch_sampler() -> None:
