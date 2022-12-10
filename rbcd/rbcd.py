@@ -301,7 +301,7 @@ class Model(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.backbone(x)
-        return x.sigmoid()
+        return x
 
 
 class Train:
@@ -348,7 +348,7 @@ class Train:
             self.scaler.step(optimizer)
             self.scaler.update()
             epoch_loss += loss.item()
-            metric.accumulate(output, target)
+            metric.accumulate(output.sigmoid(), target)
         epoch_loss /= len(train_loader)
         epoch_score = metric()
         return epoch_loss, epoch_score
@@ -367,7 +367,7 @@ class Train:
                 output = self.model(image)
                 loss = criterion(output, target.float())
                 epoch_loss += loss.item()
-                metric.accumulate(output, target)
+                metric.accumulate(output.sigmoid(), target)
         epoch_loss /= len(valid_loader)
         epoch_score = metric()
         return epoch_loss, epoch_score
@@ -407,7 +407,7 @@ class Train:
             batch_size=cfg.batch_size,
         )
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
-        criterion = nn.BCELoss()
+        criterion = nn.BCEWithLogitsLoss()
         best_score = 0
         for epoch in range(cfg.epochs):
             train_loss, train_score = self.train_one_epoch(
