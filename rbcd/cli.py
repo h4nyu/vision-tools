@@ -41,6 +41,21 @@ def train(
     train(limit=limit)
 
 
+@click.command("train")
+@click.option("-c", "--config-path")
+@click.option("-l", "--limit", type=int)
+def validate(
+    config_path: str,
+    data_path: str = "/store",
+    limit: Optional[int] = None,
+) -> None:
+    cfg = Config.load(config_path)
+    print(cfg)
+    seed_everything(cfg.seed)
+    train = Validate()
+    train(limit=limit)
+
+
 cli.add_command(setup_folds)
 cli.add_command(train)
 

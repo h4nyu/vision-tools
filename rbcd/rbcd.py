@@ -462,10 +462,10 @@ class Train:
         epoch_loss /= len(train_loader)
         output, target = meter()
         epoch_score = pfbeta(
-            target.cpu().numpy(),
-            output.cpu().numpy(),
+            target,
+            output,
         )
-        return epoch_loss, epoch_score
+        return float(epoch_loss), float(epoch_score)
 
     def __call__(self, limit: Optional[int] = None) -> float:
         cfg = self.cfg
@@ -503,6 +503,11 @@ class Train:
         best_score = 0.0
         validate = Validate()
         for epoch in range(cfg.epochs):
+            train_loss, train_score = self.train_one_epoch(
+                train_loader, optimizer, criterion
+            )
+            self.writer.add_scalar("train/loss", train_loss, self.iteration)
+            self.writer.add_scalar("train/score", train_score, self.iteration)
             if epoch % cfg.valid_epochs == 0:
                 valid_loss, valid_score, valid_auc = validate(
                     self.model, valid_loader, criterion
@@ -511,18 +516,13 @@ class Train:
                 self.writer.add_scalar("valid/score", valid_score, self.iteration)
                 self.writer.add_scalar("valid/auc", valid_score, self.iteration)
                 self.writer.flush()
-            train_loss, train_score = self.train_one_epoch(
-                train_loader, optimizer, criterion
-            )
-            self.writer.add_scalar("train/loss", train_loss, self.iteration)
-            self.writer.add_scalar("train/score", train_score, self.iteration)
 
-            if valid_score > best_score:
-                best_score = valid_score
-                torch.save(self.model.state_dict(), cfg.model_path)
-            print(
-                f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}"
-            )
+                if valid_score > best_score:
+                    best_score = valid_score
+                    torch.save(self.model.state_dict(), cfg.model_path)
+                print(
+                    f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}"
+                )
         return best_score
 
 
@@ -553,4 +553,4 @@ class Validate:
             output.cpu().numpy(),
         )
         epoch_auc = roc_auc_score(target.cpu().numpy(), output.cpu().numpy())
-        return epoch_loss, epoch_score, epoch_auc
+        return float(epoch_loss), float(epoch_score), float(epoch_auc)
