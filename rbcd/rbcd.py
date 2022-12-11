@@ -105,7 +105,8 @@ class Config:
     rotate_limit: float = 15
     border_mode: int = 0
     valid_epochs: int = 10
-    sampling: str = "over"
+    ratio: float = 1.0
+    sampling: str = "over"  # deprecated
 
     @property
     def train_csv(self) -> str:
@@ -126,6 +127,9 @@ class Config:
     @property
     def model_path(self) -> str:
         return f"{self.data_path}/models/{self.name}-{self.seed}-{self.n_splits}fold{self.fold}.pth"
+
+    def __str__(self) -> str:
+        return yaml.dump(asdict(self), default_flow_style=False)
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -494,17 +498,11 @@ class Train:
             transform=Transform(cfg),
             image_dir=cfg.image_dir,
         )
-        if cfg.sampling == "over":
-            batch_sampler: BatchSampler = OverBatchSampler(
-                train_dataset, batch_size=cfg.batch_size, shuffle=True
-            )
-        else:
-            batch_sampler = UnderBatchSampler(
-                train_dataset, batch_size=cfg.batch_size, shuffle=True
-            )
+        sampler = OverSampler(train_dataset, shuffle=True, ratio=cfg.ratio)
         train_loader = DataLoader(
             dataset=train_dataset,
-            batch_sampler=batch_sampler,
+            sampler=sampler,
+            batch_size=cfg.batch_size,
             num_workers=self.num_workers,
         )
         valid_loader = DataLoader(

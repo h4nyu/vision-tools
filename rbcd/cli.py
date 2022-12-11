@@ -35,6 +35,7 @@ def train(
     limit: Optional[int] = None,
 ) -> None:
     cfg = Config.load(config_path)
+    print(cfg)
     seed_everything(cfg.seed)
     train = Train(cfg)
     train(limit=limit)
