@@ -89,13 +89,13 @@ class Config:
     name: str
     image_size: int = 256
     in_channels: int = 1
-    batch_size: int = 48
+    batch_size: int = 32
     lr: float = 1e-3
     optimizer: str = "Adam"
-    epochs: int = 100
+    epochs: int = 1000
     seed: int = 42
     n_splits: int = 5
-    model_name: str = "tf_efficientnet_b3_ns"
+    model_name: str = "tf_efficientnet_b2_ns"
     pretrained: bool = True
     fold: int = 0
     data_path: str = "/store"
@@ -121,6 +121,10 @@ class Config:
     @property
     def log_dir(self) -> str:
         return f"{self.data_path}/logs/{self.name}-{self.seed}-{self.n_splits}fold{self.fold}"
+
+    @property
+    def model_path(self) -> str:
+        return f"{self.data_path}/models/{self.name}-{self.seed}-{self.n_splits}fold{self.fold}.pth"
 
     @classmethod
     def load(cls, path: str) -> Config:
@@ -250,7 +254,7 @@ class SetupFolds:
             )
 
 
-class BalancedBatchSampler(BatchSampler):
+class OverBatchSampler(BatchSampler):
     def __init__(
         self,
         dataset: Union[RdcdPngDataset, RdcdDataset],
@@ -273,12 +277,19 @@ class BalancedBatchSampler(BatchSampler):
         df = self.dataset.df
         cancer_idx = df[df["cancer"] == 1].index.values
         non_cancer_idx = df[df["cancer"] == 0].index.values
-        over_sample_idx = cancer_idx.repeat(len(non_cancer_idx) // len(cancer_idx) + 1)
+        if self.shuffle:
+            np.random.shuffle(non_cancer_idx)
+
+        over_samples = []
+        for _ in range(len(non_cancer_idx) // len(cancer_idx) + 1):
+            acc = cancer_idx.copy()
+            if self.shuffle:
+                np.random.shuffle(acc)
+            over_samples.append(acc)
+
+        over_sample_idx = np.concatenate(over_samples)[: len(non_cancer_idx)]
         non_cancer_batch_size = self.batch_size // 2
         cancer_batch_size = self.batch_size - non_cancer_batch_size
-        if self.shuffle:
-            np.random.shuffle(over_sample_idx)
-            np.random.shuffle(non_cancer_idx)
         for i in range(len(self)):
             non_cancer_batch = non_cancer_idx[
                 i * non_cancer_batch_size : (i + 1) * non_cancer_batch_size
@@ -290,7 +301,7 @@ class BalancedBatchSampler(BatchSampler):
             yield batch
 
 
-class BalancedBatchDownSampler(BatchSampler):
+class UnderBatchSampler(BatchSampler):
     def __init__(
         self,
         dataset: Union[RdcdPngDataset, RdcdDataset],
@@ -370,13 +381,17 @@ class Train:
         return os.cpu_count() or 0
 
     def train_one_epoch(
-        self, train_loader: DataLoader, optimizer: Any, criterion: Any
+        self,
+        train_loader: DataLoader,
+        optimizer: Any,
+        criterion: Any,
     ) -> Tuple[float, float]:
-        metric = PFBetaMetric()
         self.model.train()
+        metric = PFBetaMetric()
         epoch_loss = 0.0
         epoch_score = 0.0
         for batch in tqdm(train_loader):
+            self.iteration += 1
             image = batch["image"].to(self.device)
             target = batch["target"].to(self.device)
             optimizer.zero_grad()
@@ -388,7 +403,6 @@ class Train:
             self.scaler.update()
             epoch_loss += loss.item()
             metric.accumulate(output.sigmoid(), target)
-            self.iteration += 1
         epoch_loss /= len(train_loader)
         epoch_score = metric()
         return epoch_loss, epoch_score
@@ -430,7 +444,8 @@ class Train:
             transform=Transform(cfg),
             image_dir=cfg.image_dir,
         )
-        batch_sampler = BalancedBatchDownSampler(
+        batch_sampler = UnderBatchSampler(
+            # batch_sampler = BalancedBatchOverSampler(
             dataset=train_dataset,
             batch_size=cfg.batch_size,
             shuffle=True,
@@ -448,7 +463,7 @@ class Train:
         )
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
         criterion = nn.BCEWithLogitsLoss()
-        best_score = 0
+        best_score = 0.0
         for epoch in range(cfg.epochs):
             train_loss, train_score = self.train_one_epoch(
                 train_loader, optimizer, criterion
@@ -461,9 +476,9 @@ class Train:
                 self.writer.add_scalar("valid/score", valid_score, self.iteration)
                 self.writer.flush()
 
-        #     if valid_score > best_score:
-        #         best_score = valid_score
-        #         torch.save(self.model.state_dict(), cfg.model_path)
-        #     print(
-        #         f"epoch: {epoch + 1}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}"
-        #     )
+                if valid_score > best_score:
+                    best_score = valid_score
+                    torch.save(self.model.state_dict(), cfg.model_path)
+            #     print(
+            #         f"epoch: {epoch + 1}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}"
+            #     )
