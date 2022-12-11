@@ -16,6 +16,7 @@ import torch.nn.functional as F
 import yaml
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
+from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from timm.scheduler import CosineLRScheduler
 from torch import Tensor, nn, optim
@@ -35,9 +36,9 @@ def seed_everything(seed: int = 3801) -> None:
 
 def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
     y_true_count = 0
+    tp = 0
     ctp = 0
     cfp = 0
-
     for idx in range(len(labels)):
         prediction = min(max(predictions[idx], 0), 1)
         if labels[idx]:
@@ -63,21 +64,21 @@ def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
         return 0
 
 
-class PFBetaMetric(nn.Module):
+class Meter(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.output: List[Tensor] = []
         self.target: List[Tensor] = []
-        self.func: Callable = pfbeta
 
     def accumulate(self, output: Tensor, target: Tensor) -> None:
         self.output.append(output)
         self.target.append(target)
 
-    def __call__(self) -> float:
-        output = torch.cat(self.output)
-        target = torch.cat(self.target)
-        return self.func(target, output)
+    def __call__(self) -> Tuple[Tensor, Tensor]:
+        return (
+            torch.cat(self.output),
+            torch.cat(self.target),
+        )
 
     def reset(self) -> None:
         self.output = []
@@ -441,7 +442,7 @@ class Train:
         criterion: Any,
     ) -> Tuple[float, float]:
         self.model.train()
-        metric = PFBetaMetric()
+        meter = Meter()
         epoch_loss = 0.0
         epoch_score = 0.0
         for batch in tqdm(train_loader):
@@ -453,34 +454,20 @@ class Train:
                 output = self.model(image)
                 loss = criterion(output, target.float())
             self.scaler.scale(loss).backward()
+            self.scaler.unscale_(optimizer)
             self.scaler.step(optimizer)
             self.scaler.update()
             epoch_loss += loss.item()
-            metric.accumulate(output.sigmoid(), target)
+            meter.accumulate(output.sigmoid(), target)
         epoch_loss /= len(train_loader)
-        epoch_score = metric()
+        output, target = meter()
+        epoch_score = pfbeta(
+            target.cpu().numpy(),
+            output.cpu().numpy(),
+        )
         return epoch_loss, epoch_score
 
-    def valid_one_epoch(
-        self, valid_loader: DataLoader, criterion: Any
-    ) -> Tuple[float, float]:
-        metric = PFBetaMetric()
-        self.model.eval()
-        epoch_loss = 0.0
-        epoch_score = 0.0
-        with torch.no_grad():
-            for batch in tqdm(valid_loader):
-                image = batch["image"].to(self.device)
-                target = batch["target"].to(self.device)
-                output = self.model(image)
-                loss = criterion(output, target.float())
-                epoch_loss += loss.item()
-                metric.accumulate(output.sigmoid(), target)
-        epoch_loss /= len(valid_loader)
-        epoch_score = metric()
-        return epoch_loss, epoch_score
-
-    def __call__(self, limit: Optional[int] = None) -> None:
+    def __call__(self, limit: Optional[int] = None) -> float:
         cfg = self.cfg
         train_df = pd.read_csv(cfg.train_csv)
         if limit is not None:
@@ -514,21 +501,56 @@ class Train:
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
         criterion = nn.BCEWithLogitsLoss()
         best_score = 0.0
+        validate = Validate()
         for epoch in range(cfg.epochs):
+            if epoch % cfg.valid_epochs == 0:
+                valid_loss, valid_score, valid_auc = validate(
+                    self.model, valid_loader, criterion
+                )
+                self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
+                self.writer.add_scalar("valid/score", valid_score, self.iteration)
+                self.writer.add_scalar("valid/auc", valid_score, self.iteration)
+                self.writer.flush()
             train_loss, train_score = self.train_one_epoch(
                 train_loader, optimizer, criterion
             )
             self.writer.add_scalar("train/loss", train_loss, self.iteration)
             self.writer.add_scalar("train/score", train_score, self.iteration)
-            if (epoch + 1) % cfg.valid_epochs == 0:
-                valid_loss, valid_score = self.valid_one_epoch(valid_loader, criterion)
-                self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
-                self.writer.add_scalar("valid/score", valid_score, self.iteration)
-                self.writer.flush()
 
-                if valid_score > best_score:
-                    best_score = valid_score
-                    torch.save(self.model.state_dict(), cfg.model_path)
-            #     print(
-            #         f"epoch: {epoch + 1}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}"
-            #     )
+            if valid_score > best_score:
+                best_score = valid_score
+                torch.save(self.model.state_dict(), cfg.model_path)
+            print(
+                f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}"
+            )
+        return best_score
+
+
+class Validate:
+    @property
+    def device(self) -> torch.device:
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    def __call__(
+        self, net: nn.Module, valid_loader: DataLoader, criterion: Any
+    ) -> Tuple[float, float, float]:
+        meter = Meter()
+        net.eval()
+        epoch_loss = 0.0
+        epoch_score = 0.0
+        with torch.no_grad():
+            for batch in tqdm(valid_loader):
+                image = batch["image"].to(self.device)
+                target = batch["target"].to(self.device)
+                output = net(image)
+                loss = criterion(output, target.float())
+                epoch_loss += loss.item()
+                meter.accumulate(output.sigmoid().flatten(), target.flatten())
+        epoch_loss /= len(valid_loader)
+        output, target = meter()
+        epoch_score = pfbeta(
+            target.cpu().numpy(),
+            output.cpu().numpy(),
+        )
+        epoch_auc = roc_auc_score(target.cpu().numpy(), output.cpu().numpy())
+        return epoch_loss, epoch_score, epoch_auc

@@ -1,11 +1,8 @@
-name: sampler-0
+name: sampler-1
 image_size: 512
 seed: 42
 n_splits: 5
 valid_epochs: 1
 batch_size: 32
 model_name: "tf_efficientnet_b2_ns"
-ratio: 0.25
-
-  # valid
-  # 0.16
+ratio: 0.125
