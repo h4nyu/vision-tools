@@ -105,6 +105,7 @@ class Config:
     rotate_limit: float = 15
     border_mode: int = 0
     valid_epochs: int = 10
+    sampling: str = "over"
 
     @property
     def train_csv(self) -> str:
@@ -168,7 +169,7 @@ class RdcdPngDataset(Dataset):
 TrainTransform = lambda cfg: A.Compose(
     [
         A.HorizontalFlip(p=cfg.hflip),
-        # A.VerticalFlip(p=cfg.vflip),
+        A.VerticalFlip(p=cfg.vflip),
         A.ShiftScaleRotate(
             scale_limit=cfg.scale_limit,
             rotate_limit=cfg.rotate_limit,
@@ -199,6 +200,23 @@ class RdcdDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.df)
+
+    def convert_dicom_to_j2k(self, row: dict):
+        patient = row["patient_id"]
+        image = row["image_id"]
+        file_path = f"{self.image_dir}/{patient}/{image}.dcm"
+        dcmfile = pydicom.dcmread(file_path)
+        if dcmfile.file_meta.TransferSyntaxUID == "1.2.840.10008.1.2.4.90":
+            with open(file_path, "rb") as fp:
+                raw = DicomBytesIO(fp.read())
+                ds = pydicom.dcmread(raw)
+            offset = ds.PixelData.find(
+                b"\x00\x00\x00\x0C"
+            )  # <---- the jpeg2000 header info we're looking for
+            hackedbitstream = bytearray()
+            hackedbitstream.extend(ds.PixelData[offset:])
+            with open(f"../working/{patient}_{image}.jp2", "wb") as binary_file:
+                binary_file.write(hackedbitstream)
 
     def __getitem__(self, idx: int) -> dict:
         row = self.df.iloc[idx]
@@ -444,12 +462,14 @@ class Train:
             transform=Transform(cfg),
             image_dir=cfg.image_dir,
         )
-        batch_sampler = UnderBatchSampler(
-            # batch_sampler = BalancedBatchOverSampler(
-            dataset=train_dataset,
-            batch_size=cfg.batch_size,
-            shuffle=True,
-        )
+        if cfg.sampling == "over":
+            batch_sampler = OverBatchSampler(
+                train_dataset, batch_size=cfg.batch_size, shuffle=True
+            )
+        else:
+            batch_sampler = UnderBatchSampler(
+                train_dataset, batch_size=cfg.batch_size, shuffle=True
+            )
         train_loader = DataLoader(
             dataset=train_dataset,
             batch_sampler=batch_sampler,
