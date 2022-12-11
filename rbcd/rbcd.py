@@ -21,7 +21,7 @@ from timm.scheduler import CosineLRScheduler
 from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader, Dataset
-from torch.utils.data.sampler import BatchSampler
+from torch.utils.data.sampler import BatchSampler, Sampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -201,22 +201,22 @@ class RdcdDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
-    def convert_dicom_to_j2k(self, row: dict):
-        patient = row["patient_id"]
-        image = row["image_id"]
-        file_path = f"{self.image_dir}/{patient}/{image}.dcm"
-        dcmfile = pydicom.dcmread(file_path)
-        if dcmfile.file_meta.TransferSyntaxUID == "1.2.840.10008.1.2.4.90":
-            with open(file_path, "rb") as fp:
-                raw = DicomBytesIO(fp.read())
-                ds = pydicom.dcmread(raw)
-            offset = ds.PixelData.find(
-                b"\x00\x00\x00\x0C"
-            )  # <---- the jpeg2000 header info we're looking for
-            hackedbitstream = bytearray()
-            hackedbitstream.extend(ds.PixelData[offset:])
-            with open(f"../working/{patient}_{image}.jp2", "wb") as binary_file:
-                binary_file.write(hackedbitstream)
+    # def convert_dicom_to_j2k(self, row: dict):
+    #     patient = row["patient_id"]
+    #     image = row["image_id"]
+    #     file_path = f"{self.image_dir}/{patient}/{image}.dcm"
+    #     dcmfile = pydicom.dcmread(file_path)
+    #     if dcmfile.file_meta.TransferSyntaxUID == "1.2.840.10008.1.2.4.90":
+    #         with open(file_path, "rb") as fp:
+    #             raw = DicomBytesIO(fp.read())
+    #             ds = pydicom.dcmread(raw)
+    #         offset = ds.PixelData.find(
+    #             b"\x00\x00\x00\x0C"
+    #         )  # <---- the jpeg2000 header info we're looking for
+    #         hackedbitstream = bytearray()
+    #         hackedbitstream.extend(ds.PixelData[offset:])
+    #         with open(f"../working/{patient}_{image}.jp2", "wb") as binary_file:
+    #             binary_file.write(hackedbitstream)
 
     def __getitem__(self, idx: int) -> dict:
         row = self.df.iloc[idx]
@@ -356,6 +356,38 @@ class UnderBatchSampler(BatchSampler):
             yield batch
 
 
+class OverSampler(Sampler):
+    def __init__(
+        self,
+        dataset: Union[RdcdPngDataset, RdcdDataset],
+        shuffle: bool = True,
+        ratio: float = 1.0,
+    ) -> None:
+        self.dataset = dataset
+        self.df = dataset.df
+        self.pos_idx = self.df[self.df["cancer"] == 1].index.values
+        self.neg_idx = self.df[self.df["cancer"] == 0].index.values
+        self.shuffle = shuffle
+        self.ratio = ratio
+        self.neg_len = len(self.neg_idx)
+        self.pos_len = len(self.pos_idx)
+        self.over_len = int(self.neg_len * self.ratio)
+        self.length = self.neg_len + self.over_len
+
+    def __len__(self) -> int:
+        return self.length
+
+    def __iter__(self) -> Iterator:
+        neg_idx = self.neg_idx.copy()
+        pos_idx = np.repeat(self.pos_idx, self.over_len // self.pos_len + 1)[
+            : self.over_len
+        ]
+        idx = np.concatenate([neg_idx, pos_idx])
+        if self.shuffle:
+            np.random.shuffle(idx)
+        return iter(idx)
+
+
 class Model(nn.Module):
     def __init__(self, name: str, in_channels: int, pretrained: bool = True) -> None:
         super().__init__()
@@ -463,7 +495,7 @@ class Train:
             image_dir=cfg.image_dir,
         )
         if cfg.sampling == "over":
-            batch_sampler = OverBatchSampler(
+            batch_sampler: BatchSampler = OverBatchSampler(
                 train_dataset, batch_size=cfg.batch_size, shuffle=True
             )
         else:

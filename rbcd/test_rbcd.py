@@ -13,6 +13,7 @@ from torchvision.utils import make_grid, save_image
 from rbcd import (
     Model,
     OverBatchSampler,
+    OverSampler,
     RdcdPngDataset,
     SetupFolds,
     TrainTransform,
@@ -104,6 +105,23 @@ def test_balanced_batch_down_sampler() -> None:
     dataloader = DataLoader(dataset, batch_sampler=sampler)
     for batch in dataloader:
         assert batch["target"].sum() == 4
+        assert batch["target"].shape == (8, 1)
+
+
+def test_over_sampler() -> None:
+    df = pd.read_csv("/store/train.csv")[:100]
+    cancer = df[df["cancer"] == 0]
+    batch_size = 8
+    dataset = RdcdPngDataset(
+        df,
+        ToTensorV2(),
+        image_dir="/store/rsna-breast-cancer-256-pngs",
+    )
+    sampler = OverSampler(dataset, shuffle=True, ratio=1 / 1)
+    assert len(sampler) == len(cancer) * 2
+    dataloader = DataLoader(dataset, sampler=sampler, batch_size=batch_size)
+    for batch in dataloader:
+        assert batch["target"].sum() > 0
         assert batch["target"].shape == (8, 1)
 
 
