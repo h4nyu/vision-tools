@@ -69,7 +69,7 @@ def validate(
 
 @click.command()
 @click.option("-c", "--config-path")
-@click.option("-l", "--limit", type=int, default=20000)
+@click.option("-l", "--limit", type=int, default=10000)
 @click.option("-t", "--n-trials", type=int, default=10)
 def search(
     config_path: str,
