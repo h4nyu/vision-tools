@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import random
 from dataclasses import asdict, dataclass, field
+from logging import Logger, getLogger
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import albumentations as A
@@ -88,8 +89,8 @@ class Meter(nn.Module):
 def find_best_threshold(
     target: Tensor,
     output: Tensor,
-    step: float = 0.01,
-    start: float = 0.4,
+    step: float = 0.02,
+    start: float = 0.45,
     end: float = 0.7,
 ) -> Tuple[float, float]:
     best_thresold = 0.0
@@ -445,6 +446,7 @@ class Train:
             in_channels=cfg.in_channels,
             pretrained=cfg.pretrained,
         )
+        self.logger = getLogger(cfg.name)
         self.scaler = GradScaler()
         self.writer = SummaryWriter(log_dir=cfg.log_dir)
         self.iteration = 0
@@ -535,25 +537,38 @@ class Train:
             self.writer.add_scalar("train/loss", train_loss, self.iteration)
             self.writer.add_scalar("train/score", train_score, self.iteration)
             if epoch % cfg.valid_epochs == 0:
-                valid_loss, valid_score, valid_auc = validate(self.model)
+                (
+                    valid_loss,
+                    valid_score,
+                    valid_auc,
+                    valid_binary_score,
+                    valid_threshold,
+                ) = validate(self.model)
                 self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
                 self.writer.add_scalar("valid/score", valid_score, self.iteration)
-                self.writer.add_scalar("valid/auc", valid_score, self.iteration)
+                self.writer.add_scalar("valid/auc", valid_auc, self.iteration)
+                self.writer.add_scalar(
+                    "valid/valid_binary_score", valid_binary_score, self.iteration
+                )
+                self.writer.add_scalar(
+                    "valid/valid_threshold", valid_threshold, self.iteration
+                )
                 self.writer.flush()
 
                 if valid_score > best_score:
                     best_score = valid_score
                     torch.save(self.model.state_dict(), cfg.model_path)
                 print(
-                    f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}"
+                    f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}, valid_binary_score: {valid_binary_score:.4f}, valid_threshold: {valid_threshold:.4f}"
                 )
-        return best_score
+        return valid_binary_score
 
 
 class Validate:
     def __init__(
         self,
         cfg: Config,
+        logger: Optional[Logger] = None,
     ) -> None:
         valid_df = pd.read_csv(cfg.valid_csv)
         valid_dataset = RdcdPngDataset(
@@ -568,6 +583,7 @@ class Validate:
             batch_size=cfg.batch_size,
         )
         self.criterion = nn.BCEWithLogitsLoss()
+        self.logger = logger or getLogger(cfg.name)
 
     @property
     def num_workers(self) -> int:
@@ -579,7 +595,7 @@ class Validate:
 
     def __call__(
         self, net: nn.Module, enable_find_threshold: bool = False
-    ) -> Tuple[float, float, float]:
+    ) -> Tuple[float, float, float, float, float]:
         meter = Meter()
         net.eval()
         epoch_loss = 0.0
@@ -599,7 +615,11 @@ class Validate:
             output.cpu().numpy(),
         )
         epoch_auc = roc_auc_score(target.cpu().numpy(), output.cpu().numpy())
-        if enable_find_threshold:
-            best_threshold = find_best_threshold(target, output)
-            print(f"best_threshold: {best_threshold}")
-        return float(epoch_loss), float(epoch_score), float(epoch_auc)
+        best_threshold, binary_score = find_best_threshold(target, output)
+        return (
+            float(epoch_loss),
+            float(epoch_score),
+            float(epoch_auc),
+            float(binary_score),
+            float(best_threshold),
+        )

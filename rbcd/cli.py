@@ -1,9 +1,17 @@
+import logging
+from logging import FileHandler, Formatter, StreamHandler
 from typing import Optional
 
 import click
 import pandas as pd
 
 from rbcd import Config, Model, SetupFolds, Train, Validate, seed_everything
+
+stream_handler = StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(Formatter("%(message)s"))
+file_handler = FileHandler(f"app.log")
+logging.basicConfig(level=logging.NOTSET, handlers=[stream_handler, file_handler])
 
 
 @click.group()
@@ -53,8 +61,10 @@ def validate(
     seed_everything(cfg.seed)
     validate = Validate(cfg)
     model = Model.load(cfg).to(cfg.device)
-    loss, score, auc = validate(model, enable_find_threshold=True)
-    print(f"loss: {loss:.4f}, score: {score:.4f}, auc: {auc:.4f}")
+    loss, score, auc, binary_score, thr = validate(model, enable_find_threshold=True)
+    print(
+        f"loss: {loss:.4f}, score: {score:.4f}, auc: {auc:.4f}, binary_score: {binary_score:.4f}, thr: {thr:.4f}"
+    )
 
 
 cli.add_command(setup_folds)
