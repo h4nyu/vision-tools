@@ -85,6 +85,24 @@ class Meter(nn.Module):
         self.target = []
 
 
+def find_best_threshold(
+    target: Tensor,
+    output: Tensor,
+    step: float = 0.01,
+    start: float = 0.4,
+    end: float = 0.7,
+) -> Tuple[float, float]:
+    best_thresold = 0.0
+    best_score = 0.0
+    for thresold in np.arange(start, end, step):
+        score = pfbeta(target, (output > thresold).float(), beta=1)
+        print(f"thresold: {thresold:.2f}, score: {score:.4f}")
+        if score > best_score:
+            best_thresold = thresold
+            best_score = score
+    return float(best_thresold), float(best_score)
+
+
 @dataclass
 class Config:
     name: str
@@ -108,6 +126,7 @@ class Config:
     valid_epochs: int = 10
     ratio: float = 1.0
     sampling: str = "over"  # deprecated
+    device: str = "cuda"
 
     @property
     def train_csv(self) -> str:
@@ -119,7 +138,7 @@ class Config:
 
     @property
     def image_dir(self) -> str:
-        return f"{self.data_path}/rsna-breast-cancer-{self.image_size}-pngs"
+        return f"{self.data_path}/images_as_pngs_{self.image_size}/train_images_processed_{self.image_size}"
 
     @property
     def log_dir(self) -> str:
@@ -155,7 +174,7 @@ class RdcdPngDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         row = self.df.iloc[idx]
-        image_path = f"{self.image_dir}/{row['patient_id']}_{row['image_id']}.png"
+        image_path = f"{self.image_dir}/{row['patient_id']}/{row['image_id']}.png"
         image = io.imread(image_path)
         transformed = self.transform(
             image=image,
@@ -403,6 +422,13 @@ class Model(nn.Module):
             name, pretrained=pretrained, in_chans=in_channels, num_classes=1
         )
 
+    @classmethod
+    def load(cls, cfg: Config) -> "Model":
+        model = cls(name=cfg.model_name, in_channels=cfg.in_channels)
+        state_dict = torch.load(cfg.model_path)
+        model.load_state_dict(state_dict)
+        return model
+
     def forward(self, x: Tensor) -> Tensor:
         x = self.backbone(x)
         return x
@@ -501,7 +527,7 @@ class Train:
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
         criterion = nn.BCEWithLogitsLoss()
         best_score = 0.0
-        validate = Validate()
+        validate = Validate(self.cfg)
         for epoch in range(cfg.epochs):
             train_loss, train_score = self.train_one_epoch(
                 train_loader, optimizer, criterion
@@ -509,9 +535,7 @@ class Train:
             self.writer.add_scalar("train/loss", train_loss, self.iteration)
             self.writer.add_scalar("train/score", train_score, self.iteration)
             if epoch % cfg.valid_epochs == 0:
-                valid_loss, valid_score, valid_auc = validate(
-                    self.model, valid_loader, criterion
-                )
+                valid_loss, valid_score, valid_auc = validate(self.model)
                 self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
                 self.writer.add_scalar("valid/score", valid_score, self.iteration)
                 self.writer.add_scalar("valid/auc", valid_score, self.iteration)
@@ -527,30 +551,55 @@ class Train:
 
 
 class Validate:
+    def __init__(
+        self,
+        cfg: Config,
+    ) -> None:
+        valid_df = pd.read_csv(cfg.valid_csv)
+        valid_dataset = RdcdPngDataset(
+            df=valid_df,
+            transform=Transform(cfg),
+            image_dir=cfg.image_dir,
+        )
+        self.valid_loader = DataLoader(
+            dataset=valid_dataset,
+            shuffle=False,
+            num_workers=self.num_workers,
+            batch_size=cfg.batch_size,
+        )
+        self.criterion = nn.BCEWithLogitsLoss()
+
+    @property
+    def num_workers(self) -> int:
+        return os.cpu_count() or 0
+
     @property
     def device(self) -> torch.device:
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def __call__(
-        self, net: nn.Module, valid_loader: DataLoader, criterion: Any
+        self, net: nn.Module, enable_find_threshold: bool = False
     ) -> Tuple[float, float, float]:
         meter = Meter()
         net.eval()
         epoch_loss = 0.0
         epoch_score = 0.0
         with torch.no_grad():
-            for batch in tqdm(valid_loader):
+            for batch in tqdm(self.valid_loader):
                 image = batch["image"].to(self.device)
                 target = batch["target"].to(self.device)
                 output = net(image)
-                loss = criterion(output, target.float())
+                loss = self.criterion(output, target.float())
                 epoch_loss += loss.item()
                 meter.accumulate(output.sigmoid().flatten(), target.flatten())
-        epoch_loss /= len(valid_loader)
+        epoch_loss /= len(self.valid_loader)
         output, target = meter()
         epoch_score = pfbeta(
             target.cpu().numpy(),
             output.cpu().numpy(),
         )
         epoch_auc = roc_auc_score(target.cpu().numpy(), output.cpu().numpy())
+        if enable_find_threshold:
+            best_threshold = find_best_threshold(target, output)
+            print(f"best_threshold: {best_threshold}")
         return float(epoch_loss), float(epoch_score), float(epoch_auc)
