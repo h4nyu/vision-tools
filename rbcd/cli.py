@@ -5,13 +5,13 @@ from typing import Optional
 import click
 import pandas as pd
 
-from rbcd import Config, Model, SetupFolds, Train, Validate, seed_everything
+from rbcd import Config, Model, Search, SetupFolds, Train, Validate, seed_everything
 
 stream_handler = StreamHandler()
 stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(Formatter("%(message)s"))
 file_handler = FileHandler(f"app.log")
-logging.basicConfig(level=logging.NOTSET, handlers=[stream_handler, file_handler])
+logging.basicConfig(level=logging.INFO, handlers=[stream_handler, file_handler])
 
 
 @click.group()
@@ -67,9 +67,24 @@ def validate(
     )
 
 
+@click.command()
+@click.option("-c", "--config-path")
+@click.option("-l", "--limit", type=int, default=20000)
+@click.option("-t", "--n-trials", type=int, default=10)
+def search(
+    config_path: str,
+    limit: Optional[int],
+    n_trials: int,
+) -> None:
+    cfg = Config.load(config_path)
+    search = Search(n_trials=n_trials, cfg=cfg, limit=limit)
+    search()
+
+
 cli.add_command(setup_folds)
 cli.add_command(train)
 cli.add_command(validate)
+cli.add_command(search)
 
 if __name__ == "__main__":
     cli()

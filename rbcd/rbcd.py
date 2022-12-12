@@ -112,7 +112,7 @@ class Config:
     batch_size: int = 32
     lr: float = 1e-3
     optimizer: str = "Adam"
-    epochs: int = 1000
+    epochs: int = 16
     seed: int = 42
     n_splits: int = 5
     model_name: str = "tf_efficientnet_b2_ns"
@@ -622,4 +622,46 @@ class Validate:
             float(epoch_auc),
             float(binary_score),
             float(best_threshold),
+        )
+
+
+class Search:
+    def __init__(
+        self,
+        cfg: Config,
+        n_trials: int,
+        limit: Optional[int] = None,
+        logger: Optional[Logger] = None,
+    ) -> None:
+        self.cfg = cfg
+        self.n_trials = n_trials
+        self.limit = limit
+        self.logger = logger or getLogger(cfg.name)
+
+    def objective(self, trial: optuna.trial.Trial) -> float:
+        lr = trial.suggest_float("lr", 1e-4, 1.5e-3)
+        ratio = trial.suggest_float("ratio", 0.1, 1.0)
+        cfg = Config(
+            **{
+                **asdict(self.cfg),
+                **dict(
+                    name=f"{self.cfg.name}_{trial.number}",
+                    lr=lr,
+                    ratio=ratio,
+                ),
+            }
+        )
+        train = Train(cfg)
+        validate = Validate(cfg)
+        self.logger.info(f"trial: {trial.number}, lr: {lr}, ratio: {ratio}")
+        train(self.limit)
+        model = Model.load(cfg).to(cfg.device)
+        loss, score, auc, binary_score, thr = validate(model)
+        return binary_score
+
+    def __call__(self) -> None:
+        study = optuna.create_study(direction="maximize")
+        study.optimize(self.objective, self.n_trials)
+        self.logger.info(
+            f"best_params: {study.best_params} best_value: {study.best_value}"
         )

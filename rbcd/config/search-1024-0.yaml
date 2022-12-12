@@ -1,4 +1,4 @@
-name: 1024-0
+name: search-1024-0
 image_size: 1024
 seed: 42
 n_splits: 5
