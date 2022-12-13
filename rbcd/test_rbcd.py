@@ -14,6 +14,7 @@ from rbcd import (
     Model,
     OverBatchSampler,
     OverSampler,
+    RdcdDicomDataset,
     RdcdPngDataset,
     SetupFolds,
     TrainTransform,
@@ -60,7 +61,7 @@ def test_png_train_dataset() -> None:
     dataset = RdcdPngDataset(
         df,
         TrainTransform(cfg),
-        image_dir=f"/store/rsna-breast-cancer-{image_size}-pngs",
+        image_dir=f"/store/images_as_pngs_{image_size}/train_images_processed_{image_size}",
     )
     batch_size = 16
     batch_sampler = UnderBatchSampler(dataset, batch_size=batch_size, shuffle=True)
@@ -72,6 +73,35 @@ def test_png_train_dataset() -> None:
     grid = make_grid(batch["image"], nrow=batch_size // 2)
     print(batch["image_id"])
     save_image(grid, "/test_output/grid.png")
+    # save_image(sample["image"], "/test_output/sample.png")
+
+
+def test_dicom_dataset() -> None:
+    df = pd.read_csv("/store/train.csv")
+    cfg = SimpleNamespace(
+        hflip=0.5,
+        vflip=0.0,
+        scale_limit=0.0,
+        rotate_limit=0,
+        border_mode=0,
+    )
+    image_size = 512
+    dataset = RdcdDicomDataset(
+        df,
+        TrainTransform(cfg),
+        image_dir=f"/store/train_images",
+        image_size=image_size,
+    )
+    batch_size = 16
+    batch_sampler = UnderBatchSampler(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
+    batch = next(iter(dataloader))
+    assert batch["target"].sum() == batch_size // 2
+    assert batch["image"].shape == (batch_size, 1, image_size, image_size)
+    assert batch["target"].shape == (batch_size, 1)
+    grid = make_grid(batch["image"], nrow=batch_size // 2)
+    print(batch["image_id"])
+    save_image(grid, "/test_output/grid-dicom.png")
     # save_image(sample["image"], "/test_output/sample.png")
 
 

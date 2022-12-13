@@ -7,6 +7,8 @@ from logging import Logger, getLogger
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import albumentations as A
+import cv2
+import dicomsdl
 import numpy as np
 import optuna
 import pandas as pd
@@ -198,6 +200,7 @@ TrainTransform = lambda cfg: A.Compose(
     [
         A.HorizontalFlip(p=cfg.hflip),
         A.VerticalFlip(p=cfg.vflip),
+        A.RandomRotate90(),
         A.ShiftScaleRotate(
             scale_limit=cfg.scale_limit,
             rotate_limit=cfg.rotate_limit,
@@ -215,16 +218,18 @@ Transform = lambda cfg: A.Compose(
 )
 
 
-class RdcdDataset(Dataset):
+class RdcdDicomDataset(Dataset):
     def __init__(
         self,
         df: pd.DataFrame,
         transform: Callable,
         image_dir: str = "/store/rsna-breast-cancer-256-pngs",
+        image_size: int = 2048,
     ) -> None:
         self.df = df
         self.transform = transform
         self.image_dir = image_dir
+        self.image_size = image_size
 
     def __len__(self) -> int:
         return len(self.df)
@@ -248,19 +253,25 @@ class RdcdDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         row = self.df.iloc[idx]
-        image_path = f"{self.image_dir}/{row['patient_id']}_{row['image_id']}.png"
-        image = io.imread(image_path)
+        image_path = f"{self.image_dir}/{row['patient_id']}/{row['image_id']}.dcm"
+        dicom = dicomsdl.open(image_path)
+        img = dicom.pixelData()
+        img = (img - img.min()) / (img.max() - img.min())
+        if dicom.getPixelDataInfo()["PhotometricInterpretation"] == "MONOCHROME1":
+            img = 1 - img
+        image = (img * 255).astype(np.uint8)
+        image = cv2.resize(image, (self.image_size, self.image_size))
         transformed = self.transform(
             image=image,
         )
         image = transformed["image"].float() / 255.0
-        target = torch.tensor(row["cancer"]) if row["cancer"] is not None else None
-        sample = dict(
-            **row,
+        target = torch.tensor([row["cancer"]]) if row["cancer"] is not None else None
+        return dict(
             image=image,
             target=target,
+            patient_id=row["patient_id"],
+            image_id=row["image_id"],
         )
-        return sample
 
 
 class SetupFolds:
@@ -442,6 +453,7 @@ class Train:
     def __init__(
         self,
         cfg: Config,
+        logger: Logger,
     ) -> None:
         self.cfg = cfg
         self.net = Model(
@@ -449,7 +461,7 @@ class Train:
             in_channels=cfg.in_channels,
             pretrained=cfg.pretrained,
         )
-        self.logger = getLogger(cfg.name)
+        self.logger = logger
         self.scaler = GradScaler()
         self.writer = SummaryWriter(log_dir=cfg.log_dir)
         self.iteration = 0
@@ -658,8 +670,8 @@ class Search:
             }
         )
         self.logger.info(f"trial: {trial.number}, cfg: {cfg}")
-        train = Train(cfg)
-        validate = Validate(cfg)
+        train = Train(cfg, logger=self.logger)
+        validate = Validate(cfg, logger=self.logger)
         train(self.limit)
         model = Model.load(cfg).to(cfg.device)
         loss, score, auc, binary_score, thr = validate(model)

@@ -13,6 +13,8 @@ stream_handler.setFormatter(Formatter("%(message)s"))
 file_handler = FileHandler(f"app.log")
 logging.basicConfig(level=logging.INFO, handlers=[stream_handler, file_handler])
 
+logger = logging.getLogger(__name__)
+
 
 @click.group()
 def cli() -> None:
@@ -77,7 +79,7 @@ def search(
     n_trials: int,
 ) -> None:
     cfg = Config.load(config_path)
-    search = Search(n_trials=n_trials, cfg=cfg, limit=limit)
+    search = Search(n_trials=n_trials, cfg=cfg, limit=limit, logger=logger)
     search()
 
 
