@@ -1,0 +1,12 @@
+name: search-accumulate-grad
+image_size: 1024
+seed: 42
+n_splits: 5
+valid_epochs: 1
+batch_size: 15
+model_name: "tf_efficientnet_b2_ns"
+ratio: 0.15
+
+### Result ###
+# score: 0.2947@0.59
+# epoch: 14, iteration: 45948, train_loss: 0.1102, train_score: 0.4292, valid_loss: 0.1186, valid_score: 0.2355, valid_auc: 0.8252

@@ -92,12 +92,14 @@ def find_best_threshold(
     step: float = 0.02,
     start: float = 0.45,
     end: float = 0.7,
+    logger: Optional[Logger] = None,
 ) -> Tuple[float, float]:
     best_thresold = 0.0
     best_score = 0.0
+    logger = logger or getLogger(__name__)
     for thresold in np.arange(start, end, step):
         score = pfbeta(target, (output > thresold).float(), beta=1)
-        print(f"thresold: {thresold:.2f}, score: {score:.4f}")
+        logger.info(f"thresold: {thresold:.3f}, score: {score:.3f}")
         if score > best_score:
             best_thresold = thresold
             best_score = score
@@ -117,6 +119,7 @@ class Config:
     n_splits: int = 5
     model_name: str = "tf_efficientnet_b2_ns"
     pretrained: bool = True
+    accumulation_steps: int = 1
     fold: int = 0
     data_path: str = "/store"
     hflip: float = 0.5
@@ -480,11 +483,12 @@ class Train:
             optimizer.zero_grad()
             with autocast():
                 output = self.model(image)
-                loss = criterion(output, target.float())
+                loss = criterion(output, target.float()) / self.cfg.accumulation_steps
             self.scaler.scale(loss).backward()
-            self.scaler.unscale_(optimizer)
-            self.scaler.step(optimizer)
-            self.scaler.update()
+            if self.iteration % self.cfg.accumulation_steps == 0:
+                self.scaler.unscale_(optimizer)
+                self.scaler.step(optimizer)
+                self.scaler.update()
             epoch_loss += loss.item()
             meter.accumulate(output.sigmoid(), target)
         epoch_loss /= len(train_loader)
@@ -558,7 +562,7 @@ class Train:
                 if valid_score > best_score:
                     best_score = valid_score
                     torch.save(self.model.state_dict(), cfg.model_path)
-                print(
+                self.logger.info(
                     f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}, valid_binary_score: {valid_binary_score:.4f}, valid_threshold: {valid_threshold:.4f}"
                 )
         return valid_binary_score
@@ -641,22 +645,27 @@ class Search:
     def objective(self, trial: optuna.trial.Trial) -> float:
         lr = trial.suggest_float("lr", 1e-4, 1.5e-3)
         ratio = trial.suggest_float("ratio", 0.1, 1.0)
+        accumulation_steps = trial.suggest_int("accumulation_steps", 1, 4)
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
-                    name=f"{self.cfg.name}_{trial.number}",
+                    name=f"{self.cfg.name}_ratio{ratio}_lr{lr}_accumulation_steps{accumulation_steps}",
                     lr=lr,
                     ratio=ratio,
+                    accumulation_steps=accumulation_steps,
                 ),
             }
         )
+        self.logger.info(f"trial: {trial.number}, cfg: {cfg}")
         train = Train(cfg)
         validate = Validate(cfg)
-        self.logger.info(f"trial: {trial.number}, lr: {lr}, ratio: {ratio}")
         train(self.limit)
         model = Model.load(cfg).to(cfg.device)
         loss, score, auc, binary_score, thr = validate(model)
+        self.logger.info(
+            f"trial: {trial.number}, cfg: {cfg} loss: {loss:.4f}, score: {score:.4f}, auc: {auc:.4f}, binary_score: {binary_score:.4f}, thr: {thr:.4f}"
+        )
         return binary_score
 
     def __call__(self) -> None:
