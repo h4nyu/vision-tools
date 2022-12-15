@@ -71,7 +71,6 @@ def validate(
 
 @click.command()
 @click.option("-c", "--config-path")
-@click.option("-l", "--limit", type=int, default=None)
 @click.option("-t", "--n-trials", type=int, default=10)
 def search(
     config_path: str,
@@ -79,7 +78,7 @@ def search(
     n_trials: int,
 ) -> None:
     cfg = Config.load(config_path)
-    search = Search(n_trials=n_trials, cfg=cfg, limit=limit, logger=logger)
+    search = Search(n_trials=n_trials, cfg=cfg, limit=cfg.search_limit, logger=logger)
     search()
 
 

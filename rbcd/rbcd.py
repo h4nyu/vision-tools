@@ -134,6 +134,8 @@ class Config:
     sampling: str = "over"  # deprecated
     device: str = "cuda"
 
+    search_limit: Optional[int] = None
+
     @property
     def train_csv(self) -> str:
         return f"{self.data_path}/train.{self.seed}.{self.n_splits}fold{self.fold}.csv"
@@ -453,7 +455,7 @@ class Train:
     def __init__(
         self,
         cfg: Config,
-        logger: Logger,
+        logger: Optional[Logger] = None,
     ) -> None:
         self.cfg = cfg
         self.net = Model(
@@ -461,7 +463,7 @@ class Train:
             in_channels=cfg.in_channels,
             pretrained=cfg.pretrained,
         )
-        self.logger = logger
+        self.logger = logger or getLogger(__name__)
         self.scaler = GradScaler()
         self.writer = SummaryWriter(log_dir=cfg.log_dir)
         self.iteration = 0
