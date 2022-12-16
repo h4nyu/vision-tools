@@ -109,6 +109,37 @@ def find_best_threshold(
 
 
 @dataclass
+class InferenceConfig:
+    data_path: str = "/store"
+    models_dir: str = "inference_models"
+    configs_dir: str = "configs"
+    batch_size: int = 32
+    config_paths: List[str] = field(default_factory=list)
+
+    @property
+    def configs(self) -> List[Config]:
+        overwrite = dict(models_dir=self.models_dir)
+        return [
+            Config.load(f"{self.configs_dir}/{path}", overwrite)
+            for path in self.config_paths
+        ]
+
+    @property
+    def test_csv(self) -> str:
+        return f"{self.data_path}/test.csv"
+
+    @property
+    def image_dir(self) -> str:
+        return f"{self.data_path}/test_images"
+
+    @classmethod
+    def load(cls, path: str) -> Config:
+        with open(path) as file:
+            obj = yaml.safe_load(file)
+        return InferenceConfig(**obj)
+
+
+@dataclass
 class Config:
     name: str
     image_size: int = 256
@@ -124,6 +155,7 @@ class Config:
     accumulation_steps: int = 1
     fold: int = 0
     data_path: str = "/store"
+    models_dir: str = "models"
     hflip: float = 0.5
     vflip: float = 0.5
     scale_limit: float = 0.3
@@ -154,15 +186,17 @@ class Config:
 
     @property
     def model_path(self) -> str:
-        return f"{self.data_path}/models/{self.name}-{self.seed}-{self.n_splits}fold{self.fold}.pth"
+        return f"{self.models_dir}/{self.name}-{self.seed}-{self.n_splits}fold{self.fold}.pth"
 
     def __str__(self) -> str:
         return yaml.dump(asdict(self), default_flow_style=False)
 
     @classmethod
-    def load(cls, path: str) -> Config:
+    def load(cls, path: str, overwrite: Optional[dict] = None) -> Config:
         with open(path) as file:
             obj = yaml.safe_load(file)
+        if overwrite:
+            obj.update(overwrite)
         return Config(**obj)
 
 
@@ -316,7 +350,7 @@ class SetupFolds:
 class OverBatchSampler(BatchSampler):
     def __init__(
         self,
-        dataset: Union[RdcdPngDataset, RdcdDataset],
+        dataset: Union[RdcdPngDataset, RdcdDicomDataset],
         batch_size: int,
         shuffle: bool = True,
     ) -> None:
@@ -363,7 +397,7 @@ class OverBatchSampler(BatchSampler):
 class UnderBatchSampler(BatchSampler):
     def __init__(
         self,
-        dataset: Union[RdcdPngDataset, RdcdDataset],
+        dataset: Union[RdcdPngDataset, RdcdDicomDataset],
         batch_size: int,
         shuffle: bool = True,
     ) -> None:
@@ -400,7 +434,7 @@ class UnderBatchSampler(BatchSampler):
 class OverSampler(Sampler):
     def __init__(
         self,
-        dataset: Union[RdcdPngDataset, RdcdDataset],
+        dataset: Union[RdcdPngDataset, RdcdDicomDataset],
         shuffle: bool = True,
         ratio: float = 1.0,
     ) -> None:
@@ -688,3 +722,38 @@ class Search:
         self.logger.info(
             f"best_params: {study.best_params} best_value: {study.best_value}"
         )
+
+
+class Inference:
+    def __init__(
+        self,
+        cfg: InferenceConfig,
+        logger: Optional[Logger] = None,
+    ) -> None:
+        self.cfg = cfg
+        self.logger = logger or getLogger(__name__)
+
+    @property
+    def num_workers(self) -> int:
+        return os.cpu_count() or 0
+
+    @torch.no_grad()
+    def inference(self, cfg: Config, loader: DataLoader) -> np.ndarray:
+        model = Model.load(cfg).to(cfg.device)
+
+    def __call__(self) -> None:
+        df = pd.read_csv(self.cfg.test_csv)
+        dataset = RdcdDicomDataset(
+            df=df,
+            transform=Transform(self.cfg),
+            image_dir=self.cfg.image_dir,
+        )
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=self.cfg.batch_size,
+            num_workers=self.num_workers,
+        )
+        for cfg in self.cfg.configs:
+            self.logger.info(f"cfg: {cfg}")
+            output = self.inference(cfg, loader)
+            df[cfg.name] = output

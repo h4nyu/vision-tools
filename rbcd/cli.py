@@ -5,7 +5,17 @@ from typing import Optional
 import click
 import pandas as pd
 
-from rbcd import Config, Model, Search, SetupFolds, Train, Validate, seed_everything
+from rbcd import (
+    Config,
+    Inference,
+    InferenceConfig,
+    Model,
+    Search,
+    SetupFolds,
+    Train,
+    Validate,
+    seed_everything,
+)
 
 stream_handler = StreamHandler()
 stream_handler.setLevel(logging.INFO)
@@ -44,6 +54,7 @@ def train(
     data_path: str = "/store",
     limit: Optional[int] = None,
 ) -> None:
+    print("aaaa")
     cfg = Config.load(config_path)
     print(cfg)
     seed_everything(cfg.seed)
@@ -82,10 +93,22 @@ def search(
     search()
 
 
+@click.command("inference")
+@click.option("-c", "--config-path", type=str)
+def inference(
+    config_path: str,
+) -> None:
+    cfg = InferenceConfig.load(config_path)
+    logger.info(cfg)
+    inference = Inference(cfg)
+    inference()
+
+
 cli.add_command(setup_folds)
 cli.add_command(train)
 cli.add_command(validate)
 cli.add_command(search)
+cli.add_command(inference)
 
 if __name__ == "__main__":
     cli()

@@ -6,3 +6,8 @@ Trial 6 finished with value: 0.1886792629957199 and parameters: {'lr': 0.0003165
 -> lr: 0.00031655209394667395 ratio: 0.15069802469010238 accumulation_steps: 2 image_size:1024 batch_size:16
 -> lr: 0.00031655209394667395 * 2 / 3 ratio: 0.15069802469010238 accumulation_steps: 3 image_size:1024 batch_size:16 / 3 * 2 ~ 10
 -> trial-0.yaml
+
+Trial 9 finished with value: 0.1904761791229248 and parameters: {'lr': 0.0005094480973201417, 'ratio': 0.5369031081273525, 'accumulation_steps': 2}. Best is trial 9 with value: 0.1904761791229248. image_size: 512 batch_size:16
+
+-> lr: 0.0005094480973201417, ratio: 0.5369031081273525 accumulation_steps: 2 image_size:1024 batch_size:15 image_size:15
+-> trial-1.yaml

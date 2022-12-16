@@ -1,0 +1,22 @@
+config_paths:
+  - trial-1.yaml
+  # - config/v2-4.fine.yaml # LOCAL: 0.9889  PUBLIC:
+  # - config/v2.1-0.yaml # LOCAL: 0.9956 PUBLIC: 0.9136 PRIVATE: 0.9004056
+  # - config/v2-0.yaml # LOCAL: 0.9868 PUBLIC: 0.9727 PRIVATE: 0.9261483
+  # - config/v2-1.yaml # LOCAL:0.9934  PUBLIC: 0.9439 PRIVATE: 0.9539086
+  # - config/v2-1.fine.yaml # LOCAL:  PUBLIC:
+  # - config/v2-2.yaml # LOCAL:0.9956  PUBLIC: 0.9405
+  # - config/v2-2.fine.yaml # LOCAL:0.9956  PUBLIC: 0.9433014 PRIVATE: 0.9356195
+  # - config/v2-3.yaml # LOCAL:0.9933  PUBLIC:
+  # - config/v3-0.fine.yaml # LOCAL:0.9649  PUBLIC: 0.9485795 PRIVATE: 0.9002704
+  # - config/v3-0.flip.yaml # LOCAL:0.9868  PUBLIC: 0.9520649 PRIVATE: 0.9171829
+  # - config/v4-0.yaml # LOCAL:0.990  PUBLIC: 0.9443215
+  # - config/v5-base-0.yaml # LOCAL:0.9868  PUBLIC: 0.9727 copy model of v2-0
+  # - config/v5-fine-0.yaml # LOCAL:-  PUBLIC: 0.9700274 etrain of v5-base-0
+  # - config/v5-fine-1.yaml # LOCAL:0.9868  PUBLIC: 0.9734 +0.007
+  # - config/v5-fine-3.yaml # LOCAL:0.9868 PUBLIC: 0.9616519 increase image-size 512 -> 576 - 0.1
+  # - config/v5-base-1.yaml # LOCAL:0.9632 PUBLIC: -
+  # - config/v5-fine-1-0.yaml # LOCAL:0.9912 PUBLIC: 0.9668142
+  # - config/v5-fine-1-0.bk.yaml # LOCAL:0.9912 PUBLIC: 0.9668142
+  # - config/v5-base-0-fine-0.yaml # LOCAL: 0.9934 PUBLIC:
+  # - config/v5-fine-1-0.bk.yaml # LOCAL: 0.9956 PUBLIC: 	0.9757375
