@@ -5,9 +5,8 @@ mkdir -p dist
 if [ ! -d "packages" ]; then
     pip download -r requirements.txt -d packages
 fi
-if [ ! -f "dist/packages.tar.gz" ]; then
-    echo "Creating packages.tar.gz"
-    tar -zcf dist/packages.tar.gz packages
+if [ ! -f "dist/packages" ]; then
+    cp -r packages dist/packages
 fi
 
 cp requirements.txt dist/requirements.txt
