@@ -1,3 +1,4 @@
+batch_size: 8
 config_paths:
   - trial-1.yaml
   # - config/v2-4.fine.yaml # LOCAL: 0.9889  PUBLIC:

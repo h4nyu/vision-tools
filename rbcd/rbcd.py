@@ -113,7 +113,7 @@ class InferenceConfig:
     data_path: str = "/store"
     models_dir: str = "inference_models"
     configs_dir: str = "configs"
-    batch_size: int = 32
+    batch_size: int = 8
     config_paths: List[str] = field(default_factory=list)
 
     @property
