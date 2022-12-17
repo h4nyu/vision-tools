@@ -1,5 +1,6 @@
 config_paths:
   - trial-1.yaml
+  - trial-1.yaml
   # - config/v2-4.fine.yaml # LOCAL: 0.9889  PUBLIC:
   # - config/v2.1-0.yaml # LOCAL: 0.9956 PUBLIC: 0.9136 PRIVATE: 0.9004056
   # - config/v2-0.yaml # LOCAL: 0.9868 PUBLIC: 0.9727 PRIVATE: 0.9261483

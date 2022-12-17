@@ -7,7 +7,7 @@ import pandas as pd
 
 from rbcd import (
     Config,
-    Inference,
+    EnsembleInference,
     InferenceConfig,
     Model,
     Search,
@@ -100,8 +100,10 @@ def inference(
 ) -> None:
     cfg = InferenceConfig.load(config_path)
     logger.info(cfg)
-    inference = Inference(cfg)
-    inference()
+    inference = EnsembleInference(cfg)
+    sub = inference()
+    print(sub)
+    sub.to_csv("submission.csv", index=False)
 
 
 cli.add_command(setup_folds)

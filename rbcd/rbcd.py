@@ -168,6 +168,8 @@ class Config:
 
     search_limit: Optional[int] = None
 
+    threshold: float = 0.5
+
     @property
     def train_csv(self) -> str:
         return f"{self.data_path}/train.{self.seed}.{self.n_splits}fold{self.fold}.csv"
@@ -301,7 +303,15 @@ class RdcdDicomDataset(Dataset):
             image=image,
         )
         image = transformed["image"].float() / 255.0
-        target = torch.tensor([row["cancer"]]) if row["cancer"] is not None else None
+        target = (
+            torch.tensor([row["cancer"]]) if row.get(["cancer"]) is not None else None
+        )
+        if target is None:
+            return dict(
+                image=image,
+                patient_id=row["patient_id"],
+                image_id=row["image_id"],
+            )
         return dict(
             image=image,
             target=target,
@@ -724,7 +734,7 @@ class Search:
         )
 
 
-class Inference:
+class EnsembleInference:
     def __init__(
         self,
         cfg: InferenceConfig,
@@ -737,9 +747,15 @@ class Inference:
     def num_workers(self) -> int:
         return os.cpu_count() or 0
 
-    @torch.no_grad()
-    def inference(self, cfg: Config, loader: DataLoader) -> np.ndarray:
-        model = Model.load(cfg).to(cfg.device)
+    def vote(self, df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
+        df["cancer"] = df[cols].mean(axis=1)
+        df = (
+            df[["prediction_id", "cancer"]]
+            .groupby("prediction_id")
+            .mean()
+            .reset_index()
+        )
+        return df
 
     def __call__(self) -> None:
         df = pd.read_csv(self.cfg.test_csv)
@@ -753,7 +769,36 @@ class Inference:
             batch_size=self.cfg.batch_size,
             num_workers=self.num_workers,
         )
+        output_cols = []
         for cfg in self.cfg.configs:
             self.logger.info(f"cfg: {cfg}")
-            output = self.inference(cfg, loader)
-            df[cfg.name] = output
+            inference = Inference(cfg, logger=self.logger)
+            output = inference(loader)
+            output_cols.append(cfg.name)
+            df[cfg.name] = output > cfg.threshold
+        submission_df = self.vote(df[["prediction_id"] + output_cols], output_cols)
+        return submission_df
+
+
+class Inference:
+    def __init__(
+        self,
+        cfg: Config,
+        logger: Optional[Logger] = None,
+    ) -> None:
+        self.cfg = cfg
+        self.logger = logger or getLogger(__name__)
+
+    @property
+    def num_workers(self) -> int:
+        return os.cpu_count() or 0
+
+    @torch.no_grad()
+    def __call__(self, loader: DataLoader) -> np.ndarray:
+        model = Model.load(self.cfg).to(self.cfg.device)
+        outputs = []
+        for batch in tqdm(loader):
+            image = batch["image"].to(self.cfg.device)
+            output = model(image)
+            outputs.append(output.sigmoid().detach().cpu().numpy())
+        return np.concatenate(outputs)
