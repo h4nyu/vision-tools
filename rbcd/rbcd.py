@@ -133,7 +133,7 @@ class InferenceConfig:
         return f"{self.data_path}/test_images"
 
     @classmethod
-    def load(cls, path: str) -> Config:
+    def load(cls, path: str) -> InferenceConfig:
         with open(path) as file:
             obj = yaml.safe_load(file)
         return InferenceConfig(**obj)
@@ -169,6 +169,7 @@ class Config:
     search_limit: Optional[int] = None
 
     threshold: float = 0.5
+    use_roi: bool = False
 
     @property
     def train_csv(self) -> str:
@@ -208,10 +209,12 @@ class RdcdPngDataset(Dataset):
         df: pd.DataFrame,
         transform: Callable,
         image_dir: str = "/store/rsna-breast-cancer-256-pngs",
+        use_roi: bool = False,
     ) -> None:
         self.df = df
         self.transform = transform
         self.image_dir = image_dir
+        self.use_roi = use_roi
 
     def __len__(self) -> int:
         return len(self.df)
@@ -220,6 +223,8 @@ class RdcdPngDataset(Dataset):
         row = self.df.iloc[idx]
         image_path = f"{self.image_dir}/{row['patient_id']}/{row['image_id']}.png"
         image = io.imread(image_path)
+        if self.use_roi:
+            image = extract_roi(image)
         transformed = self.transform(
             image=image,
         )
@@ -236,6 +241,7 @@ class RdcdPngDataset(Dataset):
 
 TrainTransform = lambda cfg: A.Compose(
     [
+        A.Resize(cfg.image_size, cfg.image_size),
         A.HorizontalFlip(p=cfg.hflip),
         A.VerticalFlip(p=cfg.vflip),
         A.RandomRotate90(),
@@ -251,6 +257,7 @@ TrainTransform = lambda cfg: A.Compose(
 
 Transform = lambda cfg: A.Compose(
     [
+        A.Resize(cfg.image_size, cfg.image_size),
         ToTensorV2(),
     ],
 )
@@ -569,11 +576,13 @@ class Train:
             df=train_df,
             transform=TrainTransform(cfg),
             image_dir=cfg.image_dir,
+            use_roi=cfg.use_roi,
         )
         valid_dataset = RdcdPngDataset(
             df=valid_df,
             transform=Transform(cfg),
             image_dir=cfg.image_dir,
+            use_roi=cfg.use_roi,
         )
         sampler = OverSampler(train_dataset, shuffle=True, ratio=cfg.ratio)
         train_loader = DataLoader(
@@ -757,7 +766,7 @@ class EnsembleInference:
         )
         return df
 
-    def __call__(self) -> None:
+    def __call__(self) -> pd.DataFrame:
         df = pd.read_csv(self.cfg.test_csv)
         dataset = RdcdDicomDataset(
             df=df,
@@ -778,6 +787,18 @@ class EnsembleInference:
             df[cfg.name] = output > cfg.threshold
         submission_df = self.vote(df[["prediction_id"] + output_cols], output_cols)
         return submission_df
+
+
+def extract_roi(x: np.ndarray) -> np.ndarray:
+    x = x[5:-5, 5:-5]
+    output = cv2.connectedComponentsWithStats(
+        (x > 20).astype(np.uint8)[:, :], 8, cv2.CV_32S
+    )
+    stats = output[2]
+    idx = stats[1:, 4].argmax() + 1
+    x1, y1, w, h = stats[idx][:4]
+    roi = x[y1 : y1 + h, x1 : x1 + w]
+    return roi
 
 
 class Inference:

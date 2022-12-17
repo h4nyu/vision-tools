@@ -2,6 +2,8 @@ from collections import namedtuple
 from types import SimpleNamespace
 
 import albumentations as A
+import cv2
+import numpy as np
 import pandas as pd
 import pytest
 import torch
@@ -50,18 +52,20 @@ def test_fold() -> None:
 
 def test_png_train_dataset() -> None:
     df = pd.read_csv("/store/train.csv")
+    image_size = 512
     cfg = SimpleNamespace(
         hflip=0.5,
         vflip=0.0,
         scale_limit=0.0,
         rotate_limit=0,
         border_mode=0,
+        image_size=image_size,
     )
-    image_size = 512
     dataset = RdcdPngDataset(
         df,
         TrainTransform(cfg),
         image_dir=f"/store/images_as_pngs_{image_size}/train_images_processed_{image_size}",
+        use_roi=True,
     )
     batch_size = 16
     batch_sampler = UnderBatchSampler(dataset, batch_size=batch_size, shuffle=True)

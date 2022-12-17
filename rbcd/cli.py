@@ -102,8 +102,8 @@ def inference(
     logger.info(cfg)
     inference = EnsembleInference(cfg)
     sub = inference()
-    print(sub)
     sub.to_csv("submission.csv", index=False)
+    print(sub)
 
 
 cli.add_command(setup_folds)
