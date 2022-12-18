@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from torchvision.utils import make_grid, save_image
 
 from rbcd import (
+    Config,
     Model,
     OverBatchSampler,
     OverSampler,
@@ -22,6 +23,7 @@ from rbcd import (
     TrainTransform,
     UnderBatchSampler,
     pfbeta,
+    read_csv,
 )
 
 
@@ -50,32 +52,22 @@ def test_fold() -> None:
         assert len(test_patients.intersection(train_patients)) == 0
 
 
-def test_png_train_dataset() -> None:
-    df = pd.read_csv("/store/train.csv")
-    image_size = 512
-    cfg = SimpleNamespace(
-        hflip=0.5,
-        vflip=0.0,
-        scale_limit=0.0,
-        rotate_limit=0,
-        border_mode=0,
-        image_size=image_size,
-    )
+def test_aug() -> None:
+    df = read_csv("/store/train.csv")
+    cfg = Config.load("configs/trial-b2-roi.yaml")
+    batch_size = 8 * 8
     dataset = RdcdPngDataset(
         df,
         TrainTransform(cfg),
-        image_dir=f"/store/images_as_pngs_{image_size}/train_images_processed_{image_size}",
+        image_dir=f"/store/images_as_pngs_{cfg.image_size}/train_images_processed_{cfg.image_size}",
         use_roi=True,
     )
-    batch_size = 16
-    batch_sampler = UnderBatchSampler(dataset, batch_size=batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_sampler=batch_sampler)
-    batch = next(iter(dataloader))
-    assert batch["target"].sum() == batch_size // 2
-    assert batch["image"].shape == (batch_size, 1, image_size, image_size)
-    assert batch["target"].shape == (batch_size, 1)
-    grid = make_grid(batch["image"], nrow=batch_size // 2)
-    print(batch["image_id"])
+    image_batch = []
+    for _ in range(batch_size):
+        sample = dataset[1]
+        image_batch.append(sample["image"])
+    batch = torch.stack(image_batch)
+    grid = make_grid(batch, nrow=8)
     save_image(grid, "/test_output/grid.png")
     # save_image(sample["image"], "/test_output/sample.png")
 

@@ -184,8 +184,6 @@ class Config:
     fold: int = 0
     data_path: str = "/store"
     models_dir: str = "models"
-    hflip: float = 0.5
-    vflip: float = 0.5
     scale_limit: float = 0.3
     rotate_limit: float = 15
     border_mode: int = 0
@@ -198,6 +196,26 @@ class Config:
 
     threshold: float = 0.5
     use_roi: bool = False
+    hflip_p: float = 0.5
+    vflip_p: float = 0.0
+    contrast_p: float = 0.0
+    contrast_limit: float = 0.5
+    guassian_noise_p: float = 0.25
+    elastic_p: float = 0.25
+    elastic_alpha: float = 1.0
+    elastic_sigma: float = 0.05
+    elastic_alpha_affine: float = 0.03
+    border_mode: int = cv2.BORDER_CONSTANT
+    border_value: int = 0
+    affine_p: float = 0.7
+    affine_scale: float = 0.3
+    affine_translate: float = 0.1
+    affine_rotate: float = 30
+    affine_shear: float = 20
+    cutout_p: float = 0.25
+    cutout_holes: int = 5
+    cutout_size: float = 0.2
+    grid_shuffle_p: float = 0.0
 
     @property
     def train_csv(self) -> str:
@@ -268,21 +286,83 @@ class RdcdPngDataset(Dataset):
         return sample
 
 
-TrainTransform = lambda cfg: A.Compose(
-    [
-        A.Resize(cfg.image_size, cfg.image_size),
-        A.HorizontalFlip(p=cfg.hflip),
-        A.VerticalFlip(p=cfg.vflip),
-        A.RandomRotate90(),
-        A.ShiftScaleRotate(
-            scale_limit=cfg.scale_limit,
-            rotate_limit=cfg.rotate_limit,
-            p=0.5,
-            border_mode=cfg.border_mode,
-        ),
-        ToTensorV2(),
-    ],
-)
+class TrainTransform:
+    def __init__(
+        self,
+        cfg: Config,
+    ) -> None:
+        self.cfg = cfg
+        transforms = []
+        if cfg.hflip_p > 0:
+            transforms.append(A.HorizontalFlip(p=cfg.hflip_p))
+        if cfg.vflip_p > 0:
+            transforms.append(A.VerticalFlip(p=cfg.vflip_p))
+        if cfg.contrast_p > 0:
+            transforms.append(
+                A.RandomContrast(p=cfg.contrast_p, limit=cfg.contrast_limit)
+            )
+        if cfg.guassian_noise_p > 0:
+            transforms.append(A.GaussNoise(p=cfg.guassian_noise_p))
+
+        transforms.append(
+            A.Resize(cfg.image_size, cfg.image_size),
+        )
+        if cfg.elastic_p > 0:
+            transforms.append(
+                A.ElasticTransform(
+                    p=cfg.elastic_p,
+                    alpha=cfg.elastic_alpha * cfg.image_size,
+                    sigma=cfg.elastic_sigma * cfg.image_size,
+                    alpha_affine=cfg.elastic_alpha_affine * cfg.image_size,
+                    border_mode=cfg.border_mode,
+                    value=cfg.border_value,
+                )
+            )
+        if cfg.affine_p > 0:
+            transforms.append(
+                A.Affine(
+                    p=cfg.affine_p,
+                    scale=(1.0 - cfg.affine_scale, 1.0 + cfg.affine_scale),
+                    translate_percent=(-cfg.affine_translate, cfg.affine_translate),
+                    rotate=(-cfg.affine_rotate, cfg.affine_rotate),
+                    shear=(-cfg.affine_shear, cfg.affine_shear),
+                )
+            )
+        if cfg.grid_shuffle_p > 0:
+            transforms.append(A.RandomGridShuffle(p=cfg.grid_shuffle_p))
+        if cfg.cutout_p > 0:
+            transforms.append(
+                A.Cutout(
+                    p=cfg.cutout_p,
+                    num_holes=cfg.cutout_holes,
+                    max_h_size=int(cfg.cutout_size * cfg.image_size),
+                    max_w_size=int(cfg.cutout_size * cfg.image_size),
+                )
+            )
+
+        transforms.extend(
+            [
+                ToTensorV2(),
+            ]
+        )
+
+        self.transform = A.Compose(transforms)
+
+    def __call__(self, **kwargs: Any) -> dict:
+        return self.transform(**kwargs)
+
+
+# TrainTransform = lambda cfg: A.Compose(
+#     [
+#         A.RandomRotate90(),
+#         A.ShiftScaleRotate(
+#             scale_limit=cfg.scale_limit,
+#             rotate_limit=cfg.rotate_limit,
+#             p=0.5,
+#             border_mode=cfg.border_mode,
+#         ),
+#     ],
+# )
 
 Transform = lambda cfg: A.Compose(
     [
