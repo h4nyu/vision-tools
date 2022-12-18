@@ -72,23 +72,29 @@ class Meter(nn.Module):
         super().__init__()
         self.output: List[Tensor] = []
         self.target: List[Tensor] = []
-        self.ids: List[Tensor] = []
+        self.ids: List[str] = []
 
-    def accumulate(self, output: Tensor, target: Tensor, ids: Tensor) -> None:
+    def accumulate(self, output: Tensor, target: Tensor, ids: List[str]) -> None:
         self.output.append(output)
         self.target.append(target)
-        self.ids.append(ids)
+        self.ids += ids
 
     def __call__(self) -> Tuple[Tensor, Tensor, Tensor]:
         return (
             torch.cat(self.output),
             torch.cat(self.target),
-            torch.cat(self.ids),
+            self.ids,
         )
 
     def reset(self) -> None:
         self.output = []
         self.target = []
+
+
+def read_csv(path: str) -> pd.DataFrame:
+    df = pd.read_csv(path)
+    df["prediction_id"] = df["patient_id"].apply(str) + "_" + df["laterality"]
+    return df
 
 
 def find_best_threshold(
@@ -121,7 +127,9 @@ class InferenceConfig:
 
     @property
     def configs(self) -> List[Config]:
-        overwrite = dict(models_dir=self.models_dir)
+        overwrite = dict(
+            models_dir=self.models_dir,
+        )
         return [
             Config.load(f"{self.configs_dir}/{path}", overwrite)
             for path in self.config_paths
@@ -238,6 +246,7 @@ class RdcdPngDataset(Dataset):
             target=target,
             patient_id=row["patient_id"],
             image_id=row["image_id"],
+            prediction_id=row["prediction_id"],
         )
         return sample
 
@@ -273,11 +282,13 @@ class RdcdDicomDataset(Dataset):
         transform: Callable,
         image_dir: str = "/store/rsna-breast-cancer-256-pngs",
         image_size: int = 2048,
+        use_roi: bool = False,
     ) -> None:
         self.df = df
         self.transform = transform
         self.image_dir = image_dir
         self.image_size = image_size
+        self.use_roi = use_roi
 
     def __len__(self) -> int:
         return len(self.df)
@@ -308,7 +319,8 @@ class RdcdDicomDataset(Dataset):
         if dicom.getPixelDataInfo()["PhotometricInterpretation"] == "MONOCHROME1":
             img = 1 - img
         image = (img * 255).astype(np.uint8)
-        image = cv2.resize(image, (self.image_size, self.image_size))
+        if self.use_roi:
+            image = extract_roi(image)
         transformed = self.transform(
             image=image,
         )
@@ -558,17 +570,21 @@ class Train:
                 self.scaler.step(optimizer)
                 self.scaler.update()
             epoch_loss += loss.item()
-            meter.accumulate(output.sigmoid(), target, batch["patient_id"])
+            meter.accumulate(output.sigmoid(), target, batch["prediction_id"])
         epoch_loss /= len(train_loader)
-        output, target, ids = meter()
+        output, target, prediction_id = meter()
         df = pd.DataFrame(
             {
-                "id": ids.cpu().numpy(),
-                "target": target.flatten().cpu().numpy(),
-                "pred": output.flatten().cpu().numpy(),
+                "prediction_id": prediction_id,
+                "target": target.flatten().cpu().detach().numpy(),
+                "pred": output.flatten().cpu().detach().numpy(),
             }
         )
-        df = df.groupby("id").agg({"target": "max", "pred": "max"}).reset_index()
+        df = (
+            df.groupby("prediction_id")
+            .agg({"target": "max", "pred": "max"})
+            .reset_index()
+        )
         epoch_score = pfbeta(
             df.target.values,
             df.pred.values,
@@ -577,10 +593,10 @@ class Train:
 
     def __call__(self, limit: Optional[int] = None) -> float:
         cfg = self.cfg
-        train_df = pd.read_csv(cfg.train_csv)
+        train_df = read_csv(cfg.train_csv)
         if limit is not None:
             train_df = train_df[:limit]
-        valid_df = pd.read_csv(cfg.valid_csv)
+        valid_df = read_csv(cfg.valid_csv)
         if limit is not None:
             valid_df = valid_df[:limit]
         train_dataset = RdcdPngDataset(
@@ -652,7 +668,7 @@ class Validate:
         cfg: Config,
         logger: Optional[Logger] = None,
     ) -> None:
-        valid_df = pd.read_csv(cfg.valid_csv)
+        valid_df = read_csv(cfg.valid_csv)[:1000]
         valid_dataset = RdcdPngDataset(
             df=valid_df,
             transform=Transform(cfg),
@@ -686,23 +702,26 @@ class Validate:
             for batch in tqdm(self.valid_loader):
                 image = batch["image"].to(self.device)
                 target = batch["target"].to(self.device)
-                print(batch["patient_id"])
                 output = net(image)
                 loss = self.criterion(output, target.float())
                 epoch_loss += loss.item()
                 meter.accumulate(
-                    output.sigmoid().flatten(), target.flatten(), batch["patient_id"]
+                    output.sigmoid().flatten(), target.flatten(), batch["prediction_id"]
                 )
         epoch_loss /= len(self.valid_loader)
-        output, target, ids = meter()
+        output, target, prediction_id = meter()
         df = pd.DataFrame(
             {
-                "id": ids.cpu().numpy(),
+                "prediction_id": prediction_id,
                 "target": target.flatten().cpu().numpy(),
                 "pred": output.flatten().cpu().numpy(),
             }
         )
-        df = df.groupby("id").agg({"target": "max", "pred": "max"}).reset_index()
+        df = (
+            df.groupby("prediction_id")
+            .agg({"target": "max", "pred": "max"})
+            .reset_index()
+        )
         epoch_score = pfbeta(
             df.target.values,
             df.pred.values,
@@ -783,27 +802,20 @@ class EnsembleInference:
     def vote(self, df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
         df["cancer"] = df[cols].mean(axis=1)
         df = (
-            df[["prediction_id", "cancer"]].groupby("prediction_id").max().reset_index()
+            df[["prediction_id", "cancer"]]
+            .groupby("prediction_id")
+            .agg({"cancer": "max"})
+            .reset_index()
         )
         return df
 
     def __call__(self) -> pd.DataFrame:
-        df = pd.read_csv(self.cfg.test_csv)
-        dataset = RdcdDicomDataset(
-            df=df,
-            transform=Transform(self.cfg),
-            image_dir=self.cfg.image_dir,
-        )
-        loader = DataLoader(
-            dataset=dataset,
-            batch_size=self.cfg.batch_size,
-            num_workers=self.num_workers,
-        )
+        df = read_csv(self.cfg.test_csv)
         output_cols = []
         for cfg in self.cfg.configs:
             self.logger.info(f"cfg: {cfg}")
-            inference = Inference(cfg, logger=self.logger)
-            output = inference(loader)
+            inference = Inference(cfg, inference_cfg=self.cfg, logger=self.logger)
+            output = inference(df)
             output_cols.append(cfg.name)
             df[cfg.name] = output > cfg.threshold
         submission_df = self.vote(df[["prediction_id"] + output_cols], output_cols)
@@ -826,9 +838,11 @@ class Inference:
     def __init__(
         self,
         cfg: Config,
+        inference_cfg: InferenceConfig,
         logger: Optional[Logger] = None,
     ) -> None:
         self.cfg = cfg
+        self.inference_cfg = inference_cfg
         self.logger = logger or getLogger(__name__)
 
     @property
@@ -836,7 +850,18 @@ class Inference:
         return os.cpu_count() or 0
 
     @torch.no_grad()
-    def __call__(self, loader: DataLoader) -> np.ndarray:
+    def __call__(self, df: pd.Dataframe) -> np.ndarray:
+        dataset = RdcdDicomDataset(
+            df=df,
+            transform=Transform(self.cfg),
+            image_dir=self.inference_cfg.image_dir,
+            use_roi=self.cfg.use_roi,
+        )
+        loader = DataLoader(
+            dataset=dataset,
+            batch_size=self.inference_cfg.batch_size,
+            num_workers=self.num_workers,
+        )
         model = Model.load(self.cfg).to(self.cfg.device)
         outputs = []
         for batch in tqdm(loader):

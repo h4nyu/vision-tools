@@ -48,7 +48,6 @@ def setup_folds(
 
 @click.command()
 @click.option("-c", "--config-path")
-@click.option("-l", "--limit", type=int)
 def train(
     config_path: str,
     data_path: str = "/store",
@@ -85,7 +84,6 @@ def validate(
 @click.option("-t", "--n-trials", type=int, default=10)
 def search(
     config_path: str,
-    limit: Optional[int],
     n_trials: int,
 ) -> None:
     cfg = Config.load(config_path)
