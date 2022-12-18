@@ -4,6 +4,7 @@ import os
 import random
 from dataclasses import asdict, dataclass, field
 from logging import Logger, getLogger
+from multiprocessing import Pool
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import albumentations as A
@@ -95,6 +96,22 @@ def read_csv(path: str) -> pd.DataFrame:
     df = pd.read_csv(path)
     df["prediction_id"] = df["patient_id"].apply(str) + "_" + df["laterality"]
     return df
+
+
+def create_roi_images(df: DataFrame, output_dir: str) -> None:
+    df = df.copy()
+    with Pool() as pool:
+        for _ in tqdm(
+            pool.imap_unordered(
+                lambda x: io.imsave(
+                    os.path.join(output_dir, x["prediction_id"] + ".png"),
+                    extract_roi(x["image"]),
+                ),
+                df.to_dict("records"),
+            ),
+            total=len(df),
+        ):
+            pass
 
 
 def find_best_threshold(
@@ -668,7 +685,7 @@ class Validate:
         cfg: Config,
         logger: Optional[Logger] = None,
     ) -> None:
-        valid_df = read_csv(cfg.valid_csv)[:1000]
+        valid_df = read_csv(cfg.valid_csv)
         valid_dataset = RdcdPngDataset(
             df=valid_df,
             transform=Transform(cfg),
@@ -753,7 +770,7 @@ class Search:
         self.logger = logger or getLogger(cfg.name)
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        lr = trial.suggest_float("lr", 1e-4, 1.5e-3)
+        lr = trial.suggest_float("lr", 1e-5, 1.0e-3)
         ratio = trial.suggest_float("ratio", 0.1, 1.0)
         accumulation_steps = trial.suggest_int("accumulation_steps", 1, 4)
         cfg = Config(

@@ -11,4 +11,4 @@ accumulation_steps: 2
 epochs: 20
 
 threshold: 0.69
-use_roi: true
+use_roi: false
