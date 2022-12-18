@@ -9,3 +9,4 @@ lr: 0.0005094480973201417
 ratio: 0.5369031081273525
 accumulation_steps: 2
 epochs: 20
+threshold: 0.65
