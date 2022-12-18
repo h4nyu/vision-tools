@@ -72,15 +72,18 @@ class Meter(nn.Module):
         super().__init__()
         self.output: List[Tensor] = []
         self.target: List[Tensor] = []
+        self.ids: List[Tensor] = []
 
-    def accumulate(self, output: Tensor, target: Tensor) -> None:
+    def accumulate(self, output: Tensor, target: Tensor, ids: Tensor) -> None:
         self.output.append(output)
         self.target.append(target)
+        self.ids.append(ids)
 
-    def __call__(self) -> Tuple[Tensor, Tensor]:
+    def __call__(self) -> Tuple[Tensor, Tensor, Tensor]:
         return (
             torch.cat(self.output),
             torch.cat(self.target),
+            torch.cat(self.ids),
         )
 
     def reset(self) -> None:
@@ -89,8 +92,8 @@ class Meter(nn.Module):
 
 
 def find_best_threshold(
-    target: Tensor,
-    output: Tensor,
+    target: np.ndarray,
+    output: np.ndarray,
     step: float = 0.02,
     start: float = 0.45,
     end: float = 0.7,
@@ -100,7 +103,7 @@ def find_best_threshold(
     best_score = 0.0
     logger = logger or getLogger(__name__)
     for thresold in np.arange(start, end, step):
-        score = pfbeta(target, (output > thresold).float(), beta=1)
+        score = pfbeta(target, (output > thresold).astype(float), beta=1)
         logger.info(f"thresold: {thresold:.3f}, score: {score:.3f}")
         if score > best_score:
             best_thresold = thresold
@@ -555,12 +558,20 @@ class Train:
                 self.scaler.step(optimizer)
                 self.scaler.update()
             epoch_loss += loss.item()
-            meter.accumulate(output.sigmoid(), target)
+            meter.accumulate(output.sigmoid(), target, batch["patient_id"])
         epoch_loss /= len(train_loader)
-        output, target = meter()
+        output, target, ids = meter()
+        df = pd.DataFrame(
+            {
+                "id": ids.cpu().numpy(),
+                "target": target.flatten().cpu().numpy(),
+                "pred": output.flatten().cpu().numpy(),
+            }
+        )
+        df = df.groupby("id").agg({"target": "max", "pred": "max"}).reset_index()
         epoch_score = pfbeta(
-            target,
-            output,
+            df.target.values,
+            df.pred.values,
         )
         return float(epoch_loss), float(epoch_score)
 
@@ -675,18 +686,31 @@ class Validate:
             for batch in tqdm(self.valid_loader):
                 image = batch["image"].to(self.device)
                 target = batch["target"].to(self.device)
+                print(batch["patient_id"])
                 output = net(image)
                 loss = self.criterion(output, target.float())
                 epoch_loss += loss.item()
-                meter.accumulate(output.sigmoid().flatten(), target.flatten())
+                meter.accumulate(
+                    output.sigmoid().flatten(), target.flatten(), batch["patient_id"]
+                )
         epoch_loss /= len(self.valid_loader)
-        output, target = meter()
-        epoch_score = pfbeta(
-            target.cpu().numpy(),
-            output.cpu().numpy(),
+        output, target, ids = meter()
+        df = pd.DataFrame(
+            {
+                "id": ids.cpu().numpy(),
+                "target": target.flatten().cpu().numpy(),
+                "pred": output.flatten().cpu().numpy(),
+            }
         )
-        epoch_auc = roc_auc_score(target.cpu().numpy(), output.cpu().numpy())
-        best_threshold, binary_score = find_best_threshold(target, output)
+        df = df.groupby("id").agg({"target": "max", "pred": "max"}).reset_index()
+        epoch_score = pfbeta(
+            df.target.values,
+            df.pred.values,
+        )
+        epoch_auc = roc_auc_score(df.target.values, df.pred.values)
+        best_threshold, binary_score = find_best_threshold(
+            df.target.values, df.pred.values
+        )
         return (
             float(epoch_loss),
             float(epoch_score),
@@ -759,10 +783,7 @@ class EnsembleInference:
     def vote(self, df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
         df["cancer"] = df[cols].mean(axis=1)
         df = (
-            df[["prediction_id", "cancer"]]
-            .groupby("prediction_id")
-            .mean()
-            .reset_index()
+            df[["prediction_id", "cancer"]].groupby("prediction_id").max().reset_index()
         )
         return df
 
