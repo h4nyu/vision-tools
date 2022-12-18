@@ -32,9 +32,6 @@ services:
       CODECOV_TOKEN: *CODECOV_TOKEN
       CONFIG_FILE:
       NVIDIA_VISIBLE_DEVICES:
-  kaggle:
-    <<: *app
-    image: gcr.io/kaggle-gpu-images/python:latest
 
   tensorboard:
     <<: *app
