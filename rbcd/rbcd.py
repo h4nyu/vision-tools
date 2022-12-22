@@ -203,6 +203,22 @@ class InferenceConfig:
 
 
 @dataclass
+class SearchConfig:
+    lr_range: Optional[Tuple[float, float]] = None
+    ratio_range: Optional[Tuple[float, float]] = None
+    weight_decay_range: Optional[Tuple[float, float]] = None
+    drop_rate_range: Optional[Tuple[float, float]] = None
+    drop_path_rate_range: Optional[Tuple[float, float]] = None
+    drop_block_rate_range: Optional[Tuple[float, float]] = None
+    accumulation_steps_range: Optional[Tuple[int, int]] = None
+    use_roi_range: Optional[Tuple[bool, bool]] = None
+    affine_scale_range: Optional[Tuple[float, float]] = None
+    affine_translate_range: Optional[Tuple[float, float]] = None
+    vflip_p_range: Optional[Tuple[float, float]] = None
+    affine_p_range: Optional[Tuple[float, float]] = None
+
+
+@dataclass
 class Config:
     name: str
     image_size: int = 256
@@ -229,6 +245,7 @@ class Config:
     drop_rate: float = 0.3
     drop_path_rate: float = 0.2
     drop_block_rate: float = 0.2
+    weight_decay: float = 1e-6
 
     search_limit: Optional[int] = None
 
@@ -254,6 +271,7 @@ class Config:
     cutout_holes: int = 5
     cutout_size: float = 0.2
     grid_shuffle_p: float = 0.0
+    search_config: Optional[SearchConfig] = None
 
     @property
     def acc_grad_lr(self) -> float:
@@ -288,7 +306,10 @@ class Config:
             obj = yaml.safe_load(file)
         if overwrite:
             obj.update(overwrite)
-        return Config(**obj)
+        search_config = obj.get("search_config")
+        if search_config:
+            search_config = SearchConfig(**search_config)
+        return Config(**obj, search_config=search_config)
 
 
 class RdcdPngDataset(Dataset):
@@ -635,13 +656,27 @@ class OverSampler(Sampler):
 
 
 class Model(nn.Module):
-    def __init__(self, name: str, in_channels: int, pretrained: bool = True) -> None:
+    def __init__(
+        self,
+        name: str,
+        in_channels: int,
+        pretrained: bool = True,
+        drop_rate: Optional[float] = None,
+        drop_path_rate: Optional[float] = None,
+        drop_block_rate: Optional[float] = None,
+    ) -> None:
         super().__init__()
         self.name = name
         self.in_channels = in_channels
         self.pretrained = pretrained
         self.backbone = timm.create_model(
-            name, pretrained=pretrained, in_chans=in_channels, num_classes=1
+            name,
+            pretrained=pretrained,
+            in_chans=in_channels,
+            num_classes=1,
+            drop_rate=drop_rate,
+            drop_path_rate=drop_path_rate,
+            drop_block_rate=drop_block_rate,
         )
 
     @classmethod
@@ -667,6 +702,9 @@ class Train:
             name=cfg.model_name,
             in_channels=cfg.in_channels,
             pretrained=cfg.pretrained,
+            drop_rate=cfg.drop_rate,
+            drop_path_rate=cfg.drop_path_rate,
+            drop_block_rate=cfg.drop_block_rate,
         )
         self.logger = logger or getLogger(__name__)
         self.scaler = GradScaler()
@@ -767,7 +805,9 @@ class Train:
             num_workers=self.num_workers,
             batch_size=cfg.batch_size,
         )
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.acc_grad_lr)
+        optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=cfg.acc_grad_lr, weight_decay=cfg.weight_decay
+        )
         criterion = nn.BCEWithLogitsLoss()
         best_score = 0.0
         validate = Validate(self.cfg)
@@ -896,25 +936,62 @@ class Search:
         self.logger = logger or getLogger(cfg.name)
 
     def objective(self, trial: optuna.trial.Trial) -> float:
-        lr = trial.suggest_float("lr", 1e-5, 1.0e-3)
-        ratio = trial.suggest_float("ratio", 0.1, 1.0)
-        accumulation_steps = trial.suggest_int("accumulation_steps", 1, 4)
-        use_roi = trial.suggest_categorical("use_roi", [True, False])
-        affine_scale = trial.suggest_float("affine_scale", 0.0, 0.3)
-        affine_translate = trial.suggest_float("affine_translate", 0.0, 0.1)
-        vflip_p = trial.suggest_float("vflip_p", 0.0, 0.5)
-        affine_p = trial.suggest_float("affine_p", 0.0, 0.5)
+        search_config = self.cfg.search_config
+        if search_config is None:
+            raise ValueError("search_config is None")
+        if search_config.lr_range is not None:
+            lr = trial.suggest_float("lr", *search_config.lr_range)
+        if search_config.ratio_range is not None:
+            ratio = trial.suggest_float("ratio", *search_config.ratio_range)
+        if search_config.drop_rate_range is not None:
+            drop_rate = trial.suggest_float("drop_rate", *search_config.drop_rate_range)
+        if search_config.drop_path_rate_range is not None:
+            drop_path_rate = trial.suggest_float(
+                "drop_path_rate", *search_config.drop_path_rate_range
+            )
+        if search_config.drop_block_rate_range is not None:
+            drop_block_rate = trial.suggest_float(
+                "drop_block_rate", *search_config.drop_block_rate_range
+            )
+        if search_config.weight_decay_range is not None:
+            weight_decay = trial.suggest_float(
+                "weight_decay", *search_config.weight_decay_range
+            )
+        if search_config.accumulation_steps_range is not None:
+            accumulation_steps = trial.suggest_int(
+                "accumulation_steps", *search_config.accumulation_steps_range
+            )
+        if search_config.use_roi_range is not None:
+            use_roi = trial.suggest_categorical("use_roi", search_config.use_roi_range)
+        if search_config.affine_scale_range is not None:
+            affine_scale = trial.suggest_float(
+                "affine_scale", *search_config.affine_scale_range
+            )
+        if search_config.affine_translate_range is not None:
+            affine_translate = trial.suggest_float(
+                "affine_translate", *search_config.affine_translate_range
+            )
+        if search_config.vflip_p_range is not None:
+            vflip_p = trial.suggest_float("vflip_p", *search_config.vflip_p_range)
+        if search_config.affine_p_range is not None:
+            affine_p = trial.suggest_float("affine_p", *search_config.affine_p_range)
+        name = f"{self.cfg.name}_{trial.number}"
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
-                    name=f"{self.cfg.name}_ratio{ratio}_lr{lr}_accumulation_steps{accumulation_steps}_use_roi{use_roi}_affine_scale{affine_scale}_affine_translate{affine_translate}_vflip_p{vflip_p}_affine_p{affine_p}",
+                    name=name,
                     lr=lr,
                     ratio=ratio,
+                    drop_rate=drop_rate,
+                    drop_path_rate=drop_path_rate,
+                    drop_block_rate=drop_block_rate,
+                    weight_decay=weight_decay,
                     accumulation_steps=accumulation_steps,
                     use_roi=use_roi,
                     affine_scale=affine_scale,
-                    vflip_p=vflip_p,
+                    affine_translate=affine_translate,
+                    vlip_p=vflip_p,
                     affine_p=affine_p,
                 ),
             }
