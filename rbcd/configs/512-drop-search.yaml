@@ -1,4 +1,4 @@
-name: 512-drop
+name: 512-drop-search
 image_size: 512
 seed: 42
 n_splits: 5
@@ -15,5 +15,4 @@ vflip_p: 0.5
 search_config:
   drop_rate_range: [0.0, 0.5]
   drop_path_rate_range: [0.0, 0.5]
-  drop_block_rate_range: [0.0, 0.5]
-  weight_decay_range: [1e-6, 1e-2]
+  weight_decay_range: [1.0e-6, 1.0e-2]

@@ -209,7 +209,6 @@ class SearchConfig:
     weight_decay_range: Optional[Tuple[float, float]] = None
     drop_rate_range: Optional[Tuple[float, float]] = None
     drop_path_rate_range: Optional[Tuple[float, float]] = None
-    drop_block_rate_range: Optional[Tuple[float, float]] = None
     accumulation_steps_range: Optional[Tuple[int, int]] = None
     use_roi_range: Optional[Tuple[bool, bool]] = None
     affine_scale_range: Optional[Tuple[float, float]] = None
@@ -225,7 +224,7 @@ class Config:
     in_channels: int = 1
     batch_size: int = 32
     lr: float = 1e-3
-    optimizer: str = "Adam"
+    optimizer: str = "AdamW"
     epochs: int = 16
     seed: int = 42
     n_splits: int = 5
@@ -244,7 +243,6 @@ class Config:
     clip_grad: float = 0.0
     drop_rate: float = 0.3
     drop_path_rate: float = 0.2
-    drop_block_rate: float = 0.2
     weight_decay: float = 1e-6
 
     search_limit: Optional[int] = None
@@ -309,7 +307,8 @@ class Config:
         search_config = obj.get("search_config")
         if search_config:
             search_config = SearchConfig(**search_config)
-        return Config(**obj, search_config=search_config)
+        obj["search_config"] = search_config
+        return Config(**obj)
 
 
 class RdcdPngDataset(Dataset):
@@ -663,7 +662,6 @@ class Model(nn.Module):
         pretrained: bool = True,
         drop_rate: Optional[float] = None,
         drop_path_rate: Optional[float] = None,
-        drop_block_rate: Optional[float] = None,
     ) -> None:
         super().__init__()
         self.name = name
@@ -676,7 +674,6 @@ class Model(nn.Module):
             num_classes=1,
             drop_rate=drop_rate,
             drop_path_rate=drop_path_rate,
-            drop_block_rate=drop_block_rate,
         )
 
     @classmethod
@@ -704,7 +701,6 @@ class Train:
             pretrained=cfg.pretrained,
             drop_rate=cfg.drop_rate,
             drop_path_rate=cfg.drop_path_rate,
-            drop_block_rate=cfg.drop_block_rate,
         )
         self.logger = logger or getLogger(__name__)
         self.scaler = GradScaler()
@@ -937,63 +933,57 @@ class Search:
 
     def objective(self, trial: optuna.trial.Trial) -> float:
         search_config = self.cfg.search_config
+        overwrite_config: Dict[str, Any] = {}
         if search_config is None:
             raise ValueError("search_config is None")
         if search_config.lr_range is not None:
             lr = trial.suggest_float("lr", *search_config.lr_range)
+            overwrite_config["lf"] = lr
         if search_config.ratio_range is not None:
             ratio = trial.suggest_float("ratio", *search_config.ratio_range)
+            overwrite_config["ratio"] = ratio
         if search_config.drop_rate_range is not None:
             drop_rate = trial.suggest_float("drop_rate", *search_config.drop_rate_range)
+            overwrite_config["drop_rate"] = drop_rate
         if search_config.drop_path_rate_range is not None:
             drop_path_rate = trial.suggest_float(
                 "drop_path_rate", *search_config.drop_path_rate_range
             )
-        if search_config.drop_block_rate_range is not None:
-            drop_block_rate = trial.suggest_float(
-                "drop_block_rate", *search_config.drop_block_rate_range
-            )
+            overwrite_config["drop_path_rate"] = drop_path_rate
         if search_config.weight_decay_range is not None:
             weight_decay = trial.suggest_float(
                 "weight_decay", *search_config.weight_decay_range
             )
+            overwrite_config["weight_decay"] = weight_decay
         if search_config.accumulation_steps_range is not None:
             accumulation_steps = trial.suggest_int(
                 "accumulation_steps", *search_config.accumulation_steps_range
             )
+            overwrite_config["accumulation_steps"] = accumulation_steps
         if search_config.use_roi_range is not None:
             use_roi = trial.suggest_categorical("use_roi", search_config.use_roi_range)
+            overwrite_config["use_roi"] = use_roi
         if search_config.affine_scale_range is not None:
             affine_scale = trial.suggest_float(
                 "affine_scale", *search_config.affine_scale_range
             )
+            overwrite_config["affine_scale"] = affine_scale
         if search_config.affine_translate_range is not None:
             affine_translate = trial.suggest_float(
                 "affine_translate", *search_config.affine_translate_range
             )
+            overwrite_config["affine_translate"] = affine_translate
         if search_config.vflip_p_range is not None:
             vflip_p = trial.suggest_float("vflip_p", *search_config.vflip_p_range)
+            overwrite_config["vflip_p"] = vflip_p
         if search_config.affine_p_range is not None:
             affine_p = trial.suggest_float("affine_p", *search_config.affine_p_range)
+            overwrite_config["affine_p"] = affine_p
         name = f"{self.cfg.name}_{trial.number}"
         cfg = Config(
             **{
                 **asdict(self.cfg),
-                **dict(
-                    name=name,
-                    lr=lr,
-                    ratio=ratio,
-                    drop_rate=drop_rate,
-                    drop_path_rate=drop_path_rate,
-                    drop_block_rate=drop_block_rate,
-                    weight_decay=weight_decay,
-                    accumulation_steps=accumulation_steps,
-                    use_roi=use_roi,
-                    affine_scale=affine_scale,
-                    affine_translate=affine_translate,
-                    vlip_p=vflip_p,
-                    affine_p=affine_p,
-                ),
+                **overwrite_config,
             }
         )
         self.logger.info(f"trial: {trial.number}, cfg: {cfg}")
