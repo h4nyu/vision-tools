@@ -1,5 +1,6 @@
 from collections import namedtuple
 from types import SimpleNamespace
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import albumentations as A
 import cv2
@@ -74,7 +75,7 @@ def test_aug() -> None:
 
 def test_dicom_dataset() -> None:
     df = pd.read_csv("/store/train.csv")
-    cfg = SimpleNamespace(
+    cfg: Any = SimpleNamespace(
         hflip=0.5,
         vflip=0.0,
         scale_limit=0.0,

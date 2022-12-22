@@ -1,4 +1,4 @@
-name: trial-b3-roi
+name: trial-b3-roi-vflip
 image_size: 1024
 seed: 42
 n_splits: 5

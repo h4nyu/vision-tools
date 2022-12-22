@@ -25,6 +25,7 @@ from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from timm.scheduler import CosineLRScheduler
 from torch import Tensor, nn, optim
 from torch.cuda.amp import GradScaler, autocast
+from torch.nn.modules.loss import _WeightedLoss
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import BatchSampler, Sampler
 from torch.utils.tensorboard import SummaryWriter
@@ -80,7 +81,7 @@ class Meter(nn.Module):
         self.target.append(target)
         self.ids += ids
 
-    def __call__(self) -> Tuple[Tensor, Tensor, Tensor]:
+    def __call__(self) -> Tuple[Tensor, Tensor, List[str]]:
         return (
             torch.cat(self.output),
             torch.cat(self.target),
@@ -98,7 +99,7 @@ def read_csv(path: str) -> pd.DataFrame:
     return df
 
 
-def create_roi_images(df: DataFrame, output_dir: str) -> None:
+def create_roi_images(df: pd.DataFrame, output_dir: str) -> None:
     df = df.copy()
     with Pool() as pool:
         for _ in tqdm(
@@ -134,12 +135,46 @@ def find_best_threshold(
     return float(best_thresold), float(best_score)
 
 
+class SmoothBCEwLogits(_WeightedLoss):
+    def __init__(
+        self,
+        weight: Optional[Tensor] = None,
+        reduction: str = "mean",
+        smoothing: float = 0.0,
+        pos_weight: Any = None,
+    ) -> None:
+        super().__init__(weight=weight, reduction=reduction)
+        self.smoothing = smoothing
+        self.weight = weight
+        self.reduction = reduction
+        self.pos_weight = pos_weight
+
+    @staticmethod
+    def _smooth(targets: Tensor, n_labels: int, smoothing: float = 0.0) -> Tensor:
+        assert 0.0 <= smoothing < 1.0
+        with torch.no_grad():
+            targets = targets * (1.0 - smoothing) + 0.5 * smoothing
+        return targets
+
+    def forward(self, inputs: Tensor, targets: Tensor) -> Tensor:
+        targets = SmoothBCEwLogits._smooth(targets, inputs.size(-1), self.smoothing)
+        loss = F.binary_cross_entropy_with_logits(
+            inputs, targets, self.weight, pos_weight=self.pos_weight
+        )
+        if self.reduction == "sum":
+            loss = loss.sum()
+        elif self.reduction == "mean":
+            loss = loss.mean()
+        return loss
+
+
 @dataclass
 class InferenceConfig:
     data_path: str = "/store"
     models_dir: str = "inference_models"
     configs_dir: str = "configs"
     batch_size: int = 8
+    use_hflip: bool = True
     config_paths: List[str] = field(default_factory=list)
 
     @property
@@ -186,11 +221,14 @@ class Config:
     models_dir: str = "models"
     scale_limit: float = 0.3
     rotate_limit: float = 15
-    border_mode: int = 0
     valid_epochs: int = 10
     ratio: float = 1.0
     sampling: str = "over"  # deprecated
     device: str = "cuda"
+    clip_grad: float = 0.0
+    drop_rate: float = 0.3
+    drop_path_rate: float = 0.2
+    drop_block_rate: float = 0.2
 
     search_limit: Optional[int] = None
 
@@ -216,6 +254,10 @@ class Config:
     cutout_holes: int = 5
     cutout_size: float = 0.2
     grid_shuffle_p: float = 0.0
+
+    @property
+    def acc_grad_lr(self) -> float:
+        return self.lr / self.accumulation_steps
 
     @property
     def train_csv(self) -> str:
@@ -664,6 +706,10 @@ class Train:
             self.scaler.scale(loss).backward()
             if self.iteration % self.cfg.accumulation_steps == 0:
                 self.scaler.unscale_(optimizer)
+                if self.cfg.clip_grad:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), self.cfg.clip_grad
+                    )
                 self.scaler.step(optimizer)
                 self.scaler.update()
             epoch_loss += loss.item()
@@ -721,7 +767,7 @@ class Train:
             num_workers=self.num_workers,
             batch_size=cfg.batch_size,
         )
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.cfg.lr)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.acc_grad_lr)
         criterion = nn.BCEWithLogitsLoss()
         best_score = 0.0
         validate = Validate(self.cfg)
@@ -853,14 +899,23 @@ class Search:
         lr = trial.suggest_float("lr", 1e-5, 1.0e-3)
         ratio = trial.suggest_float("ratio", 0.1, 1.0)
         accumulation_steps = trial.suggest_int("accumulation_steps", 1, 4)
+        use_roi = trial.suggest_categorical("use_roi", [True, False])
+        affine_scale = trial.suggest_float("affine_scale", 0.0, 0.3)
+        affine_translate = trial.suggest_float("affine_translate", 0.0, 0.1)
+        vflip_p = trial.suggest_float("vflip_p", 0.0, 0.5)
+        affine_p = trial.suggest_float("affine_p", 0.0, 0.5)
         cfg = Config(
             **{
                 **asdict(self.cfg),
                 **dict(
-                    name=f"{self.cfg.name}_ratio{ratio}_lr{lr}_accumulation_steps{accumulation_steps}",
+                    name=f"{self.cfg.name}_ratio{ratio}_lr{lr}_accumulation_steps{accumulation_steps}_use_roi{use_roi}_affine_scale{affine_scale}_affine_translate{affine_translate}_vflip_p{vflip_p}_affine_p{affine_p}",
                     lr=lr,
                     ratio=ratio,
                     accumulation_steps=accumulation_steps,
+                    use_roi=use_roi,
+                    affine_scale=affine_scale,
+                    vflip_p=vflip_p,
+                    affine_p=affine_p,
                 ),
             }
         )
