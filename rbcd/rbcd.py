@@ -995,7 +995,7 @@ class Search:
         self.logger.info(
             f"trial: {trial.number}, cfg: {cfg} loss: {loss:.4f}, score: {score:.4f}, auc: {auc:.4f}, binary_score: {binary_score:.4f}, thr: {thr:.4f}"
         )
-        return binary_score
+        return score
 
     def __call__(self) -> None:
         study = optuna.create_study(direction="maximize")
