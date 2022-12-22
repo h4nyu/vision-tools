@@ -980,6 +980,7 @@ class Search:
             affine_p = trial.suggest_float("affine_p", *search_config.affine_p_range)
             overwrite_config["affine_p"] = affine_p
         name = f"{self.cfg.name}_{trial.number}"
+        overwrite_config["name"] = name
         cfg = Config(
             **{
                 **asdict(self.cfg),
