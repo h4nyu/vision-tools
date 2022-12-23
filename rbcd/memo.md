@@ -11,3 +11,15 @@ Trial 9 finished with value: 0.1904761791229248 and parameters: {'lr': 0.0005094
 
 -> lr: 0.0005094480973201417, ratio: 0.5369031081273525 accumulation_steps: 2 image_size:1024 batch_size:15 image_size:15
 -> trial-1.yaml
+
+#
+解像度512で max score 0.1656
+model: b4
+ratio: 0.275
+lr: 0.00054
+scale: 0.2
+transtale: 0.01 -> 0?
+vflip: 0.5
+affine_p: 0.5
+use_roi: false
+accumulation_steps:2
