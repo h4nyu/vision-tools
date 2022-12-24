@@ -747,24 +747,12 @@ class Train:
             image_dir=cfg.image_dir,
             use_roi=cfg.use_roi,
         )
-        valid_dataset = RdcdPngDataset(
-            df=valid_df,
-            transform=Transform(cfg),
-            image_dir=cfg.image_dir,
-            use_roi=cfg.use_roi,
-        )
         sampler = OverSampler(train_dataset, shuffle=True, ratio=cfg.ratio)
         train_loader = DataLoader(
             dataset=train_dataset,
             sampler=sampler,
             batch_size=cfg.batch_size,
             num_workers=self.num_workers,
-        )
-        valid_loader = DataLoader(
-            dataset=valid_dataset,
-            shuffle=False,
-            num_workers=self.num_workers,
-            batch_size=cfg.batch_size,
         )
         optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=cfg.acc_grad_lr, weight_decay=cfg.weight_decay
@@ -875,12 +863,13 @@ class Validate:
             df=valid_df,
             transform=Transform(cfg),
             image_dir=cfg.image_dir,
+            use_roi=cfg.use_roi,
         )
         self.valid_loader = DataLoader(
             dataset=valid_dataset,
             shuffle=False,
             num_workers=self.num_workers,
-            batch_size=cfg.batch_size,
+            batch_size=cfg.batch_size * 2,
         )
         self.criterion = nn.BCEWithLogitsLoss()
         self.logger = logger or getLogger(cfg.name)
