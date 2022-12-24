@@ -119,8 +119,8 @@ def find_best_threshold(
     target: np.ndarray,
     output: np.ndarray,
     step: float = 0.02,
-    start: float = 0.45,
-    end: float = 0.7,
+    start: float = 0.0,
+    end: float = 1.0,
     logger: Optional[Logger] = None,
 ) -> Tuple[float, float]:
     best_thresold = 0.0
@@ -171,7 +171,7 @@ class SmoothBCEwLogits(_WeightedLoss):
 @dataclass
 class InferenceConfig:
     data_path: str = "/store"
-    models_dir: str = "inference_models"
+    models_dir: str = "models"
     configs_dir: str = "configs"
     batch_size: int = 8
     use_hflip: bool = True
@@ -224,8 +224,11 @@ class Config:
     in_channels: int = 1
     batch_size: int = 32
     lr: float = 5e-4
+    lr_min: float = 1e-6
+    warmup_t: int = 2
     optimizer: str = "AdamW"
-    epochs: int = 16
+    total_steps: int = 60_000
+    warmup_steps: int = 1_000
     seed: int = 42
     n_splits: int = 5
     model_name: str = "tf_efficientnet_b4_ns"
@@ -724,6 +727,7 @@ class Train:
         train_loader: DataLoader,
         optimizer: Any,
         criterion: Any,
+        scheduler: Any,
     ) -> Tuple[float, float]:
         self.model.train()
         meter = Meter()
@@ -746,8 +750,10 @@ class Train:
                     )
                 self.scaler.step(optimizer)
                 self.scaler.update()
+            scheduler.step(self.iteration)
             epoch_loss += loss.item()
             meter.accumulate(output.sigmoid(), target, batch["prediction_id"])
+        scheduler.step()
         epoch_loss /= len(train_loader)
         output, target, prediction_id = meter()
         df = pd.DataFrame(
@@ -804,12 +810,20 @@ class Train:
         optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=cfg.acc_grad_lr, weight_decay=cfg.weight_decay
         )
+        scheduler = timm.scheduler.CosineLRScheduler(
+            optimizer,
+            t_initial=cfg.total_steps,
+            warmup_t=cfg.warmup_steps,
+            lr_min=cfg.lr_min,
+            t_in_epochs=True,
+        )
         criterion = nn.BCEWithLogitsLoss()
         best_score = 0.0
         validate = Validate(self.cfg)
-        for epoch in range(cfg.epochs):
+        epochs = cfg.total_steps // len(train_loader)
+        for epoch in range(epochs):
             train_loss, train_score = self.train_one_epoch(
-                train_loader, optimizer, criterion
+                train_loader, optimizer, criterion, scheduler
             )
             self.writer.add_scalar("train/loss", train_loss, self.iteration)
             self.writer.add_scalar("train/score", train_score, self.iteration)

@@ -1,4 +1,4 @@
-timm==0.5.4
+timm==0.6.12
 optuna==2.10.1
 albumentations==1.2.0
 PyYAML==6.0
