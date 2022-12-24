@@ -181,6 +181,7 @@ class InferenceConfig:
     def configs(self) -> List[Config]:
         overwrite = dict(
             models_dir=self.models_dir,
+            configs_dir=self.configs_dir,
         )
         return [
             Config.load(f"{self.configs_dir}/{path}", overwrite)
@@ -319,7 +320,9 @@ class Config:
         cfg = Config(**obj)
         previous_name = obj.get("previous_name")
         if previous_name:
-            cfg.previous_config = Config.load(f"{cfg.configs_dir}/{previous_name}.yaml")
+            cfg.previous_config = Config.load(
+                f"{cfg.configs_dir}/{previous_name}.yaml", overwrite
+            )
         return cfg
 
 
@@ -798,9 +801,10 @@ class Train:
                     )
                     self.writer.flush()
 
-                    if valid_score > best_score:
-                        best_score = valid_score
+                    if valid_binary_score > best_score:
+                        best_score = valid_binary_score
                         torch.save(self.model.state_dict(), cfg.model_path)
+                        self.logger.info("save model")
                     self.logger.info(
                         f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}, valid_binary_score: {valid_binary_score:.4f}, valid_threshold: {valid_threshold:.4f}"
                     )
