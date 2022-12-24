@@ -18,3 +18,4 @@ vflip_p: 0.5
 affine_p: 0.5
 use_roi: false
 data_path: /app/store
+threshold: 0.74

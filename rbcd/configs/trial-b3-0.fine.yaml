@@ -1,4 +1,4 @@
-name: trial-b3-0
+name: trial-b3-0-fine
 image_size: 1024
 seed: 42
 n_splits: 5
@@ -9,3 +9,6 @@ lr: 0.0005094480973201417
 ratio: 0.5369031081273525
 accumulation_steps: 2
 threshold: 0.65
+use_scheduler: True
+
+previous_name: trial-b3-0

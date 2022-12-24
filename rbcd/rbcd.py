@@ -237,6 +237,7 @@ class Config:
     fold: int = 0
     data_path: str = "/store"
     models_dir: str = "models"
+    configs_dir: str = "configs"
     scale_limit: float = 0.3
     rotate_limit: float = 15
     valid_epochs: int = 10
@@ -252,6 +253,7 @@ class Config:
 
     threshold: float = 0.5
     use_roi: bool = False
+    use_scheduler: bool = True
     hflip_p: float = 0.5
     vflip_p: float = 0.5
     contrast_p: float = 0.0
@@ -273,6 +275,8 @@ class Config:
     cutout_size: float = 0.2
     grid_shuffle_p: float = 0.0
     search_config: Optional[SearchConfig] = None
+    previous_name: Optional[str] = None
+    previous_config: Optional[Config] = None
 
     @property
     def acc_grad_lr(self) -> float:
@@ -311,7 +315,12 @@ class Config:
         if search_config:
             search_config = SearchConfig(**search_config)
         obj["search_config"] = search_config
-        return Config(**obj)
+
+        cfg = Config(**obj)
+        previous_name = obj.get("previous_name")
+        if previous_name:
+            cfg.previous_config = Config.load(f"{cfg.configs_dir}/{previous_name}.yaml")
+        return cfg
 
 
 class RdcdPngDataset(Dataset):
@@ -727,7 +736,7 @@ class Train:
         train_loader: DataLoader,
         optimizer: Any,
         criterion: Any,
-        scheduler: Any,
+        scheduler: Optional[Any] = None,
     ) -> Tuple[float, float]:
         self.model.train()
         meter = Meter()
@@ -750,10 +759,10 @@ class Train:
                     )
                 self.scaler.step(optimizer)
                 self.scaler.update()
-            scheduler.step(self.iteration)
+            if scheduler is not None:
+                scheduler.step(self.iteration)
             epoch_loss += loss.item()
             meter.accumulate(output.sigmoid(), target, batch["prediction_id"])
-        scheduler.step()
         epoch_loss /= len(train_loader)
         output, target, prediction_id = meter()
         df = pd.DataFrame(
@@ -776,6 +785,8 @@ class Train:
 
     def __call__(self, limit: Optional[int] = None) -> float:
         cfg = self.cfg
+        if cfg.previous_config is not None:
+            self.net.load_state_dict(torch.load(cfg.previous_config.model_path))
         train_df = read_csv(cfg.train_csv)
         if limit is not None:
             train_df = train_df[:limit]
@@ -810,13 +821,16 @@ class Train:
         optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=cfg.acc_grad_lr, weight_decay=cfg.weight_decay
         )
-        scheduler = timm.scheduler.CosineLRScheduler(
-            optimizer,
-            t_initial=cfg.total_steps,
-            warmup_t=cfg.warmup_steps,
-            lr_min=cfg.lr_min,
-            t_in_epochs=True,
-        )
+        if cfg.use_scheduler:
+            scheduler = timm.scheduler.CosineLRScheduler(
+                optimizer,
+                t_initial=cfg.total_steps,
+                warmup_t=cfg.warmup_steps,
+                lr_min=cfg.lr_min,
+                t_in_epochs=True,
+            )
+        else:
+            scheduler = None
         criterion = nn.BCEWithLogitsLoss()
         best_score = 0.0
         validate = Validate(self.cfg)
@@ -838,6 +852,9 @@ class Train:
                 self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
                 self.writer.add_scalar("valid/score", valid_score, self.iteration)
                 self.writer.add_scalar("valid/auc", valid_auc, self.iteration)
+                self.writer.add_scalar(
+                    "lr", optimizer.param_groups[0]["lr"], self.iteration
+                )
                 self.writer.add_scalar(
                     "valid/valid_binary_score", valid_binary_score, self.iteration
                 )
