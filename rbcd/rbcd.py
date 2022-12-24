@@ -240,7 +240,7 @@ class Config:
     configs_dir: str = "configs"
     scale_limit: float = 0.3
     rotate_limit: float = 15
-    valid_epochs: int = 10
+    validation_steps: int = 1000
     ratio: float = 1.0
     sampling: str = "over"  # deprecated
     device: str = "cuda"
@@ -731,58 +731,6 @@ class Train:
     def num_workers(self) -> int:
         return os.cpu_count() or 0
 
-    def train_one_epoch(
-        self,
-        train_loader: DataLoader,
-        optimizer: Any,
-        criterion: Any,
-        scheduler: Optional[Any] = None,
-    ) -> Tuple[float, float]:
-        self.model.train()
-        meter = Meter()
-        epoch_loss = 0.0
-        epoch_score = 0.0
-        for batch in tqdm(train_loader):
-            self.iteration += 1
-            image = batch["image"].to(self.device)
-            target = batch["target"].to(self.device)
-            optimizer.zero_grad()
-            with autocast():
-                output = self.model(image)
-                loss = criterion(output, target.float()) / self.cfg.accumulation_steps
-            self.scaler.scale(loss).backward()
-            if self.iteration % self.cfg.accumulation_steps == 0:
-                self.scaler.unscale_(optimizer)
-                if self.cfg.clip_grad:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.model.parameters(), self.cfg.clip_grad
-                    )
-                self.scaler.step(optimizer)
-                self.scaler.update()
-            if scheduler is not None:
-                scheduler.step(self.iteration)
-            epoch_loss += loss.item()
-            meter.accumulate(output.sigmoid(), target, batch["prediction_id"])
-        epoch_loss /= len(train_loader)
-        output, target, prediction_id = meter()
-        df = pd.DataFrame(
-            {
-                "prediction_id": prediction_id,
-                "target": target.flatten().cpu().detach().numpy(),
-                "pred": output.flatten().cpu().detach().numpy(),
-            }
-        )
-        df = (
-            df.groupby("prediction_id")
-            .agg({"target": "max", "pred": "max"})
-            .reset_index()
-        )
-        epoch_score = pfbeta(
-            df.target.values,
-            df.pred.values,
-        )
-        return float(epoch_loss), float(epoch_score)
-
     def __call__(self, limit: Optional[int] = None) -> float:
         cfg = self.cfg
         if cfg.previous_config is not None:
@@ -836,39 +784,83 @@ class Train:
         validate = Validate(self.cfg)
         epochs = cfg.total_steps // len(train_loader)
         for epoch in range(epochs):
-            train_loss, train_score = self.train_one_epoch(
-                train_loader, optimizer, criterion, scheduler
+            meter = Meter()
+            train_loss = 0.0
+            train_score = 0.0
+            for batch in tqdm(train_loader):
+                if self.iteration % cfg.validation_steps == 0:
+                    (
+                        valid_loss,
+                        valid_score,
+                        valid_auc,
+                        valid_binary_score,
+                        valid_threshold,
+                    ) = validate(self.model)
+                    self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
+                    self.writer.add_scalar("valid/score", valid_score, self.iteration)
+                    self.writer.add_scalar("valid/auc", valid_auc, self.iteration)
+                    self.writer.add_scalar(
+                        "lr", optimizer.param_groups[0]["lr"], self.iteration
+                    )
+                    self.writer.add_scalar(
+                        "valid/valid_binary_score", valid_binary_score, self.iteration
+                    )
+                    self.writer.add_scalar(
+                        "valid/valid_threshold", valid_threshold, self.iteration
+                    )
+                    self.writer.flush()
+
+                    if valid_score > best_score:
+                        best_score = valid_score
+                        torch.save(self.model.state_dict(), cfg.model_path)
+                    self.logger.info(
+                        f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}, valid_binary_score: {valid_binary_score:.4f}, valid_threshold: {valid_threshold:.4f}"
+                    )
+
+                self.model.train()
+                self.iteration += 1
+                image = batch["image"].to(self.device)
+                target = batch["target"].to(self.device)
+                optimizer.zero_grad()
+                with autocast():
+                    output = self.model(image)
+                    loss = (
+                        criterion(output, target.float()) / self.cfg.accumulation_steps
+                    )
+                self.scaler.scale(loss).backward()
+                if self.iteration % self.cfg.accumulation_steps == 0:
+                    self.scaler.unscale_(optimizer)
+                    if self.cfg.clip_grad:
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model.parameters(), self.cfg.clip_grad
+                        )
+                    self.scaler.step(optimizer)
+                    self.scaler.update()
+                if scheduler is not None:
+                    scheduler.step(self.iteration)
+                train_loss += loss.item()
+                meter.accumulate(output.sigmoid(), target, batch["prediction_id"])
+
+            train_loss /= len(train_loader)
+            output, target, prediction_id = meter()
+            df = pd.DataFrame(
+                {
+                    "prediction_id": prediction_id,
+                    "target": target.flatten().cpu().detach().numpy(),
+                    "pred": output.flatten().cpu().detach().numpy(),
+                }
+            )
+            df = (
+                df.groupby("prediction_id")
+                .agg({"target": "max", "pred": "max"})
+                .reset_index()
+            )
+            train_score = pfbeta(
+                df.target.values,
+                df.pred.values,
             )
             self.writer.add_scalar("train/loss", train_loss, self.iteration)
             self.writer.add_scalar("train/score", train_score, self.iteration)
-            if epoch % cfg.valid_epochs == 0:
-                (
-                    valid_loss,
-                    valid_score,
-                    valid_auc,
-                    valid_binary_score,
-                    valid_threshold,
-                ) = validate(self.model)
-                self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
-                self.writer.add_scalar("valid/score", valid_score, self.iteration)
-                self.writer.add_scalar("valid/auc", valid_auc, self.iteration)
-                self.writer.add_scalar(
-                    "lr", optimizer.param_groups[0]["lr"], self.iteration
-                )
-                self.writer.add_scalar(
-                    "valid/valid_binary_score", valid_binary_score, self.iteration
-                )
-                self.writer.add_scalar(
-                    "valid/valid_threshold", valid_threshold, self.iteration
-                )
-                self.writer.flush()
-
-                if valid_score > best_score:
-                    best_score = valid_score
-                    torch.save(self.model.state_dict(), cfg.model_path)
-                self.logger.info(
-                    f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}, valid_binary_score: {valid_binary_score:.4f}, valid_threshold: {valid_threshold:.4f}"
-                )
         return valid_binary_score
 
 
