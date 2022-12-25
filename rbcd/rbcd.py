@@ -118,7 +118,7 @@ def create_roi_images(df: pd.DataFrame, output_dir: str) -> None:
 def find_best_threshold(
     target: np.ndarray,
     output: np.ndarray,
-    step: float = 0.02,
+    step: float = 0.01,
     start: float = 0.0,
     end: float = 1.0,
     logger: Optional[Logger] = None,
