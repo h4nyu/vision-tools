@@ -275,6 +275,8 @@ class Config:
     cutout_holes: int = 5
     cutout_size: float = 0.2
     grid_shuffle_p: float = 0.0
+
+    num_workers: Optional[int] = None
     search_config: Optional[SearchConfig] = None
     previous_name: Optional[str] = None
     previous_config: Optional[Config] = None
@@ -730,10 +732,6 @@ class Train:
     def model(self) -> nn.Module:
         return self.net.to(self.device)
 
-    @property
-    def num_workers(self) -> int:
-        return os.cpu_count() or 0
-
     def __call__(self, limit: Optional[int] = None) -> float:
         cfg = self.cfg
         if cfg.previous_config is not None:
@@ -755,7 +753,7 @@ class Train:
             dataset=train_dataset,
             sampler=sampler,
             batch_size=cfg.batch_size,
-            num_workers=self.num_workers,
+            num_workers=cfg.num_workers,
         )
         optimizer = torch.optim.AdamW(
             self.model.parameters(), lr=cfg.acc_grad_lr, weight_decay=cfg.weight_decay
@@ -872,15 +870,11 @@ class Validate:
         self.valid_loader = DataLoader(
             dataset=valid_dataset,
             shuffle=False,
-            num_workers=self.num_workers,
+            num_workers=cfg.num_workers,
             batch_size=cfg.batch_size * 2,
         )
         self.criterion = nn.BCEWithLogitsLoss()
         self.logger = logger or getLogger(cfg.name)
-
-    @property
-    def num_workers(self) -> int:
-        return os.cpu_count() or 0
 
     @property
     def device(self) -> torch.device:
