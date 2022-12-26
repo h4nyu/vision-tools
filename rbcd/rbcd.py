@@ -276,7 +276,7 @@ class Config:
     cutout_size: float = 0.2
     grid_shuffle_p: float = 0.0
 
-    num_workers: Optional[int] = None
+    num_workers: int = 8
     search_config: Optional[SearchConfig] = None
     previous_name: Optional[str] = None
     previous_config: Optional[Config] = None
@@ -778,34 +778,46 @@ class Train:
             train_score = 0.0
             for batch in tqdm(train_loader):
                 if self.iteration % cfg.validation_steps == 0:
-                    (
-                        valid_loss,
-                        valid_score,
-                        valid_auc,
-                        valid_binary_score,
-                        valid_threshold,
-                    ) = validate(self.model)
-                    self.writer.add_scalar("valid/loss", valid_loss, self.iteration)
-                    self.writer.add_scalar("valid/score", valid_score, self.iteration)
-                    self.writer.add_scalar("valid/auc", valid_auc, self.iteration)
+                    val_res = validate(self.model)
+                    self.writer.add_scalar(
+                        "valid/loss", val_res["loss"], self.iteration
+                    )
+                    self.writer.add_scalar(
+                        "valid/score", val_res["score"], self.iteration
+                    )
+                    self.writer.add_scalar(
+                        "valid/binarized_score",
+                        val_res["binarized_score"],
+                        self.iteration,
+                    )
+                    self.writer.add_scalar(
+                        "valid/threshold", val_res["threshold"], self.iteration
+                    )
+                    self.writer.add_scalar("valid/auc", val_res["auc"], self.iteration)
+                    self.writer.add_scalar(
+                        "valid/agg_score", val_res["score"], self.iteration
+                    )
+                    self.writer.add_scalar(
+                        "valid/agg_binarized_score",
+                        val_res["agg_binarized_score"],
+                        self.iteration,
+                    )
+                    self.writer.add_scalar(
+                        "valid/agg_threshold", val_res["agg_threshold"], self.iteration
+                    )
+                    self.writer.add_scalar(
+                        "valid/agg_auc", val_res["auc"], self.iteration
+                    )
                     self.writer.add_scalar(
                         "lr", optimizer.param_groups[0]["lr"], self.iteration
                     )
-                    self.writer.add_scalar(
-                        "valid/valid_binary_score", valid_binary_score, self.iteration
-                    )
-                    self.writer.add_scalar(
-                        "valid/valid_threshold", valid_threshold, self.iteration
-                    )
                     self.writer.flush()
 
-                    if valid_binary_score > best_score:
-                        best_score = valid_binary_score
+                    if val_res["agg_binarized_score"] > best_score:
+                        best_score = val_res["agg_binarized_score"]
                         torch.save(self.model.state_dict(), cfg.model_path)
                         self.logger.info("save model")
-                    self.logger.info(
-                        f"epoch: {epoch + 1}, iteration: {self.iteration}, train_loss: {train_loss:.4f}, train_score: {train_score:.4f}, valid_loss: {valid_loss:.4f}, valid_score: {valid_score:.4f}, valid_auc: {valid_auc:.4f}, valid_binary_score: {valid_binary_score:.4f}, valid_threshold: {valid_threshold:.4f}"
-                    )
+                    self.logger.info(f"best score: {best_score:.4f}")
 
                 self.model.train()
                 self.iteration += 1
@@ -840,16 +852,21 @@ class Train:
                     "pred": output.flatten().cpu().detach().numpy(),
                 }
             )
+            train_agg_score = pfbeta(
+                df.target.values,
+                df.pred.values,
+            )
             df = (
                 df.groupby("prediction_id")
                 .agg({"target": "max", "pred": "max"})
                 .reset_index()
             )
-            train_score = pfbeta(
+            train_agg_score = pfbeta(
                 df.target.values,
                 df.pred.values,
             )
             self.writer.add_scalar("train/loss", train_loss, self.iteration)
+            self.writer.add_scalar("train/agg_score", train_agg_score, self.iteration)
             self.writer.add_scalar("train/score", train_score, self.iteration)
         return valid_binary_score
 
@@ -858,9 +875,10 @@ class Validate:
     def __init__(
         self,
         cfg: Config,
+        df: Optional[pd.DataFrame] = None,
         logger: Optional[Logger] = None,
     ) -> None:
-        valid_df = read_csv(cfg.valid_csv)
+        valid_df = df if df is not None else read_csv(cfg.valid_csv)
         valid_dataset = RdcdPngDataset(
             df=valid_df,
             transform=Transform(cfg),
@@ -882,7 +900,7 @@ class Validate:
 
     def __call__(
         self, net: nn.Module, enable_find_threshold: bool = False
-    ) -> Tuple[float, float, float, float, float]:
+    ) -> Dict[str, float]:
         meter = Meter()
         net.eval()
         epoch_loss = 0.0
@@ -906,25 +924,37 @@ class Validate:
                 "pred": output.flatten().cpu().numpy(),
             }
         )
+        score = pfbeta(
+            df.target.values,
+            df.pred.values,
+        )
+        auc = roc_auc_score(df.target.values, df.pred.values)
+        threshold, binarized_score = find_best_threshold(
+            df.target.values, df.pred.values
+        )
         df = (
             df.groupby("prediction_id")
             .agg({"target": "max", "pred": "max"})
             .reset_index()
         )
-        epoch_score = pfbeta(
+        agg_score = pfbeta(
             df.target.values,
             df.pred.values,
         )
-        epoch_auc = roc_auc_score(df.target.values, df.pred.values)
-        best_threshold, binary_score = find_best_threshold(
+        agg_auc = roc_auc_score(df.target.values, df.pred.values)
+        agg_threshold, agg_binarized_score = find_best_threshold(
             df.target.values, df.pred.values
         )
-        return (
-            float(epoch_loss),
-            float(epoch_score),
-            float(epoch_auc),
-            float(binary_score),
-            float(best_threshold),
+        return dict(
+            loss=epoch_loss,
+            score=score,
+            binarized_score=binarized_score,
+            threshold=threshold,
+            auc=auc,
+            agg_score=agg_score,
+            agg_binarized_score=agg_binarized_score,
+            agg_threshold=agg_threshold,
+            agg_auc=agg_auc,
         )
 
 

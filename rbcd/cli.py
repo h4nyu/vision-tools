@@ -14,6 +14,7 @@ from rbcd import (
     SetupFolds,
     Train,
     Validate,
+    read_csv,
     seed_everything,
 )
 
@@ -73,6 +74,24 @@ def validate(
     seed_everything(cfg.seed)
     validate = Validate(cfg)
     model = Model.load(cfg).to(cfg.device)
+    res = validate(model, enable_find_threshold=True)
+    print(res)
+
+
+@click.command()
+@click.option("-c", "--config-path")
+@click.option("-l", "--limit", type=int)
+def validate_all(
+    config_path: str,
+    data_path: str = "/store",
+    limit: Optional[int] = None,
+) -> None:
+    cfg = Config.load(config_path)
+    df = read_csv("/store/train.csv")
+    print(df)
+    seed_everything(cfg.seed)
+    validate = Validate(cfg, df=df)
+    model = Model.load(cfg).to(cfg.device)
     loss, score, auc, binary_score, thr = validate(model, enable_find_threshold=True)
     print(
         f"loss: {loss:.4f}, score: {score:.4f}, auc: {auc:.4f}, binary_score: {binary_score:.4f}, thr: {thr:.4f}"
@@ -107,6 +126,7 @@ def inference(
 cli.add_command(setup_folds)
 cli.add_command(train)
 cli.add_command(validate)
+cli.add_command(validate_all)
 cli.add_command(search)
 cli.add_command(inference)
 

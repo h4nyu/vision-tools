@@ -1,0 +1,13 @@
+name: search-ratio-512
+image_size: 512
+seed: 42
+n_splits: 5
+batch_size: 16
+model_name: "tf_efficientnet_b2_ns"
+use_roi: True
+use_scheduler: True
+lr: 0.0005
+
+
+search_config:
+  ratio_range: [0.1, 0.9]
