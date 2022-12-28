@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import pathlib
 import random
 from dataclasses import asdict, dataclass, field
 from logging import Logger, getLogger
@@ -19,6 +20,7 @@ import torch
 import torch.nn.functional as F
 import yaml
 from albumentations.pytorch.transforms import ToTensorV2
+from joblib import Parallel, delayed
 from skimage import io
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
@@ -67,6 +69,38 @@ def pfbeta(labels: Any, predictions: Any, beta: float = 1.0) -> float:
         return result
     else:
         return 0
+
+
+def dicom_to_png(dcm_file: str, image_size: int, image_dir: str = "") -> None:
+    patient_id = dcm_file.split("/")[-2]
+    image_id = dcm_file.split("/")[-1][:-4]
+    dicom = dicomsdl.open(dcm_file)
+    img = dicom.pixelData()
+    img = (img - img.min()) / (img.max() - img.min())
+    if dicom.PhotometricInterpretation == "MONOCHROME1":
+        img = 1 - img
+
+    img = cv2.resize(img, (image_size, image_size), interpolation=cv2.INTER_LINEAR)
+    img = (img * 255).astype(np.uint8)
+    cv2.imwrite(image_dir + "/" + f"{patient_id}_{image_id}.png", img)
+
+
+def resize_all_images(
+    df: pd.Dataframe, input_dir: str, output_dir: str, image_size: int, n_jobs: int = 8
+) -> None:
+    dcm_file = (
+        input_dir
+        + "/"
+        + df.patient_id.astype(str)
+        + "/"
+        + df.image_id.astype(str)
+        + ".dcm"
+    )
+    pathlib.Path(output_dir).mkdir(exist_ok=True)
+    Parallel(n_jobs=n_jobs)(
+        delayed(dicom_to_png)(f, image_size=image_size, image_dir=output_dir)
+        for f in tqdm(dcm_file)
+    )
 
 
 class Meter(nn.Module):
@@ -770,6 +804,7 @@ class Train:
             scheduler = None
         criterion = nn.BCEWithLogitsLoss()
         best_score = 0.0
+        best_loss = np.inf
         validate = Validate(self.cfg)
         epochs = cfg.total_steps // len(train_loader)
         for epoch in range(epochs):
@@ -812,12 +847,13 @@ class Train:
                         "lr", optimizer.param_groups[0]["lr"], self.iteration
                     )
                     self.writer.flush()
-
-                    if val_res["agg_binarized_score"] > best_score:
-                        best_score = val_res["agg_binarized_score"]
-                        torch.save(self.model.state_dict(), cfg.model_path)
-                        self.logger.info("save model")
-                    self.logger.info(f"best score: {best_score:.4f}")
+                    if val_res["loss"] < best_loss:
+                        best_loss = val_res["loss"]
+                        torch.save(
+                            self.model.state_dict(),
+                            self.cfg.model_path,
+                        )
+                        self.logger.info(f"save model: {self.cfg.model_path}")
 
                 self.model.train()
                 self.iteration += 1

@@ -15,6 +15,7 @@ from rbcd import (
     Train,
     Validate,
     read_csv,
+    resize_all_images,
     seed_everything,
 )
 
@@ -126,12 +127,36 @@ def inference(
     print(sub)
 
 
+@click.command()
+@click.option("-c", "--csv-path", type=str)
+@click.option("-i", "--input-dir", type=str)
+@click.option("-o", "--output-dir", type=str)
+@click.option("-s", "--size", type=int)
+@click.option("-w", "--workers", type=int)
+def resize(
+    csv_path: str,
+    input_dir: str,
+    output_dir: str,
+    size: int,
+    workers: int,
+) -> None:
+    df = read_csv(csv_path)
+    resize_all_images(
+        df,
+        input_dir=input_dir,
+        output_dir=output_dir,
+        image_size=size,
+        n_jobs=workers,
+    )
+
+
 cli.add_command(setup_folds)
 cli.add_command(train)
 cli.add_command(validate)
 cli.add_command(validate_all)
 cli.add_command(search)
 cli.add_command(inference)
+cli.add_command(resize)
 
 if __name__ == "__main__":
     cli()

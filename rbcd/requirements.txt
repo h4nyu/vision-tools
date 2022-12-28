@@ -5,3 +5,4 @@ PyYAML==6.0
 click==8.0.3
 pydicom==2.3.1
 dicomsdl==0.109.1
+pylibjpeg==1.4.0
