@@ -868,7 +868,7 @@ class Train:
             self.writer.add_scalar("train/loss", train_loss, self.iteration)
             self.writer.add_scalar("train/agg_score", train_agg_score, self.iteration)
             self.writer.add_scalar("train/score", train_score, self.iteration)
-        return valid_binary_score
+        return best_score
 
 
 class Validate:
@@ -1032,11 +1032,9 @@ class Search:
         validate = Validate(cfg, logger=self.logger)
         train(self.limit)
         model = Model.load(cfg).to(cfg.device)
-        loss, score, auc, binary_score, thr = validate(model)
-        self.logger.info(
-            f"trial: {trial.number}, cfg: {cfg} loss: {loss:.4f}, score: {score:.4f}, auc: {auc:.4f}, binary_score: {binary_score:.4f}, thr: {thr:.4f}"
-        )
-        return score
+        res = validate(model)
+        self.logger.info(res)
+        return res["agg_binarized_score"]
 
     def __call__(self) -> None:
         study = optuna.create_study(direction="maximize")

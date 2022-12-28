@@ -5,7 +5,7 @@ n_splits: 5
 batch_size: 10
 model_name: "tf_efficientnet_b3_ns"
 lr: 0.0005094480973201417
-ratio: 0.1
+ratio: 0.2
 validation_steps: 2000
 accumulation_steps: 2
 drop_rate: 0.391
@@ -14,4 +14,5 @@ num_workers: 8
 use_scheduler: true
 use_roi: true
 total_steps: 100_000
-threshold: 0.65
+# threshold: 0.95
+threshold: 0.97
