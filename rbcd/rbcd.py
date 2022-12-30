@@ -14,6 +14,7 @@ import dicomsdl
 import numpy as np
 import optuna
 import pandas as pd
+import pydicom
 import timm
 import toolz
 import torch
@@ -76,6 +77,9 @@ def dicom_to_png(dcm_file: str, image_size: int, image_dir: str = "") -> None:
     image_id = dcm_file.split("/")[-1][:-4]
     dicom = dicomsdl.open(dcm_file)
     img = dicom.pixelData()
+    # dicom = pydicom.dcmread(dcm_file, force=True)
+    # img = dicom.pixel_array
+
     img = (img - img.min()) / (img.max() - img.min())
     if dicom.PhotometricInterpretation == "MONOCHROME1":
         img = 1 - img
@@ -270,9 +274,10 @@ class Config:
     pretrained: bool = True
     accumulation_steps: int = 2
     fold: int = 0
-    data_path: str = "/store"
+    data_path: str = "/app/store"
     models_dir: str = "models"
     configs_dir: str = "configs"
+    logs_dir: str = "/app/store/logs"
     scale_limit: float = 0.3
     rotate_limit: float = 15
     validation_steps: int = 1000
@@ -329,11 +334,11 @@ class Config:
 
     @property
     def image_dir(self) -> str:
-        return f"{self.data_path}/images_as_pngs_{self.image_size}/train_images_processed_{self.image_size}"
+        return f"{self.data_path}/images_{self.image_size}"
 
     @property
     def log_dir(self) -> str:
-        return f"{self.data_path}/logs/{self.name}-{self.seed}-{self.n_splits}fold{self.fold}"
+        return f"{self.logs_dir}/{self.name}-{self.seed}-{self.n_splits}fold{self.fold}"
 
     @property
     def model_path(self) -> str:
@@ -380,7 +385,7 @@ class RdcdPngDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict:
         row = self.df.iloc[idx]
-        image_path = f"{self.image_dir}/{row['patient_id']}/{row['image_id']}.png"
+        image_path = f"{self.image_dir}/{row['patient_id']}_{row['image_id']}.png"
         image = io.imread(image_path)
         if self.use_roi:
             image = extract_roi(image)
@@ -854,6 +859,9 @@ class Train:
                             self.cfg.model_path,
                         )
                         self.logger.info(f"save model: {self.cfg.model_path}")
+                    self.logger.info(
+                        f"iteration: {self.iteration} valid/loss: {val_res['loss']}, valid/agg_binarized_score: {val_res['agg_binarized_score']} valid/agg_score: {val_res['agg_score']}"
+                    )
 
                 self.model.train()
                 self.iteration += 1

@@ -55,12 +55,12 @@ def test_fold() -> None:
 
 def test_aug() -> None:
     df = read_csv("/store/train.csv")
-    cfg = Config.load("configs/trial-b2-roi.yaml")
+    cfg = Config.load("configs/b3-1280.v1-roi.yaml")
     batch_size = 8 * 8
     dataset = RdcdPngDataset(
         df,
         TrainTransform(cfg),
-        image_dir=f"/store/images_as_pngs_{cfg.image_size}/train_images_processed_{cfg.image_size}",
+        image_dir=f"/app/store/images_{cfg.image_size}",
         use_roi=True,
     )
     image_batch = []

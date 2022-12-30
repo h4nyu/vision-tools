@@ -35,7 +35,7 @@ services:
 
   tensorboard:
     <<: *app
-    command: tensorboard --logdir=/store/logs --host=0.0.0.0 --port=${TENSORBOARD_PORT}
+    command: tensorboard --logdir=/app/store/logs --host=0.0.0.0 --port=${TENSORBOARD_PORT}
     ports:
       - "${TENSORBOARD_PORT}:${TENSORBOARD_PORT}"
 
