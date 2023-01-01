@@ -65,16 +65,16 @@ def train(
 
 @click.command()
 @click.option("-c", "--config-path")
-@click.option("-b", "--batch-size", default=32, type=int)
+@click.option("-b", "--batch-size", default=None, type=int)
 @click.option("-l", "--limit", type=int)
 def validate(
     config_path: str,
     data_path: str = "/store",
-    batch_size: int = 32,
+    batch_size: Optional[int] = None,
     limit: Optional[int] = None,
 ) -> None:
     cfg = Config.load(config_path)
-    cfg.batch_size = batch_size
+    cfg.batch_size = batch_size or cfg.batch_size
     seed_everything(cfg.seed)
     validate = Validate(cfg)
     model = Model.load(cfg).to(cfg.device)

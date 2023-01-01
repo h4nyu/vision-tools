@@ -8,4 +8,5 @@ config_paths:
   # - b3-1024.v1.yaml
   # - b3-1024.v1-roi.yaml
   # - b3-1024.v1-roi-f1.yaml
-  - b3-1024-roi-ratio0.2.yaml
+  # - b3-1024-roi-ratio0.2.yaml
+  - b2-1280-v1-roi.yaml
