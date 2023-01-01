@@ -14,7 +14,6 @@ import dicomsdl
 import numpy as np
 import optuna
 import pandas as pd
-import pydicom
 import timm
 import toolz
 import torch
@@ -77,8 +76,6 @@ def dicom_to_png(dcm_file: str, image_size: int, image_dir: str = "") -> None:
     image_id = dcm_file.split("/")[-1][:-4]
     dicom = dicomsdl.open(dcm_file)
     img = dicom.pixelData()
-    # dicom = pydicom.dcmread(dcm_file, force=True)
-    # img = dicom.pixel_array
 
     img = (img - img.min()) / (img.max() - img.min())
     if dicom.PhotometricInterpretation == "MONOCHROME1":
