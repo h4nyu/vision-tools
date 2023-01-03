@@ -1,4 +1,4 @@
-name: b2-1536-v1-roi
+name: b2-1536-roi-0
 image_size: 1536
 seed: 42
 n_splits: 5
@@ -10,6 +10,8 @@ validation_steps: 1000
 accumulation_steps: 2
 drop_rate: 0.391
 drop_path_rate: 0.13
-num_workers: 5
+num_workers: 6
 use_scheduler: true
 use_roi: true
+
+previous_name: b2-1536-roi-f0

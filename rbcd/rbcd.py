@@ -210,7 +210,7 @@ class InferenceConfig:
     configs_dir: str = "configs"
     batch_size: int = 8
     use_hflip: bool = True
-    config_paths: List[str] = field(default_factory=list)
+    load_configs: List[Dict] = field(default_factory=list)
 
     @property
     def configs(self) -> List[Config]:
@@ -219,8 +219,14 @@ class InferenceConfig:
             configs_dir=self.configs_dir,
         )
         return [
-            Config.load(f"{self.configs_dir}/{path}", overwrite)
-            for path in self.config_paths
+            Config.load(
+                f"{self.configs_dir}/{x['path']}",
+                {
+                    **overwrite,
+                    "threshold": x.get("threshold", None),
+                },
+            )
+            for x in self.load_configs
         ]
 
     @property
@@ -348,6 +354,7 @@ class Config:
     def load(cls, path: str, overwrite: Optional[dict] = None) -> Config:
         with open(path) as file:
             obj = yaml.safe_load(file)
+        obj["name"] = pathlib.Path(path).stem
         if overwrite:
             obj.update(overwrite)
         search_config = obj.get("search_config")
@@ -849,8 +856,8 @@ class Train:
                         "lr", optimizer.param_groups[0]["lr"], self.iteration
                     )
                     self.writer.flush()
-                    if val_res["loss"] < best_loss:
-                        best_loss = val_res["loss"]
+                    if best_score < val_res["agg_score"]:
+                        best_loss = val_res["agg_score"]
                         torch.save(
                             self.model.state_dict(),
                             self.cfg.model_path,
