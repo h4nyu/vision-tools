@@ -1,0 +1,16 @@
+image_size: 1280
+seed: 42
+n_splits: 5
+batch_size: 8
+model_name: "tf_efficientnet_b3_ns"
+lr: 0.0004094480973201417
+ratio: 0.30
+validation_steps: 1000
+total_steps: 100000
+accumulation_steps: 2
+drop_rate: 0.391
+drop_path_rate: 0.13
+num_workers: 6
+use_scheduler: true
+use_roi: true
+threshold: 0.94

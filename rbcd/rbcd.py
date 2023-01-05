@@ -857,7 +857,7 @@ class Train:
                     )
                     self.writer.flush()
                     if best_score < val_res["agg_score"]:
-                        best_loss = val_res["agg_score"]
+                        best_score = val_res["agg_score"]
                         torch.save(
                             self.model.state_dict(),
                             self.cfg.model_path,
