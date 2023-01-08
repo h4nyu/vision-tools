@@ -1,0 +1,16 @@
+name: b3-1024.v1-roi
+image_size: 1024
+seed: 42
+n_splits: 5
+batch_size: 10
+model_name: "tf_efficientnet_b3_ns"
+lr: 0.0005094480973201417
+ratio: 0.5369031081273525
+validation_steps: 2000
+accumulation_steps: 2
+drop_rate: 0.391
+drop_path_rate: 0.13
+num_workers: 8
+use_scheduler: true
+use_roi: true
+threshold: 0.95

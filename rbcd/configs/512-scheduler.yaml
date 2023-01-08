@@ -1,0 +1,8 @@
+name: 512-scheduler
+image_size: 512
+seed: 42
+n_splits: 5
+valid_epochs: 1
+batch_size: 15
+model_name: "tf_efficientnet_b2_ns"
+use_scheduler: True

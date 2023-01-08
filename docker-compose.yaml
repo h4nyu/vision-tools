@@ -6,6 +6,7 @@ x-env: &env
   CODECOV_TOKEN: &CODECOV_TOKEN ${CODECOV_TOKEN}
   KAGGLE_USERNAME: &KAGGLE_USERNAME ${KAGGLE_USERNAME}
   KAGGLE_KEY: &KAGGLE_KEY ${KAGGLE_KEY}
+  STORE_DIR: &STORE_DIR ${STORE_DIR}
 
 
 x-app: &app
@@ -17,15 +18,9 @@ x-app: &app
   volumes:
     - .:/app
     - ./signate.json:/root/.signate/signate.json
-    - ./store:/store
+    - ./test_output:/test_output
+    - $STORE_DIR:/store
     - ./.cache:/root/.cache
-
-    - ./store/tensorflow-great-barrier-reef:/kaggle/input/tensorflow-great-barrier-reef
-    - ./:/kaggle/input/packages/vision-tools/
-    - ./cots_bench/runs:/runs/cots
-    - ./kuzushiji_bench/runs:/runs/kuzushiji
-    - ./hwad_bench/pipeline/runs:/runs/hwad_bench
-
 
 
 services:
@@ -37,19 +32,10 @@ services:
       CODECOV_TOKEN: *CODECOV_TOKEN
       CONFIG_FILE:
       NVIDIA_VISIBLE_DEVICES:
-    # networks:
-    #   nonet:
-
-
-  signate:
-    shm_size: '30gb'
-    image: "signate/runtime-gpu"
-    volumes:
-      - ./:/opt/ml
 
   tensorboard:
     <<: *app
-    command: tensorboard --logdir=${TENSORBOARD_RUNS:?} --host=0.0.0.0 --port=${TENSORBOARD_PORT}
+    command: tensorboard --logdir=/app/store/logs --host=0.0.0.0 --port=${TENSORBOARD_PORT}
     ports:
       - "${TENSORBOARD_PORT}:${TENSORBOARD_PORT}"
 
@@ -58,8 +44,3 @@ services:
     command: jupyter notebook --ip 0.0.0.0 --port ${NOTEBOOK_PORT} --allow-root --NotebookApp.password='' --NotebookApp.token=''
     ports:
       - "${NOTEBOOK_PORT}:${NOTEBOOK_PORT}"
-
-networks:
-  nonet:
-    external: true
-    name: none

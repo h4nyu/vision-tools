@@ -1,0 +1,5 @@
+image_size: 512
+seed: 42
+n_splits: 5
+name: baseline-7
+sampling: over
