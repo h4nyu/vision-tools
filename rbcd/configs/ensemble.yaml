@@ -1,9 +1,21 @@
 batch_size: 8
 load_configs:
+  - path: b3-1280-roi-f0-2.yaml
+    threshold: 0.95
+  # - path: b3-1280-roi-f0-2.yaml
+  #   threshold: 0.8
+  # - path: b3-1280-roi-f0-2.yaml
+  #   threshold: 0.7
   # - path: b2-1280-v1-roi-fine-agg-score.yaml
-  #   threshold: 0.76
-  - path: b2-1536-roi-f0-1.yaml
-    threshold: 0.98
+  #   threshold: 0.95
+  # - path: b2-1280-v1-roi-fine-agg-score.yaml
+  #   threshold: 0.45
+  # - path: b3-1024.v1-roi.yaml
+  #   threshold: 0.97
+  # - path: b2-1536-roi-f0-1.yaml
+  #   threshold: 0.98
+  # - path: b2-1536-roi-f0-1.yaml
+  #   threshold: 0.98
   # - trial-1.yaml      # LOCAL_BINARY:0.335@0.69 LOCAL_0.242  #PUBLIC: 0.23
   # - trial-b3-0.yaml   # LOCAL_BINARY:0.35@0.65 LOCAL_0.296 #public: 0.34
   # - trial-b3-0.fine-0.yaml   # LOCAL_BINARY:0.35@0.65 LOCAL_0.296 #public: 0.34

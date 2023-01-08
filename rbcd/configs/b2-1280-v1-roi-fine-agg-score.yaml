@@ -12,6 +12,4 @@ drop_path_rate: 0.13
 num_workers: 8
 use_scheduler: true
 use_roi: true
-threshold: 0.94
-
 previous_name: b2-1280-v1-roi

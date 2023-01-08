@@ -839,7 +839,7 @@ class Train:
                     )
                     self.writer.add_scalar("valid/auc", val_res["auc"], self.iteration)
                     self.writer.add_scalar(
-                        "valid/agg_score", val_res["score"], self.iteration
+                        "valid/agg_score", val_res["agg_score"], self.iteration
                     )
                     self.writer.add_scalar(
                         "valid/agg_binarized_score",
@@ -864,7 +864,7 @@ class Train:
                         )
                         self.logger.info(f"save model: {self.cfg.model_path}")
                     self.logger.info(
-                        f"iteration: {self.iteration} valid/loss: {val_res['loss']}, valid/agg_binarized_score: {val_res['agg_binarized_score']} valid/agg_score: {val_res['agg_score']}"
+                        f"iteration: {self.iteration} best_score: {best_score}, valid/loss: {val_res['loss']}, valid/agg_binarized_score: {val_res['agg_binarized_score']} valid/agg_score: {val_res['agg_score']}"
                     )
 
                 self.model.train()

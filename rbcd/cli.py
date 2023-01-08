@@ -96,10 +96,8 @@ def validate_all(
     seed_everything(cfg.seed)
     validate = Validate(cfg, df=df)
     model = Model.load(cfg).to(cfg.device)
-    loss, score, auc, binary_score, thr = validate(model, enable_find_threshold=True)
-    print(
-        f"loss: {loss:.4f}, score: {score:.4f}, auc: {auc:.4f}, binary_score: {binary_score:.4f}, thr: {thr:.4f}"
-    )
+    res = validate(model, enable_find_threshold=True)
+    print(res)
 
 
 @click.command()
