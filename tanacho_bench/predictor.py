@@ -102,7 +102,6 @@ class Config:
     def load(cls, path: str) -> Config:
         with open(path) as file:
             obj = yaml.safe_load(file)
-            print(obj)
         return Config(**obj)
 
     @property

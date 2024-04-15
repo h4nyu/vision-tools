@@ -32,7 +32,7 @@ RUN apt-get update \
         cuda-compat-11-3 \
     && ln -s cuda-11.3 /usr/local/cuda \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir torch==1.12.0+cu113 torchvision==0.13.0+cu113 -f https://download.pytorch.org/whl/torch_stable.html
+    && pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
 
 WORKDIR /app
 COPY . .
@@ -42,4 +42,5 @@ RUN pip install -e vision_tools[dev] \
     && pip install -e cots_bench \
     && pip install -e hwad_bench \
     && pip install -e tanacho_bench \
+    && pip install -e rbcd \
     &&  CC="cc -mavx2" pip install -U --force-reinstall pillow-simd

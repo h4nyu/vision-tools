@@ -1,0 +1,10 @@
+name: trial-0
+image_size: 1024
+seed: 42
+n_splits: 5
+valid_epochs: 1
+batch_size: 10
+model_name: "tf_efficientnet_b2_ns"
+lr: 0.00021103472929778265
+ratio: 0.15069802469010238
+accumulation_steps: 3

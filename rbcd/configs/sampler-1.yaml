@@ -1,0 +1,21 @@
+name: sampler-1
+image_size: 512
+seed: 42
+n_splits: 5
+valid_epochs: 1
+batch_size: 32
+model_name: "tf_efficientnet_b2_ns"
+ratio: 0.125
+
+### Result ###
+# CV: valid score: 1497, binary score: 0.2081@0.58
+# epoch: 1, iteration: 1505, train_loss: 0.3535, train_score: 0.2220, valid_loss: 0.1305, valid_score: 0.0609, valid_auc: 0.6963
+# epoch: 2, iteration: 3010, train_loss: 0.2924, train_score: 0.2927, valid_loss: 0.1410, valid_score: 0.1007, valid_auc: 0.7489
+# epoch: 3, iteration: 4515, train_loss: 0.2734, train_score: 0.3438, valid_loss: 0.1632, valid_score: 0.0893, valid_auc: 0.7418
+# epoch: 4, iteration: 6020, train_loss: 0.2506, train_score: 0.4055, valid_loss: 0.1450, valid_score: 0.1193, valid_auc: 0.7444
+# epoch: 5, iteration: 7525, train_loss: 0.2279, train_score: 0.4631, valid_loss: 0.1325, valid_score: 0.1050, valid_auc: 0.7293
+# epoch: 6, iteration: 9030, train_loss: 0.1996, train_score: 0.4648, valid_loss: 0.1123, valid_score: 0.1047, valid_auc: 0.7437
+# epoch: 7, iteration: 10535, train_loss: 0.1745, train_score: 0.4683, valid_loss: 0.1447, valid_score: 0.1277, valid_auc: 0.7172
+# epoch: 8, iteration: 12040, train_loss: 0.1500, train_score: 0.4717, valid_loss: 0.1250, valid_score: 0.1497, valid_auc: 0.7459
+# epoch: 9, iteration: 13545, train_loss: 0.1279, train_score: 0.4775, valid_loss: 0.1577, valid_score: 0.1311, valid_auc: 0.7293
+# epoch: 10, iteration: 15050, train_loss: 0.1158, train_score: 0.4807, valid_loss: 0.1339, valid_score: 0.1441, valid_auc: 0.7168
